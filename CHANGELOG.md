@@ -17,6 +17,13 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Fake forge for local development and end-to-end tests.
 - Project documentation, in-app help page ("Zo werkt Schrijver"), `publiccode.yml` and the EUPL-1.2 licence.
 
+### Documentation
+
+- Design document tracked as `docs/ontwerp.md`; accessibility, AI and VLAM, privacy and security documentation from the compliance reviews of 2026-10-08, with an index in `docs/review/`.
+- Code of Conduct (Contributor Covenant 2.1), NOTICE, review rule and branch naming in CONTRIBUTING, Status section in the README.
+- Review outcomes: WCAG 2.2 AA (15 issues, 4 being fixed in code), NeRDS (8 gaps), BIO (20 gaps of 25 controls) and security (2 high, 9 medium findings) are tracked in `docs/review/README.md`.
+- Help page: AI notice for the writing assistant and a link to the accessibility page.
+
 ### Not in version one
 
 - `concepten: privé` (drafts in a private repository) is refused.

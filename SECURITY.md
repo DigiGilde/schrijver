@@ -6,6 +6,10 @@ Do not open a public issue for a security problem. Report it privately to the ma
 
 We respond as soon as possible and keep you informed until it is fixed.
 
+## Controls and incidents
+
+The BIO checklist, what the code enforces and the open platform questions are in [docs/beveiliging.md](docs/beveiliging.md). For a suspected incident or data breach, e-mail digigilde@rijksoverheid.nl at once; a personal-data breach must be assessed for notification to the Autoriteit Persoonsgegevens within 72 hours, so involve the data protection officer (FG) of the controlling organisation without delay.
+
 ## Platform
 
 Schrijver runs on ZAD. Problems with the platform itself (ingress, cluster, Keycloak service) go through the ZAD platform's own reporting process; tell us as well if Schrijver is affected.

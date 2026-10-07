@@ -23,6 +23,7 @@ localisation:
     - nl
 description:
   nl:
+    documentation: https://github.com/DigiGilde/schrijver/tree/main/docs
     shortDescription: Collega's bewerken Markdown-pagina's van statische sites en stellen wijzigingen voor als pull request, zonder GitHub-account.
     longDescription: >-
       Schrijver is een webapplicatie waarmee collega's de Markdown-pagina's van

@@ -2,9 +2,13 @@
 
 Schrijver is a web app that lets colleagues edit the Markdown pages of static sites (Digi Handboek on Astro, the MOZa site on Hugo) in a friendly editor and propose their changes as GitHub pull requests, without needing to know Git or having a GitHub account.
 
+## Status
+
+Version 0.1.0, a pilot. Schrijver is not yet deployed; the pilot sites are Digi Handboek and MOZa. Known gaps and the open compliance work are listed in [docs/review/README.md](docs/review/README.md).
+
 ## Architecture
 
-The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Sites and their page schemas are configured in a private repository. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/superpowers/specs/2026-10-07-schrijver-design.md).
+The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Sites and their page schemas are configured in a private repository. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/ontwerp.md).
 
 ## Local development
 
@@ -33,15 +37,21 @@ npm run test:e2e    # Playwright against the fake forge
 
 ## Container and deployment
 
-Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/superpowers/specs/2026-10-07-schrijver-design.md)).
+Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/ontwerp.md)).
 
 ## Documentation
 
 - [docs/configuratie.md](docs/configuratie.md): `sites.yaml`, schemas and writing guides, with worked examples.
 - [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md): connect a new site, step by step.
 - [docs/identiteit-en-privacy.md](docs/identiteit-en-privacy.md): identity choices, pseudonyms, what goes to VLAM.
+- [docs/ontwerp.md](docs/ontwerp.md): the v1 design.
 - [docs/decisions/README.md](docs/decisions/README.md): decision records.
-- [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [LICENSE](LICENSE) (EUPL-1.2), [publiccode.yml](publiccode.yml) (a draft until the repository is published).
+- [docs/toegankelijkheid.md](docs/toegankelijkheid.md): accessibility status and input for the toegankelijkheidsverklaring.
+- [docs/ai-en-vlam.md](docs/ai-en-vlam.md): the writing assistant, AI Act and algoritmeregister.
+- [docs/privacy.md](docs/privacy.md): processing inventory, register draft and DPIA advice.
+- [docs/beveiliging.md](docs/beveiliging.md): BIO checklist and platform questions.
+- [docs/review/README.md](docs/review/README.md): index of the compliance reviews.
+- [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [NOTICE](NOTICE), [LICENSE](LICENSE) (EUPL-1.2), [publiccode.yml](publiccode.yml) (a draft until the repository is published).
 - In the app: the help page `/help` ("Zo werkt Schrijver").
 
 ## Manual check of the login against Keycloak

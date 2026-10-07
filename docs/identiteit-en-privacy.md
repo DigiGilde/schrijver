@@ -1,6 +1,6 @@
 # Identity and privacy
 
-Schrijver lets a colleague propose changes without a GitHub account. This page states what is stored and sent where.
+Schrijver lets a colleague propose changes without a GitHub account. This page states how the identity choices work. The processing inventory, the register draft, the DPIA advice and the open statements are in [privacy.md](privacy.md); the writing assistant is described in [ai-en-vlam.md](ai-en-vlam.md).
 
 ## Why commits are authored by the App
 
@@ -18,7 +18,7 @@ The choice is made in onboarding ("Hoe wil je je wijzigingen ondertekenen?"), ca
 
 In the code (`src/lib/forge/trailers.ts`) the `gekoppeld` name is the SSO name and the address is `${githubId}+${login}@users.noreply.github.com`. A commit message is the summary, a blank line and the trailer.
 
-`op-naam` is only available when the identity provider reports the e-mail address as verified (`email_verified`).
+`op-naam` is only available when the identity provider reports the e-mail address as verified (`email_verified`). Publication in a public repository is permanent (see [privacy.md](privacy.md#irreversible-publication)), so `op-naam` should only be allowed where the site configuration permits it.
 
 ### Linking a GitHub account
 

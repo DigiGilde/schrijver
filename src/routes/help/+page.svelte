@@ -46,6 +46,10 @@
 				hulp krijgt alleen de tekst waar je mee werkt en de schrijfwijzer van de site, nooit je
 				naam, e-mailadres of keuze voor naamsvermelding. Controleer elk voorstel zelf.
 			</p>
+			<p>
+				De schrijfhulp gebruikt een taalmodel (VLAM van SSC-ICT); het stelt alleen voor, jij
+				beslist.
+			</p>
 
 			<h2>Wat je identiteitskeuze betekent</h2>
 			<ul>
@@ -69,6 +73,12 @@
 			<p>
 				Loop je vast, werkt iets niet of mis je een site? Vraag het aan de redactie van de site of
 				aan het team dat Schrijver beheert.
+			</p>
+			<p>
+				Meer over <a
+					href="https://github.com/DigiGilde/schrijver/blob/main/docs/toegankelijkheid.md"
+					>toegankelijkheid van Schrijver</a
+				>.
 			</p>
 		</nldd-rich-text>
 	</nldd-container>

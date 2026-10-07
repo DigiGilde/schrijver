@@ -35,6 +35,16 @@ Keep test output free of warnings.
 - Design system: use `@nldd/design-system` components and attributes as documented; do not invent attribute names. The version is pinned exactly.
 - Markdown in, Markdown out: opening and saving a page without edits must not change a byte. Any normalisation needs a test change.
 
+## Review and branches
+
+- Every change goes through a pull request with one approving review; nobody pushes to `main`. CI (lint, svelte-check, unit and e2e tests, pa11y) must pass.
+- Branch names are `type/short-description`, with the type taken from the conventional commit types: `feat/`, `fix/`, `docs/`, `test/`, `chore/`.
+- Be kind: see the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Licence headers
+
+Files carry no SPDX headers or licence notice. The repository has one licence (EUPL-1.2, see [LICENSE](LICENSE) and [NOTICE](NOTICE)) and a per-file header would add noise to every file without changing the terms.
+
 ## Documentation
 
 Documentation is part of the work. Update the files in [docs/](docs) when behaviour or configuration changes, and add a decision record in [docs/decisions](docs/decisions) for choices that are hard to reverse.
