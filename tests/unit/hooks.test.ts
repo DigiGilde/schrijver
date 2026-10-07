@@ -5,7 +5,8 @@ import { sealSession, type Session } from '../../src/lib/auth/session';
 const secret = 'test-secret-with-enough-entropy';
 const prefs = { sub: 'abc', identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true };
 
-vi.mock('../../src/lib/server/services', () => ({ ensureServices: vi.fn(async () => undefined) }));
+vi.mock('../../src/lib/server/services', () => ({ initServices: vi.fn(async () => undefined) }));
+vi.mock('../../src/lib/server/fake-mode', () => ({ initFakeServices: vi.fn(async () => undefined) }));
 vi.mock('../../src/lib/auth/users', () => ({
 	getPrefs: vi.fn(async () => prefs),
 	applySchema: vi.fn(async () => undefined)
