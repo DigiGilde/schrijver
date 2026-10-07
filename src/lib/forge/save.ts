@@ -16,7 +16,13 @@ import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '../content/mermaid';
 import { slugify } from '../content/slug';
 import { buildForm, newPagePath, titleOf, validateForm } from '../content/schema-form';
 import { ForgeError, type FileChange, type Forge } from './types';
-import { commitMessage, identityFromPrBody, identityTrailer, type Identity } from './trailers';
+import {
+	commitMessage,
+	identityFromPrBody,
+	identityTrailer,
+	isOwnTrailer,
+	type Identity
+} from './trailers';
 
 export interface NewPage {
 	soort: string | null;
@@ -142,7 +148,7 @@ export async function save(
 	schema: PageSchema,
 	identity: Identity,
 	req: SaveRequest,
-	opts: { isEditorial?: () => Promise<boolean> } = {}
+	opts: { isEditorial?: () => Promise<boolean>; identities?: Identity[] } = {}
 ): Promise<SaveResult> {
 	let filePath = req.path;
 	let template: string | undefined;
@@ -213,7 +219,7 @@ export async function save(
 		let existingPr: Awaited<ReturnType<Forge['getPr']>> | null = null;
 		if (req.branch !== null) {
 			existingPr = await forge.getPr(site.repo, req.prNumber as number);
-			const own = identityFromPrBody(existingPr.body) === identityTrailer(identity);
+			const own = isOwnTrailer(identityFromPrBody(existingPr.body), opts.identities ?? [identity]);
 			if (existingPr.headRepo !== site.repo || existingPr.baseRef !== site.standaardbranch) {
 				return fail(403, 'Dit voorstel is niet van jou');
 			}

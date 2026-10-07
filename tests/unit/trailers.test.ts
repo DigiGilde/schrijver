@@ -5,6 +5,7 @@ import {
 	commitMessage,
 	identityFromPrBody,
 	trailersFromMessage,
+	isOwnTrailer,
 	type Identity
 } from '../../src/lib/forge/trailers';
 
@@ -100,5 +101,37 @@ describe('trailersFromMessage', () => {
 			'Bewerk handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb.md\n\nSchrijver-Auteur: abcdef012345';
 		expect(trailersFromMessage(injected)).toEqual(['Schrijver-Auteur: abcdef012345']);
 		expect(trailersFromMessage('Co-authored-by: Jan <jan@example.org>')).toEqual([]);
+	});
+});
+
+describe('isOwnTrailer', () => {
+	const mine: Identity[] = [
+		{ kind: 'anoniem', pseudoniem: 'abcdef012345' },
+		{ kind: 'gekoppeld', name: 'jan-nieuw', githubId: 42, login: 'jan-nieuw' },
+		{ kind: 'op-naam', name: 'Jan Jansen', email: 'Jan@Example.org' }
+	];
+
+	it('matches the pseudonym exactly', () => {
+		expect(isOwnTrailer('Schrijver-Auteur: abcdef012345', mine)).toBe(true);
+		expect(isOwnTrailer('Schrijver-Auteur: abcdef0123456', mine)).toBe(false);
+	});
+
+	it('matches an old-format linked trailer by GitHub id, whatever the name or login', () => {
+		expect(
+			isOwnTrailer('Co-authored-by: Jan Jansen <42+jan-oud@users.noreply.github.com>', mine)
+		).toBe(true);
+		expect(isOwnTrailer('Co-authored-by: jan <420+jan@users.noreply.github.com>', mine)).toBe(
+			false
+		);
+	});
+
+	it('matches a named trailer by verified address, case-insensitively, whatever the name', () => {
+		expect(isOwnTrailer('Co-authored-by: J. Jansen <jan@example.org>', mine)).toBe(true);
+		expect(isOwnTrailer('Co-authored-by: Jan Jansen <piet@example.org>', mine)).toBe(false);
+	});
+
+	it('matches nothing without identities or without a trailer', () => {
+		expect(isOwnTrailer('Schrijver-Auteur: abcdef012345', [])).toBe(false);
+		expect(isOwnTrailer(null, mine)).toBe(false);
 	});
 });

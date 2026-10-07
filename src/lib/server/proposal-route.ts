@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SiteConfig } from '$lib/config/types';
-import { actorPseudonym, identityFor } from '$lib/auth/identity';
+import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
 import { canAct, type ActingUser } from '$lib/forge/proposal-actions';
-import { identityTrailer } from '$lib/forge/trailers';
 import { ForgeError, type Forge, type PrSummary } from '$lib/forge/types';
 import { log } from '$lib/log';
 import { getConfigStore, getForge } from './services';
@@ -35,7 +34,7 @@ export function proposalAction(action: string, handler: Handler) {
 			const pr = await forge.getPr(site.repo, nummer);
 			const identity = identityFor(current.prefs, current.session, site);
 			const user: ActingUser = {
-				trailer: identityTrailer(identity),
+				identities: identitiesFor(current.prefs, current.session),
 				email: current.session.email,
 				emailVerified: current.session.emailVerified,
 				githubLogin: current.prefs.githubLogin,

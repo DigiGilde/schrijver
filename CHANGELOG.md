@@ -17,6 +17,11 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Fake forge for local development and end-to-end tests.
 - Project documentation, in-app help page ("Zo werkt Schrijver"), `publiccode.yml` and the EUPL-1.2 licence.
 
+### Migration
+
+- A "Gekoppeld" trailer now carries the GitHub login instead of the SSO name. Ownership is matched on the GitHub user id, the pseudonym or the verified e-mail address, so proposals made before the change stay the author's own.
+- Sessions now carry their sign-in time and sealed cookies use a key per purpose: everyone signs in again once after the upgrade.
+
 ### Documentation
 
 - Design document tracked as `docs/ontwerp.md`; accessibility, AI and VLAM, privacy and security documentation from the compliance reviews of 2026-10-08, with an index in `docs/review/`.

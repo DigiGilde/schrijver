@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { actorPseudonym, effectiveKind, identityFor } from '../../src/lib/auth/identity';
+import {
+	actorPseudonym,
+	effectiveKind,
+	identitiesFor,
+	identityFor
+} from '../../src/lib/auth/identity';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import type { Session } from '../../src/lib/auth/session';
 import type { UserPrefs } from '../../src/lib/auth/users';
@@ -115,15 +120,28 @@ describe('identiteit.toegestaan', () => {
 		);
 	});
 
+	it('never falls back to a kind that reveals more than the choice', () => {
+		expect(
+			effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), {
+				identiteit: { toegestaan: ['op-naam'] }
+			})
+		).toBe('anoniem');
+		expect(
+			effectiveKind(prefs({ identity: 'op-naam', ...linked }), session(), {
+				identiteit: { toegestaan: ['gekoppeld'] }
+			})
+		).toBe('gekoppeld');
+	});
+
 	it('skips a fallback the user cannot use and always allows anoniem', () => {
 		const onlyNamed = {
 			identiteit: { toegestaan: ['gekoppeld', 'op-naam'] as ('gekoppeld' | 'op-naam')[] }
 		};
 		expect(
-			effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), {
-				identiteit: { toegestaan: ['op-naam'] }
+			effectiveKind(prefs({ identity: 'op-naam' }), session(), {
+				identiteit: { toegestaan: ['gekoppeld'] }
 			})
-		).toBe('op-naam');
+		).toBe('anoniem');
 		expect(effectiveKind(prefs(), session(), onlyNamed)).toBe('anoniem');
 		expect(
 			effectiveKind(prefs({ identity: 'op-naam' }), session({ emailVerified: false }), {
@@ -134,5 +152,16 @@ describe('identiteit.toegestaan', () => {
 
 	it('gives every user one actor pseudonym for the logs', () => {
 		expect(actorPseudonym({ sub: 'abc' })).toBe(pseudonym('geheim', 'abc'));
+	});
+});
+
+describe('identitiesFor', () => {
+	it('lists the pseudonym always, the GitHub link and the verified address when present', () => {
+		expect(identitiesFor(prefs(), session({ emailVerified: false })).map((i) => i.kind)).toEqual([
+			'anoniem'
+		]);
+		expect(
+			identitiesFor(prefs({ githubLogin: 'tester', githubId: 42 }), session()).map((i) => i.kind)
+		).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 	});
 });

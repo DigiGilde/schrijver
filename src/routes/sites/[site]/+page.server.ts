@@ -1,11 +1,10 @@
 import { error } from '@sveltejs/kit';
 import picomatch from 'picomatch';
 import type { PageServerLoad } from './$types';
-import { identityFor } from '$lib/auth/identity';
+import { identitiesFor } from '$lib/auth/identity';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
-import { identityTrailer } from '$lib/forge/trailers';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -58,15 +57,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	);
 
 	const { session, prefs } = locals.user!;
-	const myTrailer = identityTrailer(identityFor(prefs, session, site));
+	const mine = identitiesFor(prefs, session);
 	let proposals: Proposal[] = [];
 	let proposalsError = false;
 	try {
 		const prs = await forge.listPrs(site.repo, 'open');
 		proposals = await Promise.all(
-			prs.map(async (pr) =>
-				toProposal(pr, await forge.prFiles(site.repo, pr.number), site, myTrailer)
-			)
+			prs.map(async (pr) => toProposal(pr, await forge.prFiles(site.repo, pr.number), site, mine))
 		);
 		proposals.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	} catch (err) {

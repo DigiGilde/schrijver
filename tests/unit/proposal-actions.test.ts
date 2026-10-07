@@ -214,7 +214,7 @@ describe('canAct', () => {
 	it('detects owner and editorial', async () => {
 		const pr = await draft();
 		const user = {
-			trailer,
+			identities: [{ kind: 'anoniem' as const, pseudoniem: 'abc' }],
 			email: 'red@example.org',
 			emailVerified: true,
 			githubLogin: null,
@@ -230,7 +230,7 @@ describe('canAct', () => {
 			owner: false,
 			editorial: false
 		});
-		expect(await canAct({ ...user, trailer: 'x', email: 'a@b.nl' }, site(), pr, forge)).toEqual({
+		expect(await canAct({ ...user, identities: [], email: 'a@b.nl' }, site(), pr, forge)).toEqual({
 			owner: false,
 			editorial: false
 		});

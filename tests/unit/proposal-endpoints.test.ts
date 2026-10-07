@@ -17,6 +17,12 @@ vi.mock('../../src/lib/auth/identity', () => ({
 		prefs.githubLogin
 			? { kind: 'gekoppeld', name: 'N', githubId: 1, login: prefs.githubLogin, who: prefs.who }
 			: { kind: 'anoniem', pseudoniem: prefs.who },
+	identitiesFor: (prefs: { who: string; githubLogin: string | null }) => [
+		{ kind: 'anoniem', pseudoniem: prefs.who },
+		...(prefs.githubLogin
+			? [{ kind: 'gekoppeld', name: prefs.githubLogin, githubId: 1, login: prefs.githubLogin }]
+			: [])
+	],
 	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
 }));
 vi.mock('../../src/lib/auth/users', () => ({

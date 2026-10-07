@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
-import { actorPseudonym, identityFor } from '$lib/auth/identity';
+import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
 import { newProposalLimit } from '$lib/server/security';
@@ -87,6 +87,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		identityFor(user.prefs, user.session, site),
 		parsed,
 		{
+			identities: identitiesFor(user.prefs, user.session),
 			isEditorial: () =>
 				isEditorial(
 					site,
@@ -109,11 +110,11 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		return json(result);
 	}
 	if ('conflict' in result) {
-		log.info('save.conflict', { site: site.id });
+		log.info('save.conflict', { site: site.id, actor: actorPseudonym(user.session) });
 		return json(result, { status: 409 });
 	}
 	const status = result.status ?? 500;
-	log.warn('save.failed', { site: site.id, status });
+	log.warn('save.failed', { site: site.id, status, actor: actorPseudonym(user.session) });
 	const { status: _status, ...body } = result;
 	return json(body, { status });
 };

@@ -2,7 +2,7 @@ import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
 import { SENT_MARKER, isSentIn } from './proposals';
-import { identityFromPrBody } from './trailers';
+import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 import { ForgeError, type Forge, type PrSummary } from './types';
 
 export const MAX_COMMENT_LENGTH = 5000;
@@ -13,7 +13,8 @@ const MENU_LINE =
 	'Menu bijwerken: deze wijziging voegt een nieuwe pagina toe; de navigatie moet nog door de redactie worden aangepast.';
 
 export interface ActingUser {
-	trailer: string;
+	/** Every identity the user can hold; the PR is theirs when its trailer matches one. */
+	identities: Identity[];
 	email: string | null;
 	emailVerified: boolean;
 	githubLogin: string | null;
@@ -33,7 +34,7 @@ export async function canAct(
 		return { owner: false, editorial: false };
 	}
 	return {
-		owner: identityFromPrBody(pr.body) === user.trailer,
+		owner: isOwnTrailer(identityFromPrBody(pr.body), user.identities),
 		editorial: await isEditorial(site, user, forge)
 	};
 }

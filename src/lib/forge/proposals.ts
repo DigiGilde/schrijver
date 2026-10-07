@@ -1,6 +1,6 @@
 import type { SiteConfig } from '../config/types';
 import type { PrFile, PrSummary } from './types';
-import { identityFromPrBody } from './trailers';
+import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 
 export interface Proposal {
 	number: number;
@@ -42,7 +42,7 @@ export function toProposal(
 	pr: PrSummary,
 	files: PrFile[],
 	site: SiteConfig,
-	myTrailer: string
+	mine: Identity[]
 ): Proposal {
 	const identity = identityFromPrBody(pr.body);
 	const prefix = site.content.pad + '/';
@@ -51,7 +51,7 @@ export function toProposal(
 		title: pr.title,
 		url: pr.url,
 		status: statusOf(pr),
-		mine: identity === myTrailer,
+		mine: isOwnTrailer(identity, mine),
 		viaSchrijver: identity !== null,
 		pages: files
 			.map((f) => f.path)

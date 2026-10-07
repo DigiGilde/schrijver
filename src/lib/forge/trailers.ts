@@ -52,3 +52,26 @@ export function trailersFromMessage(message: string): string[] {
 		.map((l) => l.trim())
 		.filter((l) => l.startsWith('Schrijver-Auteur: ') || l.startsWith('Co-authored-by: '));
 }
+
+const NOREPLY_ID = /<(\d+)\+[^@>]*@users\.noreply\.github\.com>\s*$/;
+const ADDRESS = /<([^<>]+)>\s*$/;
+
+/**
+ * Whether a trailer line belongs to one of the user's identities. Matches on the stable part (pseudonym,
+ * GitHub user id, verified e-mail address), so a renamed login or SSO name does not lock the author out.
+ */
+export function isOwnTrailer(line: string | null, identities: Identity[]): boolean {
+	if (!line) return false;
+	const trimmed = line.trim();
+	return identities.some((id) => {
+		if (id.kind === 'anoniem') return trimmed === `Schrijver-Auteur: ${id.pseudoniem}`;
+		if (!trimmed.startsWith('Co-authored-by: ')) return false;
+		if (id.kind === 'gekoppeld') return NOREPLY_ID.exec(trimmed)?.[1] === String(id.githubId);
+		const address = ADDRESS.exec(trimmed)?.[1];
+		return (
+			!!address &&
+			!NOREPLY_ID.test(trimmed) &&
+			address.toLowerCase() === id.email.trim().toLowerCase()
+		);
+	});
+}

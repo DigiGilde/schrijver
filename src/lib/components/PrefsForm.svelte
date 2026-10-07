@@ -25,7 +25,11 @@
 	let unlinking = $state(false);
 	const linked = $derived(githubLogin !== '');
 
-	/* Mirrors effectiveKind in $lib/auth/identity: the choice where the site allows it, else its first usable kind. */
+	/*
+	 * Mirrors effectiveKind in $lib/auth/identity: the choice where the site allows it, else the site's
+	 * first usable kind that reveals no more than the choice.
+	 */
+	const REVEALS: Record<Kind, number> = { anoniem: 0, gekoppeld: 1, 'op-naam': 2 };
 	const usable = (kind: Kind) =>
 		kind === 'anoniem' || (kind === 'gekoppeld' ? linked : emailVerified);
 	const afwijkend = $derived.by(() => {
@@ -34,7 +38,7 @@
 			.filter((site) => keuze !== 'anoniem' && !site.toegestaan.includes(keuze))
 			.map((site) => ({
 				naam: site.naam,
-				wordt: site.toegestaan.find((k) => usable(k)) ?? 'anoniem'
+				wordt: site.toegestaan.find((k) => usable(k) && REVEALS[k] <= REVEALS[keuze]) ?? 'anoniem'
 			}));
 	});
 	function onChange(e: Event) {

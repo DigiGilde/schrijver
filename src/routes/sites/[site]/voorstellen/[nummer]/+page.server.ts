@@ -1,10 +1,10 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { identityFor } from '$lib/auth/identity';
+import { identitiesFor, identityFor } from '$lib/auth/identity';
 import { canAct } from '$lib/forge/proposal-actions';
 import { isSentIn, toProposal } from '$lib/forge/proposals';
 import { sourceDiff } from '$lib/content/source-diff';
-import { identityFromPrBody, identityTrailer } from '$lib/forge/trailers';
+import { identityFromPrBody } from '$lib/forge/trailers';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -18,12 +18,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const forge = getForge();
 	const { session, prefs } = locals.user!;
 	const identity = identityFor(prefs, session, site);
-	const trailer = identityTrailer(identity);
+	const identities = identitiesFor(prefs, session);
 
 	try {
 		const pr = await forge.getPr(site.repo, nummer);
 		const files = await forge.prFiles(site.repo, nummer);
-		const proposal = toProposal(pr, files, site, trailer);
+		const proposal = toProposal(pr, files, site, identities);
 		const fromFork = pr.headRepo.toLowerCase() !== site.repo.toLowerCase();
 		const text = async (ref: string, path: string) => {
 			const file = await forge.readFile(site.repo, ref, path);
@@ -56,7 +56,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.sort((a, b) => a.path.localeCompare(b.path));
 		const acts = await canAct(
 			{
-				trailer,
+				identities,
 				email: session.email,
 				emailVerified: session.emailVerified,
 				githubLogin: prefs.githubLogin,

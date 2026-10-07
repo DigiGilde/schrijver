@@ -13,6 +13,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 vi.mock('../../src/lib/auth/identity', () => ({
 	identityFor: () => ({ kind: 'anoniem', pseudoniem: 'x' }),
+	identitiesFor: () => [{ kind: 'anoniem', pseudoniem: 'x' }],
 	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
 }));
 vi.mock('../../src/lib/forge/save', () => ({

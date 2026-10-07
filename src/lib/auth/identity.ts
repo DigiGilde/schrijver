@@ -13,9 +13,13 @@ function eligible(kind: Kind, prefs: UserPrefs, session: Session): boolean {
 	return true;
 }
 
+/** How much a kind reveals: a fallback may never reveal more than the user chose. */
+export const REVEALS: Record<Kind, number> = { anoniem: 0, gekoppeld: 1, 'op-naam': 2 };
+
 /**
  * The kind the user signs with on this site: their own choice when the site allows it, otherwise
- * the first kind the site allows that the user can use. Anoniem is always allowed.
+ * the first kind the site allows that the user can use and that reveals no more than the choice.
+ * Anoniem is always allowed.
  */
 export function effectiveKind(
 	prefs: UserPrefs,
@@ -26,7 +30,9 @@ export function effectiveKind(
 	const chosen: Kind = eligible(prefs.identity, prefs, session) ? prefs.identity : 'anoniem';
 	if (allowed(chosen)) return chosen;
 	return (
-		site.identiteit.toegestaan.find((k) => allowed(k) && eligible(k, prefs, session)) ?? 'anoniem'
+		site.identiteit.toegestaan.find(
+			(k) => allowed(k) && REVEALS[k] <= REVEALS[chosen] && eligible(k, prefs, session)
+		) ?? 'anoniem'
 	);
 }
 
@@ -48,4 +54,21 @@ export function identityFor(
 	}
 	if (kind === 'op-naam') return { kind, name: session.name, email: session.email };
 	return { kind: 'anoniem', pseudoniem: actorPseudonym(session) };
+}
+
+/** Every identity the user can sign with on some site; ownership of a proposal matches any of them. */
+export function identitiesFor(prefs: UserPrefs, session: Session): Identity[] {
+	const all: Identity[] = [{ kind: 'anoniem', pseudoniem: actorPseudonym(session) }];
+	if (prefs.githubLogin && prefs.githubId !== null) {
+		all.push({
+			kind: 'gekoppeld',
+			name: prefs.githubLogin,
+			githubId: prefs.githubId,
+			login: prefs.githubLogin
+		});
+	}
+	if (session.emailVerified && session.email) {
+		all.push({ kind: 'op-naam', name: session.name, email: session.email });
+	}
+	return all;
 }

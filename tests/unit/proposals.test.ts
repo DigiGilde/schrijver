@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import { toProposal, previewUrl } from '../../src/lib/forge/proposals';
 import type { PrSummary, PrFile } from '../../src/lib/forge/types';
+import type { Identity } from '../../src/lib/forge/trailers';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const TRAILER = 'Schrijver-Auteur: abcdef012345';
+const MINE: Identity[] = [{ kind: 'anoniem', pseudoniem: 'abcdef012345' }];
 
 function pr(over: Partial<PrSummary> = {}): PrSummary {
 	return {
@@ -37,56 +39,56 @@ const files: PrFile[] = [
 
 describe('toProposal', () => {
 	it('maps draft to concept', () => {
-		expect(toProposal(pr({ draft: true }), files, digi, TRAILER).status).toBe('concept');
+		expect(toProposal(pr({ draft: true }), files, digi, MINE).status).toBe('concept');
 	});
 
 	it('treats a draft with the sent-in marker as ingestuurd', () => {
 		const sent = pr({ draft: true, body: `Tekst\n\n${TRAILER}\n\nSchrijver-Status: ingestuurd` });
-		expect(toProposal(sent, files, digi, TRAILER).status).toBe('ingestuurd');
+		expect(toProposal(sent, files, digi, MINE).status).toBe('ingestuurd');
 	});
 
 	it('maps ready and approved to goedgekeurd', () => {
-		expect(toProposal(pr({ reviewState: 'approved' }), files, digi, TRAILER).status).toBe(
+		expect(toProposal(pr({ reviewState: 'approved' }), files, digi, MINE).status).toBe(
 			'goedgekeurd'
 		);
 	});
 
 	it('maps changes_requested and plain ready', () => {
-		expect(toProposal(pr({ reviewState: 'changes_requested' }), files, digi, TRAILER).status).toBe(
+		expect(toProposal(pr({ reviewState: 'changes_requested' }), files, digi, MINE).status).toBe(
 			'wijzigingen-gevraagd'
 		);
-		expect(toProposal(pr(), files, digi, TRAILER).status).toBe('ingestuurd');
+		expect(toProposal(pr(), files, digi, MINE).status).toBe('ingestuurd');
 	});
 
 	it('maps merged and closed', () => {
-		expect(toProposal(pr({ state: 'merged' }), files, digi, TRAILER).status).toBe('samengevoegd');
-		expect(toProposal(pr({ state: 'closed' }), files, digi, TRAILER).status).toBe('gesloten');
+		expect(toProposal(pr({ state: 'merged' }), files, digi, MINE).status).toBe('samengevoegd');
+		expect(toProposal(pr({ state: 'closed' }), files, digi, MINE).status).toBe('gesloten');
 	});
 
 	it('keeps an outside PR without trailer, not mine and not via Schrijver', () => {
-		const p = toProposal(pr({ body: 'Handmatig' }), files, digi, TRAILER);
+		const p = toProposal(pr({ body: 'Handmatig' }), files, digi, MINE);
 		expect(p.viaSchrijver).toBe(false);
 		expect(p.mine).toBe(false);
 	});
 
 	it('flags mine only for the own trailer', () => {
-		expect(toProposal(pr(), files, digi, TRAILER).mine).toBe(true);
+		expect(toProposal(pr(), files, digi, MINE).mine).toBe(true);
 		const other = toProposal(
 			pr({ body: 'x\n\nSchrijver-Auteur: 111111111111' }),
 			files,
 			digi,
-			TRAILER
+			MINE
 		);
 		expect(other.mine).toBe(false);
 		expect(other.viaSchrijver).toBe(true);
 	});
 
 	it('lists sorted markdown pages under the content path', () => {
-		expect(toProposal(pr(), files, digi, TRAILER).pages).toEqual(['docs/a.md', 'docs/b.md']);
+		expect(toProposal(pr(), files, digi, MINE).pages).toEqual(['docs/a.md', 'docs/b.md']);
 	});
 
 	it('copies title, url, checks and updatedAt', () => {
-		const p = toProposal(pr({ checks: 'pending' }), files, digi, TRAILER);
+		const p = toProposal(pr({ checks: 'pending' }), files, digi, MINE);
 		expect(p).toMatchObject({
 			number: 7,
 			title: 'Titel',

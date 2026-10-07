@@ -336,6 +336,20 @@ describe('save', () => {
 			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(2);
 		});
 
+		it('keeps a linked author the owner after the trailer format changed', async () => {
+			const old: Identity = { kind: 'gekoppeld', name: 'Jan Jansen', githubId: 42, login: 'jan' };
+			const now: Identity = { kind: 'gekoppeld', name: 'jan', githubId: 42, login: 'jan' };
+			const first = ok(await save(forge, digi, digiSchema, old, req()));
+			const again = await save(forge, digi, digiSchema, now, next(first), {
+				identities: [{ kind: 'anoniem', pseudoniem: 'zzz' }, now]
+			});
+			expect(again.ok).toBe(true);
+			const stranger = await save(forge, digi, digiSchema, identity, next(first), {
+				identities: [identity]
+			});
+			expect(stranger).toMatchObject({ ok: false, status: 403 });
+		});
+
 		it('refuses a fork PR whose head branch is named like the victim branch', async () => {
 			const first = ok(await save(forge, digi, digiSchema, other, req()));
 			const real = forge.prs.get(first.prNumber)!;
