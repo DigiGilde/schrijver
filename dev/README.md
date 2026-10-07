@@ -1,5 +1,7 @@
 # Local development stack
 
+Dev only, never deploy: the stack uses fixed passwords and a test realm.
+
 Start the stack with `podman compose up --build`. The app answers on http://localhost:8080 (`/healthz`), Keycloak on http://keycloak:8081 (admin / admin).
 
 Log in to the app as `test` / `test`.
@@ -17,4 +19,4 @@ SESSION_SECRET=<long random string>
 PSEUDONYM_SECRET=<long random string>
 ```
 
-Keycloak announces itself as `http://keycloak:8081` to both the app container and the browser, so add `127.0.0.1 keycloak` to `/etc/hosts` on the host. The GitHub App and VLAM variables are only needed for the features that use them.
+Keycloak announces itself (`KC_HOSTNAME` in `compose.yml`) as `http://keycloak:8081` to both the app container and the browser, so add `127.0.0.1 keycloak` to `/etc/hosts` on the host. The GitHub App and VLAM variables are only needed for the features that use them.

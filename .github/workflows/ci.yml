@@ -16,8 +16,8 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -30,13 +30,6 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         run: npm run test:e2e
-        env:
-          SCHRIJVER_FAKE_FORGE: '1'
-          SCHRIJVER_TEST_SESSION: '{"sub":"test","name":"Test Gebruiker","email":"test@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}'
-          PSEUDONYM_SECRET: ci-pseudonym-secret
-          SESSION_SECRET: ci-session-secret-ci-session-secret
-          GITHUB_CONFIG_REPO: example/config
-          ORIGIN: http://localhost:4391
       - name: Accessibility checks (pa11y-ci)
         run: |
           if [ ! -f .pa11yci ]; then
