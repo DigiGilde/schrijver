@@ -154,6 +154,26 @@ describe('prefs form action', () => {
 	const event = (identity: string, u = user()) =>
 		({ locals: { user: u }, request: new Request('http://x', { method: 'POST', body: new URLSearchParams({ identity }) }) }) as never;
 
+	it('rejects op-naam without a verified e-mail address', async () => {
+		const u = { session: { sub: 'abc', emailVerified: false }, prefs };
+		const res = (await submitPrefs(event('op-naam', u), 'stay')) as { status: number; data: { error: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.error).toBe('Alleen mogelijk met een geverifieerd e-mailadres');
+		expect(savePrefs).not.toHaveBeenCalled();
+	});
+
+	it('rejects an unknown identity', async () => {
+		const res = (await submitPrefs(event('bogus'), 'stay')) as { status: number };
+		expect(res.status).toBe(400);
+		expect(savePrefs).not.toHaveBeenCalled();
+	});
+
+	it('redirects to /login without a signed-in user', async () => {
+		const e = { locals: { user: null }, request: new Request('http://x', { method: 'POST', body: new URLSearchParams() }) } as never;
+		await expect(submitPrefs(e, 'stay')).rejects.toMatchObject({ status: 303, location: '/login' });
+		expect(savePrefs).not.toHaveBeenCalled();
+	});
+
 	it('refuses gekoppeld without a link', async () => {
 		const res = (await submitPrefs(event('gekoppeld'), 'stay')) as { status: number; data: { error: string } };
 		expect(res.status).toBe(400);
