@@ -1,0 +1,48 @@
+- id: digi-handboek
+  naam: Digi Handboek
+  forge: github
+  repo: DigiGilde/handboek
+  standaardbranch: main
+  content:
+    pad: docs
+    patroon: "**/*.md"
+    schema: digi-handboek
+    afbeeldingen:
+      pad: docs/afbeeldingen/{paginaslug}
+      verwijzing: relatief
+  review:
+    model: goedkeuring
+    mergen-vanuit-schrijver: true
+    redactie:
+      - naam@rijksoverheid.nl
+  identiteit:
+    toegestaan: [anoniem, gekoppeld, op-naam]
+  preview:
+    soort: bij-push
+    url: "https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/"
+  schrijfwijzer: digi-handboek.md
+
+- id: moza-site
+  naam: MOZa-site
+  forge: github
+  repo: MinBZK/moza-site
+  standaardbranch: main
+  content:
+    pad: content
+    patroon: "**/*.md"
+    schema: moza-site
+    uitsluiten: ["documenten/**"]
+    afbeeldingen:
+      pad: "{paginamap}/images"
+      verwijzing: relatief
+  review:
+    model: goedkeuring
+    mergen-vanuit-schrijver: true
+    redactie: [redactie@example.org]
+  identiteit:
+    toegestaan: [anoniem, gekoppeld]
+  preview:
+    soort: bij-label
+    label: preview
+    url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
+  schrijfwijzer: moza-site.md
