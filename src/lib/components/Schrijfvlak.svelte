@@ -14,6 +14,7 @@
 		images: PendingImage[];
 		siteId: string;
 		pagina: string;
+		branch: string | null;
 		afbeeldingen: boolean;
 	};
 	let {
@@ -22,6 +23,7 @@
 		images = $bindable(),
 		siteId,
 		pagina,
+		branch,
 		afbeeldingen
 	}: Props = $props();
 
@@ -117,6 +119,7 @@
 	bind:file={dialogFile}
 	{siteId}
 	{pagina}
+	{branch}
 	oninvoegen={(alt, result) =>
 		(images = addImage(images, actions.insertImage(editor, alt, result)))}
 	onclose={closeDialog}

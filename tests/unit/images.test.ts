@@ -8,7 +8,8 @@ import {
 	sanitizeSvg,
 	validateImage
 } from '../../src/lib/content/images';
-import { setConfigStore } from '../../src/lib/server/services';
+import { setConfigStore, setForge } from '../../src/lib/server/services';
+import { FakeForge } from '../../src/lib/forge/fake';
 import { POST } from '../../src/routes/api/sites/[site]/afbeelding/+server';
 
 const sites = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
@@ -101,8 +102,21 @@ describe('sanitizeSvg', () => {
 });
 
 describe('POST /api/sites/[site]/afbeelding', () => {
-	beforeAll(() => {
+	const forge = new FakeForge();
+	beforeAll(async () => {
 		setConfigStore({ site: (id: string) => sites.find((s) => s.id === id) } as never);
+		forge.seedRepo('DigiGilde/handboek', 'main', {
+			'docs/kennis/foo.md': '# Foo\n',
+			'docs/afbeeldingen/foo/logo.png': 'oud'
+		});
+		await forge.createBranch('DigiGilde/handboek', 'main', 'schrijver/digi-handboek/foo-abcd');
+		await forge.commit(
+			'DigiGilde/handboek',
+			'schrijver/digi-handboek/foo-abcd',
+			[{ path: 'docs/afbeeldingen/foo/kaart.png', content: 'eerder' }],
+			'x'
+		);
+		setForge(forge);
 	});
 
 	function call(opts: {
@@ -111,12 +125,14 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		header?: boolean;
 		site?: string;
 		pagina?: string;
+		branch?: string;
 		file?: File;
 		contentLength?: string;
 	}) {
 		const form = new FormData();
 		form.set('bestand', opts.file ?? new File([PNG], 'Foto.png', { type: 'image/png' }));
 		form.set('pagina', opts.pagina ?? 'docs/kennis/foo.md');
+		if (opts.branch) form.set('branch', opts.branch);
 		if (opts.alt !== undefined) form.set('alt', opts.alt);
 		const headers: Record<string, string> = {};
 		if (opts.header !== false) headers['X-Requested-With'] = 'Schrijver';
@@ -164,6 +180,37 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		'docs/kennis/foo.txt'
 	])('rejects page path %s with 400', async (pagina) => {
 		expect((await call({ alt: 'x', pagina })).status).toBe(400);
+	});
+
+	describe('unique names', () => {
+		const pathFor = async (name: string, branch?: string) =>
+			(
+				await (
+					await call({ alt: 'x', branch, file: new File([PNG], name, { type: 'image/png' }) })
+				).json()
+			).repoPath as string;
+
+		it('keeps a free name', async () => {
+			expect(await pathFor('Nieuw.png')).toBe('docs/afbeeldingen/foo/nieuw.png');
+		});
+
+		it('adds a suffix when the name exists on the default branch', async () => {
+			expect(await pathFor('logo.png')).toMatch(/^docs\/afbeeldingen\/foo\/logo-[0-9a-f]{6}\.png$/);
+		});
+
+		it('adds a suffix when the name exists on the proposal branch', async () => {
+			expect(await pathFor('kaart.png')).toBe('docs/afbeeldingen/foo/kaart.png');
+			expect(await pathFor('kaart.png', 'schrijver/digi-handboek/foo-abcd')).toMatch(
+				/^docs\/afbeeldingen\/foo\/kaart-[0-9a-f]{6}\.png$/
+			);
+		});
+
+		it('always renames a pasted image.png', async () => {
+			const a = await pathFor('image.png');
+			const b = await pathFor('image.png');
+			expect(a).toMatch(/^docs\/afbeeldingen\/foo\/image-[0-9a-f]{6}\.png$/);
+			expect(a).not.toBe(b);
+		});
 	});
 
 	it('returns 404 for an unknown site', async () => {

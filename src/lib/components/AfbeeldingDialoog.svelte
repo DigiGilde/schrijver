@@ -6,6 +6,8 @@
 		open: boolean;
 		siteId: string;
 		pagina: string;
+		/** The proposal branch, so the server can avoid a name already used there. */
+		branch: string | null;
 		file: File | null;
 		oninvoegen: (alt: string, result: Result) => void;
 		onclose: () => void;
@@ -14,6 +16,7 @@
 		open = $bindable(),
 		siteId,
 		pagina,
+		branch,
 		file = $bindable(),
 		oninvoegen,
 		onclose
@@ -83,6 +86,7 @@
 			const form = new FormData();
 			form.set('bestand', file);
 			form.set('pagina', pagina);
+			if (branch) form.set('branch', branch);
 			form.set('alt', alt.trim());
 			const res = await fetch(`/api/sites/${siteId}/afbeelding`, {
 				method: 'POST',

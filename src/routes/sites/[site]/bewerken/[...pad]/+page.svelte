@@ -166,6 +166,7 @@
 			bind:images
 			siteId={data.site.id}
 			pagina={data.repoPath}
+			branch={activeBranch}
 			afbeeldingen={data.site.afbeeldingen}
 		/>
 

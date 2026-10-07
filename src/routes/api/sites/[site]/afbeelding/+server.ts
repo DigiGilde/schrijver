@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
@@ -10,7 +12,8 @@ import {
 	validateImage
 } from '$lib/content/images';
 import { hasControlCharacters } from '$lib/forge/save';
-import { getConfigStore } from '$lib/server/services';
+import { ForgeError } from '$lib/forge/types';
+import { getConfigStore, getForge } from '$lib/server/services';
 
 const fail = (status: number, message: string) => json({ message }, { status });
 
@@ -64,8 +67,38 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const dot = file.name.lastIndexOf('.');
 	const fileName = `${dot === -1 ? file.name : file.name.slice(0, dot)}.${ext}`;
 
+	const branchRaw = form.get('branch');
+	const branch =
+		typeof branchRaw === 'string' &&
+		branchRaw.startsWith(`schrijver/${site.id}/`) &&
+		!hasControlCharacters(branchRaw)
+			? branchRaw
+			: null;
+	const forge = getForge();
+	const exists = async (ref: string, repoPath: string) => {
+		try {
+			return !!(await forge.readFile(site.repo, ref, repoPath));
+		} catch (e) {
+			if (e instanceof ForgeError && e.status === 404) return false;
+			throw e;
+		}
+	};
+
 	try {
-		const { repoPath, markdownRef } = imagePath(site, pagina, fileName);
+		let { repoPath, markdownRef } = imagePath(site, pagina, fileName);
+		// A pasted image is always called image.png; a taken name would only meet save's 409.
+		const taken =
+			path.posix.basename(repoPath, path.posix.extname(repoPath)) === 'image' ||
+			(await exists(site.standaardbranch, repoPath)) ||
+			(branch !== null && (await exists(branch, repoPath)));
+		if (taken) {
+			const stem = path.posix.basename(repoPath, `.${ext}`);
+			({ repoPath, markdownRef } = imagePath(
+				site,
+				pagina,
+				`${stem}-${randomBytes(3).toString('hex')}.${ext}`
+			));
+		}
 		return json({
 			repoPath,
 			markdownRef,
