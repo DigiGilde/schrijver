@@ -1,0 +1,28 @@
+{
+	"defaults": {
+		"standard": "WCAG2AA",
+		"runners": [
+			"axe",
+			"htmlcs"
+		],
+		"wait": 2000,
+		"timeout": 60000,
+		"chromeLaunchConfig": {
+			"args": [
+				"--no-sandbox"
+			]
+		},
+		"ignore": [
+			"color-contrast",
+			"WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"
+		]
+	},
+	"urls": [
+		"http://localhost:4393/",
+		"http://localhost:4393/sites/digi-handboek",
+		"http://localhost:4393/sites/digi-handboek/bewerken/index.md",
+		"http://localhost:4393/sites/digi-handboek/voorstellen/1",
+		"http://localhost:4393/help",
+		"http://localhost:4393/instellingen"
+	]
+}
