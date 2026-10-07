@@ -31,8 +31,8 @@ test('the site page shows the folder tree and page titles', async ({ page }) => 
 
 test('the proposals list shows the seeded draft', async ({ page }) => {
 	await page.goto('/sites/digi-handboek?tab=alle');
-	await expect(page.getByText('Concept')).toBeVisible();
-	await expect(page.getByRole('link', { name: /Bekijken/ })).toHaveAttribute(
+	await expect(page.getByText('Concept').first()).toBeVisible();
+	await expect(page.getByRole('link', { name: /Bekijken/ }).first()).toHaveAttribute(
 		'href',
 		/\/sites\/digi-handboek\/voorstellen\/\d+/
 	);

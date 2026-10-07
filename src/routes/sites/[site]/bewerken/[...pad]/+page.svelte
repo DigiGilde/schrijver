@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { TextEditorState } from '@nldd/design-system/text-editor';
 	import type { PageData } from './$types';
 	import Editor from '../../../../../components/Editor.svelte';
 	import FrontmatterFormulier from '../../../../../components/FrontmatterFormulier.svelte';
+	import Opslaan from '../../../../../components/Opslaan.svelte';
 	import Voorbeeld from '../../../../../components/Voorbeeld.svelte';
 	import Werkbalk, { type Actie } from '../../../../../components/Werkbalk.svelte';
+	import { parsePage } from '$lib/content/frontmatter';
 	import { applyForm, type FormField } from '$lib/content/schema-form';
 
 	let { data }: { data: PageData } = $props();
@@ -24,7 +26,13 @@
 	let restorable = $state<Draft | null>(null);
 	let ready = $state(false);
 
-	type Draft = { path: string; body: string; frontmatter: Record<string, unknown>; at: number };
+	type Draft = {
+		path: string;
+		body: string;
+		frontmatter: Record<string, unknown>;
+		at: number;
+		sha?: string | null;
+	};
 
 	const readOnly = $derived(data.readOnly);
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
@@ -74,16 +82,37 @@
 	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let flushPending: (() => void) | null = null;
+	function flush() {
+		clearTimeout(timer);
+		flushPending?.();
+		flushPending = null;
+	}
 	$effect(() => {
 		const snapshot = { body, fields };
 		if (!ready || restorable || readOnly) return;
 		clearTimeout(timer);
-		timer = setTimeout(() => {
+		flushPending = () => {
 			const frontmatter = applyForm(snapshot.fields, data.frontmatter).frontmatter;
 			if (sameAsServer({ body: snapshot.body, frontmatter })) writeDraft(null);
-			else writeDraft({ path: data.path, body: snapshot.body, frontmatter, at: Date.now() });
-		}, SAVE_DELAY_MS);
+			else
+				writeDraft({
+					path: data.path,
+					body: snapshot.body,
+					frontmatter,
+					at: Date.now(),
+					sha: data.sha
+				});
+		};
+		timer = setTimeout(flush, SAVE_DELAY_MS);
 		return () => clearTimeout(timer);
+	});
+	onMount(() => {
+		window.addEventListener('pagehide', flush);
+		return () => window.removeEventListener('pagehide', flush);
+	});
+	onDestroy(() => {
+		if (typeof window !== 'undefined') flush();
 	});
 
 	function restore() {
@@ -121,6 +150,16 @@
 		commands[actie]();
 	}
 
+	function neemOver(text: string) {
+		const page = parsePage(text);
+		if (!page.ok) return;
+		body = page.body;
+		fields = fields.map((field) => ({
+			...field,
+			value: restoredValue(field, page.frontmatter[field.key])
+		}));
+	}
+
 	function onTabChange(event: Event) {
 		const item = (event as CustomEvent<{ item: HTMLElement }>).detail.item;
 		tab = item.dataset.tab === 'voorbeeld' ? 'voorbeeld' : 'schrijven';
@@ -154,7 +193,13 @@
 	{/if}
 
 	{#if restorable}
-		<nldd-banner variant="accent" text="Niet-opgeslagen concept gevonden">
+		<nldd-banner
+			variant={restorable.sha === data.sha ? 'accent' : 'warning'}
+			text="Niet-opgeslagen concept gevonden"
+			supporting-text={restorable.sha === data.sha
+				? undefined
+				: 'De pagina is intussen gewijzigd; het concept is gebaseerd op een oudere versie'}
+		>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 			<nldd-button slot="actions" appearance="primary" text="Herstellen" onclick={restore}
 			></nldd-button>
@@ -197,7 +242,21 @@
 		</div>
 
 		<div class="opslaan">
-			<nldd-button appearance="primary" text="Concept bewaren" disabled></nldd-button>
+			<Opslaan
+				siteId={data.site.id}
+				repoPath={data.repoPath}
+				sha={data.sha}
+				branch={data.branch}
+				prNumber={data.prNumber}
+				nieuw={data.nieuw}
+				snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
+				onbewaard={() => {
+					clearTimeout(timer);
+					flushPending = null;
+					writeDraft(null);
+				}}
+				onovernemen={neemOver}
+			/>
 			{#if openbaarConcept}
 				<p class="gedimd">
 					Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
