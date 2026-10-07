@@ -8,12 +8,16 @@ vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
 	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }));
-vi.mock('../../src/lib/auth/identity', () => ({ identityFor: () => ({ kind: 'anoniem', pseudoniem: 'x' }) }));
+vi.mock('../../src/lib/auth/identity', () => ({
+	identityFor: () => ({ kind: 'anoniem', pseudoniem: 'x' }),
+	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
+}));
 vi.mock('../../src/lib/forge/save', () => ({
 	save: vi.fn(async () => ({ ok: true, branch: 'b', prNumber: 3, sha: 's', url: 'u', path: 'p' }))
 }));
 
 import { POST } from '../../src/routes/api/sites/[site]/opslaan/+server';
+import { log } from '../../src/lib/log';
 
 const good = {
 	path: 'docs/a.md',
@@ -30,7 +34,7 @@ function call(opts: { user?: boolean; site?: string; body?: unknown; sub?: strin
 	return POST({
 		request,
 		params: { site: opts.site ?? 'digi' },
-		locals: { user: opts.user === false ? null : { session: { sub: opts.sub ?? 's' }, prefs: {} } }
+		locals: { user: opts.user === false ? null : { session: { sub: opts.sub ?? 's', email: 'jan@example.org', emailVerified: true }, prefs: {} } }
 	} as never);
 }
 
@@ -39,6 +43,12 @@ describe('POST /api/sites/[site]/opslaan', () => {
 	it('404 on unknown site', async () => expect((await call({ site: 'onbekend' })).status).toBe(404));
 	it('400 on bad body', async () => expect((await call({ body: { path: 1 } })).status).toBe(400));
 	it('200 on success', async () => expect((await call({})).status).toBe(200));
+	it('logs the actor pseudonym and no e-mail address', async () => {
+		vi.mocked(log.info).mockClear();
+		await call({ sub: 'jan' });
+		expect(log.info).toHaveBeenCalledWith('save.ok', { site: 'digi', pr: 3, branch: 'b', actor: 'p-jan' });
+		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
+	});
 
 	it('refuses a 2,000,000-character body quickly with a Dutch message', async () => {
 		const start = performance.now();

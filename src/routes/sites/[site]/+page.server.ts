@@ -58,7 +58,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	);
 
 	const { session, prefs } = locals.user!;
-	const myTrailer = identityTrailer(identityFor(prefs, session));
+	const myTrailer = identityTrailer(identityFor(prefs, session, site));
 	let proposals: Proposal[] = [];
 	let proposalsError = false;
 	try {

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SiteConfig } from '$lib/config/types';
-import { identityFor } from '$lib/auth/identity';
+import { actorPseudonym, identityFor } from '$lib/auth/identity';
 import { canAct, type ActingUser } from '$lib/forge/proposal-actions';
 import { identityTrailer } from '$lib/forge/trailers';
 import { ForgeError, type Forge, type PrSummary } from '$lib/forge/types';
@@ -32,7 +32,7 @@ export function proposalAction(action: string, handler: Handler) {
 		const forge = getForge();
 		try {
 			const pr = await forge.getPr(site.repo, nummer);
-			const identity = identityFor(current.prefs, current.session);
+			const identity = identityFor(current.prefs, current.session, site);
 			const user: ActingUser = {
 				trailer: identityTrailer(identity),
 				email: current.session.email,
@@ -42,12 +42,17 @@ export function proposalAction(action: string, handler: Handler) {
 			};
 			const acts = await canAct(user, site, pr, forge);
 			const response = await handler({ site, forge, pr, acts, user }, event);
-			if (response.ok) log.info(`proposal.${action}`, { site: site.id, pr: nummer });
+			if (response.ok) log.info(`proposal.${action}`, { site: site.id, pr: nummer, actor: actorPseudonym(current.session) });
 			return response;
 		} catch (e) {
 			if (e instanceof ForgeError) {
 				if (e.status === 404) return refuse(404, 'Voorstel niet gevonden');
-				log.warn(`proposal.${action}_failed`, { site: site.id, pr: nummer, status: e.status });
+				log.warn(`proposal.${action}_failed`, {
+					site: site.id,
+					pr: nummer,
+					status: e.status,
+					actor: actorPseudonym(current.session)
+				});
 				return refuse(e.status, e.message, e.detail);
 			}
 			throw e;

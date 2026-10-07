@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!site || !Number.isInteger(nummer) || nummer <= 0) error(404, 'Voorstel niet gevonden');
 	const forge = getForge();
 	const { session, prefs } = locals.user!;
-	const identity = identityFor(prefs, session);
+	const identity = identityFor(prefs, session, site);
 	const trailer = identityTrailer(identity);
 
 	try {

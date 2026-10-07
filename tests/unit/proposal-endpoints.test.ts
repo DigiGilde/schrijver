@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
+import { log } from '../../src/lib/log';
 
 const state = vi.hoisted(() => ({ forge: null as unknown, site: null as unknown }));
 vi.mock('../../src/lib/server/services', () => ({
@@ -15,7 +16,8 @@ vi.mock('../../src/lib/auth/identity', () => ({
 	identityFor: (prefs: { who: string; githubLogin: string | null }) =>
 		prefs.githubLogin
 			? { kind: 'gekoppeld', name: 'N', githubId: 1, login: prefs.githubLogin, who: prefs.who }
-			: { kind: 'anoniem', pseudoniem: prefs.who }
+			: { kind: 'anoniem', pseudoniem: prefs.who },
+	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
 }));
 vi.mock('../../src/lib/auth/users', () => ({
 	listLinkedLogins: async () => ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']
@@ -108,13 +110,44 @@ describe('proposal endpoints', () => {
 		expect((await call(opmerking, { email: 'red@example.org', body: { body: 'x' } })).status).toBe(409);
 	});
 
-	it('requests at most five permission checks and keeps an anonymous author in the list', async () => {
+	it('requests no reviewers at all for an anonymous author', async () => {
 		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']) forge.permissionByLogin.set(l, 'write');
 		const perm = vi.spyOn(forge, 'collaboratorPermission');
 		const req = vi.spyOn(forge, 'requestReviewers');
-		await call(insturen, { who: 'auteur' });
+		expect((await call(insturen, { who: 'auteur' })).status).toBe(200);
+		expect(perm).not.toHaveBeenCalled();
+		expect(req).not.toHaveBeenCalled();
+		expect(log.info).toHaveBeenCalledWith('proposal.reviewers_skipped_anonymous', { site: 'moza', pr: 1 });
+	});
+
+	it('requests at most five permission checks and excludes nobody for a named author', async () => {
+		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']) forge.permissionByLogin.set(l, 'write');
+		forge.prs.get(1)!.body = 'x\n\nCo-authored-by: Jan Jansen <jan@example.org>';
+		const perm = vi.spyOn(forge, 'collaboratorPermission');
+		const req = vi.spyOn(forge, 'requestReviewers');
+		await call(insturen, { email: 'red@example.org', gekoppeld: undefined });
 		expect(perm.mock.calls.length).toBeLessThanOrEqual(5);
 		expect(req).toHaveBeenCalledWith('o/moza', 1, ['jan', 'piet', 'kees', 'els', 'tom']);
+	});
+
+	it('excludes the linked author named in the trailer when the redactie sends in', async () => {
+		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe']) forge.permissionByLogin.set(l, 'write');
+		forge.prs.get(1)!.body = 'x\n\nCo-authored-by: piet <7+piet@users.noreply.github.com>';
+		const req = vi.spyOn(forge, 'requestReviewers');
+		await call(insturen, { email: 'red@example.org' });
+		expect(req).toHaveBeenCalledWith('o/moza', 1, ['jan', 'kees', 'els', 'tom', 'zoe']);
+	});
+
+	it('logs the actor pseudonym and never an e-mail address', async () => {
+		const write = vi.mocked(log.info);
+		write.mockClear();
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		await call(mergen, { email: 'red@example.org', body: { sha } });
+		const calls = JSON.stringify([...vi.mocked(log.info).mock.calls, ...vi.mocked(log.warn).mock.calls]);
+		expect(write).toHaveBeenCalledWith('proposal.insturen', { site: 'moza', pr: 1, actor: 'p-s' });
+		expect(write).toHaveBeenCalledWith('proposal.mergen', { site: 'moza', pr: 1, actor: 'p-s' });
+		expect(calls).not.toContain('@');
 	});
 
 	it('excludes a linked author from the reviewers', async () => {

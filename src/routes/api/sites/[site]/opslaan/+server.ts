@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
-import { identityFor } from '$lib/auth/identity';
+import { actorPseudonym, identityFor } from '$lib/auth/identity';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
 import { newProposalLimit } from '$lib/server/security';
@@ -76,7 +76,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		forge,
 		site,
 		store.schema(site.id),
-		identityFor(user.prefs, user.session),
+		identityFor(user.prefs, user.session, site),
 		parsed,
 		{
 			isEditorial: () =>
@@ -88,7 +88,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		}
 	);
 	if (result.ok) {
-		log.info('save.ok', { site: site.id, pr: result.prNumber, branch: result.branch });
+		log.info('save.ok', { site: site.id, pr: result.prNumber, branch: result.branch, actor: actorPseudonym(user.session) });
 		return json(result);
 	}
 	if ('conflict' in result) {

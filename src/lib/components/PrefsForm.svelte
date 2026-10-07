@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
+	type Kind = 'anoniem' | 'gekoppeld' | 'op-naam';
 	type Props = {
 		identity: string;
 		githubLogin: string;
 		emailVerified: boolean;
+		sites: { naam: string; toegestaan: Kind[] }[];
 		error?: string;
 		saved?: boolean;
+		justLinked?: boolean;
 	};
-	let { identity, githubLogin, emailVerified, error, saved }: Props = $props();
+	let { identity, githubLogin, emailVerified, sites, error, saved, justLinked }: Props = $props();
+
+	const NAAM: Record<Kind, string> = { anoniem: 'anoniem', gekoppeld: 'gekoppeld aan GitHub', 'op-naam': 'op naam' };
 
 	// svelte-ignore state_referenced_locally
 	let selected = $state(identity);
@@ -16,6 +21,17 @@
 	let unlinking = $state(false);
 	const linked = $derived(githubLogin !== '');
 
+	/* Mirrors effectiveKind in $lib/auth/identity: the choice where the site allows it, else its first usable kind. */
+	const usable = (kind: Kind) => kind === 'anoniem' || (kind === 'gekoppeld' ? linked : emailVerified);
+	const afwijkend = $derived.by(() => {
+		const keuze = (usable(selected as Kind) ? selected : 'anoniem') as Kind;
+		return sites
+			.filter((site) => keuze !== 'anoniem' && !site.toegestaan.includes(keuze))
+			.map((site) => ({
+				naam: site.naam,
+				wordt: site.toegestaan.find((k) => usable(k)) ?? 'anoniem'
+			}));
+	});
 	function onChange(e: Event) {
 		const value = (e as CustomEvent<{ value?: string }>).detail?.value;
 		if (value) selected = value;
@@ -27,6 +43,12 @@
 {/if}
 {#if saved}
 	<nldd-banner variant="success" text="Instellingen opgeslagen"></nldd-banner>
+{/if}
+{#if justLinked}
+	<nldd-banner
+		variant="success"
+		text="Je GitHub-account is gekoppeld. Kies hieronder 'Gekoppeld aan mijn GitHub-account' en sla op als je zo wilt ondertekenen."
+	></nldd-banner>
 {/if}
 
 <nldd-form>
@@ -50,7 +72,7 @@
 				></nldd-radio-button-field>
 				<nldd-radio-button-field
 					value="gekoppeld"
-					label="Gekoppeld aan mijn GitHub-account: wijzigingen tellen mee op je GitHub-profiel, je werkadres blijft verborgen."
+					label="Gekoppeld aan mijn GitHub-account: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
 					checked={selected === 'gekoppeld'}
 					disabled={!linked}
 				></nldd-radio-button-field>
@@ -61,10 +83,28 @@
 					disabled={!emailVerified}
 				></nldd-radio-button-field>
 			</nldd-radio-button-group>
-			{#if !emailVerified}
-				<nldd-form-field-help-text>Alleen mogelijk met een geverifieerd e-mailadres</nldd-form-field-help-text>
+			{#if !linked}
+				<nldd-form-field-help-text>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text>
 			{/if}
+			{#if !emailVerified}
+				<nldd-form-field-help-text>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text>
+			{/if}
+			<nldd-form-field-help-text>
+				Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed zichtbaar: de
+				geschiedenis kan niet worden gewist, ook niet als je later iets anders kiest.
+			</nldd-form-field-help-text>
 		</nldd-form-field>
+
+		{#if afwijkend.length > 0}
+			<div>
+				<nldd-text>Niet elke site staat deze keuze toe:</nldd-text>
+				<ul>
+					{#each afwijkend as site (site.naam)}
+						<li>Op {site.naam} onderteken je {NAAM[site.wordt]}.</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 
 		<nldd-form-actions>
 			<nldd-button-group>

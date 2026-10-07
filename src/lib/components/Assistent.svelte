@@ -119,6 +119,12 @@
 	onfocusin={refreshScope}
 >
 	<h2 id="schrijfhulp-kop">Schrijfhulp</h2>
+	<p class="uitleg">
+		<small
+			>Voorstellen komen van een AI-taalmodel (VLAM). Je tekst gaat daarvoor naar VLAM: zet er geen
+			persoonsgegevens of vertrouwelijke informatie in. Controleer elk voorstel zelf.</small
+		>
+	</p>
 	<p class="status" role="status" aria-live="polite"><small>{status}</small></p>
 
 	<div class="acties">

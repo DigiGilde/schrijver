@@ -12,6 +12,7 @@
 		identity={form?.identity ?? data.identity}
 		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
+		sites={data.sites}
 		error={form?.error}
 	/>
 </nldd-container>

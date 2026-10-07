@@ -13,8 +13,10 @@
 		identity={form?.identity ?? data.identity}
 		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
+		sites={data.sites}
 		error={form?.error}
-		saved={form?.saved || form?.unlinked || data.justLinked}
+		saved={form?.saved || form?.unlinked}
+		justLinked={data.justLinked}
 	/>
 	<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
 		<nldd-button appearance="secondary" type="submit" text="Uitloggen"></nldd-button>
