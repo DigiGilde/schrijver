@@ -27,6 +27,20 @@
 	let error = $state<string | null>(null);
 	let pending = $state<Pending | null>(null);
 	let scope = $state<'selectie' | 'tekst'>('tekst');
+	let outcome = $state<'voorstel' | 'overgenomen' | 'verworpen' | null>(null);
+	let status = $derived(
+		busy
+			? 'Bezig...'
+			: outcome === 'voorstel'
+				? 'Voorstel beschikbaar'
+				: outcome === 'overgenomen'
+					? 'Overgenomen'
+					: outcome === 'verworpen'
+						? 'Verworpen'
+						: scope === 'selectie'
+							? 'Op de selectie'
+							: 'Op de hele tekst'
+	);
 
 	let parts = $derived(pending ? diffWords(pending.original, pending.suggestion.replacement) : []);
 
@@ -44,7 +58,8 @@
 			: { text: all ?? '', from: 0, to: (all ?? '').length };
 		if (!target.text.trim()) return;
 
-		dismiss();
+		clearPending();
+		outcome = null;
 		busy = true;
 		error = null;
 		onMark(target.from, target.to);
@@ -62,6 +77,7 @@
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(data.message ?? 'De schrijfhulp is niet beschikbaar');
 			pending = { from: target.from, to: target.to, original: target.text, suggestion: data };
+			outcome = 'voorstel';
 		} catch (e) {
 			onUnmark();
 			error = e instanceof Error ? e.message : 'De schrijfhulp is niet beschikbaar';
@@ -70,15 +86,21 @@
 		}
 	}
 
-	function dismiss() {
+	function clearPending() {
 		if (pending) onUnmark();
 		pending = null;
+	}
+
+	function dismiss() {
+		clearPending();
+		outcome = 'verworpen';
 	}
 
 	function accept() {
 		if (!pending) return;
 		const { from, to, suggestion } = pending;
 		pending = null;
+		outcome = 'overgenomen';
 		onUnmark();
 		onApply(from, to, suggestion.replacement);
 	}
@@ -91,9 +113,7 @@
 	onfocusin={refreshScope}
 >
 	<h2 id="schrijfhulp-kop">Schrijfhulp</h2>
-	<p class="status">
-		<small>{scope === 'selectie' ? 'Op de selectie' : 'Op de hele tekst'}</small>
-	</p>
+	<p class="status" role="status" aria-live="polite"><small>{status}</small></p>
 
 	<div class="acties">
 		{#each actions as { action, label } (action)}
@@ -133,12 +153,14 @@
 	{#if pending}
 		<div class="voorstel">
 			<p>{pending.suggestion.explanation}</p>
-			<p class="diff" aria-label="Voorgestelde wijziging">
+			<p id="voorstel-kop">Voorgestelde wijziging</p>
+			<div role="group" aria-labelledby="voorstel-kop" class="diff">
 				{#each parts as part, i (i)}
-					{#if part.added}<ins>{part.value}</ins>{:else if part.removed}<del>{part.value}</del
+					{#if part.added}<ins><span class="sr-only">toegevoegd: </span>{part.value}</ins
+						>{:else if part.removed}<del><span class="sr-only">verwijderd: </span>{part.value}</del
 						>{:else}{part.value}{/if}
 				{/each}
-			</p>
+			</div>
 			<div class="acties">
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 				<nldd-button appearance="primary" size="sm" text="Overnemen" onclick={accept}></nldd-button>
@@ -165,5 +187,13 @@
 	}
 	del {
 		text-decoration: line-through;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

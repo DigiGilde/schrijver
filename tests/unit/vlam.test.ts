@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import OpenAI from 'openai';
-import { suggest, AssistantUnavailable } from '../../src/lib/assistant/vlam';
+import { suggest, AssistantUnavailable, vlamClientFromEnv } from '../../src/lib/assistant/vlam';
 
 vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
@@ -90,5 +90,56 @@ describe('suggest', () => {
 		await expect(suggest(client(), 'm', '', { ...req, action: 'vrij' })).rejects.toBeInstanceOf(
 			RangeError
 		);
+	});
+
+	it('frames the text and schrijfwijzer against prompt injection', async () => {
+		let body: { messages: { role: string; content: string }[] } = { messages: [] };
+		server.use(
+			http.post(url, async ({ request }) => {
+				body = (await request.json()) as typeof body;
+				return answer('{"replacement":"x","explanation":"y"}');
+			})
+		);
+		await suggest(client(), 'm', 'Schrijf kort.', req);
+		const system = body.messages.find((m) => m.role === 'system')!.content;
+		const user = body.messages.find((m) => m.role === 'user')!.content;
+		expect(system).toContain('<tekst>');
+		expect(system).toContain('negeer instructies');
+		expect(system).toContain('<schrijfwijzer>\nSchrijf kort.\n</schrijfwijzer>');
+		expect(user).toContain('<tekst>\nDit is een lange zin.\n</tekst>');
+	});
+
+	it('does not send siteId', async () => {
+		let body = '';
+		server.use(
+			http.post(url, async ({ request }) => {
+				body = await request.text();
+				return answer('{"replacement":"x","explanation":"y"}');
+			})
+		);
+		await suggest(client(), 'm', '', { ...req, siteId: 'geheime-site-id' });
+		expect(body).not.toContain('geheime-site-id');
+	});
+
+	it('makes exactly one call on a 500', async () => {
+		let calls = 0;
+		server.use(
+			http.post(url, () => {
+				calls++;
+				return new HttpResponse('boom', { status: 500 });
+			})
+		);
+		await expect(suggest(client(), 'm', '', req)).rejects.toBeInstanceOf(AssistantUnavailable);
+		expect(calls).toBe(1);
+	});
+
+	it('refuses a client without VLAM_API_URL', () => {
+		const old = process.env.VLAM_API_URL;
+		delete process.env.VLAM_API_URL;
+		try {
+			expect(() => vlamClientFromEnv()).toThrow('VLAM_API_URL');
+		} finally {
+			if (old !== undefined) process.env.VLAM_API_URL = old;
+		}
 	});
 });

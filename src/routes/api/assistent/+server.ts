@@ -7,6 +7,7 @@ import {
 	suggest,
 	vlamClientFromEnv
 } from '$lib/assistant/vlam';
+import { UnknownSiteError } from '$lib/config/load';
 import { getConfigStore } from '$lib/server/services';
 
 const Body = z.object({
@@ -35,8 +36,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	let schrijfwijzer: string;
 	try {
 		schrijfwijzer = getConfigStore().schrijfwijzer(req.siteId);
-	} catch {
-		return json({ message: 'Onbekende site' }, { status: 404 });
+	} catch (err) {
+		if (err instanceof UnknownSiteError)
+			return json({ message: 'Onbekende site' }, { status: 404 });
+		throw err;
 	}
 	try {
 		return json(await suggest(vlamClientFromEnv(), DEFAULT_MODEL, schrijfwijzer, req));
