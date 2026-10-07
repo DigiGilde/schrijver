@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
 import { log } from '$lib/log';
 import {
 	SESSION_COOKIE,
@@ -12,6 +13,15 @@ import {
 } from '$lib/auth/session';
 import { applySchema, getPrefs, type UserPrefs } from '$lib/auth/users';
 import { initServices } from '$lib/server/services';
+import {
+	apiGuard,
+	assertSafeEnvironment,
+	devBypassesAllowed,
+	rateLimit,
+	securityHeaders
+} from '$lib/server/security';
+
+assertSafeEnvironment();
 
 const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
@@ -34,7 +44,7 @@ const ensureSchema = () => {
 
 let servicesReady: Promise<void> | undefined;
 const initAny = async () => {
-	if (process.env.SCHRIJVER_FAKE_FORGE === '1' && process.env.NODE_ENV !== 'production') {
+	if (process.env.SCHRIJVER_FAKE_FORGE === '1' && devBypassesAllowed()) {
 		const { initFakeServices } = await import('$lib/server/fake-mode');
 		return initFakeServices();
 	}
@@ -49,7 +59,7 @@ const ensureServices = () => {
 };
 
 const devSession = (): Session | null => {
-	if (process.env.NODE_ENV === 'production' || !process.env.SCHRIJVER_TEST_SESSION) return null;
+	if (!devBypassesAllowed() || !process.env.SCHRIJVER_TEST_SESSION) return null;
 	return JSON.parse(process.env.SCHRIJVER_TEST_SESSION) as Session;
 };
 
@@ -66,7 +76,7 @@ const isPublic = (path: string) =>
 
 const see = (to: string) => new Response(null, { status: 303, headers: { location: to } });
 
-export const handle: Handle = async ({ event, resolve }) => {
+const authHandle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 	event.locals.user = null;
 
@@ -102,3 +112,5 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (!event.locals.user.prefs.onboarded && !ONBOARDING_EXEMPT.has(path)) return see('/onboarding');
 	return resolve(event);
 };
+
+export const handle = sequence(securityHeaders, apiGuard, rateLimit, authHandle);

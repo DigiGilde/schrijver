@@ -11,6 +11,15 @@ const prefs = {
 	onboarded: true
 };
 
+vi.mock('@sveltejs/kit/hooks', () => ({
+	sequence:
+		(...hs: Handle[]): Handle =>
+		({ event, resolve }) => {
+			const next = (i: number, e: typeof event): ReturnType<Handle> =>
+				i === hs.length ? resolve(e) : hs[i]({ event: e, resolve: (ne) => next(i + 1, ne ?? e) });
+			return next(0, event);
+		}
+}));
 vi.mock('../../src/lib/server/services', () => ({ initServices: vi.fn(async () => undefined) }));
 vi.mock('../../src/lib/server/fake-mode', () => ({
 	initFakeServices: vi.fn(async () => undefined)
@@ -45,7 +54,8 @@ function run(path: string, cookie?: string) {
 			set,
 			delete: vi.fn()
 		},
-		locals
+		locals,
+		getClientAddress: () => '127.0.0.1'
 	};
 	const result = (handle as Handle)({ event, resolve } as unknown as Parameters<Handle>[0]);
 	return { result: Promise.resolve(result), locals, resolve, set };
