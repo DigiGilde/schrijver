@@ -391,6 +391,7 @@ export class GitHubForge implements Forge {
 			draft: !!pr.draft,
 			state: pr.merged_at ? 'merged' : pr.state === 'closed' ? 'closed' : 'open',
 			headRef: pr.head.ref,
+			headRepo: pr.head.repo?.full_name ?? '',
 			baseRef: pr.base.ref,
 			url: pr.html_url,
 			labels: (pr.labels ?? []).map((l: Json) => l.name),

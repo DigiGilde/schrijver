@@ -137,6 +137,12 @@ describe('canAct', () => {
 		const pr = await draft();
 		const user = { trailer, email: 'red@example.org', emailVerified: true, githubLogin: null };
 		expect(await canAct(user, site(), pr, forge)).toEqual({ owner: true, editorial: true });
+		const fork = { ...pr, headRepo: 'fork/moza' };
+		expect(await canAct(user, site(), fork, forge)).toEqual({ owner: false, editorial: false });
+		expect(await canAct(user, site(), { ...pr, baseRef: 'dev' }, forge)).toEqual({
+			owner: false,
+			editorial: false
+		});
 		expect(await canAct({ ...user, trailer: 'x', email: 'a@b.nl' }, site(), pr, forge)).toEqual({
 			owner: false,
 			editorial: false

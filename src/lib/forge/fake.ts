@@ -130,6 +130,7 @@ export class FakeForge implements Forge {
 			draft: true,
 			state: 'open',
 			headRef: head,
+			headRepo: repo,
 			baseRef: base,
 			url: `https://github.com/${repo}/pull/${number}`,
 			labels: [],

@@ -22,6 +22,7 @@ let forge: FakeForge;
 const site = (mergeFromSchrijver = true) => ({
 	id: 'moza',
 	repo: 'o/moza',
+	standaardbranch: 'main',
 	content: { pad: 'content' },
 	review: { 'mergen-vanuit-schrijver': mergeFromSchrijver, redactie: ['red@example.org'] },
 	preview: { soort: 'geen' }

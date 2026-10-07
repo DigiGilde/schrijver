@@ -17,6 +17,8 @@ export interface PrSummary {
 	draft: boolean;
 	state: 'open' | 'closed' | 'merged';
 	headRef: string;
+	/** Full name (owner/name) of the head repository; empty when the fork was deleted. */
+	headRepo: string;
 	baseRef: string;
 	url: string;
 	labels: string[];

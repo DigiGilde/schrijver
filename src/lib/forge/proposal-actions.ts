@@ -22,6 +22,9 @@ export async function canAct(
 	pr: PrSummary,
 	forge: Forge
 ): Promise<{ owner: boolean; editorial: boolean }> {
+	if (pr.headRepo !== site.repo || pr.baseRef !== site.standaardbranch) {
+		return { owner: false, editorial: false };
+	}
 	return {
 		owner: identityFromPrBody(pr.body) === user.trailer,
 		editorial: await isEditorial(site, user, forge)
