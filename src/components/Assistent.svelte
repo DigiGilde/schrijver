@@ -6,7 +6,8 @@
 		siteId: string;
 		getSelection: () => { text: string; from: number; to: number } | null;
 		getAll: () => string;
-		onApply: (from: number, to: number, replacement: string) => void;
+		/** Returns an error message when the text could not be replaced. */
+		onApply: (from: number, to: number, replacement: string, original: string) => string | null;
 		onMark: (from: number, to: number) => void;
 		onUnmark: () => void;
 	};
@@ -98,11 +99,16 @@
 
 	function accept() {
 		if (!pending) return;
-		const { from, to, suggestion } = pending;
+		const { from, to, suggestion, original } = pending;
 		pending = null;
-		outcome = 'overgenomen';
 		onUnmark();
-		onApply(from, to, suggestion.replacement);
+		const refused = onApply(from, to, suggestion.replacement, original);
+		if (refused) {
+			error = refused;
+			outcome = null;
+		} else {
+			outcome = 'overgenomen';
+		}
 	}
 </script>
 

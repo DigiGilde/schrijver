@@ -12,8 +12,10 @@
 		onkop: (niveau: 2 | 3 | 4) => void;
 		onafbeelding: () => void;
 		onmermaid: () => void;
+		schrijfhulpOpen?: boolean;
+		onschrijfhulp?: () => void;
 	};
-	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid }: Props = $props();
+	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
 
 	const active = $derived(state?.active);
 
@@ -72,7 +74,7 @@
 		accessible-label="Afbeelding invoegen"
 		size="sm"
 		appearance="neutral-transparent"
-		disabled
+		disabled={disabled || undefined}
 		onclick={onafbeelding}
 	></nldd-icon-button>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -81,9 +83,19 @@
 		accessible-label="Mermaid-diagram invoegen"
 		size="sm"
 		appearance="neutral-transparent"
-		disabled
+		disabled={disabled || undefined}
 		onclick={onmermaid}
 	></nldd-icon-button>
+	{#if onschrijfhulp}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance="secondary"
+			size="sm"
+			text="Schrijfhulp"
+			expanded={schrijfhulpOpen}
+			onclick={onschrijfhulp}
+		></nldd-button>
+	{/if}
 </div>
 
 {#snippet schakel(icon: string, label: string, aan: () => boolean | undefined, doe: () => void)}

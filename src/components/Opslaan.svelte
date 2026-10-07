@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import type { PendingImage } from '$lib/client/pending-images';
+	import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '$lib/content/mermaid';
 
 	type Nieuw = { soort: string | null; folder: string; title: string };
 	type Snapshot = { body: string; frontmatter: Record<string, unknown>; changedKeys: string[] };
@@ -16,6 +18,8 @@
 		nieuw,
 		snapshot,
 		labels,
+		images,
+		onverstuurd,
 		onbewaard,
 		onovernemen,
 		onbasis
@@ -28,6 +32,8 @@
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
 		labels: Record<string, string>;
+		images: () => PendingImage[];
+		onverstuurd: (sent: PendingImage[]) => void;
 		onbewaard: (saved: { sha: string; branch: string }) => void;
 		onovernemen: (text: string) => void;
 		onbasis: (sha: string) => void;
@@ -46,13 +52,21 @@
 	let bewaard = $state<{ nummer: number; url: string } | null>(null);
 	let fout = $state<Fout | null>(null);
 	let conflict = $state<Conflict | null>(null);
+	let mermaidFout = $state<string | null>(null);
 
 	async function opslaan(overrideSha?: string) {
 		if (busy) return;
+		const { body, frontmatter, changedKeys } = snapshot();
+		const zonder = missingDescriptions(body);
+		if (zonder.length) {
+			mermaidFout = `${MERMAID_DESCR_MESSAGE} (regel ${zonder.join(', ')})`;
+			return;
+		}
+		mermaidFout = null;
 		busy = true;
 		fout = null;
 		conflict = null;
-		const { body, frontmatter, changedKeys } = snapshot();
+		const sent = images();
 		try {
 			const res = await fetch(`/api/sites/${siteId}/opslaan`, {
 				method: 'POST',
@@ -65,7 +79,7 @@
 					baseSha: overrideSha ?? baseSha,
 					branch: huidigeBranch,
 					prNumber: huidigPr,
-					images: [],
+					images: sent,
 					...(nieuwePagina ? { newPage: nieuwePagina } : {})
 				})
 			});
@@ -79,6 +93,7 @@
 				bewaard = { nummer: result.prNumber, url: result.url };
 				const params = new URLSearchParams({ branch: result.branch, pr: String(result.prNumber) });
 				replaceState(`?${params}`, {});
+				onverstuurd(sent);
 				onbewaard({ sha: result.sha, branch: result.branch });
 			} else if (result?.conflict) {
 				conflict = result.conflict;
@@ -123,6 +138,10 @@
 	loading={busy || undefined}
 	onclick={() => opslaan()}
 ></nldd-button>
+
+{#if mermaidFout}
+	<p role="alert" class="fout">{mermaidFout}</p>
+{/if}
 
 {#if bewaard}
 	<nldd-notification

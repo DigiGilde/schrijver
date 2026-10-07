@@ -2,11 +2,15 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { TextEditorState } from '@nldd/design-system/text-editor';
 	import type { PageData } from './$types';
+	import AfbeeldingDialoog from '../../../../../components/AfbeeldingDialoog.svelte';
+	import Assistent from '../../../../../components/Assistent.svelte';
 	import Editor from '../../../../../components/Editor.svelte';
 	import FrontmatterFormulier from '../../../../../components/FrontmatterFormulier.svelte';
 	import Opslaan from '../../../../../components/Opslaan.svelte';
 	import Voorbeeld from '../../../../../components/Voorbeeld.svelte';
 	import Werkbalk, { type Actie } from '../../../../../components/Werkbalk.svelte';
+	import { addImage, withoutSent, type PendingImage } from '$lib/client/pending-images';
+	import { mermaidScaffold } from '$lib/content/mermaid';
 	import { parsePage } from '$lib/content/frontmatter';
 	import { applyForm, type FormField } from '$lib/content/schema-form';
 
@@ -25,6 +29,11 @@
 	let tab = $state<'schrijven' | 'voorbeeld'>('schrijven');
 	let restorable = $state<Draft | null>(null);
 	let ready = $state(false);
+	let images = $state<PendingImage[]>([]);
+	let dialogOpen = $state(false);
+	let dialogFile = $state<File | null>(null);
+	let hulpOpen = $state(false);
+	let returnFocus: HTMLElement | null = null;
 
 	type Draft = {
 		path: string;
@@ -159,6 +168,73 @@
 		commands[actie]();
 	}
 
+	function openDialog(file: File | null = null) {
+		const active = document.activeElement;
+		returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
+		dialogFile = file;
+		dialogOpen = true;
+	}
+
+	function closeDialog() {
+		const target = returnFocus;
+		returnFocus = null;
+		setTimeout(() => (target?.isConnected ? target.focus() : editor?.focus()), 0);
+	}
+
+	function imageFrom(list: FileList | null | undefined): File | null {
+		return Array.from(list ?? []).find((f) => f.type.startsWith('image/')) ?? null;
+	}
+
+	function onDrop(event: DragEvent) {
+		const file = imageFrom(event.dataTransfer?.files);
+		if (!file) return;
+		event.preventDefault();
+		event.stopPropagation();
+		openDialog(file);
+	}
+
+	function onDragOver(event: DragEvent) {
+		if (Array.from(event.dataTransfer?.items ?? []).some((i) => i.kind === 'file')) event.preventDefault();
+	}
+
+	function onPaste(event: ClipboardEvent) {
+		const file = imageFrom(event.clipboardData?.files);
+		if (!file) return;
+		event.preventDefault();
+		event.stopPropagation();
+		openDialog(file);
+	}
+
+	function imageInserted(alt: string, result: { repoPath: string; markdownRef: string; base64: string }) {
+		images = addImage(images, { path: result.repoPath, base64: result.base64 });
+		editor?.insertAtCursor(`![${alt.replace(/[[\]]/g, '')}](${result.markdownRef})`);
+	}
+
+	function insertMermaid() {
+		const sel = editor?.getSelection();
+		const before = sel ? body.slice(0, sel.start) : body;
+		const prefix = before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+		editor?.insertAtCursor(prefix + mermaidScaffold());
+		editor?.focus();
+	}
+
+	function selection() {
+		const sel = editor?.getSelection();
+		return sel && !sel.empty ? { text: body.slice(sel.start, sel.end), from: sel.start, to: sel.end } : null;
+	}
+
+	function mark(from: number, to: number) {
+		editor?.setAnnotations([{ id: 'schrijfhulp', start: from, end: to, quote: body.slice(from, to) }]);
+	}
+
+	function applySuggestion(from: number, to: number, replacement: string, original: string) {
+		if (body.slice(from, to) !== original) {
+			return 'De tekst is intussen veranderd, het voorstel is niet overgenomen';
+		}
+		editor?.replaceRange(from, to, replacement);
+		return null;
+	}
+
 	function neemOver(text: string) {
 		const page = parsePage(text);
 		if (!page.ok) return;
@@ -241,15 +317,41 @@
 					state={editorState}
 					onactie={onActie}
 					onkop={(niveau) => editor?.toggleHeading(niveau)}
-					onafbeelding={() => {}}
-					onmermaid={() => {}}
+					onafbeelding={() => openDialog()}
+					onmermaid={insertMermaid}
+					schrijfhulpOpen={hulpOpen}
+					onschrijfhulp={() => (hulpOpen = !hulpOpen)}
 				/>
-				<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
+				<div role="presentation" ondropcapture={onDrop} ondragovercapture={onDragOver} onpastecapture={onPaste}>
+					<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
+				</div>
 			</section>
 			<section class="paneel" class:verborgen={tab !== 'voorbeeld'} aria-label="Voorbeeld">
 				<Voorbeeld value={body} />
 			</section>
 		</div>
+
+		{#if hulpOpen}
+			<aside class="hulp" aria-label="Schrijfhulp">
+				<Assistent
+					siteId={data.site.id}
+					getSelection={selection}
+					getAll={() => body}
+					onApply={applySuggestion}
+					onMark={mark}
+					onUnmark={() => editor?.setAnnotations([])}
+				/>
+			</aside>
+		{/if}
+
+		<AfbeeldingDialoog
+			bind:open={dialogOpen}
+			bind:file={dialogFile}
+			siteId={data.site.id}
+			pagina={data.repoPath}
+			oninvoegen={imageInserted}
+			onclose={closeDialog}
+		/>
 
 		<div class="opslaan">
 			<Opslaan
@@ -270,8 +372,13 @@
 				}}
 				onovernemen={neemOver}
 				onbasis={(sha) => (baseSha = sha)}
+				images={() => images}
+				onverstuurd={(sent) => (images = withoutSent(images, sent))}
 				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 			/>
+			{#if images.length}
+				<p class="gedimd">Afbeeldingen worden meegestuurd bij het bewaren</p>
+			{/if}
 			{#if openbaarConcept}
 				<p class="gedimd">
 					Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
@@ -300,6 +407,11 @@
 	}
 	.paneel.verborgen {
 		display: none;
+	}
+	.hulp {
+		border: 1px solid currentColor;
+		border-radius: 8px;
+		padding: 16px;
 	}
 	.opslaan {
 		display: flex;
