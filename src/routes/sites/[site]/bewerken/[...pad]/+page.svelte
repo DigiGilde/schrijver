@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import type { PageData } from './$types';
-	import ConceptBanner from '../../../../../components/ConceptBanner.svelte';
-	import Editor from '../../../../../components/Editor.svelte';
-	import FrontmatterFormulier from '../../../../../components/FrontmatterFormulier.svelte';
-	import LeesAlleenBanner from '../../../../../components/LeesAlleenBanner.svelte';
-	import Opslaan from '../../../../../components/Opslaan.svelte';
-	import Schrijfvlak from '../../../../../components/Schrijfvlak.svelte';
+	import ConceptBanner from '$lib/components/ConceptBanner.svelte';
+	import Editor from '$lib/components/Editor.svelte';
+	import FrontmatterFormulier from '$lib/components/FrontmatterFormulier.svelte';
+	import LeesAlleenBanner from '$lib/components/LeesAlleenBanner.svelte';
+	import Opslaan from '$lib/components/Opslaan.svelte';
+	import Schrijfvlak from '$lib/components/Schrijfvlak.svelte';
 	import { readDraft, restoredValue, writeDraft as storeDraft, type Draft } from '$lib/client/draft';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
@@ -190,28 +190,24 @@
 				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 			/>
 			{#if images.length}
-				<p class="gedimd">Afbeeldingen worden meegestuurd bij het bewaren</p>
+				<nldd-text color="secondary" size="sm">Afbeeldingen worden meegestuurd bij het bewaren</nldd-text>
 			{/if}
 			{#if imagesLost}
-				<p class="gedimd" role="status">
+				<nldd-text color="secondary" size="sm" role="status">
 					Afbeeldingen konden niet lokaal worden bewaard; voeg ze opnieuw toe na een herlaad
-				</p>
+				</nldd-text>
 			{/if}
 			{#if openbaarConcept}
-				<p class="gedimd">
+				<nldd-text color="secondary" size="sm">
 					Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
 					instuurt.
-				</p>
+				</nldd-text>
 			{/if}
 		</div>
 	{/if}
 </nldd-container>
 
 <style>
-	.gedimd {
-		margin: 0;
-		opacity: 0.7;
-	}
 	.opslaan {
 		display: flex;
 		flex-direction: column;

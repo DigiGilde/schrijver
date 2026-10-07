@@ -13,11 +13,10 @@
 		onafbeelding: () => void;
 		onmermaid: () => void;
 		afbeeldingen?: boolean;
-		schrijfhulpPaneel?: string;
 		schrijfhulpOpen?: boolean;
 		onschrijfhulp?: () => void;
 	};
-	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, afbeeldingen = true, schrijfhulpPaneel, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
+	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, afbeeldingen = true, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
 
 	const active = $derived(state?.active);
 
@@ -97,7 +96,6 @@
 			size="sm"
 			text="Schrijfhulp"
 			expanded={schrijfhulpOpen}
-			aria-controls={schrijfhulpPaneel}
 			onclick={onschrijfhulp}
 		></nldd-button>
 	{/if}

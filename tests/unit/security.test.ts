@@ -88,6 +88,11 @@ describe('apiGuard', () => {
 		await res;
 		expect(resolve).toHaveBeenCalled();
 	});
+	it('rejects a decoded path with a .. segment', async () => {
+		const { res, resolve } = call(apiGuard, ev('/api/webhook/..%2Fassistent'));
+		expect((await res).status).toBe(400);
+		expect(resolve).not.toHaveBeenCalled();
+	});
 	it('cannot be evaded with an encoded or doubled-slash path', async () => {
 		for (const p of [
 			'/%61pi/assistent',

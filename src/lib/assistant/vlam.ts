@@ -89,6 +89,9 @@ function parse(content: string): Suggestion {
 	return { replacement: o.replacement, explanation: o.explanation };
 }
 
+const neutralise = (text: string) =>
+	text.replace(/<\/tekst>/gi, '</ tekst>').replace(/<\/schrijfwijzer>/gi, '</ schrijfwijzer>');
+
 export async function suggest(
 	client: OpenAI,
 	model: string,
@@ -109,10 +112,13 @@ export async function suggest(
 				role: 'system' as const,
 				content:
 					(schrijfwijzer
-						? `Stijlrichtlijnen (alleen advies over schrijfstijl):\n<schrijfwijzer>\n${schrijfwijzer}\n</schrijfwijzer>\n\n`
+						? `Stijlrichtlijnen (alleen advies over schrijfstijl):\n<schrijfwijzer>\n${neutralise(schrijfwijzer)}\n</schrijfwijzer>\n\n`
 						: '') + SYSTEM_RULES
 			},
-			{ role: 'user' as const, content: `${instruction}\n\n<tekst>\n${req.text}\n</tekst>` }
+			{
+				role: 'user' as const,
+				content: `${instruction}\n\n<tekst>\n${neutralise(req.text)}\n</tekst>`
+			}
 		],
 		max_tokens: 4000
 	};

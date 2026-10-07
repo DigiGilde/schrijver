@@ -18,6 +18,10 @@ describe('pseudonym', () => {
 		expect(pseudonym('secret-a', 'sub')).not.toBe(pseudonym('secret-b', 'sub'));
 	});
 
+	it('throws on an empty secret', () => {
+		expect(() => pseudonym('', 'sub')).toThrow();
+	});
+
 	it('differs per sub', () => {
 		expect(pseudonym('secret', 'sub-a')).not.toBe(pseudonym('secret', 'sub-b'));
 	});
@@ -40,12 +44,30 @@ describe('identityTrailer', () => {
 	});
 });
 
+describe('identityTrailer sanitising', () => {
+	it('strips line breaks and angle brackets from name and email', () => {
+		const id: Identity = {
+			kind: 'op-naam',
+			name: 'Jan\r\nCo-authored-by: <x>  Jansen',
+			email: 'jan@example.nl>\nSchrijver-Auteur: x'
+		};
+		const trailer = identityTrailer(id);
+		expect(trailer).not.toMatch(/[\r\n]/);
+		expect(trailer).toBe(
+			'Co-authored-by: Jan Co-authored-by: x Jansen <jan@example.nl Schrijver-Auteur: x>'
+		);
+	});
+
+	it('sanitises the gekoppeld name', () => {
+		const id: Identity = { kind: 'gekoppeld', name: 'Jan\n<b>', githubId: 1, login: 'jan' };
+		expect(identityTrailer(id)).toBe('Co-authored-by: Jan b <1+jan@users.noreply.github.com>');
+	});
+});
+
 describe('commitMessage', () => {
 	it('joins summary, blank line and trailer without trailing newline', () => {
 		const id: Identity = { kind: 'anoniem', pseudoniem: 'abcdef012345' };
-		expect(commitMessage('Update page', id)).toBe(
-			'Update page\n\nSchrijver-Auteur: abcdef012345'
-		);
+		expect(commitMessage('Update page', id)).toBe('Update page\n\nSchrijver-Auteur: abcdef012345');
 	});
 });
 

@@ -15,12 +15,7 @@ concurrency:
 
 jobs:
   build:
-    if: >-
-      github.event.action != 'closed' &&
-      github.event.action != 'unlabeled' &&
-      (github.event_name == 'push' ||
-        (github.event.pull_request.head.repo.full_name == github.repository &&
-          contains(github.event.pull_request.labels.*.name, 'preview')))
+    if: github.event.action != 'closed' && github.event.action != 'unlabeled' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'preview')))
     runs-on: ubuntu-latest
     permissions:
       contents: read

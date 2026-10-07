@@ -86,14 +86,13 @@
 			onmermaid={() => actions.insertMermaid(editor, body)}
 			{afbeeldingen}
 			schrijfhulpOpen={hulpOpen}
-			schrijfhulpPaneel="schrijfhulp-paneel"
 			onschrijfhulp={() => (hulpOpen = !hulpOpen)}
 		/>
 		<div
 			role="presentation"
-			ondropcapture={dnd.ondrop}
-			ondragovercapture={dnd.ondragover}
-			onpastecapture={dnd.onpaste}
+			ondropcapture={afbeeldingen ? dnd.ondrop : undefined}
+			ondragovercapture={afbeeldingen ? dnd.ondragover : undefined}
+			onpastecapture={afbeeldingen ? dnd.onpaste : undefined}
 		>
 			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
 		</div>

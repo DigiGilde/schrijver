@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import Diff from '../../../../../components/Diff.svelte';
+	import Diff from '$lib/components/Diff.svelte';
 
 	let { data } = $props();
 

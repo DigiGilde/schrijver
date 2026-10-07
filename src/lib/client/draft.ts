@@ -17,9 +17,12 @@ export function readDraft(key: string): Draft | null {
 		const raw = localStorage.getItem(key);
 		if (!raw) return null;
 		const draft = JSON.parse(raw) as Draft;
-		if (!(typeof draft?.body === 'string' && draft.frontmatter && typeof draft.at === 'number')) return null;
+		if (!(typeof draft?.body === 'string' && draft.frontmatter && typeof draft.at === 'number'))
+			return null;
 		if (!Array.isArray(draft.images)) draft.images = [];
-		draft.images = draft.images.filter((i) => typeof i?.path === 'string' && typeof i?.base64 === 'string');
+		draft.images = draft.images.filter(
+			(i) => typeof i?.path === 'string' && typeof i?.base64 === 'string'
+		);
 		return draft;
 	} catch {
 		return null;
@@ -38,7 +41,7 @@ export function writeDraft(key: string, draft: Draft | null): boolean {
 		try {
 			localStorage.setItem(key, JSON.stringify({ ...draft, images }));
 		} catch {
-			complete = false;
+			if (images.length) complete = false;
 			localStorage.setItem(key, JSON.stringify({ ...draft, images: [] }));
 		}
 		return complete;
@@ -49,6 +52,7 @@ export function writeDraft(key: string, draft: Draft | null): boolean {
 
 export function restoredValue(field: FormField, raw: unknown): unknown {
 	if (field.def.type === 'ja-nee') return typeof raw === 'boolean' ? raw : null;
-	if (field.def.type === 'paginaverwijzing' && field.def.meervoud) return Array.isArray(raw) ? raw : [];
+	if (field.def.type === 'paginaverwijzing' && field.def.meervoud)
+		return Array.isArray(raw) ? raw : [];
 	return raw ?? '';
 }

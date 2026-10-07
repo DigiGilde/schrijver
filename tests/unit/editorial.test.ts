@@ -65,7 +65,7 @@ describe('isEditorial', () => {
 	it('editorial-fails-closed: returns false and logs a warning when the forge throws', async () => {
 		forge.permissionByLogin.set('writer', 'write');
 		forge.failNext('collaboratorPermission', new ForgeError(503, 'Forge onbereikbaar', 'timeout'));
-		const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
 		const user = { email: null, emailVerified: false, githubLogin: 'writer' };
 
 		expect(await isEditorial(site, user, forge)).toBe(false);
@@ -78,7 +78,7 @@ describe('isEditorial', () => {
 
 	it('never logs the e-mail address', async () => {
 		forge.failNext('collaboratorPermission', new ForgeError(500, 'Fout'));
-		const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
 		const outsider = 'buiten@example.org';
 		const user = { email: outsider, emailVerified: true, githubLogin: 'writer' };
 

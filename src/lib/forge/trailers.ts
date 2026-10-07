@@ -6,17 +6,24 @@ export type Identity =
 	| { kind: 'op-naam'; name: string; email: string };
 
 export function pseudonym(secret: string, sub: string): string {
+	if (!secret) throw new Error('pseudonym requires a non-empty secret');
 	return createHmac('sha256', secret).update(sub).digest('hex').slice(0, 12);
 }
+
+const clean = (value: string) =>
+	value
+		.replace(/[\r\n<>]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 
 export function identityTrailer(id: Identity): string {
 	switch (id.kind) {
 		case 'anoniem':
 			return `Schrijver-Auteur: ${id.pseudoniem}`;
 		case 'gekoppeld':
-			return `Co-authored-by: ${id.name} <${id.githubId}+${id.login}@users.noreply.github.com>`;
+			return `Co-authored-by: ${clean(id.name)} <${id.githubId}+${id.login}@users.noreply.github.com>`;
 		case 'op-naam':
-			return `Co-authored-by: ${id.name} <${id.email}>`;
+			return `Co-authored-by: ${clean(id.name)} <${clean(id.email)}>`;
 	}
 }
 

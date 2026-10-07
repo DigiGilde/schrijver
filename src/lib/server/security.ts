@@ -40,7 +40,8 @@ const json = (status: number, message: string, headers: Record<string, string> =
 /** The path as SvelteKit routes it: percent-decoded, duplicate slashes collapsed. Null when malformed. */
 export function normalisePath(pathname: string): string | null {
 	try {
-		return decodeURIComponent(pathname).replace(/\/{2,}/g, '/');
+		const path = decodeURIComponent(pathname).replace(/\/{2,}/g, '/');
+		return path.split('/').includes('..') ? null : path;
 	} catch {
 		return null;
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import VoorstelLijst from '../../../components/VoorstelLijst.svelte';
+	import VoorstelLijst from '$lib/components/VoorstelLijst.svelte';
 
 	let { data } = $props();
 

@@ -70,11 +70,14 @@ describe('missingDescriptions', () => {
 			''
 		].join('\n');
 		expect(missingDescriptions(body)).toEqual([11]);
-		expect(MERMAID_DESCR_MESSAGE).toBe('Elk Mermaid-diagram heeft een beschrijving (accDescr) nodig');
+		expect(MERMAID_DESCR_MESSAGE).toBe(
+			'Elk Mermaid-diagram heeft een beschrijving (accDescr) nodig'
+		);
 	});
 
 	it('accepts the multi-line accDescr form', () => {
-		const body = '```mermaid\nflowchart LR\n  accDescr {\n    Een lange\n    beschrijving\n  }\n  A --> B\n```\n';
+		const body =
+			'```mermaid\nflowchart LR\n  accDescr {\n    Een lange\n    beschrijving\n  }\n  A --> B\n```\n';
 		expect(findMermaidBlocks(body)[0].hasAccDescr).toBe(true);
 		expect(missingDescriptions(body)).toEqual([]);
 	});
@@ -96,6 +99,13 @@ describe('findMermaidBlocks', () => {
 		);
 		expect(block.hasAccTitle).toBe(true);
 		expect(block.hasAccDescr).toBe(false);
+	});
+
+	it('does not close a four-backtick opener with a three-backtick line', () => {
+		const body = '````mermaid\nflowchart LR\n  A --> B\n```\nTekst\n';
+		const blocks = findMermaidBlocks(body);
+		expect(blocks).toHaveLength(1);
+		expect(blocks[0].end).toBe(body.length);
 	});
 
 	it('detects an unterminated fence without throwing', () => {
