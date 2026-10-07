@@ -12,9 +12,10 @@ vi.mock('../../src/lib/auth/users', () => ({ savePrefs: vi.fn(async () => {}) })
 import { savePrefs, type UserPrefs } from '../../src/lib/auth/users';
 import { log } from '../../src/lib/log';
 import { sealPayload } from '../../src/lib/auth/session';
-import { startGithubLink } from '../../src/lib/auth/github-link';
+import { githubAuthorizeUrl, startGithubLink } from '../../src/lib/auth/github-link';
 import { submitPrefs, unlinkGithub } from '../../src/lib/auth/prefs-action';
 import { POST as start } from '../../src/routes/login/github/+server';
+import { load as startPage } from '../../src/routes/login/github/start/+page.server';
 import { GET as callback } from '../../src/routes/login/github/callback/+server';
 
 const server = setupServer();
@@ -64,7 +65,9 @@ function begin() {
 	} catch (r) {
 		loc = (r as { location: string }).location;
 	}
-	const authorize = new URL(loc);
+	expect(loc).toBe('/login/github/start');
+	const { url } = startPage({ cookies, locals: { user: user() } } as never) as { url: string };
+	const authorize = new URL(url);
 	return { cookies, state: authorize.searchParams.get('state')!, authorize };
 }
 
@@ -112,7 +115,7 @@ const githubOk = (challenge: string, user = { login: 'real-login', id: 42 }) => 
 let revoked: { authorization: string | null; body: Record<string, unknown> }[] = [];
 
 describe('start', () => {
-	it('redirects to GitHub with client id, redirect uri and state, and seals a cookie', () => {
+	it('redirects same-origin, then builds the GitHub URL with client id, redirect uri and state', () => {
 		const { authorize, cookies } = begin();
 		expect(authorize.origin + authorize.pathname).toBe('https://github.com/login/oauth/authorize');
 		expect(authorize.searchParams.get('client_id')).toBe('cid');
@@ -131,7 +134,20 @@ describe('start', () => {
 
 	it('throws without ORIGIN', () => {
 		delete process.env.ORIGIN;
-		expect(() => startGithubLink('abc')).toThrow('ORIGIN is not set');
+		expect(() => githubAuthorizeUrl(startGithubLink('abc'), 'abc')).toThrow('ORIGIN is not set');
+	});
+
+	it('sends the start page back to settings without a link cookie of this session', () => {
+		const other = jar({ schrijver_github_link: startGithubLink('someone-else') });
+		for (const cookies of [jar(), other]) {
+			let loc = '';
+			try {
+				startPage({ cookies, locals: { user: user() } } as never);
+			} catch (r) {
+				loc = (r as { location: string }).location;
+			}
+			expect(loc).toBe('/instellingen?koppelen=mislukt');
+		}
 	});
 });
 

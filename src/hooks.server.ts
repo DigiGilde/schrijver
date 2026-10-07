@@ -31,6 +31,7 @@ const PUBLIC_PATHS = new Set([
 	'/login/callback',
 	'/login/mislukt',
 	'/uitloggen',
+	'/uitgelogd',
 	'/healthz'
 ]);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
@@ -38,6 +39,7 @@ const ONBOARDING_EXEMPT = new Set([
 	'/onboarding',
 	'/instellingen',
 	'/login/github',
+	'/login/github/start',
 	'/login/github/callback'
 ]);
 

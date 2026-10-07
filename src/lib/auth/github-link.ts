@@ -19,24 +19,35 @@ const sameString = (a: string, b: string) => {
 	return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export function startGithubLink(sub: string) {
+/** Seals state and PKCE verifier for the link flow; the authorize URL is built from it on /login/github/start. */
+export function startGithubLink(sub: string): string {
 	const state = randomBytes(24).toString('base64url');
 	const verifier = randomBytes(32).toString('base64url');
+	return sealPayload(
+		{ state, verifier, sub, exp: Date.now() + GITHUB_LINK_TTL_MS },
+		sessionSecret(),
+		'github-link'
+	);
+}
+
+/** The GitHub authorize URL for a sealed link cookie of this session, or null when there is none. */
+export function githubAuthorizeUrl(cookie: string | undefined, sessionSub: string): string | null {
+	const link = cookie ? openPayload(cookie, sessionSecret(), 'github-link') : null;
+	if (
+		!link ||
+		link.sub !== sessionSub ||
+		typeof link.state !== 'string' ||
+		typeof link.verifier !== 'string'
+	)
+		return null;
 	const params = new URLSearchParams({
 		client_id: env('GITHUB_APP_CLIENT_ID'),
 		redirect_uri: redirectUri(),
-		state,
-		code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+		state: link.state,
+		code_challenge: createHash('sha256').update(link.verifier).digest('base64url'),
 		code_challenge_method: 'S256'
 	});
-	return {
-		location: `https://github.com/login/oauth/authorize?${params}`,
-		cookie: sealPayload(
-			{ state, verifier, sub, exp: Date.now() + GITHUB_LINK_TTL_MS },
-			sessionSecret(),
-			'github-link'
-		)
-	};
+	return `https://github.com/login/oauth/authorize?${params}`;
 }
 
 export interface GithubIdentity {
