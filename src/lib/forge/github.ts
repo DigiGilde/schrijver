@@ -34,7 +34,9 @@ function toForgeError(e: unknown): ForgeError {
 			parts.push(typeof x === 'string' ? x : ((x as { message?: string }).message ?? JSON.stringify(x)));
 		}
 		const detail = parts.join('; ');
-		const rateLimited = e.status === 403 && /rate limit/i.test(detail);
+		const rateLimited =
+			(e.status === 403 || e.status === 429) &&
+			(/rate limit/i.test(detail) || !!e.response?.headers?.['retry-after']);
 		const message = rateLimited
 			? MESSAGES[429]
 			: (MESSAGES[e.status] ?? 'GitHub gaf een fout');
@@ -52,10 +54,11 @@ function splitRepo(repo: string): { owner: string; repo: string } {
 export class GitHubForge implements Forge {
 	private app: App;
 	private installations = new Map<string, number>();
+	private clients = new Map<number, Octo>();
 
 	constructor(opts: { appId: string; privateKey: string; baseUrl?: string }) {
 		const privateKey = opts.privateKey.trim().startsWith('-----BEGIN')
-			? opts.privateKey
+			? opts.privateKey.replace(/\\n/g, '\n')
 			: Buffer.from(opts.privateKey, 'base64').toString('utf8');
 		this.app = new App({
 			appId: opts.appId,
@@ -88,10 +91,24 @@ export class GitHubForge implements Forge {
 			}
 			this.installations.set(repo, id);
 		}
-		try {
-			return await this.app.getInstallationOctokit(id);
-		} catch (e) {
-			throw toForgeError(e);
+		let ok = this.clients.get(id);
+		if (!ok) {
+			try {
+				ok = await this.app.getInstallationOctokit(id);
+			} catch (e) {
+				throw toForgeError(e);
+			}
+			this.clients.set(id, ok);
+		}
+		return ok;
+	}
+
+	private forget(repo: string, e: unknown): void {
+		const url = e instanceof RequestError ? e.request?.url : undefined;
+		if (e instanceof RequestError && e.status === 404 && url?.includes('/access_tokens')) {
+			const id = this.installations.get(repo);
+			this.installations.delete(repo);
+			if (id !== undefined) this.clients.delete(id);
 		}
 	}
 
@@ -101,6 +118,7 @@ export class GitHubForge implements Forge {
 			const res = await ok.request(route, { ...splitRepo(repo), ...params });
 			return res.data;
 		} catch (e) {
+			this.forget(repo, e);
 			throw toForgeError(e);
 		}
 	}
@@ -110,6 +128,7 @@ export class GitHubForge implements Forge {
 			tree_sha: ref,
 			recursive: '1'
 		});
+		if (data.truncated) log.warn('forge.tree_truncated', { repo, ref });
 		const prefix = dir === '' || dir === '.' ? '' : dir.replace(/\/+$/, '') + '/';
 		return (data.tree as Json[])
 			.filter((n) => n.type === 'blob' && n.path.startsWith(prefix))
@@ -269,7 +288,7 @@ export class GitHubForge implements Forge {
 			sort: 'updated',
 			direction: 'desc'
 		});
-		return Promise.all(prs.map((pr) => this.summarize(repo, pr)));
+		return mapPool(prs, 5, (pr) => this.summarize(repo, pr));
 	}
 
 	async getPr(repo: string, number: number): Promise<PrSummary> {
@@ -360,6 +379,19 @@ export class GitHubForge implements Forge {
 			checks: checkState(checks.check_runs ?? [])
 		};
 	}
+}
+
+async function mapPool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+	const out: R[] = new Array(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			out[i] = await fn(items[i]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+	return out;
 }
 
 // COMMENTED and PENDING reviews do not change a reviewer's verdict.

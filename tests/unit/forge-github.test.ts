@@ -205,4 +205,75 @@ describe('GitHubForge', () => {
 			checks: 'failure'
 		});
 	});
+
+	it('reuses the installation client: one token exchange across operations', async () => {
+		let tokenHits = 0;
+		server.use(
+			http.post(`${API}/app/installations/42/access_tokens`, () => {
+				tokenHits++;
+				return HttpResponse.json(
+					{ token: 'ghs_x', expires_at: new Date(Date.now() + 3600_000).toISOString() },
+					{ status: 201 }
+				);
+			}),
+			http.get(`${API}/repos/o/r/collaborators/jan/permission`, () =>
+				HttpResponse.json({ permission: 'read' })
+			),
+			http.post(`${API}/repos/o/r/issues/1/comments`, () => HttpResponse.json({}, { status: 201 }))
+		);
+		const f = forge();
+		await f.collaboratorPermission('o/r', 'jan');
+		await f.comment('o/r', 1, 'x');
+		await f.collaboratorPermission('o/r', 'jan');
+		expect(tokenHits).toBe(1);
+	});
+
+	it('bounds listPrs concurrency to 5', async () => {
+		let active = 0;
+		let peak = 0;
+		const prs = Array.from({ length: 12 }, (_, n) => ({
+			number: n + 1,
+			title: 't',
+			body: '',
+			draft: false,
+			state: 'open',
+			merged_at: null,
+			head: { ref: 'h', sha: `s${n + 1}` },
+			base: { ref: 'main' },
+			html_url: 'u',
+			labels: [],
+			updated_at: '2026-01-01T00:00:00Z',
+			mergeable: true
+		}));
+		const track = async <T,>(v: T) => {
+			active++;
+			peak = Math.max(peak, active);
+			await new Promise((r) => setTimeout(r, 5));
+			active--;
+			return HttpResponse.json(v as never);
+		};
+		server.use(
+			http.get(`${API}/repos/o/r/pulls`, () => HttpResponse.json(prs)),
+			http.get(`${API}/repos/o/r/pulls/:n/reviews`, () => track([])),
+			http.get(`${API}/repos/o/r/commits/:sha/check-runs`, () => track({ check_runs: [] }))
+		);
+		const res = await forge().listPrs('o/r', 'open');
+		expect(res).toHaveLength(12);
+		expect(peak).toBeLessThanOrEqual(10);
+	});
+
+	it('treats a 403 with retry-after as rate limited', async () => {
+		server.use(
+			http.put(`${API}/repos/o/r/pulls/3/merge`, () =>
+				HttpResponse.json({ message: 'You have exceeded a secondary thing' }, {
+					status: 403,
+					headers: { 'retry-after': '30' }
+				})
+			)
+		);
+		const err = await forge()
+			.merge('o/r', 3, 't')
+			.catch((e) => e);
+		expect(err.message).toBe('GitHub-limiet bereikt, probeer het later');
+	});
 });
