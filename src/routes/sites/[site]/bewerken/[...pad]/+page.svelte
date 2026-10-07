@@ -168,9 +168,15 @@
 		<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
 
 		<nldd-tab-bar class="tabs" accessible-label="Weergave" ontabchange={onTabChange}>
-			<nldd-tab-bar-item data-tab="schrijven" text="Schrijven" current={tab === 'schrijven'}
+			<nldd-tab-bar-item
+				data-tab="schrijven"
+				text="Schrijven"
+				current={tab === 'schrijven' || undefined}
 			></nldd-tab-bar-item>
-			<nldd-tab-bar-item data-tab="voorbeeld" text="Voorbeeld" current={tab === 'voorbeeld'}
+			<nldd-tab-bar-item
+				data-tab="voorbeeld"
+				text="Voorbeeld"
+				current={tab === 'voorbeeld' || undefined}
 			></nldd-tab-bar-item>
 		</nldd-tab-bar>
 
