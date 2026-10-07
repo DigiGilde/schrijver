@@ -58,8 +58,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	await ensureSchema();
 	await ensureServices();
+	if (isPublic(path)) return resolve(event);
+	await ensureSchema();
 
 	const token = event.cookies.get(SESSION_COOKIE);
 	const secret = sessionSecret();
@@ -72,7 +73,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	if (isPublic(path)) return resolve(event);
 	if (!event.locals.user) return see('/login');
 	if (!event.locals.user.prefs.onboarded && !ONBOARDING_EXEMPT.has(path)) return see('/onboarding');
 	return resolve(event);

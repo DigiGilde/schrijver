@@ -5,6 +5,7 @@ import { sealSession, type Session } from '../../src/lib/auth/session';
 const secret = 'test-secret-with-enough-entropy';
 const prefs = { sub: 'abc', identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true };
 
+vi.mock('../../src/lib/server/services', () => ({ ensureServices: vi.fn(async () => undefined) }));
 vi.mock('../../src/lib/auth/users', () => ({
 	getPrefs: vi.fn(async () => prefs),
 	applySchema: vi.fn(async () => undefined)
@@ -38,6 +39,7 @@ function run(path: string, cookie?: string) {
 }
 
 beforeEach(() => {
+	vi.mocked(getPrefs).mockClear();
 	process.env.SESSION_SECRET = secret;
 	vi.mocked(getPrefs).mockResolvedValue(prefs as never);
 });
@@ -57,6 +59,7 @@ describe('handle', () => {
 			const { result, resolve } = run(path);
 			await result;
 			expect(resolve).toHaveBeenCalled();
+			expect(getPrefs).not.toHaveBeenCalled();
 		}
 	);
 
