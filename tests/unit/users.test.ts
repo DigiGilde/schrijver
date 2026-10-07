@@ -15,8 +15,20 @@ describe('MemoryUsersStore', () => {
 
 	it('upserts', async () => {
 		const store = new MemoryUsersStore();
-		await store.savePrefs({ sub: 'x', identity: 'gekoppeld', githubLogin: 'jan', githubId: 5, onboarded: true });
-		await store.savePrefs({ sub: 'x', identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true });
+		await store.savePrefs({
+			sub: 'x',
+			identity: 'gekoppeld',
+			githubLogin: 'jan',
+			githubId: 5,
+			onboarded: true
+		});
+		await store.savePrefs({
+			sub: 'x',
+			identity: 'anoniem',
+			githubLogin: null,
+			githubId: null,
+			onboarded: true
+		});
 		expect((await store.getPrefs('x')).identity).toBe('anoniem');
 		expect((await store.getPrefs('y')).onboarded).toBe(false);
 	});

@@ -11,7 +11,9 @@ export const POST: RequestHandler = async ({ url, cookies }) => {
 	try {
 		target = await endSessionUrl(url.origin);
 	} catch (err) {
-		log.warn('auth.end_session_unavailable', { reason: err instanceof Error ? err.message : 'unknown' });
+		log.warn('auth.end_session_unavailable', {
+			reason: err instanceof Error ? err.message : 'unknown'
+		});
 	}
 	redirect(303, target ?? '/');
 };

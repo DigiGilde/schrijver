@@ -22,8 +22,12 @@ const SECRET = 's3cret';
 function call(event: string, payload: unknown, sig?: string | null) {
 	const body = JSON.stringify(payload);
 	const headers: Record<string, string> = { 'x-github-event': event };
-	if (sig !== null) headers['x-hub-signature-256'] = sig ?? 'sha256=' + createHmac('sha256', SECRET).update(body).digest('hex');
-	return POST({ request: new Request('http://x/api/webhook/github', { method: 'POST', body, headers }) } as never);
+	if (sig !== null)
+		headers['x-hub-signature-256'] =
+			sig ?? 'sha256=' + createHmac('sha256', SECRET).update(body).digest('hex');
+	return POST({
+		request: new Request('http://x/api/webhook/github', { method: 'POST', body, headers })
+	} as never);
 }
 
 beforeEach(() => {
@@ -41,7 +45,11 @@ describe('github webhook', () => {
 	});
 
 	it('rejects a bad signature', async () => {
-		const res = await call('push', { repository: { full_name: 'o/config' } }, 'sha256=' + '0'.repeat(64));
+		const res = await call(
+			'push',
+			{ repository: { full_name: 'o/config' } },
+			'sha256=' + '0'.repeat(64)
+		);
 		expect(res.status).toBe(401);
 		expect(reloadConfig).not.toHaveBeenCalled();
 	});

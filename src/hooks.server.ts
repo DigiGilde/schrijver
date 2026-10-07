@@ -26,7 +26,13 @@ import {
 assertSafeEnvironment();
 assertStrongSecrets();
 
-const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/login/mislukt', '/uitloggen', '/healthz']);
+const PUBLIC_PATHS = new Set([
+	'/login',
+	'/login/callback',
+	'/login/mislukt',
+	'/uitloggen',
+	'/healthz'
+]);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
 const ONBOARDING_EXEMPT = new Set([
 	'/onboarding',
@@ -115,7 +121,8 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	if (!event.locals.user) {
 		// A fetch would follow a redirect to the SSO login and fail without a reason; say it.
 		if (path.startsWith('/api/')) {
-			const message = 'Je sessie is verlopen. Log opnieuw in; je tekst blijft in deze browser bewaard.';
+			const message =
+				'Je sessie is verlopen. Log opnieuw in; je tekst blijft in deze browser bewaard.';
 			return new Response(JSON.stringify({ ok: false, message, error: { message } }), {
 				status: 401,
 				headers: { 'content-type': 'application/json' }

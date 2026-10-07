@@ -1,9 +1,4 @@
-import {
-	parseSchemaYaml,
-	parseSitesYaml,
-	type PageSchema,
-	type SiteConfig
-} from './types';
+import { parseSchemaYaml, parseSitesYaml, type PageSchema, type SiteConfig } from './types';
 
 export interface ConfigReader {
 	readFile(path: string): Promise<string | null>;

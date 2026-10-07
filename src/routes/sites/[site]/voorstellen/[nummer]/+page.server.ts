@@ -47,11 +47,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.map((f) => ({
 				path: f.path,
 				status: f.status,
-				kind: proposal.pages.includes(f.path) ? 'pagina' : IMAGE.test(f.path) ? 'afbeelding' : 'ander'
+				kind: proposal.pages.includes(f.path)
+					? 'pagina'
+					: IMAGE.test(f.path)
+						? 'afbeelding'
+						: 'ander'
 			}))
 			.sort((a, b) => a.path.localeCompare(b.path));
 		const acts = await canAct(
-			{ trailer, email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin, identityKind: identity.kind },
+			{
+				trailer,
+				email: session.email,
+				emailVerified: session.emailVerified,
+				githubLogin: prefs.githubLogin,
+				identityKind: identity.kind
+			},
 			site,
 			pr,
 			forge

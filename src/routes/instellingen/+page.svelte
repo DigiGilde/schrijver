@@ -14,12 +14,15 @@
 		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
 		sites={data.sites}
-		error={form?.error ?? (data.linkFailed ? 'Koppelen met GitHub is niet gelukt. Probeer het opnieuw.' : undefined)}
+		error={form?.error ??
+			(data.linkFailed ? 'Koppelen met GitHub is niet gelukt. Probeer het opnieuw.' : undefined)}
 		saved={form?.saved || form?.unlinked}
 		justLinked={data.justLinked}
 	/>
 	<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
 		<nldd-button appearance="secondary" type="submit" text="Uitloggen"></nldd-button>
-		<nldd-text color="secondary" size="sm">Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text>
+		<nldd-text color="secondary" size="sm"
+			>Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text
+		>
 	</form>
 </nldd-container>

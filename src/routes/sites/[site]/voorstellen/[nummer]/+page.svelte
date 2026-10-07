@@ -39,11 +39,14 @@
 		melding = null;
 		status = 'Bezig';
 		try {
-			const res = await fetch(`/api/sites/${data.site.id}/voorstellen/${data.proposal.number}/${actie}`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json', 'X-Requested-With': 'Schrijver' },
-				body: JSON.stringify(body)
-			});
+			const res = await fetch(
+				`/api/sites/${data.site.id}/voorstellen/${data.proposal.number}/${actie}`,
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json', 'X-Requested-With': 'Schrijver' },
+					body: JSON.stringify(body)
+				}
+			);
 			const result = await res.json().catch(() => null);
 			if (res.ok && result?.ok) {
 				melding = result.warning
@@ -59,7 +62,11 @@
 				};
 			}
 		} catch (e) {
-			melding = { variant: 'critical', text: 'De actie is mislukt: geen verbinding', detail: String(e) };
+			melding = {
+				variant: 'critical',
+				text: 'De actie is mislukt: geen verbinding',
+				detail: String(e)
+			};
 		} finally {
 			busy = false;
 			status = melding?.text ?? '';
@@ -71,7 +78,10 @@
 
 <nldd-simple-section>
 	<nldd-container gap="24">
-		<nldd-link href="/sites/{data.site.id}" start-icon="arrow-left" text="Terug naar {data.site.naam}"
+		<nldd-link
+			href="/sites/{data.site.id}"
+			start-icon="arrow-left"
+			text="Terug naar {data.site.naam}"
 		></nldd-link>
 
 		<nldd-title size="1" heading-level="1" text={data.proposal.title}></nldd-title>
@@ -84,7 +94,8 @@
 			{#if data.viaGithub}<nldd-tag text="Via GitHub"></nldd-tag>{/if}
 			<nldd-text color="secondary">{CHECKS[data.proposal.checks]}</nldd-text>
 			{#if data.proposal.previewUrl}
-				<nldd-link href={data.proposal.previewUrl} target="_blank" text="Bekijk het voorbeeld"></nldd-link>
+				<nldd-link href={data.proposal.previewUrl} target="_blank" text="Bekijk het voorbeeld"
+				></nldd-link>
 			{/if}
 			<nldd-link href={data.githubUrl} target="_blank" text="Bekijk op GitHub"></nldd-link>
 		</nldd-container>
@@ -137,12 +148,14 @@
 		{/if}
 
 		{#if data.canComment || data.canMerge}
-			<nldd-link href="{data.githubUrl}/files" target="_blank" text="Beoordelen op GitHub"></nldd-link>
+			<nldd-link href="{data.githubUrl}/files" target="_blank" text="Beoordelen op GitHub"
+			></nldd-link>
 		{/if}
 
 		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'wijzigingen-gevraagd'}
 			<nldd-text color="secondary">
-				Terug naar concept zetten kan niet vanuit Schrijver. Doe dat op GitHub via "Convert to draft".
+				Terug naar concept zetten kan niet vanuit Schrijver. Doe dat op GitHub via "Convert to
+				draft".
 			</nldd-text>
 		{/if}
 

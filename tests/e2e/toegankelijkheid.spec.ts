@@ -172,7 +172,9 @@ test('Schrijfhulp button announces its collapsed and expanded state', async ({ p
 	await expect(page.getByRole('complementary', { name: 'Schrijfhulp' })).toBeVisible();
 });
 
-test('a save conflict takes focus, and choosing a version returns it to the editor', async ({ page }) => {
+test('a save conflict takes focus, and choosing a version returns it to the editor', async ({
+	page
+}) => {
 	await page.route('**/opslaan', (route) =>
 		route.fulfill({
 			status: 409,
@@ -195,7 +197,10 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 			status: 400,
 			json: {
 				ok: false,
-				error: { message: 'Controleer de gemarkeerde velden', fields: { description: 'Dit veld is verplicht' } }
+				error: {
+					message: 'Controleer de gemarkeerde velden',
+					fields: { description: 'Dit veld is verplicht' }
+				}
 			}
 		})
 	);
@@ -209,7 +214,12 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 });
 
 test.describe('forms have a submit control', () => {
-	for (const url of ['/sites/digi-handboek/voorstellen/1', '/instellingen', '/onboarding', '/sites/digi-handboek/nieuw']) {
+	for (const url of [
+		'/sites/digi-handboek/voorstellen/1',
+		'/instellingen',
+		'/onboarding',
+		'/sites/digi-handboek/nieuw'
+	]) {
 		test(url, async ({ page }) => {
 			await page.goto(url);
 			await page.evaluate(() => customElements.whenDefined('nldd-button'));
@@ -232,7 +242,11 @@ test.describe('forms have a submit control', () => {
 
 test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 	test.use({ viewport: { width: 320, height: 800 } });
-	for (const url of ['/sites/digi-handboek/voorstellen/1', '/sites/digi-handboek/bewerken/index.md', '/instellingen']) {
+	for (const url of [
+		'/sites/digi-handboek/voorstellen/1',
+		'/sites/digi-handboek/bewerken/index.md',
+		'/instellingen'
+	]) {
 		test(url, async ({ page }) => {
 			await page.goto(url);
 			await page.evaluate(() => customElements.whenDefined('nldd-top-navigation-bar'));

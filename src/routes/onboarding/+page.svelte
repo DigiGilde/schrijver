@@ -7,7 +7,8 @@
 <svelte:head><title>Hoe wil je je wijzigingen ondertekenen? - Schrijver</title></svelte:head>
 
 <nldd-container padding="16" gap="16">
-	<nldd-title size="1" heading-level="1" text="Hoe wil je je wijzigingen ondertekenen?"></nldd-title>
+	<nldd-title size="1" heading-level="1" text="Hoe wil je je wijzigingen ondertekenen?"
+	></nldd-title>
 	<PrefsForm
 		identity={form?.identity ?? data.identity}
 		githubLogin={data.githubLogin}

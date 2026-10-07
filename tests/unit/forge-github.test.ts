@@ -245,7 +245,7 @@ describe('GitHubForge', () => {
 			updated_at: '2026-01-01T00:00:00Z',
 			mergeable: true
 		}));
-		const track = async <T,>(v: T) => {
+		const track = async <T>(v: T) => {
 			active++;
 			peak = Math.max(peak, active);
 			await new Promise((r) => setTimeout(r, 5));
@@ -265,10 +265,13 @@ describe('GitHubForge', () => {
 	it('treats a 403 with retry-after as rate limited', async () => {
 		server.use(
 			http.put(`${API}/repos/o/r/pulls/3/merge`, () =>
-				HttpResponse.json({ message: 'You have exceeded a secondary thing' }, {
-					status: 403,
-					headers: { 'retry-after': '30' }
-				})
+				HttpResponse.json(
+					{ message: 'You have exceeded a secondary thing' },
+					{
+						status: 403,
+						headers: { 'retry-after': '30' }
+					}
+				)
 			)
 		);
 		const err = await forge()
@@ -283,10 +286,14 @@ describe('GitHubForge', () => {
 		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ private: false })));
 		expect(await forge().isPublic('o/r')).toBe(true);
 		server.use(
-			http.get(`${API}/repos/o/r`, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 }))
+			http.get(`${API}/repos/o/r`, () =>
+				HttpResponse.json({ message: 'Not Found' }, { status: 404 })
+			)
 		);
 		expect(await forge().isPublic('o/r')).toBe(true);
-		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ message: 'x' }, { status: 500 })));
+		server.use(
+			http.get(`${API}/repos/o/r`, () => HttpResponse.json({ message: 'x' }, { status: 500 }))
+		);
 		await expect(forge().isPublic('o/r')).rejects.toBeInstanceOf(ForgeError);
 	});
 });

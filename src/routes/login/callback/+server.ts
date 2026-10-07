@@ -1,7 +1,13 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { LOGIN_COOKIE, finishLogin } from '$lib/auth/oidc';
-import { SESSION_COOKIE, SESSION_TTL_MS, cookieOptions, sealSession, sessionSecret } from '$lib/auth/session';
+import {
+	SESSION_COOKIE,
+	SESSION_TTL_MS,
+	cookieOptions,
+	sealSession,
+	sessionSecret
+} from '$lib/auth/session';
 import { getPrefs } from '$lib/auth/users';
 import { log } from '$lib/log';
 
@@ -17,6 +23,10 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		redirect(303, '/login/mislukt');
 	}
 	cookies.delete(LOGIN_COOKIE, { path: '/' });
-	cookies.set(SESSION_COOKIE, sealSession(session, sessionSecret()), cookieOptions(SESSION_TTL_MS / 1000));
+	cookies.set(
+		SESSION_COOKIE,
+		sealSession(session, sessionSecret()),
+		cookieOptions(SESSION_TTL_MS / 1000)
+	);
 	redirect(303, onboarded ? '/' : '/onboarding');
 };

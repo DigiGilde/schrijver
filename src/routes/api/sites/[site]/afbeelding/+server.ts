@@ -16,7 +16,8 @@ const fail = (status: number, message: string) => json({ message }, { status });
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
 	if (!(locals as { user?: unknown }).user) return fail(401, 'Niet ingelogd');
-	if (request.headers.get('X-Requested-With') !== 'Schrijver') return fail(403, 'Verzoek geweigerd');
+	if (request.headers.get('X-Requested-With') !== 'Schrijver')
+		return fail(403, 'Verzoek geweigerd');
 
 	const site = getConfigStore().site(params.site);
 	if (!site) return fail(404, 'Site niet gevonden');

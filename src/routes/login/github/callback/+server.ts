@@ -13,7 +13,9 @@ export const GET: RequestHandler = async ({ url, cookies, locals }) => {
 		await savePrefs({ ...prefs, githubLogin: gh.login, githubId: gh.id });
 		log.info('auth.github_linked', { actor: actorPseudonym(session) });
 	} catch (err) {
-		log.error('auth.github_link_failed', { reason: err instanceof Error ? err.message : 'unknown' });
+		log.error('auth.github_link_failed', {
+			reason: err instanceof Error ? err.message : 'unknown'
+		});
 		cookies.delete(GITHUB_LINK_COOKIE, { path: '/' });
 		redirect(303, '/instellingen?koppelen=mislukt');
 	}

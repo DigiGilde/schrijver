@@ -71,7 +71,12 @@ describe('toProposal', () => {
 
 	it('flags mine only for the own trailer', () => {
 		expect(toProposal(pr(), files, digi, TRAILER).mine).toBe(true);
-		const other = toProposal(pr({ body: 'x\n\nSchrijver-Auteur: 111111111111' }), files, digi, TRAILER);
+		const other = toProposal(
+			pr({ body: 'x\n\nSchrijver-Auteur: 111111111111' }),
+			files,
+			digi,
+			TRAILER
+		);
 		expect(other.mine).toBe(false);
 		expect(other.viaSchrijver).toBe(true);
 	});
@@ -100,7 +105,10 @@ describe('previewUrl', () => {
 	});
 
 	it('replaces every {nummer} placeholder', () => {
-		const site = { ...digi, preview: { soort: 'bij-push' as const, url: 'https://x/{nummer}/pr-{nummer}/' } };
+		const site = {
+			...digi,
+			preview: { soort: 'bij-push' as const, url: 'https://x/{nummer}/pr-{nummer}/' }
+		};
 		const url = previewUrl(site, pr());
 		expect(url).toBe('https://x/7/pr-7/');
 		expect(url).not.toContain('{nummer}');

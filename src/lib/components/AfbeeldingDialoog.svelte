@@ -10,7 +10,14 @@
 		oninvoegen: (alt: string, result: Result) => void;
 		onclose: () => void;
 	};
-	let { open = $bindable(), siteId, pagina, file = $bindable(), oninvoegen, onclose }: Props = $props();
+	let {
+		open = $bindable(),
+		siteId,
+		pagina,
+		file = $bindable(),
+		oninvoegen,
+		onclose
+	}: Props = $props();
 
 	let alt = $state('');
 	let fout = $state<string | null>(null);
@@ -22,7 +29,11 @@
 	let altField: HTMLElement | undefined = $state();
 
 	const size = $derived(
-		file ? (file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} kB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`) : ''
+		file
+			? file.size < 1024 * 1024
+				? `${Math.max(1, Math.round(file.size / 1024))} kB`
+				: `${(file.size / 1024 / 1024).toFixed(1)} MB`
+			: ''
 	);
 
 	$effect(() => {
@@ -108,20 +119,20 @@
 >
 	<div class="velden">
 		{#key ronde}
-		<nldd-form-field label="Bestand">
-			<nldd-file-field
-				accept="image/png,image/jpeg,image/webp,image/svg+xml"
-				onchange={(e: Event) => {
-					file = (e as CustomEvent<{ files: File[] }>).detail.files[0] ?? null;
-					fout = null;
-					bestandFout = null;
-				}}
-				invalid={bestandFout !== null || undefined}
-			></nldd-file-field>
-			{#if bestandFout}
-				<nldd-form-field-help-text>{bestandFout}</nldd-form-field-help-text>
-			{/if}
-		</nldd-form-field>
+			<nldd-form-field label="Bestand">
+				<nldd-file-field
+					accept="image/png,image/jpeg,image/webp,image/svg+xml"
+					onchange={(e: Event) => {
+						file = (e as CustomEvent<{ files: File[] }>).detail.files[0] ?? null;
+						fout = null;
+						bestandFout = null;
+					}}
+					invalid={bestandFout !== null || undefined}
+				></nldd-file-field>
+				{#if bestandFout}
+					<nldd-form-field-help-text>{bestandFout}</nldd-form-field-help-text>
+				{/if}
+			</nldd-form-field>
 		{/key}
 		{#if file}
 			<p class="bestand">{file.name} ({size})</p>

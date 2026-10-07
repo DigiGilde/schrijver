@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/lib/server/services', () => ({
-	getConfigStore: () => ({ site: (id: string) => (id === 'onbekend' ? undefined : { id }), schema: () => ({}) }),
+	getConfigStore: () => ({
+		site: (id: string) => (id === 'onbekend' ? undefined : { id }),
+		schema: () => ({})
+	}),
 	getForge: () => ({})
 }));
 vi.mock('../../src/lib/log', async (original) => ({
@@ -30,23 +33,40 @@ const good = {
 	images: []
 };
 function call(opts: { user?: boolean; site?: string; body?: unknown; sub?: string }) {
-	const request = new Request('http://x', { method: 'POST', body: JSON.stringify(opts.body ?? good) });
+	const request = new Request('http://x', {
+		method: 'POST',
+		body: JSON.stringify(opts.body ?? good)
+	});
 	return POST({
 		request,
 		params: { site: opts.site ?? 'digi' },
-		locals: { user: opts.user === false ? null : { session: { sub: opts.sub ?? 's', email: 'jan@example.org', emailVerified: true }, prefs: {} } }
+		locals: {
+			user:
+				opts.user === false
+					? null
+					: {
+							session: { sub: opts.sub ?? 's', email: 'jan@example.org', emailVerified: true },
+							prefs: {}
+						}
+		}
 	} as never);
 }
 
 describe('POST /api/sites/[site]/opslaan', () => {
 	it('401 without user', async () => expect((await call({ user: false })).status).toBe(401));
-	it('404 on unknown site', async () => expect((await call({ site: 'onbekend' })).status).toBe(404));
+	it('404 on unknown site', async () =>
+		expect((await call({ site: 'onbekend' })).status).toBe(404));
 	it('400 on bad body', async () => expect((await call({ body: { path: 1 } })).status).toBe(400));
 	it('200 on success', async () => expect((await call({})).status).toBe(200));
 	it('logs the actor pseudonym and no e-mail address', async () => {
 		vi.mocked(log.info).mockClear();
 		await call({ sub: 'jan' });
-		expect(log.info).toHaveBeenCalledWith('save.ok', { site: 'digi', pr: 3, branch: 'b', actor: 'p-jan' });
+		expect(log.info).toHaveBeenCalledWith('save.ok', {
+			site: 'digi',
+			pr: 3,
+			branch: 'b',
+			actor: 'p-jan'
+		});
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
 	});
 
@@ -71,6 +91,9 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		for (let i = 0; i < 21; i++) statuses.push((await call({ sub: 'veelschrijver' })).status);
 		expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
 		expect(statuses[20]).toBe(429);
-		expect((await call({ sub: 'veelschrijver', body: { ...good, branch: 'schrijver/x', prNumber: 1 } })).status).toBe(200);
+		expect(
+			(await call({ sub: 'veelschrijver', body: { ...good, branch: 'schrijver/x', prNumber: 1 } }))
+				.status
+		).toBe(200);
 	});
 });

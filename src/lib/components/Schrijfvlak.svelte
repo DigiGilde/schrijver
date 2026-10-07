@@ -58,7 +58,10 @@
 	const dnd = actions.dropHandlers((file) => openDialog(file));
 
 	function onWeergave(event: Event) {
-		tab = (event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld' ? 'voorbeeld' : 'schrijven';
+		tab =
+			(event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld'
+				? 'voorbeeld'
+				: 'schrijven';
 	}
 </script>
 
@@ -96,7 +99,7 @@
 
 <aside class="hulp" id="schrijfhulp-paneel" aria-label="Schrijfhulp" hidden={!hulpOpen}>
 	{#if hulpOpen}
-			<Assistent
+		<Assistent
 			{siteId}
 			getSelection={() => actions.currentSelection(editor, body)}
 			getAll={() => body}
@@ -114,7 +117,8 @@
 	bind:file={dialogFile}
 	{siteId}
 	{pagina}
-	oninvoegen={(alt, result) => (images = addImage(images, actions.insertImage(editor, alt, result)))}
+	oninvoegen={(alt, result) =>
+		(images = addImage(images, actions.insertImage(editor, alt, result)))}
 	onclose={closeDialog}
 />
 

@@ -79,12 +79,25 @@ describe('session', () => {
 
 	it('refuses short secrets in production only', () => {
 		const strong = 'x'.repeat(32);
-		expect(() => assertStrongSecrets({ NODE_ENV: 'production', SESSION_SECRET: strong, PSEUDONYM_SECRET: strong })).not.toThrow();
-		expect(() => assertStrongSecrets({ NODE_ENV: 'production', SESSION_SECRET: 'kort', PSEUDONYM_SECRET: strong })).toThrow(
-			'SESSION_SECRET'
+		expect(() =>
+			assertStrongSecrets({
+				NODE_ENV: 'production',
+				SESSION_SECRET: strong,
+				PSEUDONYM_SECRET: strong
+			})
+		).not.toThrow();
+		expect(() =>
+			assertStrongSecrets({
+				NODE_ENV: 'production',
+				SESSION_SECRET: 'kort',
+				PSEUDONYM_SECRET: strong
+			})
+		).toThrow('SESSION_SECRET');
+		expect(() => assertStrongSecrets({ NODE_ENV: 'production', SESSION_SECRET: strong })).toThrow(
+			'PSEUDONYM_SECRET'
 		);
-		expect(() => assertStrongSecrets({ NODE_ENV: 'production', SESSION_SECRET: strong })).toThrow('PSEUDONYM_SECRET');
-		expect(() => assertStrongSecrets({ NODE_ENV: 'development', SESSION_SECRET: 'kort' })).not.toThrow();
+		expect(() =>
+			assertStrongSecrets({ NODE_ENV: 'development', SESSION_SECRET: 'kort' })
+		).not.toThrow();
 	});
 });
-

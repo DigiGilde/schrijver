@@ -31,7 +31,9 @@ const MESSAGES = new Set([BODY_TOO_LONG, FRONTMATTER_TOO_DEEP]);
 const BodySchema = z.object({
 	path: z.string().max(500),
 	body: z.string().max(MAX_BODY_CHARS, { message: BODY_TOO_LONG }),
-	frontmatter: z.record(z.string(), z.unknown()).refine(boundedJson, { message: FRONTMATTER_TOO_DEEP }),
+	frontmatter: z
+		.record(z.string(), z.unknown())
+		.refine(boundedJson, { message: FRONTMATTER_TOO_DEEP }),
 	changedKeys: z.array(z.string()),
 	baseSha: z.string().nullable(),
 	branch: z.string().max(300).nullable(),
@@ -57,14 +59,20 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	try {
 		parsed = BodySchema.parse(await request.json());
 	} catch (e) {
-		const known = e instanceof z.ZodError ? e.issues.find((i) => MESSAGES.has(i.message)) : undefined;
+		const known =
+			e instanceof z.ZodError ? e.issues.find((i) => MESSAGES.has(i.message)) : undefined;
 		return json(message(known?.message ?? 'Ongeldig verzoek'), { status: 400 });
 	}
 
 	if (parsed.branch === null && !newProposalLimit.take((user.session as { sub: string }).sub)) {
-		return json(message('Je hebt het afgelopen uur veel nieuwe voorstellen gemaakt; probeer het later opnieuw'), {
-			status: 429
-		});
+		return json(
+			message(
+				'Je hebt het afgelopen uur veel nieuwe voorstellen gemaakt; probeer het later opnieuw'
+			),
+			{
+				status: 429
+			}
+		);
 	}
 
 	const forge = getForge();
@@ -82,13 +90,22 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			isEditorial: () =>
 				isEditorial(
 					site,
-					{ email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
+					{
+						email: session.email,
+						emailVerified: session.emailVerified,
+						githubLogin: prefs.githubLogin
+					},
 					forge
 				)
 		}
 	);
 	if (result.ok) {
-		log.info('save.ok', { site: site.id, pr: result.prNumber, branch: result.branch, actor: actorPseudonym(user.session) });
+		log.info('save.ok', {
+			site: site.id,
+			pr: result.prNumber,
+			branch: result.branch,
+			actor: actorPseudonym(user.session)
+		});
 		return json(result);
 	}
 	if ('conflict' in result) {

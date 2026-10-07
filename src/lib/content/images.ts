@@ -87,7 +87,8 @@ export function validateImage(
 	};
 	if (!(mime in ALLOWED_IMAGE_TYPES)) return unsupported;
 	if (mime === 'image/svg+xml') {
-		if (bytes.length > MAX_SVG_BYTES) return { ok: false, status: 413, message: 'Een SVG mag niet groter zijn dan 1 MB' };
+		if (bytes.length > MAX_SVG_BYTES)
+			return { ok: false, status: 413, message: 'Een SVG mag niet groter zijn dan 1 MB' };
 		return new TextDecoder().decode(bytes).includes('<svg') ? { ok: true, mime } : unsupported;
 	}
 	return sniff(bytes) === mime ? { ok: true, mime } : unsupported;

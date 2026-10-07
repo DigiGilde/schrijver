@@ -21,7 +21,9 @@ const ReviewSchema = z.strictObject({
 });
 
 const IdentiteitSchema = z.strictObject({
-	toegestaan: z.array(z.enum(['anoniem', 'gekoppeld', 'op-naam'])).default(['anoniem', 'gekoppeld', 'op-naam'])
+	toegestaan: z
+		.array(z.enum(['anoniem', 'gekoppeld', 'op-naam']))
+		.default(['anoniem', 'gekoppeld', 'op-naam'])
 });
 
 const PreviewSchema = z
@@ -32,11 +34,19 @@ const PreviewSchema = z
 	})
 	.superRefine((p, ctx) => {
 		if (p.soort === 'bij-label' && !p.label) {
-			ctx.addIssue({ code: 'custom', path: ['label'], message: 'label is required when soort is bij-label' });
+			ctx.addIssue({
+				code: 'custom',
+				path: ['label'],
+				message: 'label is required when soort is bij-label'
+			});
 		}
 		if (p.soort !== 'geen') {
 			if (!p.url) {
-				ctx.addIssue({ code: 'custom', path: ['url'], message: 'url is required unless soort is geen' });
+				ctx.addIssue({
+					code: 'custom',
+					path: ['url'],
+					message: 'url is required unless soort is geen'
+				});
 			} else if (!p.url.includes('{nummer}')) {
 				ctx.addIssue({ code: 'custom', path: ['url'], message: 'url must contain {nummer}' });
 			}
@@ -59,7 +69,11 @@ export const SiteConfigSchema = z
 	})
 	.superRefine((site, ctx) => {
 		if (site.concepten === 'privé') {
-			ctx.addIssue({ code: 'custom', path: ['concepten'], message: 'concepten: privé wordt nog niet ondersteund' });
+			ctx.addIssue({
+				code: 'custom',
+				path: ['concepten'],
+				message: 'concepten: privé wordt nog niet ondersteund'
+			});
 		}
 	});
 

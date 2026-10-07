@@ -40,7 +40,12 @@ describe('services', () => {
 		expect(before.lastError).toBeNull();
 		expect(services.getConfigStore().sites()).toHaveLength(2);
 
-		await fake.commit('o/config', 'main', [{ path: 'sites.yaml', content: fixture('sites.yaml').split('\n- ')[0] }], 'm');
+		await fake.commit(
+			'o/config',
+			'main',
+			[{ path: 'sites.yaml', content: fixture('sites.yaml').split('\n- ')[0] }],
+			'm'
+		);
 		const body = JSON.stringify({ repository: { full_name: 'o/config' } });
 		const sig = 'sha256=' + createHmac('sha256', 's').update(body).digest('hex');
 		const res = await POST({
@@ -68,9 +73,9 @@ describe('services', () => {
 	it('runs another load when a reload arrives during one', async () => {
 		const loads: (() => void)[] = [];
 		const store = new ConfigStore({ readFile: async () => null, listFiles: async () => [] });
-		const load = vi.spyOn(store, 'load').mockImplementation(
-			() => new Promise<void>((r) => loads.push(r))
-		);
+		const load = vi
+			.spyOn(store, 'load')
+			.mockImplementation(() => new Promise<void>((r) => loads.push(r)));
 		services.setConfigStore(store);
 		const p1 = services.reloadConfig();
 		const p2 = services.reloadConfig();
@@ -96,7 +101,9 @@ describe('services', () => {
 	it('a load finishing after stop does not re-arm the timer', async () => {
 		let finish!: () => void;
 		const store = new ConfigStore({ readFile: async () => null, listFiles: async () => [] });
-		const load = vi.spyOn(store, 'load').mockImplementation(() => new Promise<void>((r) => (finish = r)));
+		const load = vi
+			.spyOn(store, 'load')
+			.mockImplementation(() => new Promise<void>((r) => (finish = r)));
 		services.setConfigStore(store);
 		const p = services.reloadConfig();
 		services.stopServices();

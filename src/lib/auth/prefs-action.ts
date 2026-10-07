@@ -14,7 +14,8 @@ export async function submitPrefs(event: RequestEvent, afterSave: 'redirect' | '
 	const identity = IDENTITIES.find((i) => i === identityRaw);
 	const values = { identity: identityRaw };
 
-	if (!identity) return fail(400, { ...values, error: 'Kies hoe je wijzigingen worden ondertekend' });
+	if (!identity)
+		return fail(400, { ...values, error: 'Kies hoe je wijzigingen worden ondertekend' });
 	if (identity === 'op-naam' && !user.session.emailVerified) {
 		return fail(400, { ...values, error: 'Alleen mogelijk met een geverifieerd e-mailadres' });
 	}

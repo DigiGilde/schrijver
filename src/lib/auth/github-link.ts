@@ -52,16 +52,19 @@ async function revokeGrant(token: string): Promise<void> {
 	const clientId = env('GITHUB_APP_CLIENT_ID');
 	const basic = Buffer.from(`${clientId}:${env('GITHUB_APP_CLIENT_SECRET')}`).toString('base64');
 	try {
-		const res = await fetch(`https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`, {
-			method: 'DELETE',
-			headers: {
-				accept: 'application/vnd.github+json',
-				authorization: `Basic ${basic}`,
-				'content-type': 'application/json',
-				'user-agent': 'schrijver'
-			},
-			body: JSON.stringify({ access_token: token })
-		});
+		const res = await fetch(
+			`https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`,
+			{
+				method: 'DELETE',
+				headers: {
+					accept: 'application/vnd.github+json',
+					authorization: `Basic ${basic}`,
+					'content-type': 'application/json',
+					'user-agent': 'schrijver'
+				},
+				body: JSON.stringify({ access_token: token })
+			}
+		);
 		if (res.status !== 204) log.warn('auth.github_grant_not_revoked', { status: res.status });
 	} catch (err) {
 		log.warn('auth.github_grant_not_revoked', errorFields(err));
@@ -75,15 +78,26 @@ export async function finishGithubLink(
 	sessionSub: string
 ): Promise<GithubIdentity> {
 	const link = cookie ? openPayload(cookie, sessionSecret(), 'github-link') : null;
-	if (!link || typeof link.state !== 'string' || typeof link.sub !== 'string' || typeof link.verifier !== 'string') throw new Error('link cookie missing or invalid');
+	if (
+		!link ||
+		typeof link.state !== 'string' ||
+		typeof link.sub !== 'string' ||
+		typeof link.verifier !== 'string'
+	)
+		throw new Error('link cookie missing or invalid');
 	if (link.sub !== sessionSub) throw new Error('link cookie belongs to another session');
-	if (!sameString(url.searchParams.get('state') ?? '', link.state)) throw new Error('state mismatch');
+	if (!sameString(url.searchParams.get('state') ?? '', link.state))
+		throw new Error('state mismatch');
 	const code = url.searchParams.get('code');
 	if (!code) throw new Error('no code in callback');
 
 	const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
 		method: 'POST',
-		headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'schrijver' },
+		headers: {
+			accept: 'application/json',
+			'content-type': 'application/x-www-form-urlencoded',
+			'user-agent': 'schrijver'
+		},
 		body: new URLSearchParams({
 			client_id: env('GITHUB_APP_CLIENT_ID'),
 			client_secret: env('GITHUB_APP_CLIENT_SECRET'),
@@ -97,12 +111,17 @@ export async function finishGithubLink(
 	if (typeof token !== 'string' || !token) throw new Error('no access token in response');
 
 	const userRes = await fetch('https://api.github.com/user', {
-		headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'user-agent': 'schrijver' }
+		headers: {
+			accept: 'application/vnd.github+json',
+			authorization: `Bearer ${token}`,
+			'user-agent': 'schrijver'
+		}
 	});
 	try {
 		if (!userRes.ok) throw new Error(`user lookup failed (${userRes.status})`);
 		const body = (await userRes.json()) as { id?: unknown; login?: unknown };
-		if (typeof body.id !== 'number' || typeof body.login !== 'string') throw new Error('unexpected user response');
+		if (typeof body.id !== 'number' || typeof body.login !== 'string')
+			throw new Error('unexpected user response');
 		return { login: body.login, id: body.id };
 	} finally {
 		await revokeGrant(token);

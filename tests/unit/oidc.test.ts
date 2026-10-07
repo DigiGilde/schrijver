@@ -26,7 +26,12 @@ beforeEach(() => {
 describe('finishLogin', () => {
 	it('maps claims, defaulting email_verified to false and reading a nested organization.name', async () => {
 		const { cookie } = await startLogin('http://localhost');
-		claims.mockReturnValue({ sub: 's1', name: 'Jan', email: 'jan@example.org', organization: { name: 'Ministerie X' } });
+		claims.mockReturnValue({
+			sub: 's1',
+			name: 'Jan',
+			email: 'jan@example.org',
+			organization: { name: 'Ministerie X' }
+		});
 		const s = await finishLogin(callback, cookie);
 		expect(s).toMatchObject({
 			sub: 's1',

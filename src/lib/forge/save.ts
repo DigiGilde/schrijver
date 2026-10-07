@@ -68,7 +68,12 @@ export const hasControlCharacters = (text: string) => CONTROL.test(text);
 
 /** A single plain line, safe to place in a commit summary or a pull request title. */
 export function singleLine(text: string): string {
-	return text.replace(CONTROL_ALL, ' ').replace(/`/g, "'").replaceAll('$(', '(').replace(/\s+/g, ' ').trim();
+	return text
+		.replace(CONTROL_ALL, ' ')
+		.replace(/`/g, "'")
+		.replaceAll('$(', '(')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 function inContentRules(site: SiteConfig, p: string): boolean {
@@ -119,7 +124,10 @@ export function hasImageWithoutAlt(body: string): boolean {
 
 function branchSlug(filePath: string): string {
 	const base = path.posix.basename(filePath, '.md');
-	const stem = base === 'index' || base === '_index' ? path.posix.basename(path.posix.dirname(filePath)) : base;
+	const stem =
+		base === 'index' || base === '_index'
+			? path.posix.basename(path.posix.dirname(filePath))
+			: base;
 	return slugify(stem) || 'pagina';
 }
 
@@ -153,7 +161,8 @@ export async function save(
 			return fail(400, 'Deze soort of map is niet toegestaan voor een nieuwe pagina');
 		}
 		template = templateFor(schema, req.newPage.soort)?.replaceAll('{titel}', req.newPage.title);
-		if (template === undefined && schema.titel === 'uit-h1') template = `# ${req.newPage.title}\n\n`;
+		if (template === undefined && schema.titel === 'uit-h1')
+			template = `# ${req.newPage.title}\n\n`;
 	}
 	if (!validPagePath(site, filePath)) return fail(400, INVALID_PATH);
 
@@ -186,7 +195,8 @@ export async function save(
 		if (!checked.ok) return fail(checked.status, checked.message);
 		if (checked.mime === 'image/svg+xml') {
 			const clean = sanitizeSvg(dec.decode(bytes));
-			if (!isSvgDocument(clean)) return fail(415, 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)');
+			if (!isSvgDocument(clean))
+				return fail(415, 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)');
 			bytes = new TextEncoder().encode(clean);
 		}
 		if (hasControlCharacters(image.path)) return fail(400, 'Ongeldig pad voor afbeelding');
@@ -217,8 +227,11 @@ export async function save(
 			for (const image of imageChanges) {
 				if (!(await forge.readFile(site.repo, ref, image.path))) continue;
 				// An image this proposal added itself may be replaced.
-				const onBase = req.branch !== null && (await forge.readFile(site.repo, site.standaardbranch, image.path));
-				if (req.branch === null || onBase) return fail(409, 'Afbeelding bestaat al', { detail: image.path });
+				const onBase =
+					req.branch !== null &&
+					(await forge.readFile(site.repo, site.standaardbranch, image.path));
+				if (req.branch === null || onBase)
+					return fail(409, 'Afbeelding bestaat al', { detail: image.path });
 			}
 		}
 		const current = await forge.readFile(site.repo, ref, filePath);
@@ -227,7 +240,10 @@ export async function save(
 
 		const currentText = current ? dec.decode(current.content) : (template ?? '');
 		const page = parsePage(currentText);
-		if (!page.ok) return fail(400, 'Deze pagina kan niet in Schrijver worden bewerkt', { detail: page.message });
+		if (!page.ok)
+			return fail(400, 'Deze pagina kan niet in Schrijver worden bewerkt', {
+				detail: page.message
+			});
 		if (page.rawFrontmatter === null && /^\uFEFF?(---|\+\+\+)\r?(\n|$)/.test(req.body)) {
 			return fail(400, 'De tekst mag niet met een gegevensblok (---) beginnen');
 		}
@@ -260,7 +276,8 @@ export async function save(
 
 		if (req.branch === null) {
 			const title =
-				singleLine(titleOf(schema, req.frontmatter, body)).slice(0, 200) || path.posix.basename(filePath, '.md');
+				singleLine(titleOf(schema, req.frontmatter, body)).slice(0, 200) ||
+				path.posix.basename(filePath, '.md');
 			const pr = await forge.openDraftPr(
 				site.repo,
 				branch,

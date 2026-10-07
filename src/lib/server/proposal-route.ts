@@ -28,7 +28,8 @@ export function proposalAction(action: string, handler: Handler) {
 		if (!current) return refuse(401, 'Niet ingelogd');
 		const site = getConfigStore().site(params.site!);
 		const nummer = Number(params.nummer);
-		if (!site || !Number.isInteger(nummer) || nummer <= 0) return refuse(404, 'Voorstel niet gevonden');
+		if (!site || !Number.isInteger(nummer) || nummer <= 0)
+			return refuse(404, 'Voorstel niet gevonden');
 		const forge = getForge();
 		try {
 			const pr = await forge.getPr(site.repo, nummer);
@@ -42,7 +43,12 @@ export function proposalAction(action: string, handler: Handler) {
 			};
 			const acts = await canAct(user, site, pr, forge);
 			const response = await handler({ site, forge, pr, acts, user }, event);
-			if (response.ok) log.info(`proposal.${action}`, { site: site.id, pr: nummer, actor: actorPseudonym(current.session) });
+			if (response.ok)
+				log.info(`proposal.${action}`, {
+					site: site.id,
+					pr: nummer,
+					actor: actorPseudonym(current.session)
+				});
 			return response;
 		} catch (e) {
 			if (e instanceof ForgeError) {

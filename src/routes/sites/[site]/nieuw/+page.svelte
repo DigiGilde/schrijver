@@ -6,7 +6,9 @@
 	// svelte-ignore state_referenced_locally
 	let map = $state('');
 	const option = $derived(data.options.find((o) => (o.naam ?? '') === soort) ?? data.options[0]);
-	const gekozenMap = $derived(option.fixed ?? (option.folders.includes(map) ? map : option.folders[0] ?? ''));
+	const gekozenMap = $derived(
+		option.fixed ?? (option.folders.includes(map) ? map : (option.folders[0] ?? ''))
+	);
 </script>
 
 <svelte:head><title>Nieuwe pagina - {data.site.naam} - Schrijver</title></svelte:head>
@@ -45,7 +47,8 @@
 				<input type="hidden" name="map" value={option.fixed} />
 			{/if}
 			<nldd-form-field label="Titel">
-				<nldd-text-field name="titel" required invalid={form?.veld === 'titel' || undefined}></nldd-text-field>
+				<nldd-text-field name="titel" required invalid={form?.veld === 'titel' || undefined}
+				></nldd-text-field>
 				{#if form?.veld === 'titel'}
 					<nldd-form-field-help-text>{form.error}</nldd-form-field-help-text>
 				{/if}

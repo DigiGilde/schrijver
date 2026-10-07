@@ -190,7 +190,12 @@
 			focusEditor();
 		}}
 	>
-		<nldd-button slot="actions" appearance="secondary" text="Open op GitHub" href={bewaard.url} target="_blank"
+		<nldd-button
+			slot="actions"
+			appearance="secondary"
+			text="Open op GitHub"
+			href={bewaard.url}
+			target="_blank"
 		></nldd-button>
 		<nldd-button
 			slot="actions"
@@ -236,9 +241,11 @@
 			</section>
 		</div>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-button appearance="primary" text="Mijn versie behouden" onclick={behoudMijn}></nldd-button>
+		<nldd-button appearance="primary" text="Mijn versie behouden" onclick={behoudMijn}
+		></nldd-button>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-button appearance="secondary" text="Hun versie overnemen" onclick={neemOver}></nldd-button>
+		<nldd-button appearance="secondary" text="Hun versie overnemen" onclick={neemOver}
+		></nldd-button>
 	</div>
 {/if}
 

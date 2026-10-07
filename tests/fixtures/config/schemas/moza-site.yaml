@@ -3,14 +3,14 @@ velden:
   title: { type: tekst, verplicht: true }
   description: { type: tekst, verplicht: true }
   weight: { type: getal, verborgen: true }
-  date: { type: datum, alleen-in: ["weekly/**"] }
+  date: { type: datum, alleen-in: ['weekly/**'] }
 nieuwe-pagina:
   soorten:
     - naam: Weekly
-      map: "weekly/{jaar}"
-      bestandsnaam: "{datum}"
+      map: 'weekly/{jaar}'
+      bestandsnaam: '{datum}'
       velden: [title, date]
     - naam: Handboekpagina
-      mappen: ["handboek/*"]
+      mappen: ['handboek/*']
     - naam: Onderwerp
       mappen: [onderwerpen]

@@ -42,7 +42,9 @@ test('flushes the last keystrokes when the page is hidden', async ({ page }) => 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('laatste woorden');
 	await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
-	const stored = await page.evaluate(() => localStorage.getItem('schrijver:digi-handboek:new:index.md'));
+	const stored = await page.evaluate(() =>
+		localStorage.getItem('schrijver:digi-handboek:new:index.md')
+	);
 	expect(stored).toContain('laatste woorden');
 	expect(stored).toContain('"sha"');
 });

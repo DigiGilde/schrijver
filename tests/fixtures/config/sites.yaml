@@ -5,7 +5,7 @@
   standaardbranch: main
   content:
     pad: docs
-    patroon: "**/*.md"
+    patroon: '**/*.md'
     schema: digi-handboek
     afbeeldingen:
       pad: docs/afbeeldingen/{paginaslug}
@@ -19,7 +19,7 @@
     toegestaan: [anoniem, gekoppeld, op-naam]
   preview:
     soort: bij-push
-    url: "https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/"
+    url: 'https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/'
   schrijfwijzer: digi-handboek.md
 
 - id: moza-site
@@ -29,11 +29,11 @@
   standaardbranch: main
   content:
     pad: content
-    patroon: "**/*.md"
+    patroon: '**/*.md'
     schema: moza-site
-    uitsluiten: ["documenten/**"]
+    uitsluiten: ['documenten/**']
     afbeeldingen:
-      pad: "{paginamap}/images"
+      pad: '{paginamap}/images'
       verwijzing: relatief
   review:
     model: goedkeuring
@@ -44,5 +44,5 @@
   preview:
     soort: bij-label
     label: preview
-    url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
+    url: 'https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl'
   schrijfwijzer: moza-site.md

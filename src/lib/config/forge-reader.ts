@@ -10,7 +10,10 @@ export function forgeConfigReader(forge: Forge, repo: string, ref = 'main'): Con
 		async listFiles(dir) {
 			const prefix = dir === '' || dir === '/' ? '' : dir.replace(/\/+$/, '') + '/';
 			const entries = await forge.readTree(repo, ref, dir);
-			return entries.map((e) => e.path).filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length));
+			return entries
+				.map((e) => e.path)
+				.filter((p) => p.startsWith(prefix))
+				.map((p) => p.slice(prefix.length));
 		}
 	};
 }

@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
-import { hasImageWithoutAlt, save, singleLine, type SaveRequest, type SaveResult } from '../../src/lib/forge/save';
+import {
+	hasImageWithoutAlt,
+	save,
+	singleLine,
+	type SaveRequest,
+	type SaveResult
+} from '../../src/lib/forge/save';
 import { ForgeError } from '../../src/lib/forge/types';
 import type { Identity } from '../../src/lib/forge/trailers';
 
@@ -67,7 +73,12 @@ describe('save', () => {
 				digi,
 				digiSchema,
 				identity,
-				req({ body: '\n# Home\n\nWéér nieuw.\n', baseSha: first.sha, branch: first.branch, prNumber: first.prNumber })
+				req({
+					body: '\n# Home\n\nWéér nieuw.\n',
+					baseSha: first.sha,
+					branch: first.branch,
+					prNumber: first.prNumber
+				})
 			)
 		);
 		expect(second.branch).toBe(first.branch);
@@ -79,14 +90,25 @@ describe('save', () => {
 
 	it('writes changed frontmatter keys', async () => {
 		const r = ok(
-			await save(forge, digi, digiSchema, identity, req({ frontmatter: { description: 'Nieuw' }, changedKeys: ['description'] }))
+			await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ frontmatter: { description: 'Nieuw' }, changedKeys: ['description'] })
+			)
 		);
 		expect(forge.fileText(digi.repo, r.branch, 'docs/index.md')).toContain('description: Nieuw');
 	});
 
 	it('conflict-detected-on-changed-blob', async () => {
 		const first = ok(await save(forge, digi, digiSchema, identity, req()));
-		await forge.commit(digi.repo, first.branch, [{ path: 'docs/index.md', content: 'Elders bewerkt\n' }], 'x');
+		await forge.commit(
+			digi.repo,
+			first.branch,
+			[{ path: 'docs/index.md', content: 'Elders bewerkt\n' }],
+			'x'
+		);
 		const r = await save(
 			forge,
 			digi,
@@ -118,36 +140,65 @@ describe('save', () => {
 				moza,
 				mozaSchema,
 				identity,
-				req({ path: 'content/contact.md', frontmatter: { title: '', description: 'x' }, changedKeys: ['title'], body: 'Tekst' })
+				req({
+					path: 'content/contact.md',
+					frontmatter: { title: '', description: 'x' },
+					changedKeys: ['title'],
+					body: 'Tekst'
+				})
 			);
 			expect(r).toMatchObject({ ok: false, error: { fields: { title: 'Dit veld is verplicht' } } });
 			expect(forge.branches(moza.repo)).toEqual(['main']);
 		});
 
 		it('mermaid without accDescr', async () => {
-			const r = await save(forge, digi, digiSchema, identity, req({ body: '```mermaid\nflowchart LR\n A-->B\n```\n' }));
-			expect(r).toMatchObject({ ok: false, error: { message: 'Elk Mermaid-diagram heeft een beschrijving (accDescr) nodig' } });
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: '```mermaid\nflowchart LR\n A-->B\n```\n' })
+			);
+			expect(r).toMatchObject({
+				ok: false,
+				error: { message: 'Elk Mermaid-diagram heeft een beschrijving (accDescr) nodig' }
+			});
 			untouched();
 		});
 
 		it('image without alt', async () => {
 			const r = await save(forge, digi, digiSchema, identity, req({ body: '![](a.png)' }));
-			expect(r).toMatchObject({ ok: false, error: { message: 'Elke afbeelding heeft een alt-tekst nodig' } });
+			expect(r).toMatchObject({
+				ok: false,
+				error: { message: 'Elke afbeelding heeft een alt-tekst nodig' }
+			});
 			untouched();
 		});
 
-		it.each(['docs/../geheim.md', '/docs/index.md', 'docs\\index.md', 'elders/index.md', 'docs/index.txt', 'docs/.md'])(
-			'bad path %s',
-			async (path) => {
-				const r = await save(forge, digi, digiSchema, identity, req({ path }));
-				expect(r).toMatchObject({ ok: false, error: { message: 'Ongeldig pad' }, status: 400 });
-				untouched();
-			}
-		);
+		it.each([
+			'docs/../geheim.md',
+			'/docs/index.md',
+			'docs\\index.md',
+			'elders/index.md',
+			'docs/index.txt',
+			'docs/.md'
+		])('bad path %s', async (path) => {
+			const r = await save(forge, digi, digiSchema, identity, req({ path }));
+			expect(r).toMatchObject({ ok: false, error: { message: 'Ongeldig pad' }, status: 400 });
+			untouched();
+		});
 
 		it('foreign branch and misplaced image', async () => {
-			expect(await save(forge, digi, digiSchema, identity, req({ branch: 'main', prNumber: 1 }))).toMatchObject({ ok: false, status: 400 });
-			const r = await save(forge, digi, digiSchema, identity, req({ images: [{ path: 'docs/index.md', base64: 'AA==' }] }));
+			expect(
+				await save(forge, digi, digiSchema, identity, req({ branch: 'main', prNumber: 1 }))
+			).toMatchObject({ ok: false, status: 400 });
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ images: [{ path: 'docs/index.md', base64: 'AA==' }] })
+			);
 			expect(r).toMatchObject({ ok: false, status: 400 });
 			untouched();
 		});
@@ -166,7 +217,9 @@ describe('save', () => {
 				})
 			)
 		);
-		expect(forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/kat.png')).toEqual(PNG.toString());
+		expect(forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/kat.png')).toEqual(
+			PNG.toString()
+		);
 		expect(forge.commitsOf(digi.repo, r.branch)).toHaveLength(1);
 	});
 
@@ -178,40 +231,77 @@ describe('save', () => {
 		const untouched = () => expect(forge.branches(digi.repo)).toEqual(['main']);
 
 		it('rejects PNG-named bytes that are not a PNG', async () => {
-			const r = await save(forge, digi, digiSchema, identity, req({ images: [img('x.png', Buffer.from('geen png'))] }));
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ images: [img('x.png', Buffer.from('geen png'))] })
+			);
 			expect(r).toMatchObject({ ok: false, status: 415 });
 			untouched();
 		});
 
 		it('sanitises svg before committing', async () => {
-			const svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script><rect width="1" height="1"/></svg>';
-			const r = ok(await save(forge, digi, digiSchema, identity, req({ images: [img('x.svg', Buffer.from(svg))] })));
+			const svg =
+				'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script><rect width="1" height="1"/></svg>';
+			const r = ok(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({ images: [img('x.svg', Buffer.from(svg))] })
+				)
+			);
 			const stored = forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/x.svg')!;
 			expect(stored).toContain('<rect');
 			expect(stored).not.toMatch(/script|onload/);
 		});
 
 		it('rejects svg-named text that is not an svg', async () => {
-			const r = await save(forge, digi, digiSchema, identity, req({ images: [img('x.svg', Buffer.from('hallo'))] }));
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ images: [img('x.svg', Buffer.from('hallo'))] })
+			);
 			expect(r).toMatchObject({ ok: false, status: 415 });
 		});
 	});
 
 	it('requires a base version for an existing file', async () => {
 		const r = await save(forge, digi, digiSchema, identity, req({ baseSha: null }));
-		expect(r).toMatchObject({ ok: false, status: 400, error: { message: 'Ontbrekende basisversie' } });
+		expect(r).toMatchObject({
+			ok: false,
+			status: 400,
+			error: { message: 'Ontbrekende basisversie' }
+		});
 		expect(forge.branches(digi.repo)).toEqual(['main']);
 	});
 
 	it('ignores changed keys that are not schema fields', async () => {
-		const r = ok(await save(forge, digi, digiSchema, identity, req({ frontmatter: { description: 'Oud', evil: 'x' }, changedKeys: ['evil'] })));
+		const r = ok(
+			await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ frontmatter: { description: 'Oud', evil: 'x' }, changedKeys: ['evil'] })
+			)
+		);
 		expect(forge.fileText(digi.repo, r.branch, 'docs/index.md')).not.toContain('evil');
 	});
 
 	it('returns a forge error with its detail', async () => {
 		forge.failNext('commit', new ForgeError(422, 'Commit mislukt', 'detail van GitHub'));
 		const r = await save(forge, digi, digiSchema, identity, req());
-		expect(r).toMatchObject({ ok: false, status: 422, error: { message: 'Commit mislukt', detail: 'detail van GitHub' } });
+		expect(r).toMatchObject({
+			ok: false,
+			status: 422,
+			error: { message: 'Commit mislukt', detail: 'detail van GitHub' }
+		});
 	});
 
 	describe('ownership of an existing branch', () => {
@@ -222,13 +312,21 @@ describe('save', () => {
 		it('refuses a foreign branch without editorial rights', async () => {
 			const first = ok(await save(forge, digi, digiSchema, other, req()));
 			const r = await save(forge, digi, digiSchema, identity, next(first));
-			expect(r).toMatchObject({ ok: false, status: 403, error: { message: 'Dit voorstel is niet van jou' } });
+			expect(r).toMatchObject({
+				ok: false,
+				status: 403,
+				error: { message: 'Dit voorstel is niet van jou' }
+			});
 			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(1);
 		});
 
 		it('allows a foreign branch for editorial', async () => {
 			const first = ok(await save(forge, digi, digiSchema, other, req()));
-			ok(await save(forge, digi, digiSchema, identity, next(first), { isEditorial: async () => true }));
+			ok(
+				await save(forge, digi, digiSchema, identity, next(first), {
+					isEditorial: async () => true
+				})
+			);
 			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(2);
 		});
 
@@ -243,7 +341,11 @@ describe('save', () => {
 			const real = forge.prs.get(first.prNumber)!;
 			const stub = {
 				...forge,
-				getPr: async () => ({ ...real, headRepo: 'aanvaller/handboek', body: `x\n\n${'Schrijver-Auteur: abc123def456'}` })
+				getPr: async () => ({
+					...real,
+					headRepo: 'aanvaller/handboek',
+					body: `x\n\n${'Schrijver-Auteur: abc123def456'}`
+				})
 			} as unknown as FakeForge;
 			Object.setPrototypeOf(stub, forge);
 			const r = await save(stub, digi, digiSchema, identity, next(first));
@@ -260,7 +362,10 @@ describe('save', () => {
 
 		it('refuses a PR whose head differs from the branch', async () => {
 			const first = ok(await save(forge, digi, digiSchema, identity, req()));
-			const r = await save(forge, digi, digiSchema, identity, { ...next(first), branch: 'schrijver/digi-handboek/ander-abcd' });
+			const r = await save(forge, digi, digiSchema, identity, {
+				...next(first),
+				branch: 'schrijver/digi-handboek/ander-abcd'
+			});
 			expect(r).toMatchObject({ ok: false, status: 409 });
 		});
 	});
@@ -279,13 +384,22 @@ describe('save', () => {
 		it('applies the template and the Nieuw commit message', async () => {
 			const r = ok(await save(forge, digi, digiSchema, identity, newReq()));
 			expect(r.path).toBe('docs/kennis/mijn-pagina.md');
-			expect(forge.fileText(digi.repo, r.branch, 'docs/kennis/mijn-pagina.md')).toBe('# Mijn Pagina\n');
-			expect(forge.commitsOf(digi.repo, r.branch)[0].message).toMatch(/^Nieuw: docs\/kennis\/mijn-pagina\.md/);
+			expect(forge.fileText(digi.repo, r.branch, 'docs/kennis/mijn-pagina.md')).toBe(
+				'# Mijn Pagina\n'
+			);
+			expect(forge.commitsOf(digi.repo, r.branch)[0].message).toMatch(
+				/^Nieuw: docs\/kennis\/mijn-pagina\.md/
+			);
 			expect(forge.prs.get(r.prNumber)!.title).toBe('Mijn Pagina');
 		});
 
 		it('refuses when the file already exists', async () => {
-			await forge.commit(digi.repo, 'main', [{ path: 'docs/kennis/mijn-pagina.md', content: 'bestaat' }], 'x');
+			await forge.commit(
+				digi.repo,
+				'main',
+				[{ path: 'docs/kennis/mijn-pagina.md', content: 'bestaat' }],
+				'x'
+			);
 			const again = await save(forge, digi, digiSchema, identity, newReq());
 			expect(again).toMatchObject({ ok: false, status: 409 });
 			expect(forge.branches(digi.repo)).toEqual(['main']);
@@ -293,7 +407,8 @@ describe('save', () => {
 	});
 
 	describe('alt-text check', () => {
-		const viaRegex = (body: string) => [...body.matchAll(/!\[([^\]]*)\]\(/g)].some((m) => !m[1].trim());
+		const viaRegex = (body: string) =>
+			[...body.matchAll(/!\[([^\]]*)\]\(/g)].some((m) => !m[1].trim());
 
 		it('finds the same images as the original pattern', () => {
 			const samples = [
@@ -312,7 +427,11 @@ describe('save', () => {
 		});
 
 		it('stays linear on adversarial input', () => {
-			for (const body of ['!['.repeat(250_000), '![ '.repeat(160_000) + ']', '![a]'.repeat(120_000)]) {
+			for (const body of [
+				'!['.repeat(250_000),
+				'![ '.repeat(160_000) + ']',
+				'![a]'.repeat(120_000)
+			]) {
 				const start = performance.now();
 				hasImageWithoutAlt(body);
 				expect(performance.now() - start).toBeLessThan(100);
@@ -322,28 +441,49 @@ describe('save', () => {
 
 	describe('path and text hygiene', () => {
 		it('refuses page paths with control characters', async () => {
-			const r = await save(forge, digi, digiSchema, identity, req({ path: 'docs/a\nCo-authored-by: X <x@y>\n.md' }));
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ path: 'docs/a\nCo-authored-by: X <x@y>\n.md' })
+			);
 			expect(r).toMatchObject({ ok: false, status: 400 });
 		});
 
 		it('refuses a new page in a folder with control characters', async () => {
 			const r = await save(forge, moza, mozaSchema, identity, {
-				...req({ path: '', body: '', frontmatter: { title: 'T', description: 'D' }, baseSha: null }),
-				newPage: { soort: 'Handboekpagina', folder: 'handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb', title: 'T' }
+				...req({
+					path: '',
+					body: '',
+					frontmatter: { title: 'T', description: 'D' },
+					baseSha: null
+				}),
+				newPage: {
+					soort: 'Handboekpagina',
+					folder: 'handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb',
+					title: 'T'
+				}
 			});
 			expect(r).toMatchObject({ ok: false, status: 400 });
 			expect(forge.branches(moza.repo)).toEqual(['main']);
 		});
 
 		it('refuses paths outside the content rules', async () => {
-			forge.seedRepo(moza.repo, 'main', { 'content/documenten/x.md': '---\ntitle: X\ndescription: Y\n---\nTekst\n' });
+			forge.seedRepo(moza.repo, 'main', {
+				'content/documenten/x.md': '---\ntitle: X\ndescription: Y\n---\nTekst\n'
+			});
 			const sha = (await forge.readFile(moza.repo, 'main', 'content/documenten/x.md'))!.sha;
 			const r = await save(
 				forge,
 				moza,
 				mozaSchema,
 				identity,
-				req({ path: 'content/documenten/x.md', frontmatter: { title: 'X', description: 'Y' }, baseSha: sha })
+				req({
+					path: 'content/documenten/x.md',
+					frontmatter: { title: 'X', description: 'Y' },
+					baseSha: sha
+				})
 			);
 			expect(r).toMatchObject({ ok: false, status: 400 });
 		});
@@ -359,7 +499,12 @@ describe('save', () => {
 					req({
 						path: 'content/contact.md',
 						body: '\nTekst.\n',
-						frontmatter: { title: 'Contact', description: 'Bel ons', weight: 1, date: '2026-01-01' },
+						frontmatter: {
+							title: 'Contact',
+							description: 'Bel ons',
+							weight: 1,
+							date: '2026-01-01'
+						},
 						changedKeys: ['weight', 'date'],
 						baseSha: sha
 					})
@@ -376,17 +521,26 @@ describe('save', () => {
 				digi,
 				digiSchema,
 				identity,
-				req({ path: 'docs/kaal.md', body: '---\nlayout: evil\n---\n# Kaal\n', frontmatter: {}, baseSha: sha })
+				req({
+					path: 'docs/kaal.md',
+					body: '---\nlayout: evil\n---\n# Kaal\n',
+					frontmatter: {},
+					baseSha: sha
+				})
 			);
 			expect(r).toMatchObject({ ok: false, status: 400 });
 		});
 
 		it('makes a single plain line of a title', () => {
-			expect(singleLine('Titel\n\nCo-authored-by: X `id` $(curl x)')).toBe("Titel Co-authored-by: X 'id' (curl x)");
+			expect(singleLine('Titel\n\nCo-authored-by: X `id` $(curl x)')).toBe(
+				"Titel Co-authored-by: X 'id' (curl x)"
+			);
 		});
 
 		it('keeps the pull request title on one line', async () => {
-			const r = ok(await save(forge, digi, digiSchema, identity, req({ body: '\n# Home `$(x)`\n\nTekst.\n' })));
+			const r = ok(
+				await save(forge, digi, digiSchema, identity, req({ body: '\n# Home `$(x)`\n\nTekst.\n' }))
+			);
 			expect(forge.prs.get(r.prNumber)!.title).toBe("Home '(x)'");
 		});
 	});
@@ -398,13 +552,19 @@ describe('save', () => {
 		it('refuses to overwrite an image on the default branch', async () => {
 			await forge.commit(digi.repo, 'main', [{ path: kat.path, content: 'oud logo' }], 'x');
 			const r = await save(forge, digi, digiSchema, identity, req({ body, images: [kat] }));
-			expect(r).toMatchObject({ ok: false, status: 409, error: { message: 'Afbeelding bestaat al' } });
+			expect(r).toMatchObject({
+				ok: false,
+				status: 409,
+				error: { message: 'Afbeelding bestaat al' }
+			});
 			expect(forge.fileText(digi.repo, 'main', kat.path)).toBe('oud logo');
 		});
 
 		it('overwrites when asked to', async () => {
 			await forge.commit(digi.repo, 'main', [{ path: kat.path, content: 'oud logo' }], 'x');
-			const r = ok(await save(forge, digi, digiSchema, identity, req({ body, images: [kat], overwrite: true })));
+			const r = ok(
+				await save(forge, digi, digiSchema, identity, req({ body, images: [kat], overwrite: true }))
+			);
 			expect(forge.fileText(digi.repo, r.branch, kat.path)).toBe(PNG.toString());
 		});
 
@@ -415,7 +575,13 @@ describe('save', () => {
 				digi,
 				digiSchema,
 				identity,
-				req({ body, images: [kat], baseSha: first.sha, branch: first.branch, prNumber: first.prNumber })
+				req({
+					body,
+					images: [kat],
+					baseSha: first.sha,
+					branch: first.branch,
+					prNumber: first.prNumber
+				})
 			);
 			expect(second.ok).toBe(true);
 		});

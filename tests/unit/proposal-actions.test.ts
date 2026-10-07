@@ -25,7 +25,11 @@ const site = (over: Partial<SiteConfig> & { label?: boolean } = {}): SiteConfig 
 		repo: 'o/moza',
 		standaardbranch: 'main',
 		content: { pad: 'content' },
-		review: { model: 'goedkeuring', 'mergen-vanuit-schrijver': true, redactie: ['red@example.org'] },
+		review: {
+			model: 'goedkeuring',
+			'mergen-vanuit-schrijver': true,
+			redactie: ['red@example.org']
+		},
 		preview: { soort: 'bij-label', label: 'preview', url: 'https://p/{nummer}' },
 		...over
 	}) as unknown as SiteConfig;
@@ -75,7 +79,9 @@ describe('sendIn', () => {
 		const pr = await draft();
 		const spy = vi.spyOn(forge, 'requestReviewers');
 		await sendIn(forge, site(), pr, { reviewers: [], filesAdded: true });
-		expect((await forge.getPr('o/moza', pr.number)).body).toContain('Menu bijwerken: deze wijziging voegt');
+		expect((await forge.getPr('o/moza', pr.number)).body).toContain(
+			'Menu bijwerken: deze wijziging voegt'
+		);
 		expect(spy).not.toHaveBeenCalled();
 	});
 
@@ -85,7 +91,10 @@ describe('sendIn', () => {
 		const comment = vi.spyOn(forge, 'comment');
 		await sendIn(forge, site(), pr, { reviewers: [], filesAdded: false });
 		expect(comment).toHaveBeenCalledWith('o/moza', pr.number, 'Klaar voor beoordeling');
-		expect(log.warn).toHaveBeenCalledWith('proposal.markready_fallback', { site: 'moza', pr: pr.number });
+		expect(log.warn).toHaveBeenCalledWith('proposal.markready_fallback', {
+			site: 'moza',
+			pr: pr.number
+		});
 		const after = await forge.getPr('o/moza', pr.number);
 		expect(after.body).toContain('Schrijver-Status: ingestuurd');
 		expect(isSentIn(after)).toBe(true);
@@ -124,15 +133,17 @@ describe('sendIn', () => {
 		const pr = await draft();
 		forge.mergeableByPr.set(pr.number, false);
 		const fresh = await forge.getPr('o/moza', pr.number);
-		expect((await sendIn(forge, site(), fresh, { reviewers: [], filesAdded: false })).warning).toContain(
-			'niet automatisch'
-		);
+		expect(
+			(await sendIn(forge, site(), fresh, { reviewers: [], filesAdded: false })).warning
+		).toContain('niet automatisch');
 	});
 
 	it('rethrows other markReady errors', async () => {
 		const pr = await draft();
 		forge.failNext('markReady', new ForgeError(500, 'Kapot'));
-		await expect(sendIn(forge, site(), pr, { reviewers: [], filesAdded: false })).rejects.toThrow('Kapot');
+		await expect(sendIn(forge, site(), pr, { reviewers: [], filesAdded: false })).rejects.toThrow(
+			'Kapot'
+		);
 	});
 });
 
@@ -146,7 +157,11 @@ describe('approve, comment, merge', () => {
 		await expect(commentProposal(forge, site(), pr.number, ' ')).rejects.toThrow();
 		const spy = vi.spyOn(forge, 'comment');
 		await commentProposal(forge, site(), pr.number, ' Mooi ');
-		expect(spy).toHaveBeenCalledWith('o/moza', pr.number, 'Opmerking van de redactie via Schrijver:\n\nMooi');
+		expect(spy).toHaveBeenCalledWith(
+			'o/moza',
+			pr.number,
+			'Opmerking van de redactie via Schrijver:\n\nMooi'
+		);
 	});
 
 	it('squashes with the title, number and distinct trailers', async () => {
@@ -166,7 +181,10 @@ describe('approve, comment, merge', () => {
 
 	it('surfaces a refused merge as a ForgeError with detail', async () => {
 		const pr = await draft();
-		forge.failNext('merge', new ForgeError(405, 'Samenvoegen geweigerd', 'Required status check "build" is expected.'));
+		forge.failNext(
+			'merge',
+			new ForgeError(405, 'Samenvoegen geweigerd', 'Required status check "build" is expected.')
+		);
 		await expect(mergeProposal(forge, site(), pr, [])).rejects.toMatchObject({
 			status: 405,
 			detail: 'Required status check "build" is expected.'
@@ -204,7 +222,9 @@ describe('canAct', () => {
 		};
 		expect(await canAct(user, site(), pr, forge)).toEqual({ owner: true, editorial: true });
 		const fork = { ...pr, headRepo: 'fork/moza' };
-		expect(await canAct(user, site(), { ...pr, headRepo: 'O/MOZA' }, forge)).toMatchObject({ owner: true });
+		expect(await canAct(user, site(), { ...pr, headRepo: 'O/MOZA' }, forge)).toMatchObject({
+			owner: true
+		});
 		expect(await canAct(user, site(), fork, forge)).toEqual({ owner: false, editorial: false });
 		expect(await canAct(user, site(), { ...pr, baseRef: 'dev' }, forge)).toEqual({
 			owner: false,

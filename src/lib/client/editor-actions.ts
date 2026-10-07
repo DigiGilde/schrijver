@@ -27,7 +27,11 @@ export function dropHandlers(open: (file: File) => void) {
 		ondrop: (e: DragEvent) => take(e, e.dataTransfer?.files),
 		onpaste: (e: ClipboardEvent) => take(e, e.clipboardData?.files),
 		ondragover: (e: DragEvent) => {
-			if (Array.from(e.dataTransfer?.items ?? []).some((i) => i.kind === 'file' && IMAGE_TYPES.includes(i.type))) {
+			if (
+				Array.from(e.dataTransfer?.items ?? []).some(
+					(i) => i.kind === 'file' && IMAGE_TYPES.includes(i.type)
+				)
+			) {
 				e.preventDefault();
 			}
 		}
@@ -56,18 +60,28 @@ export function insertImage(
 export function insertMermaid(editor: EditorHandle | undefined, body: string) {
 	const sel = editor?.getSelection();
 	const before = sel ? body.slice(0, sel.start) : body;
-	const prefix = before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+	const prefix =
+		before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
 	editor?.insertAtCursor(prefix + mermaidScaffold());
 	editor?.focus();
 }
 
 export function currentSelection(editor: EditorHandle | undefined, body: string) {
 	const sel = editor?.getSelection();
-	return sel && !sel.empty ? { text: body.slice(sel.start, sel.end), from: sel.start, to: sel.end } : null;
+	return sel && !sel.empty
+		? { text: body.slice(sel.start, sel.end), from: sel.start, to: sel.end }
+		: null;
 }
 
-export function markRange(editor: EditorHandle | undefined, body: string, from: number, to: number) {
-	editor?.setAnnotations([{ id: 'schrijfhulp', start: from, end: to, quote: body.slice(from, to) }]);
+export function markRange(
+	editor: EditorHandle | undefined,
+	body: string,
+	from: number,
+	to: number
+) {
+	editor?.setAnnotations([
+		{ id: 'schrijfhulp', start: from, end: to, quote: body.slice(from, to) }
+	]);
 }
 
 export function applySuggestion(

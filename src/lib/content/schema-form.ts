@@ -49,8 +49,7 @@ function fieldError(field: FormField): string | null {
 	if (def.type === 'datum') {
 		const s = value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
 		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-		const valid =
-			m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toISOString().slice(0, 10) === s;
+		const valid = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toISOString().slice(0, 10) === s;
 		if (!valid) return 'Datum als JJJJ-MM-DD';
 	}
 	if (def.type === 'paginaverwijzing' && def.meervoud && def.max !== undefined) {
@@ -67,7 +66,8 @@ export function validateForm(fields: FormField[]): { ok: boolean; fields: FormFi
 function outputValue(field: FormField): unknown {
 	const { def, value } = field;
 	if (isEmpty(value)) return undefined;
-	if (def.type === 'getal') return typeof value === 'number' ? value : Number(String(value).trim().replace(',', '.'));
+	if (def.type === 'getal')
+		return typeof value === 'number' ? value : Number(String(value).trim().replace(',', '.'));
 	if (def.type === 'ja-nee') return value === true || value === 'true';
 	if (def.type === 'datum' && value instanceof Date) return value.toISOString().slice(0, 10);
 	if (typeof value === 'string') return value.trim();
@@ -143,12 +143,18 @@ export function newPagePath(
 	const name =
 		!template || template === 'uit-titel'
 			? slug
-			: template.replaceAll('{datum}', datum).replaceAll('{titel}', slug).replaceAll('{jaar}', year);
+			: template
+					.replaceAll('{datum}', datum)
+					.replaceAll('{titel}', slug)
+					.replaceAll('{jaar}', year);
 	return `${dir}/${name}.md`;
 }
 
 function checkFolder(allowed: string[], folder: string): string {
-	if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(folder) || !allowed.some((glob) => picomatch(glob, { dot: true })(folder))) {
+	if (
+		/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(folder) ||
+		!allowed.some((glob) => picomatch(glob, { dot: true })(folder))
+	) {
 		throw new Error(`Folder not allowed: ${folder}`);
 	}
 	return folder;

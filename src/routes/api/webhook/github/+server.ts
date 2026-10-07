@@ -14,7 +14,13 @@ function validSignature(secret: string | undefined, body: Buffer, header: string
 export const POST: RequestHandler = async ({ request }) => {
 	const raw = Buffer.from(await request.arrayBuffer());
 	const body = raw.toString('utf8');
-	if (!validSignature(process.env.GITHUB_WEBHOOK_SECRET, raw, request.headers.get('x-hub-signature-256'))) {
+	if (
+		!validSignature(
+			process.env.GITHUB_WEBHOOK_SECRET,
+			raw,
+			request.headers.get('x-hub-signature-256')
+		)
+	) {
 		return new Response(null, { status: 401 });
 	}
 

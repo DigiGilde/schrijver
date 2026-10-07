@@ -20,7 +20,12 @@ export class CachingForge implements Forge {
 		this.entries.delete(repo);
 	}
 
-	private cached<T>(repo: string, key: string, load: () => Promise<T>, ttl = this.ttlMs): Promise<T> {
+	private cached<T>(
+		repo: string,
+		key: string,
+		load: () => Promise<T>,
+		ttl = this.ttlMs
+	): Promise<T> {
 		const now = this.clock();
 		const existing = this.entries.get(repo)?.get(key);
 		if (existing && existing.expires > now) return existing.promise as Promise<T>;
@@ -89,7 +94,12 @@ export class CachingForge implements Forge {
 		return this.inner.getPr(repo, number);
 	}
 	prFiles(repo: string, number: number): Promise<PrFile[]> {
-		return this.cached(repo, `prfiles\0${number}`, () => this.inner.prFiles(repo, number), this.prTtlMs);
+		return this.cached(
+			repo,
+			`prfiles\0${number}`,
+			() => this.inner.prFiles(repo, number),
+			this.prTtlMs
+		);
 	}
 	prCommits(repo: string, number: number) {
 		return this.inner.prCommits(repo, number);

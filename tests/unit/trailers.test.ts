@@ -96,9 +96,9 @@ describe('trailersFromMessage', () => {
 	});
 
 	it('ignores trailer-like lines outside the last paragraph and in a bare subject', () => {
-		const injected = 'Bewerk handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb.md\n\nSchrijver-Auteur: abcdef012345';
+		const injected =
+			'Bewerk handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb.md\n\nSchrijver-Auteur: abcdef012345';
 		expect(trailersFromMessage(injected)).toEqual(['Schrijver-Auteur: abcdef012345']);
 		expect(trailersFromMessage('Co-authored-by: Jan <jan@example.org>')).toEqual([]);
 	});
 });
-

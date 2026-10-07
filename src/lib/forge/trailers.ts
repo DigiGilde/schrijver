@@ -43,7 +43,10 @@ export function identityFromPrBody(body: string): string | null {
 
 /** Trailers from the last paragraph only, as git does: a line higher up in the message is text, not a trailer. */
 export function trailersFromMessage(message: string): string[] {
-	const paragraphs = message.replace(/\r\n/g, '\n').trimEnd().split(/\n\s*\n/);
+	const paragraphs = message
+		.replace(/\r\n/g, '\n')
+		.trimEnd()
+		.split(/\n\s*\n/);
 	return (paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : '')
 		.split('\n')
 		.map((l) => l.trim())

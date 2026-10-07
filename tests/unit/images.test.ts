@@ -156,12 +156,15 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		expect(Buffer.from(body.base64, 'base64')).toEqual(Buffer.from(PNG));
 	});
 
-	it.each(['/etc/x.md', '.github/workflows/x.md', 'docs/../.github/x.md', 'docs\\x.md', 'docs/kennis/foo.txt'])(
-		'rejects page path %s with 400',
-		async (pagina) => {
-			expect((await call({ alt: 'x', pagina })).status).toBe(400);
-		}
-	);
+	it.each([
+		'/etc/x.md',
+		'.github/workflows/x.md',
+		'docs/../.github/x.md',
+		'docs\\x.md',
+		'docs/kennis/foo.txt'
+	])('rejects page path %s with 400', async (pagina) => {
+		expect((await call({ alt: 'x', pagina })).status).toBe(400);
+	});
 
 	it('returns 404 for an unknown site', async () => {
 		expect((await call({ alt: 'x', site: 'nope' })).status).toBe(404);
@@ -189,7 +192,9 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 
 	it('stores a sanitised svg and derives the extension from the mime', async () => {
 		const svg = new File(
-			['<svg xmlns="http://www.w3.org/2000/svg" onload="x()"><script>1</script><circle r="1"/></svg>'],
+			[
+				'<svg xmlns="http://www.w3.org/2000/svg" onload="x()"><script>1</script><circle r="1"/></svg>'
+			],
 			'Logo.png',
 			{ type: 'image/svg+xml' }
 		);

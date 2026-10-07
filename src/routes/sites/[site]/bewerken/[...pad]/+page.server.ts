@@ -38,8 +38,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		}
 		const config = schema['nieuwe-pagina'];
 		const sjabloon =
-			('soorten' in config ? config.soorten.find((s) => s.naam === soort)?.sjabloon : config.sjabloon) ??
-			(schema.titel === 'uit-h1' ? '# {titel}\n\n' : '');
+			('soorten' in config
+				? config.soorten.find((s) => s.naam === soort)?.sjabloon
+				: config.sjabloon) ?? (schema.titel === 'uit-h1' ? '# {titel}\n\n' : '');
 		const frontmatter: Record<string, unknown> = schema.titel.startsWith('veld:')
 			? { [schema.titel.slice('veld:'.length)]: title }
 			: {};
@@ -83,7 +84,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			pr.headRepo !== site.repo ||
 			pr.baseRef !== site.standaardbranch ||
 			pr.state !== 'open'
-		) error(404, 'Voorstel niet gevonden');
+		)
+			error(404, 'Voorstel niet gevonden');
 		ref = wanted;
 		branch = wanted;
 		prNumber = n;
@@ -96,11 +98,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const githubUrl = `https://github.com/${site.repo}/blob/${encode(site.standaardbranch)}/${encode(repoPath)}`;
 	const base = {
 		site: {
-				id: site.id,
-				naam: site.naam,
-				concepten: site.concepten,
-				afbeeldingen: site.content.afbeeldingen != null
-			},
+			id: site.id,
+			naam: site.naam,
+			concepten: site.concepten,
+			afbeeldingen: site.content.afbeeldingen != null
+		},
 		path: pad,
 		repoPath,
 		sha: file.sha as string | null,

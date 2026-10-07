@@ -43,7 +43,12 @@ export function createUsersStore(sql: postgres.Sql): UsersStore {
 	return {
 		async getPrefs(sub) {
 			const rows = await sql<
-				{ identity: UserPrefs['identity']; github_login: string | null; github_id: string | number | null; onboarded: boolean }[]
+				{
+					identity: UserPrefs['identity'];
+					github_login: string | null;
+					github_id: string | number | null;
+					onboarded: boolean;
+				}[]
 			>`select identity, github_login, github_id, onboarded from user_prefs where sub = ${sub}`;
 			const r = rows[0];
 			if (!r) return defaults(sub);

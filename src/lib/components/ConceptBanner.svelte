@@ -14,7 +14,8 @@
 		: undefined}
 >
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-button slot="actions" appearance="primary" text="Herstellen" onclick={onherstel}></nldd-button>
+	<nldd-button slot="actions" appearance="primary" text="Herstellen" onclick={onherstel}
+	></nldd-button>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-button slot="actions" appearance="secondary" text="Weggooien" onclick={onweggooien}
 	></nldd-button>

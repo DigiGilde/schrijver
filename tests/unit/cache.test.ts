@@ -117,4 +117,3 @@ describe('CachingForge', () => {
 		expect(merge).toHaveBeenCalledWith('o/site', 1, 'm', 'abc1234');
 	});
 });
-

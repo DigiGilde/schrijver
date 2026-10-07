@@ -7,7 +7,12 @@
 	import LeesAlleenBanner from '$lib/components/LeesAlleenBanner.svelte';
 	import Opslaan from '$lib/components/Opslaan.svelte';
 	import Schrijfvlak from '$lib/components/Schrijfvlak.svelte';
-	import { readDraft, restoredValue, writeDraft as storeDraft, type Draft } from '$lib/client/draft';
+	import {
+		readDraft,
+		restoredValue,
+		writeDraft as storeDraft,
+		type Draft
+	} from '$lib/client/draft';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
 	import { applyForm, type FormField } from '$lib/content/schema-form';
@@ -122,7 +127,6 @@
 			value: restoredValue(field, page.frontmatter[field.key])
 		}));
 	}
-
 </script>
 
 <svelte:head><title>{data.path} bewerken - {data.site.naam} - Schrijver</title></svelte:head>
@@ -188,11 +192,14 @@
 				images={() => images}
 				onverstuurd={(sent) => (images = withoutSent(images, sent))}
 				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
-				onveldfouten={(fouten) => (fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
+				onveldfouten={(fouten) =>
+					(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
 				focusEditor={() => editor?.focus()}
 			/>
 			{#if images.length}
-				<nldd-text color="secondary" size="sm">Afbeeldingen worden meegestuurd bij het bewaren</nldd-text>
+				<nldd-text color="secondary" size="sm"
+					>Afbeeldingen worden meegestuurd bij het bewaren</nldd-text
+				>
 			{/if}
 			{#if imagesLost}
 				<nldd-text color="secondary" size="sm" role="status">

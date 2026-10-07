@@ -6,7 +6,8 @@ export interface Proposal {
 	number: number;
 	title: string;
 	url: string;
-	status: 'concept' | 'ingestuurd' | 'goedgekeurd' | 'wijzigingen-gevraagd' | 'samengevoegd' | 'gesloten';
+	status:
+		'concept' | 'ingestuurd' | 'goedgekeurd' | 'wijzigingen-gevraagd' | 'samengevoegd' | 'gesloten';
 	mine: boolean;
 	viaSchrijver: boolean;
 	pages: string[];

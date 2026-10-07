@@ -22,7 +22,13 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const prefs: UserPrefs = { sub: 'abc', identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true };
+const prefs: UserPrefs = {
+	sub: 'abc',
+	identity: 'anoniem',
+	githubLogin: null,
+	githubId: null,
+	onboarded: true
+};
 const user = (p = prefs, sub = 'abc') => ({ session: { sub, emailVerified: true }, prefs: p });
 
 function jar(initial: Record<string, string> = {}) {
@@ -50,7 +56,11 @@ function begin() {
 	const cookies = jar();
 	let loc = '';
 	try {
-		start({ url: new URL('https://x.test/login/github'), cookies, locals: { user: user() } } as never);
+		start({
+			url: new URL('https://x.test/login/github'),
+			cookies,
+			locals: { user: user() }
+		} as never);
 	} catch (r) {
 		loc = (r as { location: string }).location;
 	}
@@ -79,7 +89,9 @@ const githubOk = (challenge: string, user = { login: 'real-login', id: 42 }) => 
 			expect(body.get('client_id')).toBe('cid');
 			expect(body.get('client_secret')).toBe('csecret');
 			expect(body.get('code')).toBe('thecode');
-			expect(createHash('sha256').update(body.get('code_verifier')!).digest('base64url')).toBe(challenge);
+			expect(createHash('sha256').update(body.get('code_verifier')!).digest('base64url')).toBe(
+				challenge
+			);
 			expect(body.get('redirect_uri')).toBe('https://schrijver.test/login/github/callback');
 			expect(request.headers.get('accept')).toBe('application/json');
 			return HttpResponse.json({ access_token: 'ghu_tok', token_type: 'bearer', scope: '' });
@@ -104,7 +116,9 @@ describe('start', () => {
 		const { authorize, cookies } = begin();
 		expect(authorize.origin + authorize.pathname).toBe('https://github.com/login/oauth/authorize');
 		expect(authorize.searchParams.get('client_id')).toBe('cid');
-		expect(authorize.searchParams.get('redirect_uri')).toBe('https://schrijver.test/login/github/callback');
+		expect(authorize.searchParams.get('redirect_uri')).toBe(
+			'https://schrijver.test/login/github/callback'
+		);
 		expect(authorize.searchParams.get('scope')).toBeNull();
 		expect(cookies.store.schrijver_github_link).toBeTruthy();
 	});
@@ -136,14 +150,22 @@ describe('callback', () => {
 		githubOk(authorize.searchParams.get('code_challenge')!);
 		await call(cookies, `code=thecode&state=${state}`);
 		expect(revoked).toEqual([
-			{ authorization: `Basic ${Buffer.from('cid:csecret').toString('base64')}`, body: { access_token: 'ghu_tok' } }
+			{
+				authorization: `Basic ${Buffer.from('cid:csecret').toString('base64')}`,
+				body: { access_token: 'ghu_tok' }
+			}
 		]);
 	});
 
 	it('still links when revoking fails, and logs no token', async () => {
 		const { cookies, state, authorize } = begin();
 		githubOk(authorize.searchParams.get('code_challenge')!);
-		server.use(http.delete('https://api.github.com/applications/cid/grant', () => new HttpResponse(null, { status: 422 })));
+		server.use(
+			http.delete(
+				'https://api.github.com/applications/cid/grant',
+				() => new HttpResponse(null, { status: 422 })
+			)
+		);
 		await call(cookies, `code=thecode&state=${state}`);
 		expect(savePrefs).toHaveBeenCalled();
 		expect(log.warn).toHaveBeenCalledWith('auth.github_grant_not_revoked', { status: 422 });
@@ -168,7 +190,11 @@ describe('callback', () => {
 
 	it('rejects a cookie without a verifier', async () => {
 		const { cookies, state } = begin();
-		cookies.store.schrijver_github_link = sealPayload({ state, sub: 'abc', exp: Date.now() + 60_000 }, 'test-secret', 'github-link');
+		cookies.store.schrijver_github_link = sealPayload(
+			{ state, sub: 'abc', exp: Date.now() + 60_000 },
+			'test-secret',
+			'github-link'
+		);
 		const res = await call(cookies, `code=thecode&state=${state}`);
 		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
@@ -193,7 +219,12 @@ describe('callback', () => {
 	});
 
 	it('fails without logging the token when the exchange fails', async () => {
-		server.use(http.post('https://github.com/login/oauth/access_token', () => new HttpResponse(null, { status: 500 })));
+		server.use(
+			http.post(
+				'https://github.com/login/oauth/access_token',
+				() => new HttpResponse(null, { status: 500 })
+			)
+		);
 		const { cookies, state } = begin();
 		const res = await call(cookies, `code=thecode&state=${state}`);
 		expect(res.location).toBe('/instellingen?koppelen=mislukt');
@@ -204,11 +235,17 @@ describe('callback', () => {
 
 describe('prefs form action', () => {
 	const event = (identity: string, u = user()) =>
-		({ locals: { user: u }, request: new Request('http://x', { method: 'POST', body: new URLSearchParams({ identity }) }) }) as never;
+		({
+			locals: { user: u },
+			request: new Request('http://x', { method: 'POST', body: new URLSearchParams({ identity }) })
+		}) as never;
 
 	it('rejects op-naam without a verified e-mail address', async () => {
 		const u = { session: { sub: 'abc', emailVerified: false }, prefs };
-		const res = (await submitPrefs(event('op-naam', u), 'stay')) as { status: number; data: { error: string } };
+		const res = (await submitPrefs(event('op-naam', u), 'stay')) as {
+			status: number;
+			data: { error: string };
+		};
 		expect(res.status).toBe(400);
 		expect(res.data.error).toBe('Alleen mogelijk met een geverifieerd e-mailadres');
 		expect(savePrefs).not.toHaveBeenCalled();
@@ -221,13 +258,19 @@ describe('prefs form action', () => {
 	});
 
 	it('redirects to /login without a signed-in user', async () => {
-		const e = { locals: { user: null }, request: new Request('http://x', { method: 'POST', body: new URLSearchParams() }) } as never;
+		const e = {
+			locals: { user: null },
+			request: new Request('http://x', { method: 'POST', body: new URLSearchParams() })
+		} as never;
 		await expect(submitPrefs(e, 'stay')).rejects.toMatchObject({ status: 303, location: '/login' });
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
 
 	it('refuses gekoppeld without a link', async () => {
-		const res = (await submitPrefs(event('gekoppeld'), 'stay')) as { status: number; data: { error: string } };
+		const res = (await submitPrefs(event('gekoppeld'), 'stay')) as {
+			status: number;
+			data: { error: string };
+		};
 		expect(res.status).toBe(400);
 		expect(res.data.error).toBe('Koppel eerst je GitHub-account');
 		expect(savePrefs).not.toHaveBeenCalled();
@@ -242,15 +285,25 @@ describe('prefs form action', () => {
 	it('unlinking clears the link and resets gekoppeld to anoniem', async () => {
 		const linked: UserPrefs = { ...prefs, identity: 'gekoppeld', githubLogin: 'jan', githubId: 5 };
 		await unlinkGithub({ locals: { user: user(linked) } } as never);
-		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, identity: 'anoniem', githubLogin: null, githubId: null });
-		expect(log.info).toHaveBeenCalledWith('auth.github_unlinked', { actor: expect.stringMatching(/^[0-9a-f]{12}$/) });
+		expect(savePrefs).toHaveBeenCalledWith({
+			...prefs,
+			identity: 'anoniem',
+			githubLogin: null,
+			githubId: null
+		});
+		expect(log.info).toHaveBeenCalledWith('auth.github_unlinked', {
+			actor: expect.stringMatching(/^[0-9a-f]{12}$/)
+		});
 	});
 
 	it('logs an identity change with the actor pseudonym and no e-mail address', async () => {
 		vi.mocked(log.info).mockClear();
 		const u = { session: { sub: 'abc', emailVerified: true, email: 'jan@example.org' }, prefs };
 		await submitPrefs(event('op-naam', u), 'stay');
-		expect(log.info).toHaveBeenCalledWith('prefs.saved', { identity: 'op-naam', actor: expect.any(String) });
+		expect(log.info).toHaveBeenCalledWith('prefs.saved', {
+			identity: 'op-naam',
+			actor: expect.any(String)
+		});
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
 	});
 });

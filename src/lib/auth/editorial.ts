@@ -8,7 +8,11 @@ export interface EditorialUser {
 	githubLogin: string | null;
 }
 
-export async function isEditorial(site: SiteConfig, user: EditorialUser, forge: Forge): Promise<boolean> {
+export async function isEditorial(
+	site: SiteConfig,
+	user: EditorialUser,
+	forge: Forge
+): Promise<boolean> {
 	try {
 		if (user.emailVerified && user.email !== null) {
 			const email = user.email.trim().toLowerCase();

@@ -26,7 +26,10 @@ export async function canAct(
 	pr: PrSummary,
 	forge: Forge
 ): Promise<{ owner: boolean; editorial: boolean }> {
-	if (pr.headRepo.toLowerCase() !== site.repo.toLowerCase() || pr.baseRef !== site.standaardbranch) {
+	if (
+		pr.headRepo.toLowerCase() !== site.repo.toLowerCase() ||
+		pr.baseRef !== site.standaardbranch
+	) {
 		return { owner: false, editorial: false };
 	}
 	return {

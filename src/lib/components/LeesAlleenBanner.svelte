@@ -3,7 +3,8 @@
 
 	const tekst = {
 		toml: 'Deze pagina gebruikt TOML-frontmatter, dat Schrijver nog niet ondersteunt.',
-		'yaml-error': 'De frontmatter van deze pagina bevat een fout en kan niet veilig worden bewerkt.',
+		'yaml-error':
+			'De frontmatter van deze pagina bevat een fout en kan niet veilig worden bewerkt.',
 		unterminated: 'De frontmatter van deze pagina is niet afgesloten met ---.'
 	};
 </script>

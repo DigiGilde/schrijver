@@ -33,7 +33,9 @@
 		element?.replaceRange(from, to, text);
 	export const getSelection = () => element?.getSelection();
 	export const focus = () => element?.focus();
-	export const setAnnotations = (list: { id: string; start: number; end: number; quote?: string }[]) => {
+	export const setAnnotations = (
+		list: { id: string; start: number; end: number; quote?: string }[]
+	) => {
 		if (element) element.annotations = list;
 	};
 	export const getState = () => element?.getState();

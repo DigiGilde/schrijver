@@ -14,9 +14,12 @@
 	const split = (text: string | null): Split => {
 		if (text === null) return { frontmatter: {}, body: '' };
 		const page = parsePage(text);
-		return page.ok ? { frontmatter: page.frontmatter, body: page.body } : { frontmatter: {}, body: text };
+		return page.ok
+			? { frontmatter: page.frontmatter, body: page.body }
+			: { frontmatter: {}, body: text };
 	};
-	const show = (v: unknown) => (v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v));
+	const show = (v: unknown) =>
+		v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v);
 
 	const old = $derived(split(before));
 	const nieuw = $derived(split(after));
@@ -36,7 +39,8 @@
 
 <section class="diff" aria-label={path}>
 	<nldd-title size="4" heading-level="3" text={path}>
-		{#if before === null}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"></nldd-badge>{/if}
+		{#if before === null}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"
+			></nldd-badge>{/if}
 		{#if after === null}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
 	</nldd-title>
 
@@ -44,7 +48,8 @@
 		<table>
 			<caption>Gewijzigde gegevens bovenaan de pagina</caption>
 			<thead>
-				<tr><th scope="col">Veld</th><th scope="col">Huidig</th><th scope="col">Voorgesteld</th></tr>
+				<tr><th scope="col">Veld</th><th scope="col">Huidig</th><th scope="col">Voorgesteld</th></tr
+				>
 			</thead>
 			<tbody>
 				{#each changes as c (c.key)}
@@ -61,18 +66,19 @@
 		</section>
 		<section aria-label="Voorgestelde versie van {path}">
 			<nldd-title size="5" heading-level="4" text="Voorgestelde versie"></nldd-title>
-			{#if newHtml}<nldd-rich-text>{@html newHtml}</nldd-rich-text>{:else}<pre>{nieuw.body}</pre>{/if}
+			{#if newHtml}<nldd-rich-text>{@html newHtml}</nldd-rich-text
+				>{:else}<pre>{nieuw.body}</pre>{/if}
 		</section>
 	</div>
 
 	<details>
 		<summary>Brontekst vergelijken</summary>
-		<pre class="bron">{#each source as part, i (i)}{#if part.kind === 'added'}<ins><span class="sr-only"
-						>toegevoegd: </span
-					>{part.text}</ins
-				>{:else if part.kind === 'removed'}<del><span class="sr-only">verwijderd: </span>{part.text}</del
-				>{:else if part.kind === 'skip'}<span class="overgeslagen"
-					>... {part.lines} {part.lines === 1 ? 'regel' : 'regels'} ongewijzigd ...
+		<pre class="bron">{#each source as part, i (i)}{#if part.kind === 'added'}<ins
+						><span class="sr-only">toegevoegd: </span>{part.text}</ins
+					>{:else if part.kind === 'removed'}<del
+						><span class="sr-only">verwijderd: </span>{part.text}</del
+					>{:else if part.kind === 'skip'}<span class="overgeslagen"
+						>... {part.lines} {part.lines === 1 ? 'regel' : 'regels'} ongewijzigd ...
 </span>{:else}{part.text}{/if}{/each}</pre>
 	</details>
 </section>

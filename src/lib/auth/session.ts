@@ -28,21 +28,36 @@ const keyOf = (secret: string, purpose: Purpose) =>
 	Buffer.from(hkdfSync('sha256', secret, 'schrijver', `schrijver:${purpose}`, 32));
 
 /** Seals any JSON payload that carries a numeric `exp` (epoch ms). */
-export function sealPayload<T extends { exp: number }>(payload: T, secret: string, purpose: Purpose): string {
+export function sealPayload<T extends { exp: number }>(
+	payload: T,
+	secret: string,
+	purpose: Purpose
+): string {
 	const iv = randomBytes(IV_LEN);
 	const cipher = createCipheriv('aes-256-gcm', keyOf(secret, purpose), iv);
 	const ct = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
 	return Buffer.concat([iv, ct, cipher.getAuthTag()]).toString('base64url');
 }
 
-export function openPayload(token: string, secret: string, purpose: Purpose): Record<string, unknown> | null {
+export function openPayload(
+	token: string,
+	secret: string,
+	purpose: Purpose
+): Record<string, unknown> | null {
 	try {
 		if (!/^[A-Za-z0-9_-]+$/.test(token)) return null;
 		const raw = Buffer.from(token, 'base64url');
 		if (raw.length < IV_LEN + TAG_LEN + 1) return null;
-		const decipher = createDecipheriv('aes-256-gcm', keyOf(secret, purpose), raw.subarray(0, IV_LEN));
+		const decipher = createDecipheriv(
+			'aes-256-gcm',
+			keyOf(secret, purpose),
+			raw.subarray(0, IV_LEN)
+		);
 		decipher.setAuthTag(raw.subarray(raw.length - TAG_LEN));
-		const plain = Buffer.concat([decipher.update(raw.subarray(IV_LEN, raw.length - TAG_LEN)), decipher.final()]);
+		const plain = Buffer.concat([
+			decipher.update(raw.subarray(IV_LEN, raw.length - TAG_LEN)),
+			decipher.final()
+		]);
 		const data = JSON.parse(plain.toString('utf8'));
 		if (typeof data !== 'object' || data === null || typeof data.exp !== 'number') return null;
 		return data.exp < Date.now() ? null : data;

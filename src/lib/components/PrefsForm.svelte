@@ -13,7 +13,11 @@
 	};
 	let { identity, githubLogin, emailVerified, sites, error, saved, justLinked }: Props = $props();
 
-	const NAAM: Record<Kind, string> = { anoniem: 'anoniem', gekoppeld: 'gekoppeld aan GitHub', 'op-naam': 'op naam' };
+	const NAAM: Record<Kind, string> = {
+		anoniem: 'anoniem',
+		gekoppeld: 'gekoppeld aan GitHub',
+		'op-naam': 'op naam'
+	};
 
 	// svelte-ignore state_referenced_locally
 	let selected = $state(identity);
@@ -22,7 +26,8 @@
 	const linked = $derived(githubLogin !== '');
 
 	/* Mirrors effectiveKind in $lib/auth/identity: the choice where the site allows it, else its first usable kind. */
-	const usable = (kind: Kind) => kind === 'anoniem' || (kind === 'gekoppeld' ? linked : emailVerified);
+	const usable = (kind: Kind) =>
+		kind === 'anoniem' || (kind === 'gekoppeld' ? linked : emailVerified);
 	const afwijkend = $derived.by(() => {
 		const keuze = (usable(selected as Kind) ? selected : 'anoniem') as Kind;
 		return sites
@@ -40,7 +45,8 @@
 
 <!-- One persistent live region: a banner inserted together with its text is not reliably announced. -->
 <p class="sr-only" role="status">
-	{error ?? (saved ? 'Instellingen opgeslagen' : justLinked ? 'Je GitHub-account is gekoppeld' : '')}
+	{error ??
+		(saved ? 'Instellingen opgeslagen' : justLinked ? 'Je GitHub-account is gekoppeld' : '')}
 </p>
 {#if error}
 	<nldd-banner variant="critical" text={error}></nldd-banner>
@@ -88,14 +94,18 @@
 				></nldd-radio-button-field>
 			</nldd-radio-button-group>
 			{#if !linked}
-				<nldd-form-field-help-text>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text>
+				<nldd-form-field-help-text
+					>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
+				>
 			{/if}
 			{#if !emailVerified}
-				<nldd-form-field-help-text>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text>
+				<nldd-form-field-help-text
+					>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text
+				>
 			{/if}
 			<nldd-form-field-help-text>
-				Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed zichtbaar: de
-				geschiedenis kan niet worden gewist, ook niet als je later iets anders kiest.
+				Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed
+				zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets anders kiest.
 			</nldd-form-field-help-text>
 		</nldd-form-field>
 
@@ -128,16 +138,23 @@
 				unlinking = true;
 				return async ({ result, update }) => {
 					await update({ reset: false });
-					if (result.type === 'success' && typeof result.data?.identity === 'string') selected = result.data.identity;
+					if (result.type === 'success' && typeof result.data?.identity === 'string')
+						selected = result.data.identity;
 					unlinking = false;
 				};
 			}}
 		>
-			<nldd-button appearance="secondary" type="submit" text="Koppeling verwijderen" loading={unlinking}></nldd-button>
+			<nldd-button
+				appearance="secondary"
+				type="submit"
+				text="Koppeling verwijderen"
+				loading={unlinking}
+			></nldd-button>
 		</form>
 	{:else}
 		<form method="post" action="/login/github" data-sveltekit-reload>
-			<nldd-button appearance="secondary" type="submit" text="Koppel je GitHub-account"></nldd-button>
+			<nldd-button appearance="secondary" type="submit" text="Koppel je GitHub-account"
+			></nldd-button>
 		</form>
 	{/if}
 </nldd-container>

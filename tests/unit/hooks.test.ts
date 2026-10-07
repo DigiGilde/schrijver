@@ -106,22 +106,28 @@ describe('handle', () => {
 	});
 
 	it('answers an expired session on the API with 401 JSON instead of a redirect', async () => {
-		const { result, resolve } = run('/api/sites/x/opslaan', undefined, { 'X-Requested-With': 'Schrijver' });
+		const { result, resolve } = run('/api/sites/x/opslaan', undefined, {
+			'X-Requested-With': 'Schrijver'
+		});
 		const res = await result;
 		expect(res.status).toBe(401);
 		expect((await res.json()).message).toContain('sessie is verlopen');
 		expect(resolve).not.toHaveBeenCalled();
 	});
 
-	it.each(['/healthz', '/login', '/login/callback', '/login/mislukt', '/uitloggen', '/api/webhook/github'])(
-		'passes %s through',
-		async (path) => {
-			const { result, resolve } = run(path);
-			await result;
-			expect(resolve).toHaveBeenCalled();
-			expect(getPrefs).not.toHaveBeenCalled();
-		}
-	);
+	it.each([
+		'/healthz',
+		'/login',
+		'/login/callback',
+		'/login/mislukt',
+		'/uitloggen',
+		'/api/webhook/github'
+	])('passes %s through', async (path) => {
+		const { result, resolve } = run(path);
+		await result;
+		expect(resolve).toHaveBeenCalled();
+		expect(getPrefs).not.toHaveBeenCalled();
+	});
 
 	it('sets locals.user for a valid cookie', async () => {
 		const s = session();
@@ -165,7 +171,10 @@ describe('handle', () => {
 
 	it('does not re-seal past the absolute maximum', async () => {
 		const signedIn = Date.now() - 12 * 3600_000 + 60_000;
-		const { result, set } = run('/', sealSession(session({ iat: signedIn, exp: Date.now() + 60_000 }), secret));
+		const { result, set } = run(
+			'/',
+			sealSession(session({ iat: signedIn, exp: Date.now() + 60_000 }), secret)
+		);
 		await result;
 		expect(set).not.toHaveBeenCalled();
 	});
@@ -196,7 +205,12 @@ describe('handleError', () => {
 
 	it('does not log a plain 404', async () => {
 		const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-		const result = await handleError({ error: new Error('Not found'), status: 404, message: 'Not Found', event: {} as never });
+		const result = await handleError({
+			error: new Error('Not found'),
+			status: 404,
+			message: 'Not Found',
+			event: {} as never
+		});
 		const calls = write.mock.calls.length;
 		write.mockRestore();
 		expect(result).toEqual({ message: 'Deze pagina bestaat niet' });

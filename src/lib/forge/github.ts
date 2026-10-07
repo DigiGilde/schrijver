@@ -31,15 +31,15 @@ function toForgeError(e: unknown): ForgeError {
 		const data = e.response?.data as { message?: string; errors?: unknown[] } | undefined;
 		const parts = [data?.message ?? e.message];
 		for (const x of data?.errors ?? []) {
-			parts.push(typeof x === 'string' ? x : ((x as { message?: string }).message ?? JSON.stringify(x)));
+			parts.push(
+				typeof x === 'string' ? x : ((x as { message?: string }).message ?? JSON.stringify(x))
+			);
 		}
 		const detail = parts.join('; ');
 		const rateLimited =
 			(e.status === 403 || e.status === 429) &&
 			(/rate limit/i.test(detail) || !!e.response?.headers?.['retry-after']);
-		const message = rateLimited
-			? MESSAGES[429]
-			: (MESSAGES[e.status] ?? 'GitHub gaf een fout');
+		const message = rateLimited ? MESSAGES[429] : (MESSAGES[e.status] ?? 'GitHub gaf een fout');
 		return new ForgeError(e.status, message, detail);
 	}
 	const msg = e instanceof Error ? e.message : String(e);
@@ -181,9 +181,13 @@ export class GitHubForge implements Forge {
 			branch
 		});
 		const headSha: string = head.object.sha;
-		const headCommit = await this.request(repo, 'GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
-			commit_sha: headSha
-		});
+		const headCommit = await this.request(
+			repo,
+			'GET /repos/{owner}/{repo}/git/commits/{commit_sha}',
+			{
+				commit_sha: headSha
+			}
+		);
 		const tree: Json[] = [];
 		for (const change of changes) {
 			const binary = typeof change.content !== 'string';
@@ -247,7 +251,9 @@ export class GitHubForge implements Forge {
 			const message = e instanceof Error ? e.message : String(e);
 			const denied =
 				status === 403 ||
-				errors.some((x) => x.type === 'FORBIDDEN' || /not accessible|permission/i.test(x.message ?? '')) ||
+				errors.some(
+					(x) => x.type === 'FORBIDDEN' || /not accessible|permission/i.test(x.message ?? '')
+				) ||
 				/not accessible|permission/i.test(message);
 			if (denied) {
 				throw new ForgeError(403, 'Klaar-voor-beoordeling zetten is niet toegestaan', message);
@@ -299,10 +305,14 @@ export class GitHubForge implements Forge {
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
-		const files: Json[] = await this.request(repo, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
-			pull_number: number,
-			per_page: 100
-		});
+		const files: Json[] = await this.request(
+			repo,
+			'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
+			{
+				pull_number: number,
+				per_page: 100
+			}
+		);
 		return files.map((f) => ({
 			path: f.filename as string,
 			status: f.status === 'added' || f.status === 'removed' ? f.status : 'modified'
@@ -310,10 +320,14 @@ export class GitHubForge implements Forge {
 	}
 
 	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {
-		const commits: Json[] = await this.request(repo, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', {
-			pull_number: number,
-			per_page: 100
-		});
+		const commits: Json[] = await this.request(
+			repo,
+			'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits',
+			{
+				pull_number: number,
+				per_page: 100
+			}
+		);
 		return commits.map((c) => ({
 			sha: c.sha as string,
 			message: (c.commit as { message: string }).message

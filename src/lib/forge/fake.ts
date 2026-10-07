@@ -106,7 +106,8 @@ export class FakeForge implements Forge {
 	async createBranch(repo: string, from: Ref, name: string): Promise<void> {
 		this.maybeFail('createBranch');
 		const r = this.repo(repo);
-		if (r.trees.has(name)) throw new ForgeError(422, 'Branch bestaat al', `Reference ${name} already exists`);
+		if (r.trees.has(name))
+			throw new ForgeError(422, 'Branch bestaat al', `Reference ${name} already exists`);
 		r.trees.set(name, cloneTree(this.tree(repo, from)));
 		r.commits.set(name, []);
 		r.heads.set(name, r.heads.get(from) ?? from);
@@ -156,7 +157,11 @@ export class FakeForge implements Forge {
 		this.touch(repo, number, { draft: false });
 	}
 
-	async updatePr(repo: string, number: number, patch: { title?: string; body?: string }): Promise<void> {
+	async updatePr(
+		repo: string,
+		number: number,
+		patch: { title?: string; body?: string }
+	): Promise<void> {
 		this.maybeFail('updatePr');
 		this.touch(repo, number, patch);
 	}
@@ -217,7 +222,11 @@ export class FakeForge implements Forge {
 		this.maybeFail('merge');
 		const pr = this.pr(repo, number);
 		if (sha !== undefined && sha !== this.repo(repo).heads.get(pr.headRef)) {
-			throw new ForgeError(409, 'Conflict op GitHub', 'Head branch was modified. Review and try the merge again.');
+			throw new ForgeError(
+				409,
+				'Conflict op GitHub',
+				'Head branch was modified. Review and try the merge again.'
+			);
 		}
 		if (this.view(pr).mergeable === false) {
 			throw new ForgeError(405, 'Samenvoegen geweigerd', 'Pull request is not mergeable');
@@ -226,7 +235,12 @@ export class FakeForge implements Forge {
 		const base = this.tree(repo, pr.baseRef);
 		base.clear();
 		for (const [path, blob] of head) base.set(path, { ...blob });
-		this.recordCommit(repo, pr.baseRef, sha1(pr.baseRef, message, String(this.commitCounter++)), message);
+		this.recordCommit(
+			repo,
+			pr.baseRef,
+			sha1(pr.baseRef, message, String(this.commitCounter++)),
+			message
+		);
 		this.touch(repo, number, { state: 'merged' });
 	}
 
@@ -273,7 +287,8 @@ export class FakeForge implements Forge {
 
 	private view(pr: PrSummary): PrSummary {
 		const mergeable = this.mergeableByPr.get(pr.number);
-		const headSha = this.repos.get(this.prRepo.get(pr.number) ?? '')?.heads.get(pr.headRef) ?? pr.headSha;
+		const headSha =
+			this.repos.get(this.prRepo.get(pr.number) ?? '')?.heads.get(pr.headRef) ?? pr.headSha;
 		return { ...pr, labels: [...pr.labels], mergeable: mergeable ?? pr.mergeable, headSha };
 	}
 

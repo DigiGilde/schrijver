@@ -31,7 +31,10 @@ describe('parseSitesYaml', () => {
 	});
 
 	it('refuses concepten: privé with a Dutch message', () => {
-		const text = fixture('sites.yaml').replace('- id: moza-site', '- concepten: privé\n  id: moza-site');
+		const text = fixture('sites.yaml').replace(
+			'- id: moza-site',
+			'- concepten: privé\n  id: moza-site'
+		);
 		expect(() => parseSitesYaml(text)).toThrow('concepten: privé wordt nog niet ondersteund');
 	});
 
@@ -42,7 +45,9 @@ describe('parseSitesYaml', () => {
 	});
 
 	it('rejects unknown keys', () => {
-		expect(() => parseSitesYaml(fixture('sites.yaml').replace('forge: github', 'forge: github\n  extra: 1'))).toThrow(ZodError);
+		expect(() =>
+			parseSitesYaml(fixture('sites.yaml').replace('forge: github', 'forge: github\n  extra: 1'))
+		).toThrow(ZodError);
 	});
 });
 
@@ -60,7 +65,9 @@ describe('parseSchemaYaml', () => {
 
 	it('rejects an unknown field type with path velden.foo.type', () => {
 		try {
-			parseSchemaYaml('titel: uit-h1\nvelden:\n  foo: { type: kleur }\nnieuwe-pagina: { mappen: [a] }\n');
+			parseSchemaYaml(
+				'titel: uit-h1\nvelden:\n  foo: { type: kleur }\nnieuwe-pagina: { mappen: [a] }\n'
+			);
 			expect.unreachable();
 		} catch (e) {
 			expect(e).toBeInstanceOf(ZodError);
@@ -69,6 +76,8 @@ describe('parseSchemaYaml', () => {
 	});
 
 	it('rejects a titel that is neither uit-h1 nor veld:', () => {
-		expect(() => parseSchemaYaml('titel: iets\nvelden: {}\nnieuwe-pagina: { mappen: [a] }\n')).toThrow(ZodError);
+		expect(() =>
+			parseSchemaYaml('titel: iets\nvelden: {}\nnieuwe-pagina: { mappen: [a] }\n')
+		).toThrow(ZodError);
 	});
 });

@@ -26,7 +26,11 @@ const prefs = (over: Partial<UserPrefs> = {}): UserPrefs => ({
 });
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-const all = { identiteit: { toegestaan: ['anoniem', 'gekoppeld', 'op-naam'] as ('anoniem' | 'gekoppeld' | 'op-naam')[] } };
+const all = {
+	identiteit: {
+		toegestaan: ['anoniem', 'gekoppeld', 'op-naam'] as ('anoniem' | 'gekoppeld' | 'op-naam')[]
+	}
+};
 
 const original = process.env.PSEUDONYM_SECRET;
 beforeEach(() => {
@@ -92,7 +96,9 @@ describe('identiteit.toegestaan', () => {
 	it('keeps every choice on a site that allows all three', () => {
 		expect(digi.identiteit.toegestaan).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(effectiveKind(prefs({ identity: 'op-naam' }), session(), digi)).toBe('op-naam');
-		expect(effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), digi)).toBe('gekoppeld');
+		expect(effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), digi)).toBe(
+			'gekoppeld'
+		);
 		expect(effectiveKind(prefs(), session(), digi)).toBe('anoniem');
 	});
 
@@ -104,22 +110,29 @@ describe('identiteit.toegestaan', () => {
 	});
 
 	it('keeps gekoppeld on MOZa', () => {
-		expect(identityFor(prefs({ identity: 'gekoppeld', ...linked }), session(), moza).kind).toBe('gekoppeld');
+		expect(identityFor(prefs({ identity: 'gekoppeld', ...linked }), session(), moza).kind).toBe(
+			'gekoppeld'
+		);
 	});
 
 	it('skips a fallback the user cannot use and always allows anoniem', () => {
-		const onlyNamed = { identiteit: { toegestaan: ['gekoppeld', 'op-naam'] as ('gekoppeld' | 'op-naam')[] } };
-		expect(effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), { identiteit: { toegestaan: ['op-naam'] } })).toBe(
-			'op-naam'
-		);
+		const onlyNamed = {
+			identiteit: { toegestaan: ['gekoppeld', 'op-naam'] as ('gekoppeld' | 'op-naam')[] }
+		};
+		expect(
+			effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), {
+				identiteit: { toegestaan: ['op-naam'] }
+			})
+		).toBe('op-naam');
 		expect(effectiveKind(prefs(), session(), onlyNamed)).toBe('anoniem');
-		expect(effectiveKind(prefs({ identity: 'op-naam' }), session({ emailVerified: false }), { identiteit: { toegestaan: ['op-naam'] } })).toBe(
-			'anoniem'
-		);
+		expect(
+			effectiveKind(prefs({ identity: 'op-naam' }), session({ emailVerified: false }), {
+				identiteit: { toegestaan: ['op-naam'] }
+			})
+		).toBe('anoniem');
 	});
 
 	it('gives every user one actor pseudonym for the logs', () => {
 		expect(actorPseudonym({ sub: 'abc' })).toBe(pseudonym('geheim', 'abc'));
 	});
 });
-

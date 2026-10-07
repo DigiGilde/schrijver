@@ -48,10 +48,25 @@ export class ForgeError extends Error {
 
 export interface Forge {
 	readTree(repo: string, ref: Ref, dir: string): Promise<FileEntry[]>; // recursive
-	readFile(repo: string, ref: Ref, path: string): Promise<{ content: Uint8Array; sha: string } | null>;
+	readFile(
+		repo: string,
+		ref: Ref,
+		path: string
+	): Promise<{ content: Uint8Array; sha: string } | null>;
 	createBranch(repo: string, from: Ref, name: string): Promise<void>;
-	commit(repo: string, branch: string, changes: FileChange[], message: string): Promise<{ sha: string }>;
-	openDraftPr(repo: string, head: string, base: string, title: string, body: string): Promise<PrSummary>;
+	commit(
+		repo: string,
+		branch: string,
+		changes: FileChange[],
+		message: string
+	): Promise<{ sha: string }>;
+	openDraftPr(
+		repo: string,
+		head: string,
+		base: string,
+		title: string,
+		body: string
+	): Promise<PrSummary>;
 	markReady(repo: string, number: number): Promise<void>;
 	updatePr(repo: string, number: number, patch: { title?: string; body?: string }): Promise<void>;
 	setLabels(repo: string, number: number, labels: string[]): Promise<void>;

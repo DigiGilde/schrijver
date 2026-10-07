@@ -16,7 +16,17 @@
 		schrijfhulpOpen?: boolean;
 		onschrijfhulp?: () => void;
 	};
-	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, afbeeldingen = true, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
+	let {
+		state,
+		disabled = false,
+		onactie,
+		onkop,
+		onafbeelding,
+		onmermaid,
+		afbeeldingen = true,
+		schrijfhulpOpen = false,
+		onschrijfhulp
+	}: Props = $props();
 
 	const active = $derived(state?.active);
 

@@ -48,7 +48,9 @@ describe('validateForm', () => {
 				r: { type: 'paginaverwijzing', verplicht: false, verborgen: false, meervoud: true, max: 2 }
 			}
 		} as typeof moza;
-		const r = validateForm(buildForm(schema, { d: '7-10-2026', n: 'x', r: ['a', 'b', 'c'] }, 'a.md'));
+		const r = validateForm(
+			buildForm(schema, { d: '7-10-2026', n: 'x', r: ['a', 'b', 'c'] }, 'a.md')
+		);
 		expect(r.fields.map((f) => f.error)).toEqual([
 			'Datum als JJJJ-MM-DD',
 			'Moet een getal zijn',
@@ -108,6 +110,8 @@ describe('newPagePath', () => {
 		expect(() => newPagePath(handboek, null, 'elders', 'x', now)).toThrow();
 	});
 	it('uses uit-titel for flat schemas', () => {
-		expect(newPagePath(handboek, null, 'kennis', 'Nieuwe pagina', now)).toBe('kennis/nieuwe-pagina.md');
+		expect(newPagePath(handboek, null, 'kennis', 'Nieuwe pagina', now)).toBe(
+			'kennis/nieuwe-pagina.md'
+		);
 	});
 });

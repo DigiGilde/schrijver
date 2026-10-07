@@ -28,7 +28,11 @@ describe('login callback failure', () => {
 		expect(cookies.delete).toHaveBeenCalledWith('schrijver_login', { path: '/' });
 		expect(cookies.set).not.toHaveBeenCalled();
 		const line = JSON.parse(String(write.mock.calls[0][0]));
-		expect(line).toMatchObject({ level: 'error', event: 'auth.callback_failed', reason: 'state mismatch' });
+		expect(line).toMatchObject({
+			level: 'error',
+			event: 'auth.callback_failed',
+			reason: 'state mismatch'
+		});
 		expect(JSON.stringify(line)).not.toContain('SECRETCODE');
 	});
 });
