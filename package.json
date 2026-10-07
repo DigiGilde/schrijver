@@ -1,0 +1,41 @@
+{
+	"name": "schrijver",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "prettier --check ."
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.64.0",
+		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/node": "^22.20.5",
+		"@vitest/coverage-v8": "^5.0.3",
+		"pa11y-ci": "^5.0.0",
+		"prettier": "^3.9.9",
+		"prettier-plugin-svelte": "^4.1.1",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.7.6",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.3",
+		"vitest": "^5.0.3"
+	},
+	"dependencies": {
+		"@nldd/design-system": "0.8.96",
+		"@sveltejs/adapter-node": "^5.5.7",
+		"yaml": "^2.9.1",
+		"zod": "^4.6.5"
+	}
+}
