@@ -108,3 +108,44 @@ describe('findMermaidBlocks', () => {
 		expect(missingDescriptions(body)).toEqual([3]);
 	});
 });
+
+describe('tilde fences and line endings', () => {
+	it('reports a ~~~mermaid block without accDescr', () => {
+		const body = 'Tekst\n\n~~~mermaid\nflowchart LR\n  A --> B\n~~~\n';
+		const blocks = findMermaidBlocks(body);
+		expect(blocks).toHaveLength(1);
+		expect(blocks[0].hasAccDescr).toBe(false);
+		expect(missingDescriptions(body)).toEqual([3]);
+	});
+
+	it('does not report mermaid text inside a ~~~ fence', () => {
+		const body = '~~~\n```mermaid\nflowchart LR\n  A --> B\n```\n~~~\n';
+		expect(findMermaidBlocks(body)).toEqual([]);
+		expect(missingDescriptions(body)).toEqual([]);
+	});
+
+	it('does not close a ~~~mermaid block on a backtick line', () => {
+		const body = '~~~mermaid\nflowchart LR\n  A --> B\n```\n';
+		const blocks = findMermaidBlocks(body);
+		expect(blocks).toHaveLength(1);
+		expect(blocks[0].end).toBe(body.length);
+	});
+
+	it('handles a CRLF body', () => {
+		const body =
+			'# T\r\n\r\n```mermaid\r\nflowchart LR\r\n  accDescr: Een beschrijving\r\n  A --> B\r\n```\r\n\r\n```mermaid\r\nflowchart LR\r\n  A --> B\r\n```\r\n';
+		const blocks = findMermaidBlocks(body);
+		expect(blocks).toHaveLength(2);
+		expect(blocks[0].start).toBe(body.indexOf('```mermaid'));
+		expect(blocks[0].end).toBe(body.indexOf('```\r\n') + 3);
+		expect(blocks[0].hasAccDescr).toBe(true);
+		expect(blocks[1].hasAccDescr).toBe(false);
+		expect(missingDescriptions(body)).toEqual([9]);
+	});
+
+	it('does not count a %% accDescr comment as a description', () => {
+		const body = '```mermaid\nflowchart LR\n  %% accDescr: niet echt\n  A --> B\n```\n';
+		expect(findMermaidBlocks(body)[0].hasAccDescr).toBe(false);
+		expect(missingDescriptions(body)).toEqual([1]);
+	});
+});

@@ -7,8 +7,8 @@ export interface MermaidBlock {
 
 export const MERMAID_DESCR_MESSAGE = 'Elk Mermaid-diagram heeft een beschrijving (accDescr) nodig';
 
-const OPEN = /^ {0,3}(`{3,})([^`]*)$/;
-const CLOSE = /^ {0,3}(`{3,})\s*$/;
+const OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const CLOSE = /^ {0,3}(`{3,}|~{3,})\s*$/;
 const MERMAID_INFO = /^mermaid(\s*\{.*\})?$/;
 const ACC_DESCR = /^\s*accDescr\s*[:{]/;
 const ACC_TITLE = /^\s*accTitle\s*[:{]/;
@@ -21,10 +21,10 @@ interface Fence {
 	content: string[];
 }
 
-// Scans every backtick fence, so mermaid text inside another fence is not reported.
+// Scans every backtick and tilde fence, so mermaid text inside another fence is not reported.
 function scanFences(body: string): Fence[] {
 	const fences: Fence[] = [];
-	let open: (Omit<Fence, 'end'> & { ticks: number }) | null = null;
+	let open: (Omit<Fence, 'end'> & { char: string; ticks: number }) | null = null;
 	let pos = 0;
 	let line = 0;
 	for (;;) {
@@ -34,10 +34,11 @@ function scanFences(body: string): Fence[] {
 		line++;
 		if (open === null) {
 			const m = OPEN.exec(text);
-			if (m) {
+			if (m && !(m[1][0] === '`' && m[2].includes('`'))) {
 				open = {
 					start: pos,
 					line,
+					char: m[1][0],
 					ticks: m[1].length,
 					mermaid: MERMAID_INFO.test(m[2].trim()),
 					content: []
@@ -45,8 +46,14 @@ function scanFences(body: string): Fence[] {
 			}
 		} else {
 			const m = CLOSE.exec(text);
-			if (m && m[1].length === open.ticks) {
-				fences.push({ start: open.start, line: open.line, mermaid: open.mermaid, content: open.content, end: pos + text.length });
+			if (m && m[1][0] === open.char && m[1].length >= open.ticks) {
+				fences.push({
+					start: open.start,
+					line: open.line,
+					mermaid: open.mermaid,
+					content: open.content,
+					end: pos + text.length
+				});
 				open = null;
 			} else {
 				open.content.push(text);
@@ -56,7 +63,13 @@ function scanFences(body: string): Fence[] {
 		pos = nl + 1;
 	}
 	if (open !== null) {
-		fences.push({ start: open.start, line: open.line, mermaid: open.mermaid, content: open.content, end: body.length });
+		fences.push({
+			start: open.start,
+			line: open.line,
+			mermaid: open.mermaid,
+			content: open.content,
+			end: body.length
+		});
 	}
 	return fences;
 }
