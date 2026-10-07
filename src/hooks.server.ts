@@ -11,7 +11,8 @@ import {
 	sessionSecret
 } from '$lib/auth/session';
 import { applySchema, getPrefs, type UserPrefs } from '$lib/auth/users';
-import { ensureServices } from '$lib/server/services';
+import { initFakeServices } from '$lib/server/fake-mode';
+import { initServices } from '$lib/server/services';
 
 const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
@@ -25,6 +26,18 @@ const ensureSchema = () => {
 		throw err;
 	});
 	return schemaReady;
+};
+
+let servicesReady: Promise<void> | undefined;
+const ensureServices = () => {
+	servicesReady ??= (process.env.SCHRIJVER_FAKE_FORGE === '1' && process.env.NODE_ENV !== 'production'
+		? initFakeServices()
+		: initServices()
+	).catch((err) => {
+		servicesReady = undefined;
+		throw err;
+	});
+	return servicesReady;
 };
 
 const devSession = (): Session | null => {
