@@ -1,0 +1,30 @@
+name: schrijver
+description: 'Schrijver, a writing tool for site content'
+
+components:
+  - name: web
+    type: deployment
+    ports:
+      inbound: [8080]
+    path: /
+    publish-on-web: true
+    sso-rijk: true
+    uses-services: [publish-on-web, keycloak, vlam, postgresql-database]
+    # Set the values in the ZAD portal; keep them out of this file.
+    # DATABASE_SERVER_FULL is provided by the postgresql-database service.
+    user-env-vars:
+      OIDC_DISCOVERY_URL: ''
+      OIDC_CLIENT_ID: ''
+      OIDC_CLIENT_SECRET: ''
+      SESSION_SECRET: ''
+      GITHUB_APP_ID: ''
+      GITHUB_APP_PRIVATE_KEY: ''
+      GITHUB_APP_CLIENT_ID: ''
+      GITHUB_APP_CLIENT_SECRET: ''
+      ORIGIN: ''
+      GITHUB_WEBHOOK_SECRET: ''
+      GITHUB_CONFIG_REPO: ''
+      VLAM_API_URL: ''
+      VLAM_KEY_PREPAID: ''
+      VLAM_MODEL: ''
+      PSEUDONYM_SECRET: ''

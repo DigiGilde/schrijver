@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e
+        env:
+          SCHRIJVER_FAKE_FORGE: '1'
+          SCHRIJVER_TEST_SESSION: '{"sub":"test","name":"Test Gebruiker","email":"test@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}'
+          PSEUDONYM_SECRET: ci-pseudonym-secret
+          SESSION_SECRET: ci-session-secret-ci-session-secret
+          GITHUB_CONFIG_REPO: example/config
+          ORIGIN: http://localhost:4391
+      - name: Accessibility checks (pa11y-ci)
+        run: |
+          if [ ! -f .pa11yci ]; then
+            echo "No .pa11yci, skipping"
+            exit 0
+          fi
+          PORT=4392 node build &
+          server=$!
+          trap 'kill "$server"' EXIT
+          curl --fail --silent --retry 30 --retry-delay 2 --retry-connrefused http://localhost:4392/healthz
+          npx pa11y-ci --config .pa11yci
+        env:
+          SCHRIJVER_FAKE_FORGE: '1'
+          SCHRIJVER_TEST_SESSION: '{"sub":"test","name":"Test Gebruiker","email":"test@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}'
+          PSEUDONYM_SECRET: ci-pseudonym-secret
+          SESSION_SECRET: ci-session-secret-ci-session-secret
+          GITHUB_CONFIG_REPO: example/config
+          ORIGIN: http://localhost:4392

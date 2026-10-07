@@ -1,0 +1,28 @@
+{
+	"realm": "schrijver-dev",
+	"enabled": true,
+	"clients": [
+		{
+			"clientId": "schrijver",
+			"enabled": true,
+			"protocol": "openid-connect",
+			"publicClient": false,
+			"secret": "dev-secret",
+			"standardFlowEnabled": true,
+			"directAccessGrantsEnabled": false,
+			"redirectUris": ["http://localhost:8080/*"],
+			"webOrigins": ["http://localhost:8080"]
+		}
+	],
+	"users": [
+		{
+			"username": "test",
+			"enabled": true,
+			"email": "test@example.org",
+			"emailVerified": true,
+			"firstName": "Test",
+			"lastName": "Gebruiker",
+			"credentials": [{ "type": "password", "value": "test", "temporary": false }]
+		}
+	]
+}
