@@ -1,0 +1,1 @@
+create table if not exists user_prefs (sub text primary key, identity text not null default 'anoniem', github_login text, github_id bigint, onboarded boolean not null default false, updated_at timestamptz not null default now());

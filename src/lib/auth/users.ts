@@ -1,0 +1,88 @@
+import postgres from 'postgres';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+export interface UserPrefs {
+	sub: string;
+	identity: 'anoniem' | 'gekoppeld' | 'op-naam';
+	githubLogin: string | null;
+	githubId: number | null;
+	onboarded: boolean;
+}
+
+export interface UsersStore {
+	getPrefs(sub: string): Promise<UserPrefs>;
+	savePrefs(p: UserPrefs): Promise<void>;
+}
+
+const defaults = (sub: string): UserPrefs => ({
+	sub,
+	identity: 'anoniem',
+	githubLogin: null,
+	githubId: null,
+	onboarded: false
+});
+
+export class MemoryUsersStore implements UsersStore {
+	private rows = new Map<string, UserPrefs>();
+	async getPrefs(sub: string) {
+		return { ...(this.rows.get(sub) ?? defaults(sub)) };
+	}
+	async savePrefs(p: UserPrefs) {
+		this.rows.set(p.sub, { ...p });
+	}
+}
+
+export function createUsersStore(sql: postgres.Sql): UsersStore {
+	return {
+		async getPrefs(sub) {
+			const rows = await sql<
+				{ identity: UserPrefs['identity']; github_login: string | null; github_id: string | number | null; onboarded: boolean }[]
+			>`select identity, github_login, github_id, onboarded from user_prefs where sub = ${sub}`;
+			const r = rows[0];
+			if (!r) return defaults(sub);
+			return {
+				sub,
+				identity: r.identity,
+				githubLogin: r.github_login,
+				githubId: r.github_id === null ? null : Number(r.github_id),
+				onboarded: r.onboarded
+			};
+		},
+		async savePrefs(p) {
+			await sql`
+				insert into user_prefs (sub, identity, github_login, github_id, onboarded, updated_at)
+				values (${p.sub}, ${p.identity}, ${p.githubLogin}, ${p.githubId}, ${p.onboarded}, now())
+				on conflict (sub) do update set
+					identity = excluded.identity,
+					github_login = excluded.github_login,
+					github_id = excluded.github_id,
+					onboarded = excluded.onboarded,
+					updated_at = now()`;
+		}
+	};
+}
+
+let sql: postgres.Sql | undefined;
+let store: UsersStore | undefined;
+
+function client(): postgres.Sql {
+	if (!sql) {
+		const url = process.env.DATABASE_SERVER_FULL;
+		if (!url) throw new Error('DATABASE_SERVER_FULL is not set');
+		sql = postgres(url);
+	}
+	return sql;
+}
+
+function realStore(): UsersStore {
+	return (store ??= createUsersStore(client()));
+}
+
+export const getPrefs = (sub: string) => realStore().getPrefs(sub);
+export const savePrefs = (p: UserPrefs) => realStore().savePrefs(p);
+
+export async function applySchema(): Promise<void> {
+	const ddl = await readFile(resolve(process.cwd(), 'db/schema.sql'), 'utf8');
+	await client().unsafe(ddl);
+}
