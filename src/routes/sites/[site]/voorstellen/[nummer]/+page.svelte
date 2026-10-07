@@ -1,0 +1,178 @@
+<script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import Diff from '../../../../../components/Diff.svelte';
+
+	let { data } = $props();
+
+	type Melding = { variant: 'success' | 'critical'; text: string; detail?: string };
+
+	const STATUS: Record<string, { text: string; color: string }> = {
+		concept: { text: 'Concept', color: 'neutral' },
+		ingestuurd: { text: 'Ingestuurd', color: 'accent' },
+		goedgekeurd: { text: 'Goedgekeurd', color: 'success' },
+		'wijzigingen-gevraagd': { text: 'Wijzigingen gevraagd', color: 'warning' },
+		samengevoegd: { text: 'Samengevoegd', color: 'success' },
+		gesloten: { text: 'Gesloten', color: 'neutral' }
+	};
+	const CHECKS: Record<string, string> = {
+		none: 'Geen controles',
+		pending: 'Het voorbeeld wordt gebouwd',
+		success: 'Het voorbeeld is gebouwd',
+		failure: 'Het bouwen van het voorbeeld is mislukt'
+	};
+
+	let busy = $state(false);
+	let melding = $state<Melding | null>(null);
+	let opmerking = $state('');
+
+	async function stuur(actie: string, gelukt: string, body: unknown = {}) {
+		if (busy) return;
+		busy = true;
+		melding = null;
+		try {
+			const res = await fetch(`/api/sites/${data.site.id}/voorstellen/${data.proposal.number}/${actie}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'X-Requested-With': 'Schrijver' },
+				body: JSON.stringify(body)
+			});
+			const result = await res.json().catch(() => null);
+			if (res.ok && result?.ok) {
+				melding = { variant: 'success', text: gelukt };
+				if (actie === 'opmerking') opmerking = '';
+				await invalidateAll();
+			} else {
+				melding = {
+					variant: 'critical',
+					text: result?.message ?? 'De actie is mislukt',
+					detail: result?.detail
+				};
+			}
+		} catch (e) {
+			melding = { variant: 'critical', text: 'De actie is mislukt: geen verbinding', detail: String(e) };
+		} finally {
+			busy = false;
+		}
+	}
+</script>
+
+<svelte:head><title>{data.proposal.title} - Schrijver</title></svelte:head>
+
+<nldd-simple-section>
+	<nldd-container gap="24">
+		<nldd-link href="/sites/{data.site.id}" start-icon="arrow-left" text="Terug naar {data.site.naam}"
+		></nldd-link>
+
+		<nldd-title size="1" heading-level="1" text={data.proposal.title}></nldd-title>
+
+		<nldd-container layout="wrap" gap="12" vertical-alignment="center">
+			<nldd-badge
+				text={STATUS[data.proposal.status].text}
+				color={STATUS[data.proposal.status].color}
+			></nldd-badge>
+			{#if data.viaGithub}<nldd-tag text="Via GitHub"></nldd-tag>{/if}
+			<nldd-text color="secondary">{CHECKS[data.proposal.checks]}</nldd-text>
+			{#if data.proposal.previewUrl}
+				<nldd-link href={data.proposal.previewUrl} target="_blank" text="Bekijk het voorbeeld"></nldd-link>
+			{/if}
+			<nldd-link href={data.githubUrl} target="_blank" text="Bekijk op GitHub"></nldd-link>
+		</nldd-container>
+
+		{#if melding}
+			<nldd-banner variant={melding.variant} text={melding.text}>
+				{#if melding.detail}
+					<details>
+						<summary>Technische details van GitHub</summary>
+						<pre>{melding.detail}</pre>
+					</details>
+				{/if}
+			</nldd-banner>
+		{/if}
+
+		{#if data.canSendIn || data.canReview}
+			<section aria-label="Acties">
+				<nldd-container layout="wrap" gap="12">
+					{#if data.canSendIn}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<nldd-button
+							appearance="primary"
+							text="Insturen"
+							disabled={busy || undefined}
+							onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
+						></nldd-button>
+					{/if}
+					{#if data.canReview}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<nldd-button
+							appearance="secondary"
+							text="Goedkeuren"
+							disabled={busy || undefined}
+							onclick={() => stuur('goedkeuren', 'Je goedkeuring is geplaatst')}
+						></nldd-button>
+					{/if}
+					{#if data.canMerge}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<nldd-button
+							appearance="primary"
+							text="Samenvoegen"
+							disabled={busy || undefined}
+							onclick={() => stuur('mergen', 'Het voorstel is samengevoegd')}
+						></nldd-button>
+					{/if}
+				</nldd-container>
+			</section>
+		{/if}
+
+		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'wijzigingen-gevraagd'}
+			<nldd-text color="secondary">
+				Terug naar concept zetten kan niet vanuit Schrijver. Doe dat op GitHub via "Convert to draft".
+			</nldd-text>
+		{/if}
+
+		{#if data.canReview}
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
+				}}
+			>
+				<label for="opmerking">Opmerking</label>
+				<textarea id="opmerking" rows="4" maxlength="5000" bind:value={opmerking}></textarea>
+				<nldd-button
+					appearance="secondary"
+					type="submit"
+					text="Opmerking plaatsen"
+					disabled={busy || opmerking.trim() === '' || undefined}
+				></nldd-button>
+			</form>
+		{/if}
+
+		<section aria-label="Wijzigingen">
+			<nldd-title size="3" heading-level="2" text="Wijzigingen"></nldd-title>
+			{#if data.diffs.length === 0}
+				<nldd-text>Dit voorstel wijzigt geen pagina's.</nldd-text>
+			{:else}
+				<nldd-container gap="32">
+					{#each data.diffs as d (d.path)}
+						<Diff path={d.path} before={d.before} after={d.after} />
+					{/each}
+				</nldd-container>
+			{/if}
+		</section>
+	</nldd-container>
+</nldd-simple-section>
+
+<style>
+	pre {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	form {
+		display: grid;
+		gap: 8px;
+		max-width: 40rem;
+	}
+	textarea {
+		font: inherit;
+		padding: 8px;
+	}
+</style>

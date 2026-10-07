@@ -38,7 +38,10 @@ function fixtureReader(): ConfigReader {
 	return {
 		async readFile(path) {
 			try {
-				return readFileSync(join(base, path), 'utf8');
+				const text = readFileSync(join(base, path), 'utf8');
+				return path === 'sites.yaml'
+					? text.replace('- naam@rijksoverheid.nl', '- naam@rijksoverheid.nl\n      - test@example.org')
+					: text;
 			} catch {
 				return null;
 			}

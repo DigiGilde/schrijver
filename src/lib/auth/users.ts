@@ -13,6 +13,7 @@ export interface UserPrefs {
 export interface UsersStore {
 	getPrefs(sub: string): Promise<UserPrefs>;
 	savePrefs(p: UserPrefs): Promise<void>;
+	listLinkedLogins(limit: number): Promise<string[]>;
 }
 
 const defaults = (sub: string): UserPrefs => ({
@@ -30,6 +31,11 @@ export class MemoryUsersStore implements UsersStore {
 	}
 	async savePrefs(p: UserPrefs) {
 		this.rows.set(p.sub, { ...p });
+	}
+	async listLinkedLogins(limit: number) {
+		return [...this.rows.values()]
+			.flatMap((r) => (r.githubLogin ? [r.githubLogin] : []))
+			.slice(0, limit);
 	}
 }
 
@@ -59,6 +65,12 @@ export function createUsersStore(sql: postgres.Sql): UsersStore {
 					github_id = excluded.github_id,
 					onboarded = excluded.onboarded,
 					updated_at = now()`;
+		},
+		async listLinkedLogins(limit) {
+			const rows = await sql<{ github_login: string }[]>`
+				select github_login from user_prefs
+				where github_login is not null order by updated_at desc limit ${limit}`;
+			return rows.map((r) => r.github_login);
 		}
 	};
 }
@@ -81,6 +93,7 @@ function realStore(): UsersStore {
 
 export const getPrefs = (sub: string) => realStore().getPrefs(sub);
 export const savePrefs = (p: UserPrefs) => realStore().savePrefs(p);
+export const listLinkedLogins = (limit: number) => realStore().listLinkedLogins(limit);
 
 export async function applySchema(): Promise<void> {
 	const ddl = await readFile(resolve(process.cwd(), 'db/schema.sql'), 'utf8');

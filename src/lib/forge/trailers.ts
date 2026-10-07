@@ -33,3 +33,10 @@ export function identityFromPrBody(body: string): string | null {
 	}
 	return null;
 }
+
+export function trailersFromMessage(message: string): string[] {
+	return message
+		.split('\n')
+		.map((l) => l.trim())
+		.filter((l) => l.startsWith('Schrijver-Auteur: ') || l.startsWith('Co-authored-by: '));
+}

@@ -55,6 +55,7 @@ export interface Forge {
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]>;
 	getPr(repo: string, number: number): Promise<PrSummary>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
+	prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]>;
 	approve(repo: string, number: number, comment: string): Promise<void>;
 	comment(repo: string, number: number, body: string): Promise<void>;
 	merge(repo: string, number: number, message: string): Promise<void>; // squash

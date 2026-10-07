@@ -190,6 +190,11 @@ export class FakeForge implements Forge {
 		return files;
 	}
 
+	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {
+		this.maybeFail('prCommits');
+		return this.commitsOf(repo, this.pr(repo, number).headRef);
+	}
+
 	async approve(repo: string, number: number, _comment: string): Promise<void> {
 		this.maybeFail('approve');
 		this.touch(repo, number, { reviewState: 'approved' });

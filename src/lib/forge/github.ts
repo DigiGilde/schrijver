@@ -309,6 +309,17 @@ export class GitHubForge implements Forge {
 		}));
 	}
 
+	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {
+		const commits: Json[] = await this.request(repo, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', {
+			pull_number: number,
+			per_page: 100
+		});
+		return commits.map((c) => ({
+			sha: c.sha as string,
+			message: (c.commit as { message: string }).message
+		}));
+	}
+
 	async approve(repo: string, number: number, comment: string): Promise<void> {
 		await this.request(repo, 'POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
 			pull_number: number,
