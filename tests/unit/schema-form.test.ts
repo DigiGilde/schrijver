@@ -1,0 +1,113 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parseSchemaYaml } from '../../src/lib/config/types';
+import {
+	applyForm,
+	buildForm,
+	newPagePath,
+	titleOf,
+	validateForm
+} from '../../src/lib/content/schema-form';
+
+const load = (n: string) =>
+	parseSchemaYaml(readFileSync(`tests/fixtures/config/schemas/${n}.yaml`, 'utf8'));
+const moza = load('moza-site');
+const handboek = load('digi-handboek');
+
+describe('buildForm', () => {
+	it('excludes hidden fields', () => {
+		expect(buildForm(handboek, {}, 'content/kennis/a.md').map((f) => f.key)).toEqual([
+			'description',
+			'related'
+		]);
+	});
+	it('applies alleen-in to the path', () => {
+		const keys = (p: string) => buildForm(moza, {}, p).map((f) => f.key);
+		expect(keys('content/weekly/2026/2026-10-07.md')).toContain('date');
+		expect(keys('content/handboek/a.md')).not.toContain('date');
+	});
+	it('takes values from frontmatter', () => {
+		const f = buildForm(moza, { title: 'X' }, 'content/a.md');
+		expect(f[0]).toMatchObject({ key: 'title', value: 'X', error: null });
+		expect(f[1].value).toBe('');
+	});
+});
+
+describe('validateForm', () => {
+	it('flags required empty fields', () => {
+		const r = validateForm(buildForm(moza, {}, 'content/a.md'));
+		expect(r.ok).toBe(false);
+		expect(r.fields[0].error).toBe('Dit veld is verplicht');
+	});
+	it('checks datum, getal and max', () => {
+		const schema = {
+			...moza,
+			velden: {
+				d: { type: 'datum', verplicht: false, verborgen: false },
+				n: { type: 'getal', verplicht: false, verborgen: false },
+				r: { type: 'paginaverwijzing', verplicht: false, verborgen: false, meervoud: true, max: 2 }
+			}
+		} as typeof moza;
+		const r = validateForm(buildForm(schema, { d: '7-10-2026', n: 'x', r: ['a', 'b', 'c'] }, 'a.md'));
+		expect(r.fields.map((f) => f.error)).toEqual([
+			'Datum als JJJJ-MM-DD',
+			'Moet een getal zijn',
+			'Maximaal 2 verwijzingen'
+		]);
+		const ok = validateForm(buildForm(schema, { d: '2026-10-07', n: 3, r: ['a'] }, 'a.md'));
+		expect(ok.ok).toBe(true);
+	});
+});
+
+describe('applyForm', () => {
+	it('writes values back, deletes empties and reports changes', () => {
+		const schema = {
+			...moza,
+			velden: {
+				n: { type: 'getal', verplicht: false, verborgen: false },
+				b: { type: 'ja-nee', verplicht: false, verborgen: false },
+				t: { type: 'tekst', verplicht: false, verborgen: false },
+				r: { type: 'paginaverwijzing', verplicht: false, verborgen: false, meervoud: true }
+			}
+		} as typeof moza;
+		const fm = { n: 1, t: 'oud', r: ['a'], extra: 1 };
+		const fields = buildForm(schema, fm, 'a.md');
+		fields[0].value = '2';
+		fields[1].value = true;
+		fields[2].value = '';
+		const r = applyForm(fields, fm);
+		expect(r.frontmatter).toEqual({ n: 2, b: true, r: ['a'], extra: 1 });
+		expect(r.changedKeys).toEqual(['n', 'b', 't']);
+	});
+});
+
+describe('titleOf', () => {
+	it('reads the first H1', () => {
+		expect(titleOf(handboek, {}, 'intro\n# Het Digi Handboek \n\ntext')).toBe('Het Digi Handboek');
+		expect(titleOf(handboek, {}, 'geen kop')).toBe('');
+	});
+	it('reads a frontmatter field', () => {
+		expect(titleOf(moza, { title: 'Hoi' }, '')).toBe('Hoi');
+		expect(titleOf(moza, {}, '')).toBe('');
+	});
+});
+
+describe('newPagePath', () => {
+	const now = new Date(2026, 9, 7);
+	it('resolves MOZa Weekly (content prefix is the caller job)', () => {
+		expect(newPagePath(moza, 'Weekly', '', 'Weekly', now)).toBe('weekly/2026/2026-10-07.md');
+	});
+	it('accepts a folder matching a glob', () => {
+		expect(newPagePath(moza, 'Handboekpagina', 'handboek/start', 'Één pagina', now)).toBe(
+			'handboek/start/een-pagina.md'
+		);
+	});
+	it('rejects unknown soort and disallowed folders', () => {
+		expect(() => newPagePath(moza, 'Nope', '', 'x', now)).toThrow();
+		expect(() => newPagePath(moza, 'Handboekpagina', 'elders', 'x', now)).toThrow();
+		expect(() => newPagePath(handboek, null, 'elders', 'x', now)).toThrow();
+	});
+	it('uses uit-titel for flat schemas', () => {
+		expect(newPagePath(handboek, null, 'kennis', 'Nieuwe pagina', now)).toBe('kennis/nieuwe-pagina.md');
+	});
+});
