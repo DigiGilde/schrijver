@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -7,6 +8,7 @@ vi.mock('../../src/lib/auth/users', () => ({ savePrefs: vi.fn(async () => {}) })
 
 import { savePrefs, type UserPrefs } from '../../src/lib/auth/users';
 import { log } from '../../src/lib/log';
+import { sealPayload } from '../../src/lib/auth/session';
 import { startGithubLink } from '../../src/lib/auth/github-link';
 import { submitPrefs, unlinkGithub } from '../../src/lib/auth/prefs-action';
 import { GET as start } from '../../src/routes/login/github/+server';
@@ -65,13 +67,14 @@ async function call(cookies: ReturnType<typeof jar>, query: string, sub = 'abc')
 	}
 }
 
-const githubOk = (user = { login: 'real-login', id: 42 }) => {
+const githubOk = (challenge: string, user = { login: 'real-login', id: 42 }) => {
 	server.use(
 		http.post('https://github.com/login/oauth/access_token', async ({ request }) => {
 			const body = new URLSearchParams(await request.text());
 			expect(body.get('client_id')).toBe('cid');
 			expect(body.get('client_secret')).toBe('csecret');
 			expect(body.get('code')).toBe('thecode');
+			expect(createHash('sha256').update(body.get('code_verifier')!).digest('base64url')).toBe(challenge);
 			expect(body.get('redirect_uri')).toBe('https://schrijver.test/login/github/callback');
 			expect(request.headers.get('accept')).toBe('application/json');
 			return HttpResponse.json({ access_token: 'ghu_tok', token_type: 'bearer', scope: '' });
@@ -93,18 +96,22 @@ describe('start', () => {
 		expect(cookies.store.schrijver_github_link).toBeTruthy();
 	});
 
-	it('falls back to the request origin without ORIGIN', () => {
+	it('sends a PKCE S256 challenge', () => {
+		const { authorize } = begin();
+		expect(authorize.searchParams.get('code_challenge_method')).toBe('S256');
+		expect(authorize.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+	});
+
+	it('throws without ORIGIN', () => {
 		delete process.env.ORIGIN;
-		expect(startGithubLink('abc', 'https://req.test', false).location).toContain(
-			encodeURIComponent('https://req.test/login/github/callback')
-		);
+		expect(() => startGithubLink('abc', false)).toThrow('ORIGIN is not set');
 	});
 });
 
 describe('callback', () => {
 	it('saves login and id from /user and chooses gekoppeld when requested', async () => {
-		githubOk();
-		const { cookies, state } = begin();
+		const { cookies, state, authorize } = begin();
+		githubOk(authorize.searchParams.get('code_challenge')!);
 		const res = await call(cookies, `code=thecode&state=${state}&login=evil&id=1`);
 		expect(res.location).toBe('/instellingen?gekoppeld=1');
 		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, githubLogin: 'real-login', githubId: 42, identity: 'gekoppeld' });
@@ -112,8 +119,8 @@ describe('callback', () => {
 	});
 
 	it('keeps the identity when gekoppeld was not requested', async () => {
-		githubOk();
-		const { cookies, state } = begin(false);
+		const { cookies, state, authorize } = begin(false);
+		githubOk(authorize.searchParams.get('code_challenge')!);
 		await call(cookies, `code=thecode&state=${state}`);
 		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, githubLogin: 'real-login', githubId: 42, identity: 'anoniem' });
 	});
@@ -130,6 +137,25 @@ describe('callback', () => {
 	it('rejects a cookie sealed for another user', async () => {
 		const { cookies, state } = begin();
 		const res = await call(cookies, `code=thecode&state=${state}`, 'someone-else');
+		expect(res.status).toBe(400);
+		expect(savePrefs).not.toHaveBeenCalled();
+	});
+
+	it('rejects a cookie without a verifier', async () => {
+		const { cookies, state } = begin();
+		cookies.store.schrijver_github_link = sealPayload({ state, sub: 'abc', exp: Date.now() + 60_000 }, 'test-secret');
+		const res = await call(cookies, `code=thecode&state=${state}`);
+		expect(res.status).toBe(400);
+		expect(savePrefs).not.toHaveBeenCalled();
+	});
+
+	it('rejects an expired cookie', async () => {
+		const { cookies, state } = begin();
+		cookies.store.schrijver_github_link = sealPayload(
+			{ state, verifier: 'v', sub: 'abc', exp: Date.now() - 1000 },
+			'test-secret'
+		);
+		const res = await call(cookies, `code=thecode&state=${state}`);
 		expect(res.status).toBe(400);
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
