@@ -15,8 +15,8 @@ legal:
 maintenance:
   type: internal
   contacts:
-    - name: Robbert Bos
-      email: robbert@askanna.io
+    - name: Team DigiGilde
+      email: digigilde@rijksoverheid.nl
 localisation:
   localisationReady: false
   availableLanguages:
@@ -30,6 +30,12 @@ description:
       GitHub pull request voorstellen, zonder Git of een persoonlijk token.
       Inloggen gaat met SSO Rijk, VLAM helpt als schrijfhulp en de redactie
       beoordeelt en voegt samen op GitHub of in Schrijver zelf.
+    features:
+      - Markdown-pagina's bewerken met een rijke editor
+      - Voorstellen als pull request zonder GitHub-account
+      - Beoordelen en samenvoegen vanuit de tool
+      - Schrijfhulp via VLAM
+      - Inloggen met SSO Rijk
   en:
     shortDescription: Colleagues edit Markdown pages of static sites and propose changes as pull requests, without a GitHub account.
     longDescription: >-
@@ -38,3 +44,9 @@ description:
       GitHub pull requests, without Git or a personal token. Sign-in uses SSO
       Rijk, VLAM assists as a writing aid, and the editorial team reviews and
       merges on GitHub or in Schrijver itself.
+    features:
+      - Edit Markdown pages with a rich editor
+      - Propose changes as pull requests without a GitHub account
+      - Review and merge from the tool
+      - Writing assistance through VLAM
+      - Sign in with SSO Rijk
