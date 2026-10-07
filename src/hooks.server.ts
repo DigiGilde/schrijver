@@ -11,12 +11,16 @@ import {
 	sessionSecret
 } from '$lib/auth/session';
 import { applySchema, getPrefs, type UserPrefs } from '$lib/auth/users';
-import { initFakeServices } from '$lib/server/fake-mode';
 import { initServices } from '$lib/server/services';
 
 const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
-const ONBOARDING_EXEMPT = new Set(['/onboarding', '/instellingen', '/login/github', '/login/github/callback']);
+const ONBOARDING_EXEMPT = new Set([
+	'/onboarding',
+	'/instellingen',
+	'/login/github',
+	'/login/github/callback'
+]);
 
 let schemaReady: Promise<void> | undefined;
 const ensureSchema = () => {
@@ -29,11 +33,15 @@ const ensureSchema = () => {
 };
 
 let servicesReady: Promise<void> | undefined;
+const initAny = async () => {
+	if (process.env.SCHRIJVER_FAKE_FORGE === '1' && process.env.NODE_ENV !== 'production') {
+		const { initFakeServices } = await import('$lib/server/fake-mode');
+		return initFakeServices();
+	}
+	return initServices();
+};
 const ensureServices = () => {
-	servicesReady ??= (process.env.SCHRIJVER_FAKE_FORGE === '1' && process.env.NODE_ENV !== 'production'
-		? initFakeServices()
-		: initServices()
-	).catch((err) => {
+	servicesReady ??= initAny().catch((err) => {
 		servicesReady = undefined;
 		throw err;
 	});
@@ -82,7 +90,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.user = { session, prefs: await getPrefs(session.sub) };
 		if (session.exp - Date.now() < SESSION_RENEW_BELOW_MS) {
 			const renewed = { ...session, exp: Date.now() + SESSION_TTL_MS };
-			event.cookies.set(SESSION_COOKIE, sealSession(renewed, secret), cookieOptions(SESSION_TTL_MS / 1000));
+			event.cookies.set(
+				SESSION_COOKIE,
+				sealSession(renewed, secret),
+				cookieOptions(SESSION_TTL_MS / 1000)
+			);
 		}
 	}
 

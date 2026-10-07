@@ -11,6 +11,7 @@
 		params.set('tab', tab);
 		return `/sites/${data.site.id}?${params}`;
 	};
+	const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 	const depth = (folder: string) => folder.split('/').length - 1;
 	const label = (folder: string) => folder.slice(folder.lastIndexOf('/') + 1);
 </script>
@@ -20,7 +21,12 @@
 <nldd-simple-section>
 	<nldd-container gap="24">
 		<nldd-title size="1" heading-level="1" text={data.site.naam}>
-			<nldd-link slot="end" href="/sites/{data.site.id}/nieuw" start-icon="plus" text="Nieuwe pagina"></nldd-link>
+			<nldd-link
+				slot="end"
+				href="/sites/{data.site.id}/nieuw"
+				start-icon="plus"
+				text="Nieuwe pagina"
+			></nldd-link>
 		</nldd-title>
 
 		<nldd-container layout="wrap" gap="32">
@@ -32,14 +38,22 @@
 					</li>
 					{#each data.folders as folder (folder)}
 						<li style:padding-inline-start="{depth(folder) * 16}px">
-							<nldd-link href={mapHref(folder)} text={label(folder)}></nldd-link>
+							<nldd-link
+								href={mapHref(folder)}
+								text={label(folder)}
+								aria-current={folder === data.map ? 'true' : undefined}
+							></nldd-link>
 						</li>
 					{/each}
 				</ul>
 			</nav>
 
 			<section aria-label="Pagina's">
-				<nldd-title size="4" heading-level="2" text={data.map ? `Pagina's in ${data.map}` : "Pagina's"}></nldd-title>
+				<nldd-title
+					size="4"
+					heading-level="2"
+					text={data.map ? `Pagina's in ${data.map}` : "Pagina's"}
+				></nldd-title>
 				{#if data.pages.length === 0}
 					<nldd-text>Geen pagina's in deze map.</nldd-text>
 				{:else}
@@ -51,7 +65,7 @@
 									<nldd-text color="secondary" size="sm">{page.name}</nldd-text>
 									<nldd-link
 										size="sm"
-										href="/sites/{data.site.id}/bewerken/{page.path}"
+										href="/sites/{data.site.id}/bewerken/{encodePath(page.path)}"
 										text="Bewerken"
 										accessible-label="Bewerken {page.title}"
 									></nldd-link>

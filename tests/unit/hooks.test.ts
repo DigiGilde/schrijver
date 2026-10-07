@@ -3,10 +3,18 @@ import type { Handle } from '@sveltejs/kit';
 import { sealSession, type Session } from '../../src/lib/auth/session';
 
 const secret = 'test-secret-with-enough-entropy';
-const prefs = { sub: 'abc', identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true };
+const prefs = {
+	sub: 'abc',
+	identity: 'anoniem',
+	githubLogin: null,
+	githubId: null,
+	onboarded: true
+};
 
 vi.mock('../../src/lib/server/services', () => ({ initServices: vi.fn(async () => undefined) }));
-vi.mock('../../src/lib/server/fake-mode', () => ({ initFakeServices: vi.fn(async () => undefined) }));
+vi.mock('../../src/lib/server/fake-mode', () => ({
+	initFakeServices: vi.fn(async () => undefined)
+}));
 vi.mock('../../src/lib/auth/users', () => ({
 	getPrefs: vi.fn(async () => prefs),
 	applySchema: vi.fn(async () => undefined)
@@ -32,7 +40,11 @@ function run(path: string, cookie?: string) {
 	const event = {
 		url: new URL(`http://localhost${path}`),
 		request: new Request(`http://localhost${path}`),
-		cookies: { get: (n: string) => (n === 'schrijver_sessie' ? cookie : undefined), set, delete: vi.fn() },
+		cookies: {
+			get: (n: string) => (n === 'schrijver_sessie' ? cookie : undefined),
+			set,
+			delete: vi.fn()
+		},
 		locals
 	};
 	const result = (handle as Handle)({ event, resolve } as unknown as Parameters<Handle>[0]);
@@ -97,7 +109,11 @@ describe('handle', () => {
 	it('re-seals the cookie when less than 4 h remain', async () => {
 		const { result, set } = run('/', sealSession(session({ exp: Date.now() + 3600_000 }), secret));
 		await result;
-		expect(set).toHaveBeenCalledWith('schrijver_sessie', expect.any(String), expect.objectContaining({ path: '/', httpOnly: true }));
+		expect(set).toHaveBeenCalledWith(
+			'schrijver_sessie',
+			expect.any(String),
+			expect.objectContaining({ path: '/', httpOnly: true })
+		);
 	});
 
 	it('does not re-seal with plenty of time left', async () => {

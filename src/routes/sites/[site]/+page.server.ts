@@ -35,7 +35,9 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	const map = (url.searchParams.get('map') ?? '').replace(/^\/+|\/+$/g, '');
 	if (map && !folders.has(map)) error(404, 'Map niet gevonden');
-	const inFolder = files.filter((f) => f.slice(0, f.lastIndexOf('/') + 1) === (map ? map + '/' : ''));
+	const inFolder = files.filter(
+		(f) => f.slice(0, f.lastIndexOf('/') + 1) === (map ? map + '/' : '')
+	);
 
 	const schema = store.schema(site.id);
 	const pages = await Promise.all(
@@ -62,7 +64,9 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	try {
 		const prs = await forge.listPrs(site.repo, 'open');
 		proposals = await Promise.all(
-			prs.map(async (pr) => toProposal(pr, await forge.prFiles(site.repo, pr.number), site, myTrailer))
+			prs.map(async (pr) =>
+				toProposal(pr, await forge.prFiles(site.repo, pr.number), site, myTrailer)
+			)
 		);
 		proposals.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	} catch (err) {
