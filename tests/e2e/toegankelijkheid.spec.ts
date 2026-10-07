@@ -159,6 +159,10 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 	await expect(page.locator('#schrijfhulp-paneel')).toBeVisible();
 	await page.keyboard.press('Enter');
 	await expect(page.locator('#schrijfhulp-paneel')).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Schrijfhulp' })).toHaveAttribute(
+		'aria-expanded',
+		'false'
+	);
 });
 
 test('Schrijfhulp button announces its collapsed and expanded state', async ({ page }) => {
@@ -170,6 +174,24 @@ test('Schrijfhulp button announces its collapsed and expanded state', async ({ p
 	await knop.click();
 	await expect(knop).toHaveAttribute('aria-expanded', 'true');
 	await expect(page.getByRole('complementary', { name: 'Schrijfhulp' })).toBeVisible();
+	await knop.click();
+	await expect(knop).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('Schrijfhulp button is collapsed on first render after a client-side navigation', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek');
+	await page.evaluate(() => customElements.whenDefined('nldd-button'));
+	const before = await page.evaluate(() => performance.getEntriesByType('navigation').length);
+	await page
+		.getByRole('link', { name: /Bewerken/ })
+		.first()
+		.click();
+	await expect(page).toHaveURL(/\/bewerken\//);
+	const knop = page.getByRole('button', { name: 'Schrijfhulp' });
+	await expect(knop).toHaveAttribute('aria-expanded', 'false');
+	expect(await page.evaluate(() => performance.getEntriesByType('navigation').length)).toBe(before);
 });
 
 test('a save conflict takes focus, and choosing a version returns it to the editor', async ({

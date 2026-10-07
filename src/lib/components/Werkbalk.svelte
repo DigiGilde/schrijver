@@ -30,6 +30,17 @@
 
 	const active = $derived(state?.active);
 
+	/*
+	 * `expanded` goes in as a property, never as an attribute: server-rendered expanded="false" is a
+	 * present boolean attribute (Lit reads it as true), and `undefined` renders as aria-expanded="undefined".
+	 * Lit keeps a property set before the element upgrades.
+	 */
+	function uitgeklapt(node: HTMLElement, open: boolean) {
+		const element = node as HTMLElement & { expanded: boolean };
+		element.expanded = open;
+		return { update: (next: boolean) => (element.expanded = next) };
+	}
+
 	const knoppen: {
 		actie: Actie;
 		icon: string;
@@ -107,7 +118,7 @@
 			size="sm"
 			text="Schrijfhulp"
 			expandable
-			expanded={schrijfhulpOpen || undefined}
+			use:uitgeklapt={schrijfhulpOpen}
 			onclick={onschrijfhulp}
 		></nldd-button>
 	{/if}
