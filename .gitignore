@@ -1,0 +1,22 @@
+# Claude Code and planning artefacts
+docs/superpowers/
+.claude/settings.local.json
+CLAUDE.local.md
+.claude/worktrees/
+
+# Node
+node_modules/
+dist/
+build/
+.svelte-kit/
+.env
+.env.*
+!.env.example
+coverage/
+test-results/
+playwright-report/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
