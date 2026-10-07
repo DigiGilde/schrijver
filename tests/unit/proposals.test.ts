@@ -92,6 +92,18 @@ describe('previewUrl', () => {
 		expect(url).not.toContain('{nummer}');
 	});
 
+	it('replaces every {nummer} placeholder', () => {
+		const site = { ...digi, preview: { soort: 'bij-push' as const, url: 'https://x/{nummer}/pr-{nummer}/' } };
+		const url = previewUrl(site, pr());
+		expect(url).toBe('https://x/7/pr-7/');
+		expect(url).not.toContain('{nummer}');
+	});
+
+	it('is null for bij-push without url', () => {
+		const site = { ...digi, preview: { soort: 'bij-push' as const } };
+		expect(previewUrl(site, pr())).toBeNull();
+	});
+
 	it('bij-label needs the label', () => {
 		expect(previewUrl(moza, pr())).toBeNull();
 		expect(previewUrl(moza, pr({ labels: ['preview'] }))).toBe(
