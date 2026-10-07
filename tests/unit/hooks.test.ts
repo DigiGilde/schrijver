@@ -31,6 +31,7 @@ const session = (over: Partial<Session> = {}): Session => ({
 	email: 'jan@example.org',
 	emailVerified: true,
 	organisation: null,
+	iat: Date.now(),
 	exp: Date.now() + 8 * 3600_000,
 	...over
 });
@@ -152,6 +153,13 @@ describe('handle', () => {
 			expect.any(String),
 			expect.objectContaining({ path: '/', httpOnly: true })
 		);
+	});
+
+	it('does not re-seal past the absolute maximum', async () => {
+		const signedIn = Date.now() - 12 * 3600_000 + 60_000;
+		const { result, set } = run('/', sealSession(session({ iat: signedIn, exp: Date.now() + 60_000 }), secret));
+		await result;
+		expect(set).not.toHaveBeenCalled();
 	});
 
 	it('does not re-seal with plenty of time left', async () => {

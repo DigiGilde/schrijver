@@ -14,7 +14,7 @@ import { log } from '../../src/lib/log';
 import { sealPayload } from '../../src/lib/auth/session';
 import { startGithubLink } from '../../src/lib/auth/github-link';
 import { submitPrefs, unlinkGithub } from '../../src/lib/auth/prefs-action';
-import { GET as start } from '../../src/routes/login/github/+server';
+import { POST as start } from '../../src/routes/login/github/+server';
 import { GET as callback } from '../../src/routes/login/github/callback/+server';
 
 const server = setupServer();
@@ -42,13 +42,14 @@ beforeEach(() => {
 	process.env.ORIGIN = 'https://schrijver.test';
 	vi.mocked(savePrefs).mockClear();
 	vi.mocked(log.error).mockClear();
+	revoked = [];
 });
 
-function begin(kies = true) {
+function begin() {
 	const cookies = jar();
 	let loc = '';
 	try {
-		start({ url: new URL(`https://x.test/login/github${kies ? '?kies=gekoppeld' : ''}`), cookies, locals: { user: user() } } as never);
+		start({ url: new URL('https://x.test/login/github'), cookies, locals: { user: user() } } as never);
 	} catch (r) {
 		loc = (r as { location: string }).location;
 	}
@@ -85,9 +86,17 @@ const githubOk = (challenge: string, user = { login: 'real-login', id: 42 }) => 
 		http.get('https://api.github.com/user', ({ request }) => {
 			expect(request.headers.get('authorization')).toBe('Bearer ghu_tok');
 			return HttpResponse.json(user);
+		}),
+		http.delete('https://api.github.com/applications/cid/grant', async ({ request }) => {
+			revoked.push({
+				authorization: request.headers.get('authorization'),
+				body: (await request.json()) as Record<string, unknown>
+			});
+			return new HttpResponse(null, { status: 204 });
 		})
 	);
 };
+let revoked: { authorization: string | null; body: Record<string, unknown> }[] = [];
 
 describe('start', () => {
 	it('redirects to GitHub with client id, redirect uri and state, and seals a cookie', () => {
@@ -107,25 +116,37 @@ describe('start', () => {
 
 	it('throws without ORIGIN', () => {
 		delete process.env.ORIGIN;
-		expect(() => startGithubLink('abc', false)).toThrow('ORIGIN is not set');
+		expect(() => startGithubLink('abc')).toThrow('ORIGIN is not set');
 	});
 });
 
 describe('callback', () => {
-	it('saves login and id from /user and chooses gekoppeld when requested', async () => {
+	it('saves login and id from /user and never changes the identity', async () => {
 		const { cookies, state, authorize } = begin();
 		githubOk(authorize.searchParams.get('code_challenge')!);
-		const res = await call(cookies, `code=thecode&state=${state}&login=evil&id=1`);
+		const res = await call(cookies, `code=thecode&state=${state}&login=evil&id=1&kies=gekoppeld`);
 		expect(res.location).toBe('/instellingen?gekoppeld=1');
-		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, githubLogin: 'real-login', githubId: 42, identity: 'gekoppeld' });
+		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, githubLogin: 'real-login', githubId: 42 });
 		expect(cookies.store.schrijver_github_link).toBeUndefined();
 	});
 
-	it('keeps the identity when gekoppeld was not requested', async () => {
-		const { cookies, state, authorize } = begin(false);
+	it('revokes the grant with the app credentials after reading the user', async () => {
+		const { cookies, state, authorize } = begin();
 		githubOk(authorize.searchParams.get('code_challenge')!);
 		await call(cookies, `code=thecode&state=${state}`);
-		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, githubLogin: 'real-login', githubId: 42, identity: 'anoniem' });
+		expect(revoked).toEqual([
+			{ authorization: `Basic ${Buffer.from('cid:csecret').toString('base64')}`, body: { access_token: 'ghu_tok' } }
+		]);
+	});
+
+	it('still links when revoking fails, and logs no token', async () => {
+		const { cookies, state, authorize } = begin();
+		githubOk(authorize.searchParams.get('code_challenge')!);
+		server.use(http.delete('https://api.github.com/applications/cid/grant', () => new HttpResponse(null, { status: 422 })));
+		await call(cookies, `code=thecode&state=${state}`);
+		expect(savePrefs).toHaveBeenCalled();
+		expect(log.warn).toHaveBeenCalledWith('auth.github_grant_not_revoked', { status: 422 });
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('ghu_');
 	});
 
 	it('rejects a wrong state', async () => {
@@ -146,7 +167,7 @@ describe('callback', () => {
 
 	it('rejects a cookie without a verifier', async () => {
 		const { cookies, state } = begin();
-		cookies.store.schrijver_github_link = sealPayload({ state, sub: 'abc', exp: Date.now() + 60_000 }, 'test-secret');
+		cookies.store.schrijver_github_link = sealPayload({ state, sub: 'abc', exp: Date.now() + 60_000 }, 'test-secret', 'github-link');
 		const res = await call(cookies, `code=thecode&state=${state}`);
 		expect(res.status).toBe(400);
 		expect(savePrefs).not.toHaveBeenCalled();
@@ -156,7 +177,8 @@ describe('callback', () => {
 		const { cookies, state } = begin();
 		cookies.store.schrijver_github_link = sealPayload(
 			{ state, verifier: 'v', sub: 'abc', exp: Date.now() - 1000 },
-			'test-secret'
+			'test-secret',
+			'github-link'
 		);
 		const res = await call(cookies, `code=thecode&state=${state}`);
 		expect(res.status).toBe(400);

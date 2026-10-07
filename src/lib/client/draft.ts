@@ -56,3 +56,13 @@ export function restoredValue(field: FormField, raw: unknown): unknown {
 		return Array.isArray(raw) ? raw : [];
 	return raw ?? '';
 }
+
+/** Removes every unsaved draft from this browser, so the next person on a shared workstation sees none. */
+export function clearAllDrafts(): void {
+	try {
+		const keys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
+		for (const key of keys) if (key?.startsWith('schrijver:')) localStorage.removeItem(key);
+	} catch {
+		// storage unavailable: nothing to clear
+	}
+}

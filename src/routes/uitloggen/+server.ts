@@ -4,7 +4,8 @@ import { endSessionUrl } from '$lib/auth/oidc';
 import { SESSION_COOKIE } from '$lib/auth/session';
 import { log } from '$lib/log';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+// POST only, from a form: a cross-site page cannot log the user out by navigating here.
+export const POST: RequestHandler = async ({ url, cookies }) => {
 	cookies.delete(SESSION_COOKIE, { path: '/' });
 	let target: string | null = null;
 	try {

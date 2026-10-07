@@ -10,6 +10,7 @@ const session = (over: Partial<Session> = {}): Session => ({
 	email: 'test@example.org',
 	emailVerified: true,
 	organisation: null,
+	iat: Date.now(),
 	exp: 9999999999999,
 	...over
 });

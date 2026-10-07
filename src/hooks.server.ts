@@ -5,10 +5,11 @@ import { errorFields, log } from '$lib/log';
 import {
 	SESSION_COOKIE,
 	SESSION_RENEW_BELOW_MS,
-	SESSION_TTL_MS,
+	assertStrongSecrets,
 	cookieOptions,
 	type Session,
 	openSession,
+	renewedExpiry,
 	sealSession,
 	sessionSecret
 } from '$lib/auth/session';
@@ -23,6 +24,7 @@ import {
 } from '$lib/server/security';
 
 assertSafeEnvironment();
+assertStrongSecrets();
 
 const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
@@ -99,12 +101,13 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	const session = token ? openSession(token, secret) : null;
 	if (session) {
 		event.locals.user = { session, prefs: await getPrefs(session.sub) };
-		if (session.exp - Date.now() < SESSION_RENEW_BELOW_MS) {
-			const renewed = { ...session, exp: Date.now() + SESSION_TTL_MS };
+		const exp = renewedExpiry(session);
+		if (session.exp - Date.now() < SESSION_RENEW_BELOW_MS && exp > session.exp) {
+			const renewed = { ...session, exp };
 			event.cookies.set(
 				SESSION_COOKIE,
 				sealSession(renewed, secret),
-				cookieOptions(SESSION_TTL_MS / 1000)
+				cookieOptions(Math.ceil((exp - Date.now()) / 1000))
 			);
 		}
 	}

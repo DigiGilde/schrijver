@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PrefsForm from '$lib/components/PrefsForm.svelte';
+	import { clearAllDrafts } from '$lib/client/draft';
 
 	let { data, form } = $props();
 </script>
@@ -15,5 +16,8 @@
 		error={form?.error}
 		saved={form?.saved || form?.unlinked || data.justLinked}
 	/>
-	<nldd-link href="/uitloggen" text="Uitloggen" data-sveltekit-reload></nldd-link>
+	<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
+		<nldd-button appearance="secondary" type="submit" text="Uitloggen"></nldd-button>
+		<nldd-text color="secondary" size="sm">Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text>
+	</form>
 </nldd-container>

@@ -44,12 +44,12 @@ export async function startLogin(origin: string): Promise<{ location: string; co
 		code_challenge_method: 'S256',
 		state
 	});
-	const cookie = sealPayload({ state, verifier, exp: Date.now() + LOGIN_TTL_MS }, sessionSecret());
+	const cookie = sealPayload({ state, verifier, exp: Date.now() + LOGIN_TTL_MS }, sessionSecret(), 'login');
 	return { location: location.href, cookie };
 }
 
 export async function finishLogin(currentUrl: URL, loginCookie: string | undefined): Promise<Session> {
-	const login = loginCookie ? openPayload(loginCookie, sessionSecret()) : null;
+	const login = loginCookie ? openPayload(loginCookie, sessionSecret(), 'login') : null;
 	if (!login || typeof login.state !== 'string' || typeof login.verifier !== 'string') {
 		throw new Error('login cookie missing or invalid');
 	}
@@ -72,6 +72,7 @@ export async function finishLogin(currentUrl: URL, loginCookie: string | undefin
 		email: str(claims.email),
 		emailVerified: claims.email_verified === true,
 		organisation: orgName,
+		iat: Date.now(),
 		exp: Date.now() + SESSION_TTL_MS
 	};
 }

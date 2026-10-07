@@ -16,12 +16,7 @@ export const GET: RequestHandler = async ({ url, cookies, locals }) => {
 	const { session, prefs } = locals.user;
 	try {
 		const gh = await finishGithubLink(url, cookies.get(GITHUB_LINK_COOKIE), session.sub);
-		await savePrefs({
-			...prefs,
-			githubLogin: gh.login,
-			githubId: gh.id,
-			identity: gh.chooseLinked ? 'gekoppeld' : prefs.identity
-		});
+		await savePrefs({ ...prefs, githubLogin: gh.login, githubId: gh.id });
 	} catch (err) {
 		log.error('auth.github_link_failed', { reason: err instanceof Error ? err.message : 'unknown' });
 		cookies.delete(GITHUB_LINK_COOKIE, { path: '/' });

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { errorFields, log } from '../log';
 import { openPayload, sealPayload, sessionSecret } from './session';
 
 export const GITHUB_LINK_COOKIE = 'schrijver_github_link';
@@ -18,7 +19,7 @@ const sameString = (a: string, b: string) => {
 	return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export function startGithubLink(sub: string, chooseLinked: boolean) {
+export function startGithubLink(sub: string) {
 	const state = randomBytes(24).toString('base64url');
 	const verifier = randomBytes(32).toString('base64url');
 	const params = new URLSearchParams({
@@ -31,8 +32,9 @@ export function startGithubLink(sub: string, chooseLinked: boolean) {
 	return {
 		location: `https://github.com/login/oauth/authorize?${params}`,
 		cookie: sealPayload(
-			{ state, verifier, sub, kies: chooseLinked ? 'gekoppeld' : '', exp: Date.now() + GITHUB_LINK_TTL_MS },
-			sessionSecret()
+			{ state, verifier, sub, exp: Date.now() + GITHUB_LINK_TTL_MS },
+			sessionSecret(),
+			'github-link'
 		)
 	};
 }
@@ -40,16 +42,39 @@ export function startGithubLink(sub: string, chooseLinked: boolean) {
 export interface GithubIdentity {
 	login: string;
 	id: number;
-	chooseLinked: boolean;
 }
 
-/** Verifies state and session binding, exchanges the code and reads the authenticated user. The token is not kept. */
+/**
+ * Deletes the grant, and with it the token, so a later link always shows GitHub's consent screen
+ * instead of completing silently. Same call as @octokit/oauth-methods deleteAuthorization.
+ */
+async function revokeGrant(token: string): Promise<void> {
+	const clientId = env('GITHUB_APP_CLIENT_ID');
+	const basic = Buffer.from(`${clientId}:${env('GITHUB_APP_CLIENT_SECRET')}`).toString('base64');
+	try {
+		const res = await fetch(`https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`, {
+			method: 'DELETE',
+			headers: {
+				accept: 'application/vnd.github+json',
+				authorization: `Basic ${basic}`,
+				'content-type': 'application/json',
+				'user-agent': 'schrijver'
+			},
+			body: JSON.stringify({ access_token: token })
+		});
+		if (res.status !== 204) log.warn('auth.github_grant_not_revoked', { status: res.status });
+	} catch (err) {
+		log.warn('auth.github_grant_not_revoked', errorFields(err));
+	}
+}
+
+/** Verifies state and session binding, exchanges the code, reads the authenticated user and revokes the grant. */
 export async function finishGithubLink(
 	url: URL,
 	cookie: string | undefined,
 	sessionSub: string
 ): Promise<GithubIdentity> {
-	const link = cookie ? openPayload(cookie, sessionSecret()) : null;
+	const link = cookie ? openPayload(cookie, sessionSecret(), 'github-link') : null;
 	if (!link || typeof link.state !== 'string' || typeof link.sub !== 'string' || typeof link.verifier !== 'string') throw new Error('link cookie missing or invalid');
 	if (link.sub !== sessionSub) throw new Error('link cookie belongs to another session');
 	if (!sameString(url.searchParams.get('state') ?? '', link.state)) throw new Error('state mismatch');
@@ -74,8 +99,12 @@ export async function finishGithubLink(
 	const userRes = await fetch('https://api.github.com/user', {
 		headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'user-agent': 'schrijver' }
 	});
-	if (!userRes.ok) throw new Error(`user lookup failed (${userRes.status})`);
-	const body = (await userRes.json()) as { id?: unknown; login?: unknown };
-	if (typeof body.id !== 'number' || typeof body.login !== 'string') throw new Error('unexpected user response');
-	return { login: body.login, id: body.id, chooseLinked: link.kies === 'gekoppeld' };
+	try {
+		if (!userRes.ok) throw new Error(`user lookup failed (${userRes.status})`);
+		const body = (await userRes.json()) as { id?: unknown; login?: unknown };
+		if (typeof body.id !== 'number' || typeof body.login !== 'string') throw new Error('unexpected user response');
+		return { login: body.login, id: body.id };
+	} finally {
+		await revokeGrant(token);
+	}
 }
