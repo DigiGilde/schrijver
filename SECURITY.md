@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability
 
-Do not open a public issue for a security problem. Report it privately to the maintainers by e-mail at robbert@askanna.io, or through the private vulnerability reporting of the GitHub repository when it is enabled. Include what you found, how to reproduce it and the impact.
+Do not open a public issue for a security problem. Report it privately to the maintainers by e-mail at digigilde@rijksoverheid.nl, or through the private vulnerability reporting of the GitHub repository when it is enabled. Include what you found, how to reproduce it and the impact.
 
-We acknowledge a report within five working days and keep you informed until it is fixed.
+We respond as soon as possible and keep you informed until it is fixed.
 
 ## Platform
 

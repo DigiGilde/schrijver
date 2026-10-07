@@ -1,6 +1,9 @@
 publiccodeYmlVersion: "0.4"
 name: Schrijver
-# url: https://github.com/<organisation>/schrijver   (fill in when the repository location is settled)
+# The final repository URL is to be confirmed.
+url: https://github.com/DigiGilde/schrijver
+softwareVersion: 0.1.0
+releaseDate: "2026-10-08"
 softwareType: standalone/web
 platforms:
   - web

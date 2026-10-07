@@ -24,7 +24,7 @@ Keep test output free of warnings.
 ## Conventions
 
 - Language: the UI is Dutch; code, comments, documentation, commits, branches and pull requests are English. Route paths mirror the Dutch UI (`/instellingen`, `/sites`) and stay Dutch, also when English prose quotes them.
-- No em dash or en dash anywhere (code, documentation, UI). Use a hyphen or rewrite the sentence.
+- No em dash or en dash anywhere (code, documentation, UI). Use a hyphen or rewrite the sentence. The exception is `LICENSE`, which is the verbatim EUPL-1.2 text.
 - Comments only for a non-obvious constraint or gotcha, not to explain a change.
 - Conventional commits: `feat:`, `fix:`, `test:`, `docs:`, `chore:`. One sharp line in the subject.
 - No AI attribution lines in commits or pull requests.

@@ -18,12 +18,14 @@ SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_TEST_SESSION='{"sub":"dev","name":"Dev Gebruike
 - `SCHRIJVER_TEST_SESSION` is a JSON session (`sub`, `name`, `email`, `emailVerified`, `organisation`, `exp` in epoch milliseconds) that skips the login.
 - Both are ignored when `NODE_ENV` is `production`.
 
-To run against real services, fill in `.env` (see `.env.example`) and follow the Keycloak check below.
+To run against real services, fill in `.env` (see `.env.example`). Two variables worth knowing: `VLAM_MODEL` (default `vlam-llm-large-prepaid`) selects the VLAM model, and `DATABASE_SERVER_FULL` is the Postgres connection string, provided by the platform on ZAD. A full local stack with Keycloak and Postgres is described in [dev/README.md](dev/README.md) (`podman compose up --build`). The Keycloak check below is for any other realm.
 
 ## Tests
 
 ```sh
+npm run dev         # start the development server
 npm test            # unit tests, including the Markdown round-trip corpus
+npm run build       # production build (adapter-node, output in build/)
 npm run check       # svelte-check
 npm run lint        # prettier --check
 npm run test:e2e    # Playwright against the fake forge
@@ -39,22 +41,12 @@ Build the container with `podman build -f Containerfile -t schrijver .` (the app
 - [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md): connect a new site, step by step.
 - [docs/identiteit-en-privacy.md](docs/identiteit-en-privacy.md): identity choices, pseudonyms, what goes to VLAM.
 - [docs/decisions/README.md](docs/decisions/README.md): decision records.
-- [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [LICENSE](LICENSE) (EUPL-1.2), [publiccode.yml](publiccode.yml).
+- [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [LICENSE](LICENSE) (EUPL-1.2), [publiccode.yml](publiccode.yml) (a draft until the repository is published).
 - In the app: the help page `/help` ("Zo werkt Schrijver").
-
-## Commands
-
-```sh
-npm run dev     # start the development server
-npm test        # run the unit tests
-npm run build   # production build (adapter-node, output in build/)
-```
-
-Copy `.env.example` to `.env` and fill in the values first.
 
 ## Manual check of the login against Keycloak
 
-Schrijver signs users in through OIDC (code flow with PKCE). To try it locally against a Keycloak realm (the dev realm from `compose.yml` once it exists, or any realm you can reach):
+Schrijver signs users in through OIDC (code flow with PKCE). To try it locally against a Keycloak realm (the dev realm from `compose.yml`, see [dev/README.md](dev/README.md), or any realm you can reach):
 
 1. In the realm, create a confidential client with the redirect URI `http://localhost:5173/login/callback` and (optionally) the post-logout redirect URI `http://localhost:5173/`. Give the test user a name and e-mail address; mark the e-mail verified to test the "Op naam" option.
 2. In `.env` set `OIDC_DISCOVERY_URL` (`http://localhost:8080/realms/<realm>/.well-known/openid-configuration`), `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET` (any long random string) and `DATABASE_SERVER_FULL` (a reachable Postgres; `db/schema.sql` is applied on the first request). Plain `http` issuers are accepted for local use.

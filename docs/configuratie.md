@@ -47,7 +47,7 @@ Anyone signed in may propose on any site whose repository has the App installed.
 | --- | --- |
 | `titel` | Where the page title comes from: `uit-h1` (the first H1 is the title, no title field) or `veld:<naam>` (a frontmatter field, for example `veld:title`). |
 | `velden` | Map of frontmatter field name to definition. |
-| `nieuwe-pagina` | How new pages are placed, in one of two variants (below). |
+| `nieuwe-pagina` | Required. How new pages are placed, in one of two variants (below). |
 
 Fields that appear in a file but not in the schema are kept untouched, in their original order. A page that fails validation when opened still opens, with the problem highlighted.
 
@@ -85,7 +85,7 @@ Variant two, page types (`soorten`), each with:
 | `mappen` | Alternatively, folders to choose from; `*` matches one level. |
 | `bestandsnaam` | File name pattern. `{datum}` is today as `YYYY-MM-DD`, `{titel}` the slug of the title, `{jaar}` the year. |
 | `velden` | Fields shown for this type, by name. |
-| `sjabloon` | Starting body (see above). |
+| `sjabloon` | Starting body. Not applied by the current code, like `sjabloon` in the first variant. |
 
 ## schrijfwijzer/
 
