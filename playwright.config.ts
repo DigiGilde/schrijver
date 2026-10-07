@@ -11,6 +11,7 @@ export default defineConfig({
 		reuseExistingServer: false,
 		timeout: 180_000,
 		env: {
+			NODE_ENV: 'development',
 			PORT: String(port),
 			SCHRIJVER_FAKE_FORGE: '1',
 			SCHRIJVER_TEST_SESSION: JSON.stringify({

@@ -54,6 +54,19 @@ describe('securityHeaders with an existing CSP', () => {
 	});
 });
 
+describe('securityHeaders with immutable headers', () => {
+	it('still adds the headers', async () => {
+		const redirect = Response.redirect('http://localhost/login', 303);
+		const res = await call(
+			securityHeaders,
+			ev('/'),
+			vi.fn(async () => redirect)
+		).res;
+		expect(res.status).toBe(303);
+		expect(res.headers.get('x-frame-options')).toBe('DENY');
+	});
+});
+
 describe('apiGuard', () => {
 	it('rejects an API call without the header', async () => {
 		const { res, resolve } = call(apiGuard, ev('/api/assistent'));
@@ -74,6 +87,23 @@ describe('apiGuard', () => {
 		const { resolve, res } = call(apiGuard, ev('/api/webhook/github'));
 		await res;
 		expect(resolve).toHaveBeenCalled();
+	});
+	it('cannot be evaded with an encoded or doubled-slash path', async () => {
+		for (const p of [
+			'/%61pi/assistent',
+			'//api/assistent',
+			'/api//assistent',
+			'/api%2Fassistent'
+		]) {
+			const { res, resolve } = call(apiGuard, ev(p));
+			expect((await res).status).toBe(403);
+			expect(resolve).not.toHaveBeenCalled();
+		}
+	});
+	it('answers 400 for a malformed path', async () => {
+		const { res, resolve } = call(apiGuard, ev('/api/%E0%A4%A'));
+		expect((await res).status).toBe(400);
+		expect(resolve).not.toHaveBeenCalled();
 	});
 	it('ignores non-API paths', async () => {
 		const { resolve, res } = call(apiGuard, ev('/help'));
@@ -99,6 +129,11 @@ describe('rateLimit', () => {
 		for (let i = 0; i < 20; i++) await call(h, ev('/api/assistent')).res;
 		expect((await call(h, ev('/api/assistent', {}, '9.9.9.9')).res).status).toBe(200);
 		expect((await call(h, ev('/api/sites/x/afbeelding')).res).status).toBe(200);
+	});
+	it('counts an encoded path against the same bucket', async () => {
+		const h = createRateLimit(() => 5);
+		for (let i = 0; i < 20; i++) await call(h, ev('/%61pi/assistent')).res;
+		expect((await call(h, ev('/api/assistent')).res).status).toBe(429);
 	});
 	it('allows 60 saves per minute', async () => {
 		const h = createRateLimit(() => 5);

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Handle } from '@sveltejs/kit';
+// @ts-expect-error SvelteKit ships no types for its internal server entry
+import { with_request_store } from '@sveltejs/kit/internal/server';
 import { sealSession, type Session } from '../../src/lib/auth/session';
 
 const secret = 'test-secret-with-enough-entropy';
@@ -11,15 +13,6 @@ const prefs = {
 	onboarded: true
 };
 
-vi.mock('@sveltejs/kit/hooks', () => ({
-	sequence:
-		(...hs: Handle[]): Handle =>
-		({ event, resolve }) => {
-			const next = (i: number, e: typeof event): ReturnType<Handle> =>
-				i === hs.length ? resolve(e) : hs[i]({ event: e, resolve: (ne) => next(i + 1, ne ?? e) });
-			return next(0, event);
-		}
-}));
 vi.mock('../../src/lib/server/services', () => ({ initServices: vi.fn(async () => undefined) }));
 vi.mock('../../src/lib/server/fake-mode', () => ({
 	initFakeServices: vi.fn(async () => undefined)
@@ -57,7 +50,14 @@ function run(path: string, cookie?: string) {
 		locals,
 		getClientAddress: () => '127.0.0.1'
 	};
-	const result = (handle as Handle)({ event, resolve } as unknown as Parameters<Handle>[0]);
+	// The real sequence() reads the request store that SvelteKit's server sets up per request.
+	const store = {
+		event,
+		state: { tracing: { record_span: ({ fn }: { fn: (c: unknown) => unknown }) => fn({}) } }
+	};
+	const result = with_request_store(store as never, () =>
+		(handle as Handle)({ event, resolve } as unknown as Parameters<Handle>[0])
+	);
 	return { result: Promise.resolve(result), locals, resolve, set };
 }
 
@@ -65,6 +65,34 @@ beforeEach(() => {
 	vi.mocked(getPrefs).mockClear();
 	process.env.SESSION_SECRET = secret;
 	vi.mocked(getPrefs).mockResolvedValue(prefs as never);
+});
+
+describe('composed handle', () => {
+	it('rejects an unauthenticated API call without the header with 403, not a redirect', async () => {
+		const { result, resolve } = run('/api/x');
+		const res = await result;
+		expect(res.status).toBe(403);
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('rejects an encoded API path without the header', async () => {
+		const { result } = run('/%61pi/assistent');
+		expect((await result).status).toBe(403);
+	});
+
+	it('sets the security headers on the redirect to /login', async () => {
+		const { result } = run('/sites/x');
+		const res = await result;
+		expect(res.status).toBe(303);
+		expect(res.headers.get('x-frame-options')).toBe('DENY');
+		expect(res.headers.get('content-security-policy')).toContain("default-src 'self'");
+	});
+
+	it('lets the webhook reach the next handle without the header', async () => {
+		const { result, resolve } = run('/api/webhook/github');
+		await result;
+		expect(resolve).toHaveBeenCalled();
+	});
 });
 
 describe('handle', () => {

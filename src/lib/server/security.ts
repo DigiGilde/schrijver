@@ -37,18 +37,38 @@ const json = (status: number, message: string, headers: Record<string, string> =
 		headers: { 'content-type': 'application/json', ...headers }
 	});
 
-export const securityHeaders: Handle = async ({ event, resolve }) => {
-	const response = await resolve(event);
+/** The path as SvelteKit routes it: percent-decoded, duplicate slashes collapsed. Null when malformed. */
+export function normalisePath(pathname: string): string | null {
+	try {
+		return decodeURIComponent(pathname).replace(/\/{2,}/g, '/');
+	} catch {
+		return null;
+	}
+}
+
+function applyHeaders(response: Response) {
 	for (const [k, v] of Object.entries(HEADERS)) {
 		// SvelteKit sets its own CSP (with nonces) on rendered pages; do not overwrite it.
 		if (k === 'Content-Security-Policy' && response.headers.has(k)) continue;
 		response.headers.set(k, v);
 	}
-	return response;
+}
+
+export const securityHeaders: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	try {
+		applyHeaders(response);
+		return response;
+	} catch {
+		const copy = new Response(response.body, response);
+		applyHeaders(copy);
+		return copy;
+	}
 };
 
 export const apiGuard: Handle = async ({ event, resolve }) => {
-	const path = event.url.pathname;
+	const path = normalisePath(event.url.pathname);
+	if (path === null) return json(400, 'Ongeldige aanvraag');
 	if (
 		path.startsWith('/api/') &&
 		!path.startsWith('/api/webhook/') &&
@@ -93,7 +113,8 @@ export function createRateLimit(now: () => number = Date.now): Handle & { sweep(
 	setInterval(sweep, WINDOW_MS).unref();
 
 	const handle: Handle = async ({ event, resolve }) => {
-		const rule = RULES.find((r) => r.test.test(event.url.pathname));
+		const path = normalisePath(event.url.pathname);
+		const rule = path === null ? undefined : RULES.find((r) => r.test.test(path));
 		if (!rule) return resolve(event);
 		const key = `${rule.name}:${clientKey(event)}`;
 		const t = now();

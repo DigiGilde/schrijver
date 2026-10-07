@@ -19,4 +19,4 @@ SESSION_SECRET=<long random string>
 PSEUDONYM_SECRET=<long random string>
 ```
 
-Keycloak announces itself (`KC_HOSTNAME` in `compose.yml`) as `http://keycloak:8081` to both the app container and the browser, so add `127.0.0.1 keycloak` to `/etc/hosts` on the host. The GitHub App and VLAM variables are only needed for the features that use them.
+Keycloak announces itself (`KC_HOSTNAME` in `compose.yml`) as `http://keycloak:8081` to both the app container and the browser, so add `127.0.0.1 keycloak` to `/etc/hosts` on the host. Behind a reverse proxy such as the ZAD ingress, also set `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH` (number of trusted proxies); otherwise rate limiting of unauthenticated clients sees the proxy address. The GitHub App and VLAM variables are only needed for the features that use them.
