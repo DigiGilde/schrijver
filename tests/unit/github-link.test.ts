@@ -40,6 +40,7 @@ beforeEach(() => {
 	process.env.GITHUB_APP_CLIENT_ID = 'cid';
 	process.env.GITHUB_APP_CLIENT_SECRET = 'csecret';
 	process.env.ORIGIN = 'https://schrijver.test';
+	process.env.PSEUDONYM_SECRET = 'geheim';
 	vi.mocked(savePrefs).mockClear();
 	vi.mocked(log.error).mockClear();
 	revoked = [];
@@ -242,5 +243,14 @@ describe('prefs form action', () => {
 		const linked: UserPrefs = { ...prefs, identity: 'gekoppeld', githubLogin: 'jan', githubId: 5 };
 		await unlinkGithub({ locals: { user: user(linked) } } as never);
 		expect(savePrefs).toHaveBeenCalledWith({ ...prefs, identity: 'anoniem', githubLogin: null, githubId: null });
+		expect(log.info).toHaveBeenCalledWith('auth.github_unlinked', { actor: expect.stringMatching(/^[0-9a-f]{12}$/) });
+	});
+
+	it('logs an identity change with the actor pseudonym and no e-mail address', async () => {
+		vi.mocked(log.info).mockClear();
+		const u = { session: { sub: 'abc', emailVerified: true, email: 'jan@example.org' }, prefs };
+		await submitPrefs(event('op-naam', u), 'stay');
+		expect(log.info).toHaveBeenCalledWith('prefs.saved', { identity: 'op-naam', actor: expect.any(String) });
+		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
 	});
 });

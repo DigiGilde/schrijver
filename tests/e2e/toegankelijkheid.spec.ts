@@ -229,3 +229,26 @@ test.describe('forms have a submit control', () => {
 		});
 	}
 });
+
+test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
+	test.use({ viewport: { width: 320, height: 800 } });
+	for (const url of ['/sites/digi-handboek/voorstellen/1', '/sites/digi-handboek/bewerken/index.md', '/instellingen']) {
+		test(url, async ({ page }) => {
+			await page.goto(url);
+			await page.evaluate(() => customElements.whenDefined('nldd-top-navigation-bar'));
+			await page.waitForLoadState('networkidle');
+			const width = await page.evaluate(() => document.documentElement.scrollWidth);
+			expect(width, 'no horizontal scrolling').toBeLessThanOrEqual(320);
+			// Overflow can also hide inside a clipping container: no light-DOM box may stick out of the viewport.
+			const sticking = await page.evaluate(() =>
+				[...document.body.querySelectorAll('*')]
+					.filter((el) => {
+						const box = el.getBoundingClientRect();
+						return box.width > 0 && box.right > innerWidth + 1;
+					})
+					.map((el) => `${el.tagName.toLowerCase()}.${el.className}`)
+			);
+			expect(sticking, 'elements wider than the viewport').toEqual([]);
+		});
+	}
+});

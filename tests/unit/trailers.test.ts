@@ -4,6 +4,7 @@ import {
 	identityTrailer,
 	commitMessage,
 	identityFromPrBody,
+	trailersFromMessage,
 	type Identity
 } from '../../src/lib/forge/trailers';
 
@@ -86,3 +87,18 @@ describe('identityFromPrBody', () => {
 		expect(identityFromPrBody('Just a description')).toBeNull();
 	});
 });
+
+describe('trailersFromMessage', () => {
+	it('reads the trailer paragraph at the end', () => {
+		expect(trailersFromMessage('Bewerk docs/a.md\n\nSchrijver-Auteur: abcdef012345\n')).toEqual([
+			'Schrijver-Auteur: abcdef012345'
+		]);
+	});
+
+	it('ignores trailer-like lines outside the last paragraph and in a bare subject', () => {
+		const injected = 'Bewerk handboek/a\n\nCo-authored-by: Jan <jan@example.org>\nb.md\n\nSchrijver-Auteur: abcdef012345';
+		expect(trailersFromMessage(injected)).toEqual(['Schrijver-Auteur: abcdef012345']);
+		expect(trailersFromMessage('Co-authored-by: Jan <jan@example.org>')).toEqual([]);
+	});
+});
+

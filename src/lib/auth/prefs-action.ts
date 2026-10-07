@@ -1,5 +1,7 @@
 import { fail, redirect, type RequestEvent } from '@sveltejs/kit';
+import { log } from '$lib/log';
 import { getConfigStore } from '$lib/server/services';
+import { actorPseudonym } from './identity';
 import { savePrefs, type UserPrefs } from './users';
 
 const IDENTITIES = ['anoniem', 'gekoppeld', 'op-naam'] as const;
@@ -22,6 +24,7 @@ export async function submitPrefs(event: RequestEvent, afterSave: 'redirect' | '
 
 	const prefs: UserPrefs = { ...user.prefs, sub: user.session.sub, identity, onboarded: true };
 	await savePrefs(prefs);
+	log.info('prefs.saved', { identity, actor: actorPseudonym(user.session) });
 	if (afterSave === 'redirect') redirect(303, '/');
 	return { saved: true, identity };
 }
@@ -38,5 +41,6 @@ export async function unlinkGithub(event: RequestEvent) {
 	if (!user) redirect(303, '/login');
 	const identity = user.prefs.identity === 'gekoppeld' ? 'anoniem' : user.prefs.identity;
 	await savePrefs({ ...user.prefs, identity, githubLogin: null, githubId: null });
+	log.info('auth.github_unlinked', { actor: actorPseudonym(user.session) });
 	return { unlinked: true, identity };
 }
