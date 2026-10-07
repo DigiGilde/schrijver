@@ -12,6 +12,7 @@ const schema = (name: string) =>
 const digiSchema = schema('digi-handboek');
 const mozaSchema = schema('moza-site');
 const identity: Identity = { kind: 'anoniem', pseudoniem: 'abc123def456' };
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const ORIGINAL = '---\ndescription: Oud\n---\n\n# Home\n\nTekst.\n';
 const MOZA_FILE = '---\ntitle: Contact\ndescription: Bel ons\n---\n\nTekst.\n';
 
@@ -161,12 +162,50 @@ describe('save', () => {
 				identity,
 				req({
 					body: '![Een kat](afbeeldingen/docs/kat.png)\n',
-					images: [{ path: 'docs/afbeeldingen/docs/kat.png', base64: Buffer.from('png').toString('base64') }]
+					images: [{ path: 'docs/afbeeldingen/docs/kat.png', base64: PNG.toString('base64') }]
 				})
 			)
 		);
-		expect(forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/kat.png')).toBe('png');
+		expect(forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/kat.png')).toEqual(PNG.toString());
 		expect(forge.commitsOf(digi.repo, r.branch)).toHaveLength(1);
+	});
+
+	describe('image validation', () => {
+		const img = (name: string, bytes: Buffer) => ({
+			path: `docs/afbeeldingen/docs/${name}`,
+			base64: bytes.toString('base64')
+		});
+		const untouched = () => expect(forge.branches(digi.repo)).toEqual(['main']);
+
+		it('rejects PNG-named bytes that are not a PNG', async () => {
+			const r = await save(forge, digi, digiSchema, identity, req({ images: [img('x.png', Buffer.from('geen png'))] }));
+			expect(r).toMatchObject({ ok: false, status: 415 });
+			untouched();
+		});
+
+		it('sanitises svg before committing', async () => {
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script><rect width="1" height="1"/></svg>';
+			const r = ok(await save(forge, digi, digiSchema, identity, req({ images: [img('x.svg', Buffer.from(svg))] })));
+			const stored = forge.fileText(digi.repo, r.branch, 'docs/afbeeldingen/docs/x.svg')!;
+			expect(stored).toContain('<rect');
+			expect(stored).not.toMatch(/script|onload/);
+		});
+
+		it('rejects svg-named text that is not an svg', async () => {
+			const r = await save(forge, digi, digiSchema, identity, req({ images: [img('x.svg', Buffer.from('hallo'))] }));
+			expect(r).toMatchObject({ ok: false, status: 415 });
+		});
+	});
+
+	it('requires a base version for an existing file', async () => {
+		const r = await save(forge, digi, digiSchema, identity, req({ baseSha: null }));
+		expect(r).toMatchObject({ ok: false, status: 400, error: { message: 'Ontbrekende basisversie' } });
+		expect(forge.branches(digi.repo)).toEqual(['main']);
+	});
+
+	it('ignores changed keys that are not schema fields', async () => {
+		const r = ok(await save(forge, digi, digiSchema, identity, req({ frontmatter: { description: 'Oud', evil: 'x' }, changedKeys: ['evil'] })));
+		expect(forge.fileText(digi.repo, r.branch, 'docs/index.md')).not.toContain('evil');
 	});
 
 	it('returns a forge error with its detail', async () => {
@@ -197,6 +236,26 @@ describe('save', () => {
 			const first = ok(await save(forge, digi, digiSchema, identity, req()));
 			ok(await save(forge, digi, digiSchema, identity, next(first)));
 			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(2);
+		});
+
+		it('refuses a fork PR whose head branch is named like the victim branch', async () => {
+			const first = ok(await save(forge, digi, digiSchema, other, req()));
+			const real = forge.prs.get(first.prNumber)!;
+			const stub = {
+				...forge,
+				getPr: async () => ({ ...real, headRepo: 'aanvaller/handboek', body: `x\n\n${'Schrijver-Auteur: abc123def456'}` })
+			} as unknown as FakeForge;
+			Object.setPrototypeOf(stub, forge);
+			const r = await save(stub, digi, digiSchema, identity, next(first));
+			expect(r).toMatchObject({ ok: false, status: 403 });
+			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(1);
+		});
+
+		it('refuses a PR with another base branch', async () => {
+			const first = ok(await save(forge, digi, digiSchema, identity, req()));
+			forge.prs.get(first.prNumber)!.baseRef = 'andere';
+			const r = await save(forge, digi, digiSchema, identity, next(first));
+			expect(r).toMatchObject({ ok: false, status: 403 });
 		});
 
 		it('refuses a PR whose head differs from the branch', async () => {

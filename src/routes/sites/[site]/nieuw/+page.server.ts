@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import picomatch from 'picomatch';
 import type { Actions, PageServerLoad } from './$types';
+import { slugify } from '$lib/content/slug';
 import { newPagePath } from '$lib/content/schema-form';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -50,6 +51,7 @@ export const actions: Actions = {
 		const map = String(form.get('map') ?? '');
 		const titel = String(form.get('titel') ?? '').trim();
 		if (!titel) return fail(400, { error: 'Geef de pagina een titel' });
+		if (!slugify(titel)) return fail(400, { error: 'Geef een titel met letters of cijfers' });
 		let pad: string;
 		try {
 			pad = newPagePath(store.schema(site.id), soort, map, titel, new Date());

@@ -41,7 +41,11 @@
 		unterminated: 'De frontmatter van deze pagina is niet afgesloten met ---.'
 	};
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
-	const storageKey = $derived(`schrijver:${data.site.id}:${BRANCH}:${data.path}`);
+	// svelte-ignore state_referenced_locally
+	let baseSha = $state(data.sha);
+	// svelte-ignore state_referenced_locally
+	let activeBranch = $state(data.branch);
+	const storageKey = $derived(`schrijver:${data.site.id}:${activeBranch ?? BRANCH}:${data.path}`);
 
 	function currentFrontmatter(): Record<string, unknown> {
 		return applyForm(fields, data.frontmatter).frontmatter;
@@ -106,7 +110,7 @@
 					body: snapshot.body,
 					frontmatter,
 					at: Date.now(),
-					sha: data.sha
+					sha: baseSha
 				});
 		};
 		timer = setTimeout(flush, SAVE_DELAY_MS);
@@ -200,9 +204,9 @@
 
 	{#if restorable}
 		<nldd-banner
-			variant={restorable.sha === data.sha ? 'accent' : 'warning'}
+			variant={restorable.sha === baseSha ? 'accent' : 'warning'}
 			text="Niet-opgeslagen concept gevonden"
-			supporting-text={restorable.sha === data.sha
+			supporting-text={restorable.sha === baseSha
 				? undefined
 				: 'De pagina is intussen gewijzigd; het concept is gebaseerd op een oudere versie'}
 		>
@@ -256,12 +260,17 @@
 				prNumber={data.prNumber}
 				nieuw={data.nieuw}
 				snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
-				onbewaard={() => {
+				onbewaard={(saved) => {
 					clearTimeout(timer);
+					writeDraft(null);
+					baseSha = saved.sha;
+					activeBranch = saved.branch;
 					flushPending = null;
 					writeDraft(null);
 				}}
 				onovernemen={neemOver}
+				onbasis={(sha) => (baseSha = sha)}
+				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 			/>
 			{#if openbaarConcept}
 				<p class="gedimd">

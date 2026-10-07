@@ -15,8 +15,10 @@
 		prNumber,
 		nieuw,
 		snapshot,
+		labels,
 		onbewaard,
-		onovernemen
+		onovernemen,
+		onbasis
 	}: {
 		siteId: string;
 		repoPath: string;
@@ -25,8 +27,10 @@
 		prNumber: number | null;
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
-		onbewaard: () => void;
+		labels: Record<string, string>;
+		onbewaard: (saved: { sha: string; branch: string }) => void;
 		onovernemen: (text: string) => void;
+		onbasis: (sha: string) => void;
 	} = $props();
 
 	/* The props are the initial values of the editing session; later saves update them locally. */
@@ -75,7 +79,7 @@
 				bewaard = { nummer: result.prNumber, url: result.url };
 				const params = new URLSearchParams({ branch: result.branch, pr: String(result.prNumber) });
 				replaceState(`?${params}`, {});
-				onbewaard();
+				onbewaard({ sha: result.sha, branch: result.branch });
 			} else if (result?.conflict) {
 				conflict = result.conflict;
 			} else {
@@ -95,6 +99,7 @@
 	function neemOver() {
 		if (!conflict) return;
 		baseSha = conflict.sha;
+		onbasis(conflict.sha);
 		onovernemen(conflict.theirs);
 		conflict = null;
 	}
@@ -142,7 +147,7 @@
 		{#if fout.fields}
 			<ul>
 				{#each Object.entries(fout.fields) as [veld, melding] (veld)}
-					<li>{veld}: {melding}</li>
+					<li>{labels[veld] ?? veld}: {melding}</li>
 				{/each}
 			</ul>
 		{/if}
@@ -156,8 +161,8 @@
 {/if}
 
 {#if conflict}
-	<div role="alert" class="conflict">
-		<p>Deze pagina is intussen door iemand anders gewijzigd. Kies welke versie je wilt houden.</p>
+	<div class="conflict">
+		<p role="alert">Deze pagina is intussen door iemand anders gewijzigd. Kies welke versie je wilt houden.</p>
 		<div class="versies">
 			<section aria-label="Mijn versie">
 				<h3>Mijn versie</h3>

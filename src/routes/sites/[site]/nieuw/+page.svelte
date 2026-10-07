@@ -29,7 +29,7 @@
 				</select>
 			</label>
 		{/if}
-		{#if option.fixed === null}
+		{#if option.fixed === null && option.folders.length > 0}
 			<label>
 				Map
 				<select name="map" value={gekozenMap} onchange={(e) => (map = e.currentTarget.value)}>
@@ -38,7 +38,7 @@
 					{/each}
 				</select>
 			</label>
-		{:else}
+		{:else if option.fixed !== null}
 			<input type="hidden" name="map" value={option.fixed} />
 		{/if}
 		<label>

@@ -72,7 +72,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			error(400, 'Ongeldig voorstel');
 		}
 		const pr = await forge.getPr(site.repo, n).catch(() => null);
-		if (!pr || pr.headRef !== wanted || pr.state !== 'open') error(404, 'Voorstel niet gevonden');
+		if (
+			!pr ||
+			pr.headRef !== wanted ||
+			pr.headRepo !== site.repo ||
+			pr.baseRef !== site.standaardbranch ||
+			pr.state !== 'open'
+		) error(404, 'Voorstel niet gevonden');
 		ref = wanted;
 		branch = wanted;
 		prNumber = n;

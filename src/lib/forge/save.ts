@@ -2,7 +2,15 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import type { PageSchema, SiteConfig } from '../config/types';
 import { parsePage, serializePage } from '../content/frontmatter';
-import { ImageError, MAX_IMAGE_BYTES, imagePath } from '../content/images';
+import {
+	ALLOWED_IMAGE_TYPES,
+	ImageError,
+	MAX_IMAGE_BYTES,
+	imagePath,
+	isSvgDocument,
+	sanitizeSvg,
+	validateImage
+} from '../content/images';
 import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '../content/mermaid';
 import { slugify } from '../content/slug';
 import { buildForm, newPagePath, titleOf, validateForm } from '../content/schema-form';
@@ -133,10 +141,23 @@ export async function save(
 			if (e instanceof ImageError) return fail(400, e.message);
 			throw e;
 		}
-		const bytes = new Uint8Array(Buffer.from(image.base64, 'base64'));
+		let bytes = new Uint8Array(Buffer.from(image.base64, 'base64'));
 		if (bytes.length > MAX_IMAGE_BYTES) return fail(413, 'Afbeelding is groter dan 5 MB');
+		const ext = path.posix.extname(image.path).slice(1).toLowerCase();
+		const mime = Object.entries(ALLOWED_IMAGE_TYPES).find(
+			([, e]) => e === (ext === 'jpeg' ? 'jpg' : ext)
+		)?.[0];
+		const checked = validateImage(bytes, mime ?? '');
+		if (!checked.ok) return fail(checked.status, checked.message);
+		if (checked.mime === 'image/svg+xml') {
+			const clean = sanitizeSvg(dec.decode(bytes));
+			if (!isSvgDocument(clean)) return fail(415, 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)');
+			bytes = new TextEncoder().encode(clean);
+		}
 		imageChanges.push({ path: image.path, content: bytes });
 	}
+
+	if (!isNew && req.baseSha === null) return fail(400, 'Ontbrekende basisversie');
 
 	const prefix = `schrijver/${site.id}/`;
 	if (req.branch !== null && !req.branch.startsWith(prefix)) return fail(400, 'Ongeldige branch');
@@ -147,6 +168,9 @@ export async function save(
 		if (req.branch !== null) {
 			existingPr = await forge.getPr(site.repo, req.prNumber as number);
 			const own = identityFromPrBody(existingPr.body) === identityTrailer(identity);
+			if (existingPr.headRepo !== site.repo || existingPr.baseRef !== site.standaardbranch) {
+				return fail(403, 'Dit voorstel is niet van jou');
+			}
 			if (existingPr.state !== 'open' || existingPr.headRef !== req.branch) {
 				return fail(409, 'Dit voorstel is niet meer open');
 			}
@@ -161,12 +185,15 @@ export async function save(
 		const page = parsePage(currentText);
 		if (!page.ok) return fail(400, 'Deze pagina kan niet in Schrijver worden bewerkt', { detail: page.message });
 
-		const changedKeys = isNew
-			? [...new Set([...req.changedKeys, ...Object.keys(req.frontmatter)])]
-			: req.changedKeys;
+		const known = new Set(Object.keys(schema.velden));
+		const changedKeys = (
+			isNew ? [...new Set([...req.changedKeys, ...Object.keys(req.frontmatter)])] : req.changedKeys
+		).filter((k) => known.has(k));
 		const body = isNew && req.body.trim() === '' ? page.body : req.body;
 		const text = serializePage({ ...page, frontmatter: req.frontmatter, body }, changedKeys);
 
+		// Known limitation: a change on the default branch after the first save is not detected here;
+		// the send-in mergeability check (mergeable === false) warns about it instead.
 		if (current && req.baseSha !== null && current.sha !== req.baseSha && currentText !== text) {
 			return { ok: false, conflict: { mine: text, theirs: currentText, sha: current.sha } };
 		}
