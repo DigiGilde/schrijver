@@ -1,0 +1,37 @@
+publiccodeYmlVersion: "0.4"
+name: Schrijver
+# url: https://github.com/<organisation>/schrijver   (fill in when the repository location is settled)
+softwareType: standalone/web
+platforms:
+  - web
+categories:
+  - content-management
+developmentStatus: development
+legal:
+  license: EUPL-1.2
+maintenance:
+  type: internal
+  contacts:
+    - name: Robbert Bos
+      email: robbert@askanna.io
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - nl
+description:
+  nl:
+    shortDescription: Collega's bewerken Markdown-pagina's van statische sites en stellen wijzigingen voor als pull request, zonder GitHub-account.
+    longDescription: >-
+      Schrijver is een webapplicatie waarmee collega's de Markdown-pagina's van
+      statische sites bewerken in een prettige editor en hun wijzigingen als
+      GitHub pull request voorstellen, zonder Git of een persoonlijk token.
+      Inloggen gaat met SSO Rijk, VLAM helpt als schrijfhulp en de redactie
+      beoordeelt en voegt samen op GitHub of in Schrijver zelf.
+  en:
+    shortDescription: Colleagues edit Markdown pages of static sites and propose changes as pull requests, without a GitHub account.
+    longDescription: >-
+      Schrijver is a web application through which colleagues edit the Markdown
+      pages of static sites in a friendly editor and propose their changes as
+      GitHub pull requests, without Git or a personal token. Sign-in uses SSO
+      Rijk, VLAM assists as a writing aid, and the editorial team reviews and
+      merges on GitHub or in Schrijver itself.
