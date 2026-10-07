@@ -33,68 +33,75 @@
 			label: 'Lijst met opsommingstekens',
 			actief: () => active?.bulletList
 		},
-		{ actie: 'quote', icon: 'blockquote', label: 'Citaat', actief: () => active?.quote },
+		{ actie: 'quote', icon: 'text-quote', label: 'Citaat', actief: () => active?.quote },
 		{ actie: 'link', icon: 'link', label: 'Link', actief: () => active?.link },
-		{ actie: 'code', icon: 'code', label: 'Code in de regel', actief: () => active?.inlineCode }
+		{
+			actie: 'code',
+			icon: 'chevron-left-forward-slash-chevron-right',
+			label: 'Code in de regel',
+			actief: () => active?.inlineCode
+		}
 	];
 	const koppen = [2, 3, 4] as const;
 
-	const appearance = (aan: boolean | undefined) => (aan ? 'neutral-tinted' : 'neutral-transparent');
+	/** The toggle flips itself on click; put it back in line with the editor once the state event has landed. */
+	function resync(event: Event, aan: () => boolean | undefined) {
+		const element = event.currentTarget as HTMLElement & { selected: boolean };
+		setTimeout(() => (element.selected = !!aan()), 0);
+	}
 </script>
 
 <div class="werkbalk" role="toolbar" aria-label="Opmaak">
 	{#each knoppen as knop (knop.actie)}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-icon-button
-			icon={knop.icon}
-			accessible-label={knop.label}
-			size="sm"
-			appearance={appearance(knop.actief())}
-			disabled={disabled || undefined}
-			onclick={() => onactie(knop.actie)}
-		></nldd-icon-button>
+		{@render schakel(knop.icon, knop.label, knop.actief, () => onactie(knop.actie))}
 	{/each}
 	{#each koppen as niveau (niveau)}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-icon-button
-			icon={`heading-${niveau}`}
-			accessible-label={`Kop ${niveau}`}
-			size="sm"
-			appearance={appearance(active?.heading === niveau)}
-			disabled={disabled || undefined}
-			onclick={() => onkop(niveau)}
-		></nldd-icon-button>
+		{@render schakel(
+			`heading-${niveau}`,
+			`Kop ${niveau}`,
+			() => active?.heading === niveau,
+			() => onkop(niveau)
+		)}
 	{/each}
 	{#each lijst as knop (knop.actie)}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-icon-button
-			icon={knop.icon}
-			accessible-label={knop.label}
-			size="sm"
-			appearance={appearance(knop.actief())}
-			disabled={disabled || undefined}
-			onclick={() => onactie(knop.actie)}
-		></nldd-icon-button>
+		{@render schakel(knop.icon, knop.label, knop.actief, () => onactie(knop.actie))}
 	{/each}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-icon-button
-		icon="image"
+		icon="photo"
 		accessible-label="Afbeelding invoegen"
 		size="sm"
 		appearance="neutral-transparent"
-		disabled={disabled || undefined}
+		disabled
 		onclick={onafbeelding}
 	></nldd-icon-button>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-icon-button
-		icon="chart-line"
+		icon="network-structure"
 		accessible-label="Mermaid-diagram invoegen"
 		size="sm"
 		appearance="neutral-transparent"
-		disabled={disabled || undefined}
+		disabled
 		onclick={onmermaid}
 	></nldd-icon-button>
 </div>
+
+{#snippet schakel(icon: string, label: string, aan: () => boolean | undefined, doe: () => void)}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<nldd-toggle-button
+		type="button"
+		{icon}
+		accessible-label={label}
+		size="sm"
+		appearance="neutral-transparent"
+		selected={aan() || undefined}
+		disabled={disabled || undefined}
+		onclick={(event: Event) => {
+			doe();
+			resync(event, aan);
+		}}
+	></nldd-toggle-button>
+{/snippet}
 
 <style>
 	.werkbalk {

@@ -165,8 +165,8 @@ describe('FakeForge', () => {
 		expect(await forge.readTree(REPO, 'main', '')).toHaveLength(3);
 	});
 
-	it('setPublic is stored per repo', () => {
+	it('setPublic is stored per repo', async () => {
 		forge.setPublic(REPO, true);
-		expect(forge.isPublic(REPO)).toBe(true);
+		expect(await forge.isPublic(REPO)).toBe(true);
 	});
 });

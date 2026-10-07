@@ -35,6 +35,11 @@
 	};
 
 	const readOnly = $derived(data.readOnly);
+	const leesAlleenTekst = {
+		toml: 'Deze pagina gebruikt TOML-frontmatter, dat Schrijver nog niet ondersteunt.',
+		'yaml-error': 'De frontmatter van deze pagina bevat een fout en kan niet veilig worden bewerkt.',
+		unterminated: 'De frontmatter van deze pagina is niet afgesloten met ---.'
+	};
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
 	const storageKey = $derived(`schrijver:${data.site.id}:${BRANCH}:${data.path}`);
 
@@ -172,7 +177,7 @@
 	<div>
 		<nldd-title size="2" heading-level="1" text={data.path}></nldd-title>
 		{#if openbaarConcept}
-			<p class="gedimd">Openbaar concept</p>
+			<nldd-text color="secondary" size="sm">Openbaar concept</nldd-text>
 		{/if}
 	</div>
 
@@ -180,8 +185,9 @@
 		<nldd-banner
 			variant="warning"
 			text="Deze pagina kan niet in Schrijver worden bewerkt"
-			supporting-text={`${readOnly.message}. Je kunt het bestand wel bekijken en bewerken op GitHub.`}
+			supporting-text={`${leesAlleenTekst[readOnly.reason as keyof typeof leesAlleenTekst] ?? 'De frontmatter van deze pagina kan niet worden gelezen.'} Je kunt het bestand wel bekijken en bewerken op GitHub.`}
 		>
+			<nldd-text color="secondary" size="sm">{readOnly.message}</nldd-text>
 			<nldd-button
 				slot="actions"
 				appearance="secondary"
@@ -201,10 +207,10 @@
 				: 'De pagina is intussen gewijzigd; het concept is gebaseerd op een oudere versie'}
 		>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<nldd-button slot="actions" appearance="primary" text="Herstellen" onclick={restore}
+			<nldd-button slot="actions" appearance="primary" text="Herstellen" onclick={() => { restore(); editor?.focus(); }}
 			></nldd-button>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<nldd-button slot="actions" appearance="secondary" text="Weggooien" onclick={discard}
+			<nldd-button slot="actions" appearance="secondary" text="Weggooien" onclick={() => { discard(); editor?.focus(); }}
 			></nldd-button>
 		</nldd-banner>
 	{/if}

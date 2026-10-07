@@ -14,6 +14,13 @@ export const PURIFY_CONFIG = {
 	ADD_ATTR: ['language', 'data-src']
 };
 
+const LANGUAGE_ALIASES: Record<string, string> = {
+	shell: 'bash',
+	sh: 'bash',
+	yml: 'yaml',
+	js: 'javascript'
+};
+
 const NOTICE = 'Niet in voorbeeld';
 
 function notice(node: Paragraph | Html): void {
@@ -67,7 +74,8 @@ function codeHandler(_state: unknown, node: Code): Element {
 			children: [{ type: 'element', tagName: 'pre', properties: {}, children: [text] }]
 		};
 	}
-	const properties: Properties = node.lang ? { language: node.lang } : {};
+	const language = node.lang ? (LANGUAGE_ALIASES[node.lang] ?? node.lang) : '';
+	const properties: Properties = language ? { language } : {};
 	return { type: 'element', tagName: 'nldd-code-viewer', properties, children: [text] };
 }
 
@@ -81,6 +89,8 @@ const processor = unified()
 let browserPurify: Sanitize | undefined;
 
 function defaultSanitize(html: string): string {
+	if (!DOMPurify.isSupported)
+		throw new Error('DOMPurify needs a browser DOM; pass a sanitize function');
 	browserPurify ??= (value) => DOMPurify.sanitize(value, PURIFY_CONFIG);
 	return browserPurify(html);
 }

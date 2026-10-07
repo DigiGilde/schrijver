@@ -83,4 +83,16 @@ describe('CachingForge', () => {
 		await cache.readFile('o/other', 'main', 'x.md');
 		expect(readFile).toHaveBeenCalledTimes(1);
 	});
+
+	it('caches isPublic per repo until the TTL passes', async () => {
+		const { fake, cache, advance } = setup();
+		const spy = vi.spyOn(fake, 'isPublic');
+		fake.setPublic('o/site', true);
+		expect(await cache.isPublic('o/site')).toBe(true);
+		fake.setPublic('o/site', false);
+		expect(await cache.isPublic('o/site')).toBe(true);
+		expect(spy).toHaveBeenCalledTimes(1);
+		advance(60001);
+		expect(await cache.isPublic('o/site')).toBe(false);
+	});
 });

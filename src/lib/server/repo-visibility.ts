@@ -1,13 +1,12 @@
+import { log } from '$lib/log';
 import { getForge } from './services';
 
-type VisibilityAware = { isPublic?: (repo: string) => boolean; inner?: unknown };
-
-/** True when the repository is public, or when the forge cannot tell. */
-export function getRepoVisibility(repo: string): boolean {
-	let forge: VisibilityAware | undefined = getForge() as unknown as VisibilityAware;
-	while (forge) {
-		if (typeof forge.isPublic === 'function') return forge.isPublic(repo);
-		forge = forge.inner as VisibilityAware | undefined;
+/** True when the repository is public, or when that cannot be determined (the notice fails safe). */
+export async function getRepoVisibility(repo: string): Promise<boolean> {
+	try {
+		return await getForge().isPublic(repo);
+	} catch (err) {
+		log.warn('forge.visibility_failed', { repo, reason: String(err) });
+		return true;
 	}
-	return true;
 }

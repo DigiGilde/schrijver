@@ -51,7 +51,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			branch: null as string | null,
 			prNumber: null as number | null,
 			nieuw: { soort, folder, title },
-			isPublic: getRepoVisibility(site.repo),
+			isPublic: await getRepoVisibility(site.repo),
 			loadedAt: Date.now(),
 			readOnly: null,
 			body: sjabloon.replaceAll('{titel}', title),
@@ -81,7 +81,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	if (!file) error(404, 'Pagina niet gevonden');
 
 	const text = decoder.decode(file.content);
-	const githubUrl = `https://github.com/${site.repo}/blob/${site.standaardbranch}/${repoPath}`;
+	const encode = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+	const githubUrl = `https://github.com/${site.repo}/blob/${encode(site.standaardbranch)}/${encode(repoPath)}`;
 	const base = {
 		site: { id: site.id, naam: site.naam, concepten: site.concepten },
 		path: pad,
@@ -90,7 +91,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		branch,
 		prNumber,
 		nieuw: null as { soort: string | null; folder: string; title: string } | null,
-		isPublic: getRepoVisibility(site.repo),
+		isPublic: await getRepoVisibility(site.repo),
 		loadedAt: Date.now()
 	};
 

@@ -59,7 +59,7 @@ export class FakeForge implements Forge {
 		this.repo(repo).isPublic = isPublic;
 	}
 
-	isPublic(repo: string): boolean {
+	async isPublic(repo: string): Promise<boolean> {
 		return this.repo(repo).isPublic;
 	}
 

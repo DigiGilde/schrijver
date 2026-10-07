@@ -59,4 +59,6 @@ export interface Forge {
 	comment(repo: string, number: number, body: string): Promise<void>;
 	merge(repo: string, number: number, message: string): Promise<void>; // squash
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
+	/** Whether the repository is publicly readable. */
+	isPublic(repo: string): Promise<boolean>;
 }

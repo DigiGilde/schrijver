@@ -32,6 +32,7 @@
 	export const replaceRange = (from: number, to: number, text: string) =>
 		element?.replaceRange(from, to, text);
 	export const getSelection = () => element?.getSelection();
+	export const focus = () => element?.focus();
 	export const getState = () => element?.getState();
 </script>
 

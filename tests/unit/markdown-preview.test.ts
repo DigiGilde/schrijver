@@ -22,7 +22,7 @@ describe('markdownToHtml', () => {
 
 	it('renders a fenced code block as nldd-code-viewer with escaped code', () => {
 		const html = render('```shell\necho "<b>" && ls\n```');
-		expect(html).toContain('<nldd-code-viewer language="shell">');
+		expect(html).toContain('<nldd-code-viewer language="bash">');
 		expect(html).toContain('echo "&lt;b&gt;" &amp;&amp; ls');
 		expect(html).not.toContain('<b>');
 	});
@@ -57,5 +57,17 @@ describe('markdownToHtml', () => {
 		expect(html).toContain('<p class="niet-in-voorbeeld">Niet in voorbeeld</p>');
 		expect(html).not.toContain('<div');
 		expect(html).toContain('<p>Daarna</p>');
+	});
+
+	it('maps fence aliases to supported grammars', () => {
+		expect(render('```yml\na: 1\n```')).toContain('language="yaml"');
+		expect(render('```js\n1\n```')).toContain('language="javascript"');
+		expect(render('```sh\nls\n```')).toContain('language="bash"');
+	});
+});
+
+describe('default sanitiser', () => {
+	it('throws without a DOM', () => {
+		expect(() => markdownToHtml('x')).toThrow(/DOM/);
 	});
 });

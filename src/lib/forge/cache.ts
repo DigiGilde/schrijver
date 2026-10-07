@@ -89,6 +89,10 @@ export class CachingForge implements Forge {
 	prFiles(repo: string, number: number): Promise<PrFile[]> {
 		return this.inner.prFiles(repo, number);
 	}
+	isPublic(repo: string) {
+		return this.cached(repo, 'public', () => this.inner.isPublic(repo));
+	}
+
 	collaboratorPermission(repo: string, login: string) {
 		return this.inner.collaboratorPermission(repo, login);
 	}
