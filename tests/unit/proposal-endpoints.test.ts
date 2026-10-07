@@ -9,12 +9,16 @@ vi.mock('../../src/lib/server/services', () => ({
 }));
 vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('../../src/lib/auth/identity', () => ({
-	identityFor: (prefs: { who: string }) => ({ kind: 'anoniem', pseudoniem: prefs.who })
+	identityFor: (prefs: { who: string; githubLogin: string | null }) =>
+		prefs.githubLogin
+			? { kind: 'gekoppeld', name: 'N', githubId: 1, login: prefs.githubLogin, who: prefs.who }
+			: { kind: 'anoniem', pseudoniem: prefs.who }
 }));
-vi.mock('../../src/lib/auth/users', () => ({ listLinkedLogins: async () => ['jan', 'piet'] }));
+vi.mock('../../src/lib/auth/users', () => ({
+	listLinkedLogins: async () => ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']
+}));
 
 import { POST as insturen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/insturen/+server';
-import { POST as goedkeuren } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/goedkeuren/+server';
 import { POST as opmerking } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/opmerking/+server';
 import { POST as mergen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/mergen/+server';
 
@@ -30,7 +34,7 @@ const site = (mergeFromSchrijver = true) => ({
 
 function call(
 	handler: (e: never) => Response | Promise<Response>,
-	opts: { who?: string; email?: string; nummer?: string; siteId?: string; body?: unknown; anon?: boolean } = {}
+	opts: { gekoppeld?: string; who?: string; email?: string; nummer?: string; siteId?: string; body?: unknown; anon?: boolean } = {}
 ) {
 	return handler({
 		request: new Request('http://x', { method: 'POST', body: JSON.stringify(opts.body ?? {}) }),
@@ -40,7 +44,7 @@ function call(
 				? null
 				: {
 						session: { email: opts.email ?? 'iemand@example.org', emailVerified: true, name: 'N', sub: 's' },
-						prefs: { who: opts.who ?? 'auteur', githubLogin: null }
+						prefs: { who: opts.who ?? 'auteur', githubLogin: opts.gekoppeld ?? null }
 					}
 		}
 	} as never);
@@ -64,8 +68,8 @@ describe('proposal endpoints', () => {
 		expect((await call(opmerking, { email: 'red@example.org', body: { body: '  ' } })).status).toBe(400);
 	});
 
-	it('lets the owner send in, but not goedkeuren or merge', async () => {
-		expect((await call(goedkeuren, { who: 'auteur' })).status).toBe(403);
+	it('lets the owner send in, but not comment or merge', async () => {
+		expect((await call(opmerking, { who: 'auteur', body: { body: 'x' } })).status).toBe(403);
 		expect((await call(mergen, { who: 'auteur' })).status).toBe(403);
 		expect((await call(insturen, { who: 'vreemde' })).status).toBe(403);
 		expect((await call(insturen, { who: 'auteur' })).status).toBe(200);
@@ -89,11 +93,32 @@ describe('proposal endpoints', () => {
 	it('approves, comments and merges as editorial', async () => {
 		await call(insturen, { who: 'auteur' });
 		const red = { email: 'red@example.org' };
-		expect((await call(goedkeuren, red)).status).toBe(200);
 		expect((await call(opmerking, { ...red, body: { body: 'Mooi' } })).status).toBe(200);
 		expect((await call(mergen, red)).status).toBe(200);
 		expect((await forge.getPr('o/moza', 1)).state).toBe('merged');
 		expect(forge.commitsOf('o/moza', 'main').at(-1)!.message).toBe('Titel (#1)\n\nSchrijver-Auteur: auteur');
+	});
+
+	it('refuses comments on a closed proposal', async () => {
+		forge.prs.get(1)!.state = 'closed';
+		expect((await call(opmerking, { email: 'red@example.org', body: { body: 'x' } })).status).toBe(409);
+	});
+
+	it('requests at most five permission checks and keeps an anonymous author in the list', async () => {
+		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']) forge.permissionByLogin.set(l, 'write');
+		const perm = vi.spyOn(forge, 'collaboratorPermission');
+		const req = vi.spyOn(forge, 'requestReviewers');
+		await call(insturen, { who: 'auteur' });
+		expect(perm.mock.calls.length).toBeLessThanOrEqual(5);
+		expect(req).toHaveBeenCalledWith('o/moza', 1, ['jan', 'piet', 'kees', 'els', 'tom']);
+	});
+
+	it('excludes a linked author from the reviewers', async () => {
+		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe']) forge.permissionByLogin.set(l, 'write');
+		forge.prs.get(1)!.body = 'x\n\nCo-authored-by: N <1+jan@users.noreply.github.com>';
+		const req = vi.spyOn(forge, 'requestReviewers');
+		await call(insturen, { who: 'x', gekoppeld: 'jan' });
+		expect(req).toHaveBeenCalledWith('o/moza', 1, ['piet', 'kees', 'els', 'tom', 'zoe']);
 	});
 
 	it('shows a refused merge verbatim with its status', async () => {

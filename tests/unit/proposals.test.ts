@@ -39,6 +39,11 @@ describe('toProposal', () => {
 		expect(toProposal(pr({ draft: true }), files, digi, TRAILER).status).toBe('concept');
 	});
 
+	it('treats a draft with the sent-in marker as ingestuurd', () => {
+		const sent = pr({ draft: true, body: `Tekst\n\n${TRAILER}\n\nSchrijver-Status: ingestuurd` });
+		expect(toProposal(sent, files, digi, TRAILER).status).toBe('ingestuurd');
+	});
+
 	it('maps ready and approved to goedgekeurd', () => {
 		expect(toProposal(pr({ reviewState: 'approved' }), files, digi, TRAILER).status).toBe(
 			'goedgekeurd'

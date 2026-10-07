@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	approveProposal,
 	canAct,
 	cleanComment,
 	commentProposal,
 	mergeProposal,
+	pickReviewers,
 	sendIn
 } from '../../src/lib/forge/proposal-actions';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
+import { isSentIn } from '../../src/lib/forge/proposals';
 import { identityTrailer, trailersFromMessage } from '../../src/lib/forge/trailers';
 import type { SiteConfig } from '../../src/lib/config/types';
 
@@ -82,6 +83,47 @@ describe('sendIn', () => {
 		await sendIn(forge, site(), pr, { reviewers: [], filesAdded: false });
 		expect(comment).toHaveBeenCalledWith('o/moza', pr.number, 'Klaar voor beoordeling');
 		expect(log.warn).toHaveBeenCalledWith('proposal.markready_fallback', { site: 'moza', pr: pr.number });
+		const after = await forge.getPr('o/moza', pr.number);
+		expect(after.body).toContain('Schrijver-Status: ingestuurd');
+		expect(isSentIn(after)).toBe(true);
+	});
+
+	it('is idempotent: a second send-in does not duplicate sections', async () => {
+		const pr = await draft();
+		forge.failNext('markReady', new ForgeError(403, 'Geen rechten'));
+		await sendIn(forge, site(), pr, { reviewers: [], filesAdded: true });
+		const once = await forge.getPr('o/moza', pr.number);
+		forge.failNext('markReady', new ForgeError(403, 'Geen rechten'));
+		await sendIn(forge, site(), once, { reviewers: [], filesAdded: true });
+		const twice = await forge.getPr('o/moza', pr.number);
+		expect(twice.body).toBe(once.body);
+		expect(twice.body.match(/Pagina's:/g)).toHaveLength(1);
+		expect(twice.body.match(/Menu bijwerken/g)).toHaveLength(1);
+	});
+
+	it('marks ready last and survives a failing reviewer request', async () => {
+		const pr = await draft();
+		const order: string[] = [];
+		for (const op of ['setLabels', 'updatePr', 'requestReviewers', 'markReady'] as const) {
+			const orig = forge[op].bind(forge) as (...a: unknown[]) => Promise<void>;
+			(forge as unknown as Record<string, unknown>)[op] = async (...a: unknown[]) => {
+				order.push(op);
+				return orig(...a);
+			};
+		}
+		forge.failNext('requestReviewers', new ForgeError(422, 'Geen reviewer'));
+		await sendIn(forge, site(), pr, { reviewers: ['jan'], filesAdded: false });
+		expect(order).toEqual(['setLabels', 'updatePr', 'requestReviewers', 'markReady']);
+		expect((await forge.getPr('o/moza', pr.number)).draft).toBe(false);
+	});
+
+	it('warns when the proposal is not mergeable', async () => {
+		const pr = await draft();
+		forge.mergeableByPr.set(pr.number, false);
+		const fresh = await forge.getPr('o/moza', pr.number);
+		expect((await sendIn(forge, site(), fresh, { reviewers: [], filesAdded: false })).warning).toContain(
+			'niet automatisch'
+		);
 	});
 
 	it('rethrows other markReady errors', async () => {
@@ -92,12 +134,6 @@ describe('sendIn', () => {
 });
 
 describe('approve, comment, merge', () => {
-	it('approves', async () => {
-		const pr = await draft();
-		await approveProposal(forge, site(), pr.number, 'Goed');
-		expect((await forge.getPr('o/moza', pr.number)).reviewState).toBe('approved');
-	});
-
 	it('validates comments', async () => {
 		expect(cleanComment('  hoi ')).toBe('hoi');
 		expect(cleanComment('   ')).toBeNull();
@@ -105,6 +141,9 @@ describe('approve, comment, merge', () => {
 		expect(cleanComment(3)).toBeNull();
 		const pr = await draft();
 		await expect(commentProposal(forge, site(), pr.number, ' ')).rejects.toThrow();
+		const spy = vi.spyOn(forge, 'comment');
+		await commentProposal(forge, site(), pr.number, ' Mooi ');
+		expect(spy).toHaveBeenCalledWith('o/moza', pr.number, 'Opmerking van de redactie via Schrijver:\n\nMooi');
 	});
 
 	it('squashes with the title, number and distinct trailers', async () => {
@@ -132,12 +171,37 @@ describe('approve, comment, merge', () => {
 	});
 });
 
+describe('pickReviewers', () => {
+	it('checks at most five logins, excludes the actor and keeps writers', async () => {
+		for (const l of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) forge.permissionByLogin.set(l, 'write');
+		forge.permissionByLogin.set('c', 'read');
+		const spy = vi.spyOn(forge, 'collaboratorPermission');
+		const picked = await pickReviewers(forge, site(), ['a', 'b', 'c', 'd', 'e', 'f', 'g'], 'a');
+		expect(spy).toHaveBeenCalledTimes(5);
+		expect(picked).toEqual(['b', 'd', 'e', 'f']);
+	});
+
+	it('keeps everyone when nothing is excluded and skips failing lookups', async () => {
+		forge.permissionByLogin.set('a', 'admin');
+		forge.permissionByLogin.set('b', 'write');
+		forge.failNext('collaboratorPermission', new ForgeError(500, 'Kapot'));
+		expect(await pickReviewers(forge, site(), ['a', 'b'], null)).toEqual(['b']);
+	});
+});
+
 describe('canAct', () => {
 	it('detects owner and editorial', async () => {
 		const pr = await draft();
-		const user = { trailer, email: 'red@example.org', emailVerified: true, githubLogin: null };
+		const user = {
+			trailer,
+			email: 'red@example.org',
+			emailVerified: true,
+			githubLogin: null,
+			identityKind: 'anoniem' as const
+		};
 		expect(await canAct(user, site(), pr, forge)).toEqual({ owner: true, editorial: true });
 		const fork = { ...pr, headRepo: 'fork/moza' };
+		expect(await canAct(user, site(), { ...pr, headRepo: 'O/MOZA' }, forge)).toMatchObject({ owner: true });
 		expect(await canAct(user, site(), fork, forge)).toEqual({ owner: false, editorial: false });
 		expect(await canAct(user, site(), { ...pr, baseRef: 'dev' }, forge)).toEqual({
 			owner: false,

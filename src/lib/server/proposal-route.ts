@@ -32,11 +32,13 @@ export function proposalAction(action: string, handler: Handler) {
 		const forge = getForge();
 		try {
 			const pr = await forge.getPr(site.repo, nummer);
+			const identity = identityFor(current.prefs, current.session);
 			const user: ActingUser = {
-				trailer: identityTrailer(identityFor(current.prefs, current.session)),
+				trailer: identityTrailer(identity),
 				email: current.session.email,
 				emailVerified: current.session.emailVerified,
-				githubLogin: current.prefs.githubLogin
+				githubLogin: current.prefs.githubLogin,
+				identityKind: identity.kind
 			};
 			const acts = await canAct(user, site, pr, forge);
 			const response = await handler({ site, forge, pr, acts, user }, event);

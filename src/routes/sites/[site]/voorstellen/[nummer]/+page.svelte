@@ -4,7 +4,7 @@
 
 	let { data } = $props();
 
-	type Melding = { variant: 'success' | 'critical'; text: string; detail?: string };
+	type Melding = { variant: 'success' | 'warning' | 'critical'; text: string; detail?: string };
 
 	const STATUS: Record<string, { text: string; color: string }> = {
 		concept: { text: 'Concept', color: 'neutral' },
@@ -37,7 +37,9 @@
 			});
 			const result = await res.json().catch(() => null);
 			if (res.ok && result?.ok) {
-				melding = { variant: 'success', text: gelukt };
+				melding = result.warning
+					? { variant: 'warning', text: gelukt, detail: result.warning }
+					: { variant: 'success', text: gelukt };
 				if (actie === 'opmerking') opmerking = '';
 				await invalidateAll();
 			} else {
@@ -79,16 +81,18 @@
 
 		{#if melding}
 			<nldd-banner variant={melding.variant} text={melding.text}>
-				{#if melding.detail}
+				{#if melding.detail && melding.variant === 'critical'}
 					<details>
 						<summary>Technische details van GitHub</summary>
 						<pre>{melding.detail}</pre>
 					</details>
+				{:else if melding.detail}
+					<nldd-text>{melding.detail}</nldd-text>
 				{/if}
 			</nldd-banner>
 		{/if}
 
-		{#if data.canSendIn || data.canReview}
+		{#if data.canSendIn || data.canMerge}
 			<section aria-label="Acties">
 				<nldd-container layout="wrap" gap="12">
 					{#if data.canSendIn}
@@ -96,17 +100,8 @@
 						<nldd-button
 							appearance="primary"
 							text="Insturen"
-							disabled={busy || undefined}
+							loading={busy || undefined}
 							onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-						></nldd-button>
-					{/if}
-					{#if data.canReview}
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<nldd-button
-							appearance="secondary"
-							text="Goedkeuren"
-							disabled={busy || undefined}
-							onclick={() => stuur('goedkeuren', 'Je goedkeuring is geplaatst')}
 						></nldd-button>
 					{/if}
 					{#if data.canMerge}
@@ -114,12 +109,23 @@
 						<nldd-button
 							appearance="primary"
 							text="Samenvoegen"
-							disabled={busy || undefined}
+							loading={busy || undefined}
 							onclick={() => stuur('mergen', 'Het voorstel is samengevoegd')}
 						></nldd-button>
 					{/if}
 				</nldd-container>
 			</section>
+		{/if}
+
+		{#if data.notMergeable && !melding}
+			<nldd-banner
+				variant="warning"
+				text="Dit voorstel kan niet automatisch worden samengevoegd; de pagina is intussen op de hoofdbranch gewijzigd"
+			></nldd-banner>
+		{/if}
+
+		{#if data.canComment || data.canMerge}
+			<nldd-link href="{data.githubUrl}/files" target="_blank" text="Beoordelen op GitHub"></nldd-link>
 		{/if}
 
 		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'wijzigingen-gevraagd'}
@@ -128,20 +134,27 @@
 			</nldd-text>
 		{/if}
 
-		{#if data.canReview}
+		{#if data.canComment}
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
 					void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
 				}}
 			>
-				<label for="opmerking">Opmerking</label>
-				<textarea id="opmerking" rows="4" maxlength="5000" bind:value={opmerking}></textarea>
+				<nldd-form-field label="Opmerking">
+					<nldd-multi-line-text-field
+						rows="4"
+						maxlength="5000"
+						value={opmerking}
+						oninput={(e: Event) => (opmerking = (e.currentTarget as HTMLInputElement).value)}
+					></nldd-multi-line-text-field>
+				</nldd-form-field>
 				<nldd-button
 					appearance="secondary"
 					type="submit"
 					text="Opmerking plaatsen"
-					disabled={busy || opmerking.trim() === '' || undefined}
+					loading={busy || undefined}
+					disabled={opmerking.trim() === '' || undefined}
 				></nldd-button>
 			</form>
 		{/if}
@@ -170,9 +183,5 @@
 		display: grid;
 		gap: 8px;
 		max-width: 40rem;
-	}
-	textarea {
-		font: inherit;
-		padding: 8px;
 	}
 </style>

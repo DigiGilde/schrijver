@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { identityFor } from '$lib/auth/identity';
 import { canAct } from '$lib/forge/proposal-actions';
-import { toProposal } from '$lib/forge/proposals';
+import { isSentIn, toProposal } from '$lib/forge/proposals';
 import { identityFromPrBody, identityTrailer } from '$lib/forge/trailers';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
@@ -15,7 +15,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!site || !Number.isInteger(nummer) || nummer <= 0) error(404, 'Voorstel niet gevonden');
 	const forge = getForge();
 	const { session, prefs } = locals.user!;
-	const trailer = identityTrailer(identityFor(prefs, session));
+	const identity = identityFor(prefs, session);
+	const trailer = identityTrailer(identity);
 
 	try {
 		const pr = await forge.getPr(site.repo, nummer);
@@ -36,7 +37,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				}))
 		);
 		const acts = await canAct(
-			{ trailer, email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
+			{ trailer, email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin, identityKind: identity.kind },
 			site,
 			pr,
 			forge
@@ -47,10 +48,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			diffs,
 			viaGithub: identityFromPrBody(pr.body) === null,
 			githubUrl: pr.url,
-			canSendIn: pr.state === 'open' && pr.draft && (acts.owner || acts.editorial),
-			canReview: pr.state === 'open' && !pr.draft && acts.editorial,
+			notMergeable: pr.state === 'open' && pr.mergeable === false,
+			canSendIn: pr.state === 'open' && !isSentIn(pr) && (acts.owner || acts.editorial),
+			canComment: pr.state === 'open' && acts.editorial,
 			canMerge:
-				pr.state === 'open' && !pr.draft && acts.editorial && site.review['mergen-vanuit-schrijver']
+				pr.state === 'open' &&
+				isSentIn(pr) &&
+				acts.editorial &&
+				site.review['mergen-vanuit-schrijver']
 		};
 	} catch (e) {
 		if (e instanceof ForgeError && e.status === 404) error(404, 'Voorstel niet gevonden');

@@ -15,10 +15,16 @@ export interface Proposal {
 	updatedAt: string;
 }
 
+export const SENT_MARKER = 'Schrijver-Status: ingestuurd';
+
+export function isSentIn(pr: Pick<PrSummary, 'draft' | 'body'>): boolean {
+	return !pr.draft || pr.body.split('\n').some((l) => l.trim() === SENT_MARKER);
+}
+
 function statusOf(pr: PrSummary): Proposal['status'] {
 	if (pr.state === 'merged') return 'samengevoegd';
 	if (pr.state === 'closed') return 'gesloten';
-	if (pr.draft) return 'concept';
+	if (!isSentIn(pr)) return 'concept';
 	if (pr.reviewState === 'approved') return 'goedgekeurd';
 	if (pr.reviewState === 'changes_requested') return 'wijzigingen-gevraagd';
 	return 'ingestuurd';

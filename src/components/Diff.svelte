@@ -30,8 +30,8 @@
 
 <section class="diff" aria-label={path}>
 	<nldd-title size="4" heading-level="3" text={path}>
-		{#if before === null}<nldd-tag slot="end" text="Nieuwe pagina"></nldd-tag>{/if}
-		{#if after === null}<nldd-tag slot="end" text="Verwijderd"></nldd-tag>{/if}
+		{#if before === null}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"></nldd-badge>{/if}
+		{#if after === null}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
 	</nldd-title>
 
 	{#if changes.length > 0}
@@ -49,11 +49,11 @@
 	{/if}
 
 	<div class="kolommen">
-		<section aria-label="Huidige versie">
+		<section aria-label="Huidige versie van {path}">
 			<nldd-title size="5" heading-level="4" text="Huidige versie"></nldd-title>
 			{#if oldHtml}<nldd-rich-text>{@html oldHtml}</nldd-rich-text>{:else}<pre>{old.body}</pre>{/if}
 		</section>
-		<section aria-label="Voorgestelde versie">
+		<section aria-label="Voorgestelde versie van {path}">
 			<nldd-title size="5" heading-level="4" text="Voorgestelde versie"></nldd-title>
 			{#if newHtml}<nldd-rich-text>{@html newHtml}</nldd-rich-text>{:else}<pre>{nieuw.body}</pre>{/if}
 		</section>
