@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
+import picomatch from 'picomatch';
 import type { PageSchema, SiteConfig } from '../config/types';
 import { parsePage, serializePage } from '../content/frontmatter';
 import {
@@ -33,6 +34,8 @@ export interface SaveRequest {
 	prNumber: number | null;
 	images: { path: string; base64: string }[];
 	newPage?: NewPage;
+	/** Replace an image that already exists on the target branch. */
+	overwrite?: boolean;
 }
 
 export type SaveResult =
@@ -57,15 +60,35 @@ function randomSuffix(): string {
 	return Array.from(randomBytes(4), (b) => BASE32[b % 32]).join('');
 }
 
+// C0 and C1 controls plus the Unicode line and paragraph separators.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+const CONTROL_ALL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
+
+export const hasControlCharacters = (text: string) => CONTROL.test(text);
+
+/** A single plain line, safe to place in a commit summary or a pull request title. */
+export function singleLine(text: string): string {
+	return text.replace(CONTROL_ALL, ' ').replace(/`/g, "'").replaceAll('$(', '(').replace(/\s+/g, ' ').trim();
+}
+
+function inContentRules(site: SiteConfig, p: string): boolean {
+	const relative = p.slice(site.content.pad.length + 1);
+	if (!picomatch(site.content.patroon)(relative)) return false;
+	const excluded = site.content.uitsluiten ?? [];
+	return excluded.length === 0 || !picomatch(excluded)(relative);
+}
+
 function validPagePath(site: SiteConfig, p: string): boolean {
 	return !(
 		typeof p !== 'string' ||
+		hasControlCharacters(p) ||
 		p.startsWith('/') ||
 		p.includes('\\') ||
 		p.split('/').some((part) => part === '..' || part === '') ||
 		!p.startsWith(`${site.content.pad}/`) ||
 		!p.endsWith('.md') ||
-		path.posix.basename(p) === '.md'
+		path.posix.basename(p) === '.md' ||
+		!inContentRules(site, p)
 	);
 }
 
@@ -77,8 +100,20 @@ function templateFor(schema: PageSchema, soort: string | null): string | undefin
 	return config.sjabloon;
 }
 
-function hasImageWithoutAlt(body: string): boolean {
-	for (const m of body.matchAll(/!\[([^\]]*)\]\(/g)) if (!m[1].trim()) return true;
+/** Same matches as /!\[([^\]]*)\]\(/g, in linear time: the regex backtracks quadratically on "![![![...". */
+export function hasImageWithoutAlt(body: string): boolean {
+	let close = -1;
+	let i = body.indexOf('![');
+	while (i !== -1) {
+		if (close < i + 2) close = body.indexOf(']', i + 2);
+		if (close === -1) return false;
+		if (body[close + 1] === '(') {
+			if (body.slice(i + 2, close).trim() === '') return true;
+			i = body.indexOf('![', close + 2);
+		} else {
+			i = body.indexOf('![', i + 1);
+		}
+	}
 	return false;
 }
 
@@ -154,6 +189,7 @@ export async function save(
 			if (!isSvgDocument(clean)) return fail(415, 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)');
 			bytes = new TextEncoder().encode(clean);
 		}
+		if (hasControlCharacters(image.path)) return fail(400, 'Ongeldig pad voor afbeelding');
 		imageChanges.push({ path: image.path, content: bytes });
 	}
 
@@ -177,6 +213,14 @@ export async function save(
 			if (!own && !(await opts.isEditorial?.())) return fail(403, 'Dit voorstel is niet van jou');
 		}
 		const ref = req.branch ?? site.standaardbranch;
+		if (!req.overwrite) {
+			for (const image of imageChanges) {
+				if (!(await forge.readFile(site.repo, ref, image.path))) continue;
+				// An image this proposal added itself may be replaced.
+				const onBase = req.branch !== null && (await forge.readFile(site.repo, site.standaardbranch, image.path));
+				if (req.branch === null || onBase) return fail(409, 'Afbeelding bestaat al', { detail: image.path });
+			}
+		}
 		const current = await forge.readFile(site.repo, ref, filePath);
 		if (isNew && req.branch === null && current) return fail(409, 'Deze pagina bestaat al');
 		if (!isNew && !current) return fail(404, 'Pagina niet gevonden');
@@ -184,8 +228,11 @@ export async function save(
 		const currentText = current ? dec.decode(current.content) : (template ?? '');
 		const page = parsePage(currentText);
 		if (!page.ok) return fail(400, 'Deze pagina kan niet in Schrijver worden bewerkt', { detail: page.message });
+		if (page.rawFrontmatter === null && /^\uFEFF?(---|\+\+\+)\r?(\n|$)/.test(req.body)) {
+			return fail(400, 'De tekst mag niet met een gegevensblok (---) beginnen');
+		}
 
-		const known = new Set(Object.keys(schema.velden));
+		const known = new Set(buildForm(schema, req.frontmatter, filePath).map((f) => f.key));
 		const changedKeys = (
 			isNew ? [...new Set([...req.changedKeys, ...Object.keys(req.frontmatter)])] : req.changedKeys
 		).filter((k) => known.has(k));
@@ -201,7 +248,7 @@ export async function save(
 		const branch = req.branch ?? `${prefix}${branchSlug(filePath)}-${randomSuffix()}`;
 		if (req.branch === null) await forge.createBranch(site.repo, site.standaardbranch, branch);
 
-		const summary = isNew ? `Nieuw: ${filePath}` : `Bewerk ${filePath}`;
+		const summary = `${isNew ? 'Nieuw:' : 'Bewerk'} ${singleLine(filePath)}`;
 		await forge.commit(
 			site.repo,
 			branch,
@@ -212,7 +259,8 @@ export async function save(
 		const sha = saved?.sha ?? '';
 
 		if (req.branch === null) {
-			const title = titleOf(schema, req.frontmatter, body) || path.posix.basename(filePath, '.md');
+			const title =
+				singleLine(titleOf(schema, req.frontmatter, body)).slice(0, 200) || path.posix.basename(filePath, '.md');
 			const pr = await forge.openDraftPr(
 				site.repo,
 				branch,

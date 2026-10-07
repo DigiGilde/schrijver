@@ -18,6 +18,7 @@ export const ALLOWED_IMAGE_TYPES = {
 } as const;
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_SVG_BYTES = 1024 * 1024;
 
 const EXTENSIONS = new Set<string>([...Object.values(ALLOWED_IMAGE_TYPES), 'jpeg']);
 
@@ -86,6 +87,7 @@ export function validateImage(
 	};
 	if (!(mime in ALLOWED_IMAGE_TYPES)) return unsupported;
 	if (mime === 'image/svg+xml') {
+		if (bytes.length > MAX_SVG_BYTES) return { ok: false, status: 413, message: 'Een SVG mag niet groter zijn dan 1 MB' };
 		return new TextDecoder().decode(bytes).includes('<svg') ? { ok: true, mime } : unsupported;
 	}
 	return sniff(bytes) === mime ? { ok: true, mime } : unsupported;
@@ -94,7 +96,12 @@ export function validateImage(
 const purify = createDOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
 purify.addHook('afterSanitizeAttributes', (node) => {
 	for (const attr of Array.from(node.attributes ?? [])) {
-		if (attr.name.toLowerCase().startsWith('on')) node.removeAttribute(attr.name);
+		const name = attr.name.toLowerCase();
+		if (name.startsWith('on')) node.removeAttribute(attr.name);
+		// Only references inside the SVG itself: no trackers or outbound links.
+		else if ((name === 'href' || name === 'xlink:href') && !attr.value.trim().startsWith('#')) {
+			node.removeAttribute(attr.name);
+		}
 	}
 });
 

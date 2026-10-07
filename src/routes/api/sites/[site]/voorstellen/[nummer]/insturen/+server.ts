@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { listLinkedLogins } from '$lib/auth/users';
 import { pickReviewers, sendIn } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
-import { log } from '$lib/log';
+import { errorFields, log } from '$lib/log';
 import { proposalAction, refuse } from '$lib/server/proposal-route';
 
 export const POST: RequestHandler = proposalAction('insturen', async ({ site, forge, pr, acts, user }) => {
@@ -19,7 +19,7 @@ export const POST: RequestHandler = proposalAction('insturen', async ({ site, fo
 		const exclude = user.identityKind === 'gekoppeld' ? user.githubLogin : null;
 		reviewers = await pickReviewers(forge, site, await listLinkedLogins(20), exclude);
 	} catch (err) {
-		log.warn('proposal.reviewers_failed', { site: site.id, reason: String(err) });
+		log.warn('proposal.reviewers_failed', { site: site.id, ...errorFields(err) });
 	}
 	const { warning } = await sendIn(forge, site, pr, {
 		reviewers,

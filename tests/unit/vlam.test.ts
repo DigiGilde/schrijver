@@ -4,7 +4,10 @@ import { http, HttpResponse } from 'msw';
 import OpenAI from 'openai';
 import { suggest, AssistantUnavailable, vlamClientFromEnv } from '../../src/lib/assistant/vlam';
 
-vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('../../src/lib/log', async (original) => ({
+	...(await original<typeof import('../../src/lib/log')>()),
+	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}));
 
 const url = 'http://vlam.test/v1/chat/completions';
 const answer = (content: string) =>

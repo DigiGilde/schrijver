@@ -13,7 +13,10 @@ import { isSentIn } from '../../src/lib/forge/proposals';
 import { identityTrailer, trailersFromMessage } from '../../src/lib/forge/trailers';
 import type { SiteConfig } from '../../src/lib/config/types';
 
-vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('../../src/lib/log', async (original) => ({
+	...(await original<typeof import('../../src/lib/log')>()),
+	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}));
 import { log } from '../../src/lib/log';
 
 const site = (over: Partial<SiteConfig> & { label?: boolean } = {}): SiteConfig =>

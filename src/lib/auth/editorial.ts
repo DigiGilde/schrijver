@@ -1,6 +1,6 @@
 import type { SiteConfig } from '../config/types';
 import type { Forge } from '../forge/types';
-import { log } from '../log';
+import { errorFields, log } from '../log';
 
 export interface EditorialUser {
 	email: string | null;
@@ -20,7 +20,7 @@ export async function isEditorial(site: SiteConfig, user: EditorialUser, forge: 
 		}
 		return false;
 	} catch (err) {
-		log.warn('editorial.check_failed', { site: site.id, reason: String(err) });
+		log.warn('editorial.check_failed', { site: site.id, ...errorFields(err) });
 		return false;
 	}
 }

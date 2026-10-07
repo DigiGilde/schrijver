@@ -3,11 +3,13 @@ import type { PageServerLoad } from './$types';
 import { identityFor } from '$lib/auth/identity';
 import { canAct } from '$lib/forge/proposal-actions';
 import { isSentIn, toProposal } from '$lib/forge/proposals';
+import { sourceDiff } from '$lib/content/source-diff';
 import { identityFromPrBody, identityTrailer } from '$lib/forge/trailers';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
 
 const decoder = new TextDecoder();
+const IMAGE = /\.(png|jpe?g|webp|svg|gif|avif)$/i;
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const site = getConfigStore().site(params.site);
@@ -22,20 +24,32 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const pr = await forge.getPr(site.repo, nummer);
 		const files = await forge.prFiles(site.repo, nummer);
 		const proposal = toProposal(pr, files, site, trailer);
+		const fromFork = pr.headRepo.toLowerCase() !== site.repo.toLowerCase();
 		const text = async (ref: string, path: string) => {
 			const file = await forge.readFile(site.repo, ref, path);
 			return file ? decoder.decode(file.content) : null;
 		};
-		const diffs = await Promise.all(
-			files
-				.filter((f) => proposal.pages.includes(f.path))
-				.sort((a, b) => a.path.localeCompare(b.path))
-				.map(async (f) => ({
-					path: f.path,
-					before: f.status === 'added' ? null : await text(pr.baseRef, f.path),
-					after: f.status === 'removed' ? null : await text(pr.headRef, f.path)
-				}))
-		);
+		// Read the head by commit, so what is shown is exactly what a pinned merge would merge.
+		const head = pr.headSha || pr.headRef;
+		const diffs = fromFork
+			? []
+			: await Promise.all(
+					files
+						.filter((f) => proposal.pages.includes(f.path))
+						.sort((a, b) => a.path.localeCompare(b.path))
+						.map(async (f) => {
+							const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
+							const after = f.status === 'removed' ? null : await text(head, f.path);
+							return { path: f.path, before, after, source: sourceDiff(before, after) };
+						})
+				);
+		const changedFiles = files
+			.map((f) => ({
+				path: f.path,
+				status: f.status,
+				kind: proposal.pages.includes(f.path) ? 'pagina' : IMAGE.test(f.path) ? 'afbeelding' : 'ander'
+			}))
+			.sort((a, b) => a.path.localeCompare(b.path));
 		const acts = await canAct(
 			{ trailer, email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin, identityKind: identity.kind },
 			site,
@@ -46,6 +60,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			site: { id: site.id, naam: site.naam },
 			proposal,
 			diffs,
+			changedFiles,
+			fromFork,
+			headSha: pr.headSha,
 			viaGithub: identityFromPrBody(pr.body) === null,
 			githubUrl: pr.url,
 			notMergeable: pr.state === 'open' && pr.mergeable === false,

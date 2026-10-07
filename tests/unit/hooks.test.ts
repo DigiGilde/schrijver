@@ -22,7 +22,7 @@ vi.mock('../../src/lib/auth/users', () => ({
 	applySchema: vi.fn(async () => undefined)
 }));
 
-import { handle } from '../../src/hooks.server';
+import { handle, handleError } from '../../src/hooks.server';
 import { getPrefs } from '../../src/lib/auth/users';
 
 const session = (over: Partial<Session> = {}): Session => ({
@@ -160,3 +160,22 @@ describe('handle', () => {
 		expect(set).not.toHaveBeenCalled();
 	});
 });
+
+describe('handleError', () => {
+	it('logs kind and id only and returns a Dutch message', async () => {
+		const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+		const result = await handleError({
+			error: new Error('page text jan@example.org'),
+			status: 500,
+			message: 'Internal Error',
+			event: {} as never
+		});
+		const line = String(write.mock.calls.at(-1)?.[0]);
+		write.mockRestore();
+		expect(result).toMatchObject({ message: 'Er ging iets mis', id: expect.any(String) });
+		expect(line).toContain('server.error');
+		expect(line).not.toContain('@');
+		expect(line).not.toContain('page text');
+	});
+});
+

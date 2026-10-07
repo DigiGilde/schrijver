@@ -18,6 +18,8 @@ interface RepoState {
 	isPublic: boolean;
 	trees: Map<string, Tree>;
 	commits: Map<string, { sha: string; message: string }[]>;
+	heads: Map<string, string>;
+	snapshots: Map<string, Tree>;
 }
 
 const enc = new TextEncoder();
@@ -47,11 +49,14 @@ export class FakeForge implements Forge {
 			const bytes = toBytes(content);
 			tree.set(path, { content: bytes, sha: sha1(bytes) });
 		}
+		const head = sha1('seed', repo);
 		this.repos.set(repo, {
 			defaultBranch,
 			isPublic: false,
 			trees: new Map([[defaultBranch, tree]]),
-			commits: new Map([[defaultBranch, []]])
+			commits: new Map([[defaultBranch, []]]),
+			heads: new Map([[defaultBranch, head]]),
+			snapshots: new Map([[head, cloneTree(tree)]])
 		});
 	}
 
@@ -104,6 +109,7 @@ export class FakeForge implements Forge {
 		if (r.trees.has(name)) throw new ForgeError(422, 'Branch bestaat al', `Reference ${name} already exists`);
 		r.trees.set(name, cloneTree(this.tree(repo, from)));
 		r.commits.set(name, []);
+		r.heads.set(name, r.heads.get(from) ?? from);
 	}
 
 	async commit(repo: string, branch: string, changes: FileChange[], message: string) {
@@ -114,7 +120,7 @@ export class FakeForge implements Forge {
 			tree.set(change.path, { content: bytes, sha: sha1(bytes) });
 		}
 		const sha = sha1(branch, message, String(this.commitCounter++));
-		this.repo(repo).commits.get(branch)!.push({ sha, message });
+		this.recordCommit(repo, branch, sha, message);
 		return { sha };
 	}
 
@@ -130,6 +136,7 @@ export class FakeForge implements Forge {
 			draft: true,
 			state: 'open',
 			headRef: head,
+			headSha: this.repo(repo).heads.get(head) ?? '',
 			headRepo: repo,
 			baseRef: base,
 			url: `https://github.com/${repo}/pull/${number}`,
@@ -206,9 +213,12 @@ export class FakeForge implements Forge {
 		this.touch(repo, number, {});
 	}
 
-	async merge(repo: string, number: number, message: string): Promise<void> {
+	async merge(repo: string, number: number, message: string, sha?: string): Promise<void> {
 		this.maybeFail('merge');
 		const pr = this.pr(repo, number);
+		if (sha !== undefined && sha !== this.repo(repo).heads.get(pr.headRef)) {
+			throw new ForgeError(409, 'Conflict op GitHub', 'Head branch was modified. Review and try the merge again.');
+		}
 		if (this.view(pr).mergeable === false) {
 			throw new ForgeError(405, 'Samenvoegen geweigerd', 'Pull request is not mergeable');
 		}
@@ -216,8 +226,7 @@ export class FakeForge implements Forge {
 		const base = this.tree(repo, pr.baseRef);
 		base.clear();
 		for (const [path, blob] of head) base.set(path, { ...blob });
-		const sha = sha1(pr.baseRef, message, String(this.commitCounter++));
-		this.repo(repo).commits.get(pr.baseRef)!.push({ sha, message });
+		this.recordCommit(repo, pr.baseRef, sha1(pr.baseRef, message, String(this.commitCounter++)), message);
 		this.touch(repo, number, { state: 'merged' });
 	}
 
@@ -240,8 +249,16 @@ export class FakeForge implements Forge {
 		return r;
 	}
 
+	private recordCommit(repo: string, branch: string, sha: string, message: string): void {
+		const r = this.repo(repo);
+		r.commits.get(branch)!.push({ sha, message });
+		r.heads.set(branch, sha);
+		r.snapshots.set(sha, cloneTree(this.tree(repo, branch)));
+	}
+
 	private tree(repo: string, ref: string): Tree {
-		const t = this.repo(repo).trees.get(ref);
+		const r = this.repo(repo);
+		const t = r.trees.get(ref) ?? r.snapshots.get(ref);
 		if (!t) throw new ForgeError(404, 'Branch niet gevonden', ref);
 		return t;
 	}
@@ -256,7 +273,8 @@ export class FakeForge implements Forge {
 
 	private view(pr: PrSummary): PrSummary {
 		const mergeable = this.mergeableByPr.get(pr.number);
-		return { ...pr, labels: [...pr.labels], mergeable: mergeable ?? pr.mergeable };
+		const headSha = this.repos.get(this.prRepo.get(pr.number) ?? '')?.heads.get(pr.headRef) ?? pr.headSha;
+		return { ...pr, labels: [...pr.labels], mergeable: mergeable ?? pr.mergeable, headSha };
 	}
 
 	private touch(repo: string, number: number, patch: Partial<PrSummary>): void {

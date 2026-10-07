@@ -95,4 +95,26 @@ describe('CachingForge', () => {
 		advance(60001);
 		expect(await cache.isPublic('o/site')).toBe(false);
 	});
+
+	it('caches pull request lists briefly and drops them on a write', async () => {
+		const { fake, cache, advance } = setup();
+		const listPrs = vi.spyOn(fake, 'listPrs');
+		await cache.listPrs('o/site', 'open');
+		await cache.listPrs('o/site', 'open');
+		expect(listPrs).toHaveBeenCalledTimes(1);
+		advance(15001);
+		await cache.listPrs('o/site', 'open');
+		expect(listPrs).toHaveBeenCalledTimes(2);
+		await cache.createBranch('o/site', 'main', 'x');
+		await cache.listPrs('o/site', 'open');
+		expect(listPrs).toHaveBeenCalledTimes(3);
+	});
+
+	it('passes the head sha on to merge', async () => {
+		const { fake, cache } = setup();
+		const merge = vi.spyOn(fake, 'merge').mockResolvedValue();
+		await cache.merge('o/site', 1, 'm', 'abc1234');
+		expect(merge).toHaveBeenCalledWith('o/site', 1, 'm', 'abc1234');
+	});
 });
+

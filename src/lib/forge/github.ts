@@ -335,13 +335,14 @@ export class GitHubForge implements Forge {
 		});
 	}
 
-	async merge(repo: string, number: number, message: string): Promise<void> {
+	async merge(repo: string, number: number, message: string, sha?: string): Promise<void> {
 		const [title, ...rest] = message.split('\n');
 		await this.request(repo, 'PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge', {
 			pull_number: number,
 			merge_method: 'squash',
 			commit_title: title,
-			commit_message: rest.join('\n')
+			commit_message: rest.join('\n'),
+			...(sha ? { sha } : {})
 		});
 	}
 
@@ -391,6 +392,7 @@ export class GitHubForge implements Forge {
 			draft: !!pr.draft,
 			state: pr.merged_at ? 'merged' : pr.state === 'closed' ? 'closed' : 'open',
 			headRef: pr.head.ref,
+			headSha: pr.head.sha,
 			headRepo: pr.head.repo?.full_name ?? '',
 			baseRef: pr.base.ref,
 			url: pr.html_url,

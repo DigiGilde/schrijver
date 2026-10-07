@@ -9,6 +9,7 @@ import {
 	sanitizeSvg,
 	validateImage
 } from '$lib/content/images';
+import { hasControlCharacters } from '$lib/forge/save';
 import { getConfigStore } from '$lib/server/services';
 
 const fail = (status: number, message: string) => json({ message }, { status });
@@ -37,6 +38,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	if (!(file instanceof File)) return fail(400, 'Bestand ontbreekt');
 	if (
 		typeof pagina !== 'string' ||
+		hasControlCharacters(pagina) ||
 		pagina.startsWith('/') ||
 		pagina.includes('\\') ||
 		pagina.split('/').includes('..') ||

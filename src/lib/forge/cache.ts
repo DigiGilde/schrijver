@@ -11,21 +11,23 @@ export class CachingForge implements Forge {
 	constructor(
 		private inner: Forge,
 		private ttlMs = 60000,
-		private clock: () => number = Date.now
+		private clock: () => number = Date.now,
+		/** Pull request lists and file lists: short, because check runs do not invalidate. */
+		private prTtlMs = 15000
 	) {}
 
 	invalidate(repo: string): void {
 		this.entries.delete(repo);
 	}
 
-	private cached<T>(repo: string, key: string, load: () => Promise<T>): Promise<T> {
+	private cached<T>(repo: string, key: string, load: () => Promise<T>, ttl = this.ttlMs): Promise<T> {
 		const now = this.clock();
 		const existing = this.entries.get(repo)?.get(key);
 		if (existing && existing.expires > now) return existing.promise as Promise<T>;
 		const promise = load();
 		let perRepo = this.entries.get(repo);
 		if (!perRepo) this.entries.set(repo, (perRepo = new Map()));
-		const entry: Entry = { promise, expires: now + this.ttlMs };
+		const entry: Entry = { promise, expires: now + ttl };
 		perRepo.set(key, entry);
 		promise.catch(() => {
 			if (this.entries.get(repo)?.get(key) === entry) this.entries.get(repo)!.delete(key);
@@ -76,18 +78,18 @@ export class CachingForge implements Forge {
 	comment(repo: string, number: number, body: string): Promise<void> {
 		return this.written(repo, () => this.inner.comment(repo, number, body));
 	}
-	merge(repo: string, number: number, message: string): Promise<void> {
-		return this.written(repo, () => this.inner.merge(repo, number, message));
+	merge(repo: string, number: number, message: string, sha?: string): Promise<void> {
+		return this.written(repo, () => this.inner.merge(repo, number, message, sha));
 	}
 
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]> {
-		return this.inner.listPrs(repo, state);
+		return this.cached(repo, `prs\0${state}`, () => this.inner.listPrs(repo, state), this.prTtlMs);
 	}
 	getPr(repo: string, number: number): Promise<PrSummary> {
 		return this.inner.getPr(repo, number);
 	}
 	prFiles(repo: string, number: number): Promise<PrFile[]> {
-		return this.inner.prFiles(repo, number);
+		return this.cached(repo, `prfiles\0${number}`, () => this.inner.prFiles(repo, number), this.prTtlMs);
 	}
 	prCommits(repo: string, number: number) {
 		return this.inner.prCommits(repo, number);

@@ -1,6 +1,7 @@
-import type { Handle } from '@sveltejs/kit';
+import { randomUUID } from 'node:crypto';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
-import { log } from '$lib/log';
+import { errorFields, log } from '$lib/log';
 import {
 	SESSION_COOKIE,
 	SESSION_RENEW_BELOW_MS,
@@ -36,7 +37,7 @@ let schemaReady: Promise<void> | undefined;
 const ensureSchema = () => {
 	schemaReady ??= applySchema().catch((err) => {
 		schemaReady = undefined;
-		log.error('db.schema_failed', { reason: String(err) });
+		log.error('db.schema_failed', errorFields(err));
 		throw err;
 	});
 	return schemaReady;
@@ -114,3 +115,9 @@ const authHandle: Handle = async ({ event, resolve }) => {
 };
 
 export const handle = sequence(securityHeaders, apiGuard, rateLimit, authHandle);
+
+export const handleError: HandleServerError = ({ error, status }) => {
+	const id = randomUUID();
+	log.error('server.error', { id, status, ...errorFields(error) });
+	return { message: 'Er ging iets mis', id };
+};

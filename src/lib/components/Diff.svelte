@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { markdownToHtml } from '$lib/content/markdown-preview';
 	import { parsePage } from '$lib/content/frontmatter';
+	import type { SourcePart } from '$lib/content/source-diff';
 
-	let { path, before, after }: { path: string; before: string | null; after: string | null } = $props();
+	let {
+		path,
+		before,
+		after,
+		source
+	}: { path: string; before: string | null; after: string | null; source: SourcePart[] } = $props();
 
 	type Split = { frontmatter: Record<string, unknown>; body: string };
 	const split = (text: string | null): Split => {
@@ -58,6 +64,17 @@
 			{#if newHtml}<nldd-rich-text>{@html newHtml}</nldd-rich-text>{:else}<pre>{nieuw.body}</pre>{/if}
 		</section>
 	</div>
+
+	<details>
+		<summary>Brontekst vergelijken</summary>
+		<pre class="bron">{#each source as part, i (i)}{#if part.kind === 'added'}<ins><span class="sr-only"
+						>toegevoegd: </span
+					>{part.text}</ins
+				>{:else if part.kind === 'removed'}<del><span class="sr-only">verwijderd: </span>{part.text}</del
+				>{:else if part.kind === 'skip'}<span class="overgeslagen"
+					>... {part.lines} {part.lines === 1 ? 'regel' : 'regels'} ongewijzigd ...
+</span>{:else}{part.text}{/if}{/each}</pre>
+	</details>
 </section>
 
 <style>
@@ -70,6 +87,32 @@
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 		margin: 0;
+	}
+	details {
+		margin-block-start: 12px;
+	}
+	.bron {
+		font-family: monospace;
+		padding: 8px;
+		border: 1px solid currentColor;
+		border-radius: 4px;
+	}
+	ins {
+		text-decoration: underline;
+	}
+	del {
+		text-decoration: line-through;
+	}
+	.overgeslagen {
+		font-style: italic;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	table {
 		border-collapse: collapse;

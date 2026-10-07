@@ -1,6 +1,6 @@
 import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
-import { log } from '../log';
+import { errorFields, log } from '../log';
 import { SENT_MARKER, isSentIn } from './proposals';
 import { identityFromPrBody } from './trailers';
 import { ForgeError, type Forge, type PrSummary } from './types';
@@ -48,7 +48,7 @@ export async function pickReviewers(
 			const permission = await forge.collaboratorPermission(site.repo, login);
 			if (permission === 'admin' || permission === 'write') found.push(login);
 		} catch (err) {
-			log.warn('proposal.reviewer_check_failed', { site: site.id, reason: String(err) });
+			log.warn('proposal.reviewer_check_failed', { site: site.id, ...errorFields(err) });
 		}
 	}
 	return found;
@@ -80,7 +80,7 @@ export async function sendIn(
 		try {
 			await forge.requestReviewers(site.repo, pr.number, opts.reviewers);
 		} catch (err) {
-			log.warn('proposal.reviewers_failed', { site: site.id, pr: pr.number, reason: String(err) });
+			log.warn('proposal.reviewers_failed', { site: site.id, pr: pr.number, ...errorFields(err) });
 		}
 	}
 
@@ -124,9 +124,10 @@ export async function mergeProposal(
 	forge: Forge,
 	site: SiteConfig,
 	pr: PrSummary,
-	commitsTrailers: string[]
+	commitsTrailers: string[],
+	sha?: string
 ): Promise<void> {
 	const trailers = [...new Set(commitsTrailers)];
 	const message = `${pr.title} (#${pr.number})${trailers.length > 0 ? `\n\n${trailers.join('\n')}` : ''}`;
-	await forge.merge(site.repo, pr.number, message);
+	await forge.merge(site.repo, pr.number, message, sha);
 }

@@ -6,7 +6,7 @@ import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
 import { identityTrailer } from '$lib/forge/trailers';
-import { log } from '$lib/log';
+import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 
 const decoder = new TextDecoder();
@@ -51,7 +51,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 					if (parsed.ok) title = titleOf(schema, parsed.frontmatter, parsed.body);
 				}
 			} catch (err) {
-				log.warn('tree.title_failed', { site: site.id, reason: String(err) });
+				log.warn('tree.title_failed', { site: site.id, ...errorFields(err) });
 			}
 			return { path, name, title: title || name };
 		})
@@ -70,7 +70,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		);
 		proposals.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	} catch (err) {
-		log.warn('proposals.list_failed', { site: site.id, reason: String(err) });
+		log.warn('proposals.list_failed', { site: site.id, ...errorFields(err) });
 		proposalsError = true;
 	}
 

@@ -218,3 +218,21 @@ describe('imagePath containment', () => {
 		expect(() => imagePath(digi, 'docs/../x.md', 'a.png')).toThrow(ImageError);
 	});
 });
+
+describe('SVG hardening', () => {
+	it('drops external references and keeps internal ones', () => {
+		const svg =
+			'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+			'<image href="https://tracker.example/p.png"/><a xlink:href="https://evil.example"><rect/></a>' +
+			'<linearGradient id="g"/><rect fill="url(#g)"/><a href="#g"><rect/></a></svg>';
+		const clean = sanitizeSvg(svg);
+		expect(clean).not.toContain('tracker.example');
+		expect(clean).not.toContain('evil.example');
+		expect(clean).toContain('href="#g"');
+	});
+
+	it('refuses an SVG over 1 MB', () => {
+		const big = new TextEncoder().encode('<svg>' + ' '.repeat(1024 * 1024) + '</svg>');
+		expect(validateImage(big, 'image/svg+xml')).toMatchObject({ ok: false, status: 413 });
+	});
+});

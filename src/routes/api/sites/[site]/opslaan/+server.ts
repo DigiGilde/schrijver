@@ -5,12 +5,33 @@ import { isEditorial } from '$lib/auth/editorial';
 import { identityFor } from '$lib/auth/identity';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
+import { newProposalLimit } from '$lib/server/security';
 import { getConfigStore, getForge } from '$lib/server/services';
+
+const MAX_BODY_CHARS = 500_000;
+const BODY_TOO_LONG = 'De tekst is te lang om op te slaan (maximaal 500.000 tekens)';
+const FRONTMATTER_TOO_DEEP = 'De gegevens bovenaan de pagina zijn te groot of te diep genest';
+const MAX_FRONTMATTER_DEPTH = 8;
+const MAX_FRONTMATTER_NODES = 2_000;
+
+/** Bounds nesting and size so YAML serialisation cannot overflow the stack. */
+function boundedJson(value: unknown): boolean {
+	let nodes = 0;
+	const walk = (v: unknown, depth: number): boolean => {
+		if (++nodes > MAX_FRONTMATTER_NODES) return false;
+		if (v === null || typeof v !== 'object') return true;
+		if (depth >= MAX_FRONTMATTER_DEPTH) return false;
+		return Object.values(v).every((child) => walk(child, depth + 1));
+	};
+	return walk(value, 0);
+}
+
+const MESSAGES = new Set([BODY_TOO_LONG, FRONTMATTER_TOO_DEEP]);
 
 const BodySchema = z.object({
 	path: z.string().max(500),
-	body: z.string().max(2_000_000),
-	frontmatter: z.record(z.string(), z.unknown()),
+	body: z.string().max(MAX_BODY_CHARS, { message: BODY_TOO_LONG }),
+	frontmatter: z.record(z.string(), z.unknown()).refine(boundedJson, { message: FRONTMATTER_TOO_DEEP }),
 	changedKeys: z.array(z.string()),
 	baseSha: z.string().nullable(),
 	branch: z.string().max(300).nullable(),
@@ -18,7 +39,8 @@ const BodySchema = z.object({
 	images: z.array(z.object({ path: z.string().max(500), base64: z.string() })).max(50),
 	newPage: z
 		.object({ soort: z.string().nullable(), folder: z.string(), title: z.string().max(300) })
-		.optional()
+		.optional(),
+	overwrite: z.boolean().optional()
 });
 
 const message = (text: string) => ({ ok: false, error: { message: text } });
@@ -34,8 +56,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	let parsed: z.infer<typeof BodySchema>;
 	try {
 		parsed = BodySchema.parse(await request.json());
-	} catch {
-		return json(message('Ongeldig verzoek'), { status: 400 });
+	} catch (e) {
+		const known = e instanceof z.ZodError ? e.issues.find((i) => MESSAGES.has(i.message)) : undefined;
+		return json(message(known?.message ?? 'Ongeldig verzoek'), { status: 400 });
+	}
+
+	if (parsed.branch === null && !newProposalLimit.take((user.session as { sub: string }).sub)) {
+		return json(message('Je hebt het afgelopen uur veel nieuwe voorstellen gemaakt; probeer het later opnieuw'), {
+			status: 429
+		});
 	}
 
 	const forge = getForge();

@@ -135,3 +135,28 @@ export function createRateLimit(now: () => number = Date.now): Handle & { sweep(
 }
 
 export const rateLimit: Handle = createRateLimit();
+
+/** Counts events per key in a sliding window; `take` returns false once the limit is reached. */
+export function createWindowCounter(limit: number, windowMs: number, now: () => number = Date.now) {
+	const hits = new Map<string, number[]>();
+	setInterval(() => {
+		const cutoff = now() - windowMs;
+		for (const [k, times] of hits) if (times.every((t) => t <= cutoff)) hits.delete(k);
+	}, windowMs).unref();
+	return {
+		take(key: string): boolean {
+			const t = now();
+			const recent = (hits.get(key) ?? []).filter((h) => h > t - windowMs);
+			if (recent.length >= limit) {
+				hits.set(key, recent);
+				return false;
+			}
+			recent.push(t);
+			hits.set(key, recent);
+			return true;
+		}
+	};
+}
+
+/** New branches and draft pull requests per user per hour. */
+export const newProposalLimit = createWindowCounter(20, 3600_000);

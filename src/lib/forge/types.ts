@@ -17,6 +17,8 @@ export interface PrSummary {
 	draft: boolean;
 	state: 'open' | 'closed' | 'merged';
 	headRef: string;
+	/** Commit the head branch points at. */
+	headSha: string;
 	/** Full name (owner/name) of the head repository; empty when the fork was deleted. */
 	headRepo: string;
 	baseRef: string;
@@ -60,7 +62,8 @@ export interface Forge {
 	prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]>;
 	approve(repo: string, number: number, comment: string): Promise<void>;
 	comment(repo: string, number: number, body: string): Promise<void>;
-	merge(repo: string, number: number, message: string): Promise<void>; // squash
+	/** Squash merge; with `sha`, the forge refuses (409) when the head has moved since. */
+	merge(repo: string, number: number, message: string, sha?: string): Promise<void>;
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
 	/** Whether the repository is publicly readable. */
 	isPublic(repo: string): Promise<boolean>;

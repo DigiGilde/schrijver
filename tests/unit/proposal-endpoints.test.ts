@@ -7,7 +7,10 @@ vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({ site: (id: string) => (id === 'moza' ? state.site : undefined) }),
 	getForge: () => state.forge
 }));
-vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('../../src/lib/log', async (original) => ({
+	...(await original<typeof import('../../src/lib/log')>()),
+	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}));
 vi.mock('../../src/lib/auth/identity', () => ({
 	identityFor: (prefs: { who: string; githubLogin: string | null }) =>
 		prefs.githubLogin
@@ -94,7 +97,8 @@ describe('proposal endpoints', () => {
 		await call(insturen, { who: 'auteur' });
 		const red = { email: 'red@example.org' };
 		expect((await call(opmerking, { ...red, body: { body: 'Mooi' } })).status).toBe(200);
-		expect((await call(mergen, red)).status).toBe(200);
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		expect((await call(mergen, { ...red, body: { sha } })).status).toBe(200);
 		expect((await forge.getPr('o/moza', 1)).state).toBe('merged');
 		expect(forge.commitsOf('o/moza', 'main').at(-1)!.message).toBe('Titel (#1)\n\nSchrijver-Auteur: auteur');
 	});
@@ -124,11 +128,28 @@ describe('proposal endpoints', () => {
 	it('shows a refused merge verbatim with its status', async () => {
 		await call(insturen, { who: 'auteur' });
 		forge.failNext('merge', new ForgeError(405, 'Samenvoegen geweigerd', 'Required status check "build" is expected.'));
-		const res = await call(mergen, { email: 'red@example.org' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const res = await call(mergen, { email: 'red@example.org', body: { sha } });
 		expect(res.status).toBe(405);
 		expect(await res.json()).toMatchObject({
 			message: 'Samenvoegen geweigerd',
 			detail: 'Required status check "build" is expected.'
 		});
+	});
+
+	it('pins the merge to the head the reviewer saw', async () => {
+		await call(insturen, { who: 'auteur' });
+		const red = { email: 'red@example.org' };
+		const seen = (await forge.getPr('o/moza', 1)).headSha;
+		await forge.commit('o/moza', 'b', [{ path: 'content/a.md', content: 'later' }], 'Bewerk\n\nSchrijver-Auteur: auteur');
+
+		expect((await call(mergen, red)).status).toBe(400);
+		const res = await call(mergen, { ...red, body: { sha: seen } });
+		expect(res.status).toBe(409);
+		expect(await res.json()).toMatchObject({
+			message: expect.stringContaining('nieuwe versie'),
+			detail: 'Head branch was modified. Review and try the merge again.'
+		});
+		expect((await forge.getPr('o/moza', 1)).state).toBe('open');
 	});
 });

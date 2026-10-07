@@ -5,7 +5,10 @@ import type { UserPrefs } from '$lib/auth/users';
 // for information about these interfaces
 declare global {
 	namespace App {
-		// interface Error {}
+		interface Error {
+			message: string;
+			id?: string;
+		}
 		interface Locals {
 			user: { session: Session; prefs: UserPrefs } | null;
 		}

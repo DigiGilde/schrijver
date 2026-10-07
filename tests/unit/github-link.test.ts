@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
-vi.mock('../../src/lib/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock('../../src/lib/log', async (original) => ({
+	...(await original<typeof import('../../src/lib/log')>()),
+	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}));
 vi.mock('../../src/lib/auth/users', () => ({ savePrefs: vi.fn(async () => {}) }));
 
 import { savePrefs, type UserPrefs } from '../../src/lib/auth/users';

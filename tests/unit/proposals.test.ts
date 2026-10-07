@@ -15,6 +15,7 @@ function pr(over: Partial<PrSummary> = {}): PrSummary {
 		draft: false,
 		state: 'open',
 		headRef: 'schrijver/x',
+		headSha: 'abc1234',
 		headRepo: 'o/r',
 		baseRef: 'main',
 		url: 'https://github.com/o/r/pull/7',

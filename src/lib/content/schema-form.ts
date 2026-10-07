@@ -148,7 +148,7 @@ export function newPagePath(
 }
 
 function checkFolder(allowed: string[], folder: string): string {
-	if (!allowed.some((glob) => picomatch(glob, { dot: true })(folder))) {
+	if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(folder) || !allowed.some((glob) => picomatch(glob, { dot: true })(folder))) {
 		throw new Error(`Folder not allowed: ${folder}`);
 	}
 	return folder;

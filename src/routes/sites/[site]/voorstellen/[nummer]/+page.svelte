@@ -14,6 +14,11 @@
 		samengevoegd: { text: 'Samengevoegd', color: 'success' },
 		gesloten: { text: 'Gesloten', color: 'neutral' }
 	};
+	const BESTAND: Record<string, string> = {
+		added: 'toegevoegd',
+		modified: 'gewijzigd',
+		removed: 'verwijderd'
+	};
 	const CHECKS: Record<string, string> = {
 		none: 'Geen controles',
 		pending: 'Het voorbeeld wordt gebouwd',
@@ -110,7 +115,7 @@
 							appearance="primary"
 							text="Samenvoegen"
 							loading={busy || undefined}
-							onclick={() => stuur('mergen', 'Het voorstel is samengevoegd')}
+							onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
 						></nldd-button>
 					{/if}
 				</nldd-container>
@@ -161,12 +166,39 @@
 
 		<section aria-label="Wijzigingen">
 			<nldd-title size="3" heading-level="2" text="Wijzigingen"></nldd-title>
-			{#if data.diffs.length === 0}
+			{#if data.changedFiles.length > 0}
+				<table class="bestanden">
+					<caption>Alle gewijzigde bestanden</caption>
+					<thead>
+						<tr><th scope="col">Bestand</th><th scope="col">Status</th></tr>
+					</thead>
+					<tbody>
+						{#each data.changedFiles as f (f.path)}
+							<tr>
+								<td>
+									{f.path}
+									{#if f.kind !== 'pagina'}
+										<br /><nldd-link
+											href="{data.githubUrl}/files"
+											target="_blank"
+											text="Bestand gewijzigd, bekijk op GitHub"
+										></nldd-link>
+									{/if}
+								</td>
+								<td>{BESTAND[f.status]}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+			{#if data.fromFork}
+				<nldd-text>Dit voorstel komt uit een fork. Beoordeel de wijzigingen op GitHub.</nldd-text>
+			{:else if data.diffs.length === 0}
 				<nldd-text>Dit voorstel wijzigt geen pagina's.</nldd-text>
 			{:else}
 				<nldd-container gap="32">
 					{#each data.diffs as d (d.path)}
-						<Diff path={d.path} before={d.before} after={d.after} />
+						<Diff path={d.path} before={d.before} after={d.after} source={d.source} />
 					{/each}
 				</nldd-container>
 			{/if}
@@ -178,6 +210,21 @@
 	pre {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+	.bestanden {
+		border-collapse: collapse;
+		margin-block: 12px;
+	}
+	.bestanden caption {
+		text-align: start;
+		font-weight: bold;
+	}
+	.bestanden th,
+	.bestanden td {
+		text-align: start;
+		padding: 4px 12px 4px 0;
+		overflow-wrap: anywhere;
+		vertical-align: top;
 	}
 	form {
 		display: grid;

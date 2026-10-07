@@ -72,7 +72,8 @@ describe('isEditorial', () => {
 		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn).toHaveBeenCalledWith('editorial.check_failed', {
 			site: site.id,
-			reason: expect.any(String)
+			error: 'ForgeError',
+			status: 503
 		});
 	});
 
