@@ -10,10 +10,10 @@
 	<nldd-title size="1" heading-level="1" text="Instellingen"></nldd-title>
 	<PrefsForm
 		identity={form?.identity ?? data.identity}
-		githubLogin={form?.githubLogin ?? data.githubLogin}
+		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
 		error={form?.error}
-		saved={form?.saved}
+		saved={form?.saved || form?.unlinked || data.justLinked}
 	/>
 	<nldd-link href="/uitloggen" text="Uitloggen" data-sveltekit-reload></nldd-link>
 </nldd-container>

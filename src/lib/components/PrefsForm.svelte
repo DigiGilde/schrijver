@@ -13,6 +13,8 @@
 	// svelte-ignore state_referenced_locally
 	let selected = $state(identity);
 	let busy = $state(false);
+	let unlinking = $state(false);
+	const linked = $derived(githubLogin !== '');
 
 	function onChange(e: Event) {
 		const value = (e as CustomEvent<{ value?: string }>).detail?.value;
@@ -30,6 +32,7 @@
 <nldd-form>
 	<form
 		method="post"
+		action="?/opslaan"
 		use:enhance={() => {
 			busy = true;
 			return async ({ update }) => {
@@ -49,6 +52,7 @@
 					value="gekoppeld"
 					label="Gekoppeld aan mijn GitHub-account: wijzigingen tellen mee op je GitHub-profiel, je werkadres blijft verborgen."
 					checked={selected === 'gekoppeld'}
+					disabled={!linked}
 				></nldd-radio-button-field>
 				<nldd-radio-button-field
 					value="op-naam"
@@ -62,13 +66,6 @@
 			{/if}
 		</nldd-form-field>
 
-		{#if selected === 'gekoppeld'}
-			<nldd-form-field label="GitHub-gebruikersnaam">
-				<nldd-text-field name="githubLogin" value={githubLogin} required no-spellcheck autocomplete="off"
-				></nldd-text-field>
-			</nldd-form-field>
-		{/if}
-
 		<nldd-form-actions>
 			<nldd-button-group>
 				<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy}></nldd-button>
@@ -76,3 +73,25 @@
 		</nldd-form-actions>
 	</form>
 </nldd-form>
+
+<nldd-container gap="8">
+	{#if linked}
+		<p>Gekoppeld aan GitHub-account {githubLogin}</p>
+		<form
+			method="post"
+			action="?/ontkoppel"
+			use:enhance={() => {
+				unlinking = true;
+				return async ({ result, update }) => {
+					await update({ reset: false });
+					if (result.type === 'success' && typeof result.data?.identity === 'string') selected = result.data.identity;
+					unlinking = false;
+				};
+			}}
+		>
+			<nldd-button appearance="secondary" type="submit" text="Koppeling verwijderen" loading={unlinking}></nldd-button>
+		</form>
+	{:else}
+		<nldd-button appearance="secondary" href="/login/github?kies=gekoppeld" text="Koppel je GitHub-account"></nldd-button>
+	{/if}
+</nldd-container>

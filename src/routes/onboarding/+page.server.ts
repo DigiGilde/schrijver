@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { submitPrefs } from '$lib/auth/prefs-action';
+import { submitPrefs, unlinkGithub } from '$lib/auth/prefs-action';
 
 export const load: PageServerLoad = ({ locals }) => ({
 	identity: locals.user!.prefs.identity,
@@ -8,5 +8,6 @@ export const load: PageServerLoad = ({ locals }) => ({
 });
 
 export const actions: Actions = {
-	default: (event) => submitPrefs(event, 'redirect')
+	opslaan: (event) => submitPrefs(event, 'redirect'),
+	ontkoppel: (event) => unlinkGithub(event)
 };

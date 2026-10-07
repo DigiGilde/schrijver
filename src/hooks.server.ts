@@ -5,15 +5,17 @@ import {
 	SESSION_RENEW_BELOW_MS,
 	SESSION_TTL_MS,
 	cookieOptions,
+	type Session,
 	openSession,
 	sealSession,
 	sessionSecret
 } from '$lib/auth/session';
-import { applySchema, getPrefs } from '$lib/auth/users';
+import { applySchema, getPrefs, type UserPrefs } from '$lib/auth/users';
+import { ensureServices } from '$lib/server/services';
 
 const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
-const ONBOARDING_EXEMPT = new Set(['/onboarding', '/instellingen']);
+const ONBOARDING_EXEMPT = new Set(['/onboarding', '/instellingen', '/login/github', '/login/github/callback']);
 
 let schemaReady: Promise<void> | undefined;
 const ensureSchema = () => {
@@ -24,6 +26,19 @@ const ensureSchema = () => {
 	});
 	return schemaReady;
 };
+
+const devSession = (): Session | null => {
+	if (process.env.NODE_ENV === 'production' || !process.env.SCHRIJVER_TEST_SESSION) return null;
+	return JSON.parse(process.env.SCHRIJVER_TEST_SESSION) as Session;
+};
+
+const testPrefs = (sub: string): UserPrefs => ({
+	sub,
+	identity: 'anoniem',
+	githubLogin: null,
+	githubId: null,
+	onboarded: true
+});
 
 const isPublic = (path: string) =>
 	PUBLIC_PATHS.has(path) || PUBLIC_PREFIXES.some((p) => path.startsWith(p));
@@ -36,7 +51,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (path === '/healthz') return resolve(event);
 
+	const test = devSession();
+	if (test) {
+		await ensureServices();
+		event.locals.user = { session: test, prefs: testPrefs(test.sub) };
+		return resolve(event);
+	}
+
 	await ensureSchema();
+	await ensureServices();
 
 	const token = event.cookies.get(SESSION_COOKIE);
 	const secret = sessionSecret();

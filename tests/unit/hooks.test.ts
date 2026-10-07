@@ -81,9 +81,9 @@ describe('handle', () => {
 		expect(res.headers.get('location')).toBe('/onboarding');
 	});
 
-	it('lets a not-onboarded user reach /onboarding and /instellingen', async () => {
+	it('lets a not-onboarded user reach onboarding, settings and GitHub linking', async () => {
 		vi.mocked(getPrefs).mockResolvedValue({ ...prefs, onboarded: false } as never);
-		for (const p of ['/onboarding', '/instellingen']) {
+		for (const p of ['/onboarding', '/instellingen', '/login/github', '/login/github/callback']) {
 			const { result, resolve } = run(p, sealSession(session(), secret));
 			await result;
 			expect(resolve).toHaveBeenCalled();

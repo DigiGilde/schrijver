@@ -10,7 +10,7 @@
 	<nldd-title size="1" heading-level="1" text="Hoe wil je je wijzigingen ondertekenen?"></nldd-title>
 	<PrefsForm
 		identity={form?.identity ?? data.identity}
-		githubLogin={form?.githubLogin ?? data.githubLogin}
+		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
 		error={form?.error}
 	/>
