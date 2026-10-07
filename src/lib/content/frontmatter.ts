@@ -4,9 +4,12 @@ export type ParsedPage =
 	| {
 			ok: true;
 			frontmatter: Record<string, unknown>;
+			/** Text between the fences, including the line break that ends its last line ('' when empty). */
 			rawFrontmatter: string | null;
 			body: string;
 			newlineAtEnd: boolean;
+			/** True when the file started with a U+FEFF byte order mark, restored on serialise. */
+			bom?: boolean;
 	  }
 	| { ok: false; reason: 'toml' | 'yaml-error' | 'unterminated'; message: string };
 
@@ -15,6 +18,7 @@ type PageData = {
 	rawFrontmatter: string | null;
 	body: string;
 	newlineAtEnd: boolean;
+	bom?: boolean;
 };
 
 const TO_STRING_OPTIONS = { lineWidth: 0 };
@@ -24,10 +28,19 @@ function detectEol(text: string): string {
 	return index > 0 && text[index - 1] === '\r' ? '\r\n' : '\n';
 }
 
-export function parsePage(text: string): ParsedPage {
+export function parsePage(input: string): ParsedPage {
+	const bom = input.startsWith('\uFEFF');
+	const text = bom ? input.slice(1) : input;
+	const result = parseText(text);
+	if (!bom) return result;
+	if (!result.ok) return result;
+	return result.rawFrontmatter === null ? parseText(input) : { ...result, bom };
+}
+
+function parseText(text: string): ParsedPage {
 	const newlineAtEnd = text.endsWith('\n');
 
-	if (text.startsWith('+++')) {
+	if (/^\+\+\+\r?(\n|$)/.test(text)) {
 		return { ok: false, reason: 'toml', message: 'TOML frontmatter is not supported' };
 	}
 
@@ -64,8 +77,30 @@ function parseYaml(rawFrontmatter: string, body: string, newlineAtEnd: boolean):
 	return { ok: true, frontmatter: value, rawFrontmatter, body, newlineAtEnd };
 }
 
+function collapseCommentGap(yaml: string, doc: Document, raw: string): string {
+	const block = (comment: string) =>
+		comment
+			.split('\n')
+			.map((line) => `#${line}`)
+			.join('\n') + '\n';
+	// The library separates a trailing or leading document comment from the content with a blank line.
+	// A trailing comment stays at the end of the block, after any newly added key.
+	if (doc.comment) {
+		const trailing = block(doc.comment);
+		if (yaml.endsWith(`\n\n${trailing}`)) yaml = yaml.slice(0, -trailing.length - 1) + trailing;
+	}
+	if (doc.commentBefore) {
+		const leading = block(doc.commentBefore);
+		if (yaml.startsWith(`${leading}\n`) && !raw.replace(/\r/g, '').startsWith(`${leading}\n`)) {
+			yaml = leading + yaml.slice(leading.length + 1);
+		}
+	}
+	return yaml;
+}
+
 export function serializePage(page: PageData, changedKeys: string[]): string {
-	const eol = detectEol(page.rawFrontmatter ?? page.body);
+	const eol = detectEol(page.rawFrontmatter || page.body);
+	const bom = page.bom ? '\uFEFF' : '';
 	let raw = page.rawFrontmatter;
 
 	if (changedKeys.length > 0) {
@@ -75,11 +110,14 @@ export function serializePage(page: PageData, changedKeys: string[]): string {
 			if (value === undefined) doc.delete(key);
 			else doc.set(key, value);
 		}
-		const yaml = doc.contents && doc.toString(TO_STRING_OPTIONS) !== '{}\n' ? doc.toString(TO_STRING_OPTIONS) : '';
+		let yaml = doc.toString(TO_STRING_OPTIONS);
+		// An emptied mapping prints as `{}`; keep only the comments that remain.
+		yaml = yaml.replace(/^\{\}\n\n?/, '');
+		yaml = collapseCommentGap(yaml, doc, raw ?? '');
 		raw = yaml === '' && page.rawFrontmatter === null ? null : yaml.replace(/\r?\n/g, eol);
 	}
 
 	if (raw === null) return page.body;
 	const closing = page.body === '' && !page.newlineAtEnd ? '---' : `---${eol}`;
-	return `---${eol}${raw}${closing}${page.body}`;
+	return `${bom}---${eol}${raw}${closing}${page.body}`;
 }

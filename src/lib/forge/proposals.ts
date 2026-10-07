@@ -28,7 +28,7 @@ export function previewUrl(site: SiteConfig, pr: PrSummary): string | null {
 	const { soort, label, url } = site.preview;
 	if (soort === 'geen' || pr.state !== 'open' || !url) return null;
 	if (soort === 'bij-label' && !(label && pr.labels.includes(label))) return null;
-	return url.replace('{nummer}', String(pr.number));
+	return url.replaceAll('{nummer}', String(pr.number));
 }
 
 export function toProposal(

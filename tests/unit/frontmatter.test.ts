@@ -101,4 +101,53 @@ describe('serializePage', () => {
 			'---\r\ntitle: "T"\r\ndescription: new\r\n---\r\n\r\nBody\r\n'
 		);
 	});
+
+	it('keeps CRLF when the block is empty', () => {
+		const page = ok('---\r\n---\r\nBody\r\n');
+		page.frontmatter.title = 'Hi';
+		expect(serializePage(page, ['title'])).toBe('---\r\ntitle: Hi\r\n---\r\nBody\r\n');
+	});
+
+	it('keeps a trailing comment at the end of the block without a stray blank line', () => {
+		const page = ok('---\na: 1\n# trailing\n---\n');
+		page.frontmatter.b = 2;
+		expect(serializePage(page, ['b'])).toBe('---\na: 1\nb: 2\n# trailing\n---\n');
+	});
+
+	it('puts a new key after a comment-only block without a blank line', () => {
+		const page = ok('---\n# only comment\n---\n');
+		page.frontmatter.b = 2;
+		expect(serializePage(page, ['b'])).toBe('---\n# only comment\nb: 2\n---\n');
+	});
+
+	it('keeps only the comment when the last key is deleted', () => {
+		const page = ok('---\na: 1\n# c\n---\n');
+		page.frontmatter.a = undefined;
+		expect(serializePage(page, ['a'])).toBe('---\n# c\n---\n');
+	});
+
+	it('writes an empty block when the last key is deleted', () => {
+		const page = ok('---\na: 1\n---\nBody\n');
+		page.frontmatter.a = undefined;
+		expect(serializePage(page, ['a'])).toBe('---\n---\nBody\n');
+	});
+
+	it('restores a byte order mark and does not add a second block', () => {
+		const text = '\uFEFF---\na: 1\n---\nBody\n';
+		const page = ok(text);
+		expect(page.frontmatter).toEqual({ a: 1 });
+		expect(serializePage(page, [])).toBe(text);
+		page.frontmatter.a = 2;
+		expect(serializePage(page, ['a'])).toBe('\uFEFF---\na: 2\n---\nBody\n');
+	});
+
+	it('keeps a byte order mark in a file without frontmatter', () => {
+		const text = '\uFEFF# Title\n';
+		expect(serializePage(ok(text), [])).toBe(text);
+	});
+
+	it('only treats +++ followed by a line break as TOML', () => {
+		expect(parsePage('+++\nx\n+++\n')).toMatchObject({ ok: false, reason: 'toml' });
+		expect(parsePage('+++ not toml\n')).toMatchObject({ ok: true });
+	});
 });
