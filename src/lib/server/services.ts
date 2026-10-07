@@ -10,6 +10,10 @@ const RETRY_MS = 60000;
 let configStore: ConfigStore | null = null;
 let forge: Forge | null = null;
 let inFlight: Promise<void> | null = null;
+let dirty = false;
+let stopped = false;
+let initPromise: Promise<void> | null = null;
+let initialised: Promise<void> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function getConfigStore(): ConfigStore {
@@ -19,6 +23,7 @@ export function getConfigStore(): ConfigStore {
 
 export function setConfigStore(store: ConfigStore | null): void {
 	configStore = store;
+	stopped = false;
 }
 
 export function getForge(): Forge {
@@ -41,16 +46,29 @@ export function configRepoName(): string {
 }
 
 function loadOnce(): Promise<void> {
-	inFlight ??= (async () => {
+	if (inFlight) {
+		dirty = true;
+		return inFlight;
+	}
+	inFlight = (async () => {
 		const store = getConfigStore();
+		let thrown: string | null = null;
 		try {
-			await store.load();
+			do {
+				dirty = false;
+				thrown = null;
+				try {
+					await store.load();
+				} catch (e) {
+					thrown = e instanceof Error ? e.message : String(e);
+				}
+			} while (dirty);
 		} finally {
 			inFlight = null;
 		}
-		const { lastError } = store.state();
-		if (lastError) {
-			log.error('config.load_failed', { error: lastError });
+		const error = thrown ?? store.state().lastError;
+		if (error) {
+			log.error('config.load_failed', { error });
 			scheduleRetry();
 		} else {
 			log.info('config.loaded');
@@ -60,7 +78,7 @@ function loadOnce(): Promise<void> {
 }
 
 function scheduleRetry(): void {
-	if (retryTimer) return;
+	if (retryTimer || stopped) return;
 	retryTimer = setTimeout(() => {
 		retryTimer = null;
 		void loadOnce();
@@ -72,13 +90,19 @@ export function reloadConfig(): Promise<void> {
 	return loadOnce();
 }
 
-export async function initServices(): Promise<void> {
-	const { repo, ref } = parseConfigRepo();
-	setConfigStore(new ConfigStore(forgeConfigReader(getForge(), repo, ref)));
-	await loadOnce();
+export function initServices(): Promise<void> {
+	initPromise ??= (async () => {
+		stopped = false;
+		const { repo, ref } = parseConfigRepo();
+		setConfigStore(new ConfigStore(forgeConfigReader(getForge(), repo, ref)));
+		await loadOnce();
+	})();
+	return initPromise;
 }
 
 export function stopServices(): void {
+	stopped = true;
+	initPromise = null;
 	if (retryTimer) clearTimeout(retryTimer);
 	retryTimer = null;
 }

@@ -6,7 +6,8 @@ import { FakeForge } from '$lib/forge/fake';
 vi.mock('$lib/log', () => ({ log: { info: () => {}, warn: () => {}, error: () => {} } }));
 
 const reloadConfig = vi.fn(async () => {});
-const forge = new CachingForge(new FakeForge());
+const fake = new FakeForge();
+const forge = new CachingForge(fake);
 const invalidate = vi.spyOn(forge, 'invalidate');
 
 vi.mock('$lib/server/services', () => ({
@@ -32,6 +33,13 @@ beforeEach(() => {
 });
 
 describe('github webhook', () => {
+	it('ignores a payload without a string repository name', async () => {
+		const res = await call('push', { repository: { full_name: 42 } });
+		expect(res.status).toBe(204);
+		expect(invalidate).not.toHaveBeenCalled();
+		expect(reloadConfig).not.toHaveBeenCalled();
+	});
+
 	it('rejects a bad signature', async () => {
 		const res = await call('push', { repository: { full_name: 'o/config' } }, 'sha256=' + '0'.repeat(64));
 		expect(res.status).toBe(401);
@@ -52,7 +60,7 @@ describe('github webhook', () => {
 		const res = await call('push', { repository: { full_name: 'o/config' } });
 		expect(res.status).toBe(204);
 		expect(reloadConfig).toHaveBeenCalledTimes(1);
-		expect(invalidate).not.toHaveBeenCalled();
+		expect(invalidate).toHaveBeenCalledWith('o/config');
 	});
 
 	it('invalidates the cache on a push to a site repo', async () => {

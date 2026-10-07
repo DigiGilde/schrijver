@@ -26,7 +26,10 @@ describe('forgeConfigReader', () => {
 	});
 
 	it('honours an explicit ref', async () => {
-		const r = forgeConfigReader(fake, 'o/config', 'main');
-		expect(await r.readFile('sites.yaml')).toBe('hello');
+		await fake.createBranch('o/config', 'main', 'next');
+		await fake.commit('o/config', 'next', [{ path: 'sites.yaml', content: 'on next' }], 'm');
+		const r = forgeConfigReader(fake, 'o/config', 'next');
+		expect(await r.readFile('sites.yaml')).toBe('on next');
+		expect(await reader.readFile('sites.yaml')).toBe('hello');
 	});
 });
