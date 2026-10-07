@@ -46,11 +46,18 @@ export function imagePath(
 	const conv = site.content.afbeeldingen;
 	if (!conv) throw new ImageError('Deze site accepteert geen afbeeldingen');
 	const name = sanitizeFileName(fileName);
+	if (path.posix.isAbsolute(pagePath) || pagePath.split('/').includes('..')) {
+		throw new ImageError('Ongeldig pad voor afbeelding');
+	}
 	const dir = path.posix.dirname(pagePath);
 	const base = path.posix.basename(pagePath, '.md');
 	const slug = base === 'index' || base === '_index' ? path.posix.basename(dir) : base;
 	const folder = conv.pad.replaceAll('{paginaslug}', slug).replaceAll('{paginamap}', dir);
-	const repoPath = path.posix.normalize(path.posix.join(folder, name));
+	const base_ = path.posix.normalize(folder);
+	const repoPath = path.posix.normalize(path.posix.join(base_, name));
+	if (base_.startsWith('..') || path.posix.isAbsolute(base_) || !repoPath.startsWith(`${base_}/`)) {
+		throw new ImageError('Ongeldig pad voor afbeelding');
+	}
 	return { repoPath, markdownRef: path.posix.relative(dir, repoPath) };
 }
 
@@ -84,15 +91,20 @@ export function validateImage(
 	return sniff(bytes) === mime ? { ok: true, mime } : unsupported;
 }
 
+const purify = createDOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
+purify.addHook('afterSanitizeAttributes', (node) => {
+	for (const attr of Array.from(node.attributes ?? [])) {
+		if (attr.name.toLowerCase().startsWith('on')) node.removeAttribute(attr.name);
+	}
+});
+
+export function isSvgDocument(text: string): boolean {
+	return /^\s*(<\?xml[^>]*\?>\s*)?<svg[\s>]/.test(text);
+}
+
 export function sanitizeSvg(text: string): string {
-	const purify = createDOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
-	purify.addHook('afterSanitizeAttributes', (node) => {
-		for (const attr of Array.from(node.attributes ?? [])) {
-			if (attr.name.toLowerCase().startsWith('on')) node.removeAttribute(attr.name);
-		}
-	});
 	return purify.sanitize(text, {
 		USE_PROFILES: { svg: true, svgFilters: true },
-		FORBID_TAGS: ['script', 'foreignObject']
+		FORBID_TAGS: ['script', 'foreignObject', 'style', 'use']
 	});
 }

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import {
 	ImageError,
@@ -101,15 +101,26 @@ describe('sanitizeSvg', () => {
 });
 
 describe('POST /api/sites/[site]/afbeelding', () => {
-	setConfigStore({ site: (id: string) => sites.find((s) => s.id === id) } as never);
+	beforeAll(() => {
+		setConfigStore({ site: (id: string) => sites.find((s) => s.id === id) } as never);
+	});
 
-	function call(opts: { alt?: string; user?: boolean; header?: boolean }) {
+	function call(opts: {
+		alt?: string;
+		user?: boolean;
+		header?: boolean;
+		site?: string;
+		pagina?: string;
+		file?: File;
+		contentLength?: string;
+	}) {
 		const form = new FormData();
-		form.set('bestand', new File([PNG], 'Foto.png', { type: 'image/png' }));
-		form.set('pagina', 'docs/kennis/foo.md');
+		form.set('bestand', opts.file ?? new File([PNG], 'Foto.png', { type: 'image/png' }));
+		form.set('pagina', opts.pagina ?? 'docs/kennis/foo.md');
 		if (opts.alt !== undefined) form.set('alt', opts.alt);
 		const headers: Record<string, string> = {};
 		if (opts.header !== false) headers['X-Requested-With'] = 'Schrijver';
+		if (opts.contentLength) headers['content-length'] = opts.contentLength;
 		const request = new Request('http://localhost/api/sites/digi-handboek/afbeelding', {
 			method: 'POST',
 			body: form,
@@ -117,7 +128,7 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		});
 		return POST({
 			request,
-			params: { site: 'digi-handboek' },
+			params: { site: opts.site ?? 'digi-handboek' },
 			locals: { user: opts.user === false ? null : { id: 'u' } }
 		} as never);
 	}
@@ -143,5 +154,67 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 			mime: 'image/png'
 		});
 		expect(Buffer.from(body.base64, 'base64')).toEqual(Buffer.from(PNG));
+	});
+
+	it.each(['/etc/x.md', '.github/workflows/x.md', 'docs/../.github/x.md', 'docs\\x.md', 'docs/kennis/foo.txt'])(
+		'rejects page path %s with 400',
+		async (pagina) => {
+			expect((await call({ alt: 'x', pagina })).status).toBe(400);
+		}
+	);
+
+	it('returns 404 for an unknown site', async () => {
+		expect((await call({ alt: 'x', site: 'nope' })).status).toBe(404);
+	});
+
+	it('rejects alt text over 500 characters', async () => {
+		expect((await call({ alt: 'a'.repeat(501) })).status).toBe(400);
+	});
+
+	it('returns 413 on a large Content-Length and on a large file', async () => {
+		expect((await call({ alt: 'x', contentLength: String(10 * 1024 * 1024) })).status).toBe(413);
+		const big = new File([new Uint8Array(MAX_IMAGE_BYTES + 1)], 'a.png', { type: 'image/png' });
+		expect((await call({ alt: 'x', file: big })).status).toBe(413);
+	});
+
+	it('returns 415 for a gif', async () => {
+		const gif = new File([PNG], 'a.gif', { type: 'image/gif' });
+		expect((await call({ alt: 'x', file: gif })).status).toBe(415);
+	});
+
+	it('returns 415 when sanitising leaves no svg', async () => {
+		const svg = new File(['<script><svg></svg></script>'], 'a.svg', { type: 'image/svg+xml' });
+		expect((await call({ alt: 'x', file: svg })).status).toBe(415);
+	});
+
+	it('stores a sanitised svg and derives the extension from the mime', async () => {
+		const svg = new File(
+			['<svg xmlns="http://www.w3.org/2000/svg" onload="x()"><script>1</script><circle r="1"/></svg>'],
+			'Logo.png',
+			{ type: 'image/svg+xml' }
+		);
+		const res = await call({ alt: 'x', file: svg });
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.repoPath).toBe('docs/afbeeldingen/foo/logo.svg');
+		const text = Buffer.from(body.base64, 'base64').toString();
+		expect(text).toContain('<circle');
+		expect(text).not.toMatch(/script|onload/);
+	});
+});
+
+describe('sanitizeSvg hardening', () => {
+	it('strips javascript: hrefs, foreignObject, style and use', () => {
+		const out = sanitizeSvg(
+			'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><a href="javascript:alert(1)"><circle r="1"/></a><a xlink:href="javascript:alert(2)"><rect/></a><foreignObject><div>x</div></foreignObject><style>*{fill:red}</style><use href="http://evil/x.svg#a"/></svg>'
+		);
+		expect(out).not.toMatch(/javascript|foreignObject|<style|<use|evil/i);
+		expect(out).toContain('<circle');
+	});
+});
+
+describe('imagePath containment', () => {
+	it('rejects a page path whose slug escapes the image base', () => {
+		expect(() => imagePath(digi, 'docs/../x.md', 'a.png')).toThrow(ImageError);
 	});
 });

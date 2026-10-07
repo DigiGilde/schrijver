@@ -1,6 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { ImageError, imagePath, sanitizeSvg, validateImage } from '$lib/content/images';
+import {
+	ALLOWED_IMAGE_TYPES,
+	ImageError,
+	MAX_IMAGE_BYTES,
+	imagePath,
+	isSvgDocument,
+	sanitizeSvg,
+	validateImage
+} from '$lib/content/images';
 import { getConfigStore } from '$lib/server/services';
 
 const fail = (status: number, message: string) => json({ message }, { status });
@@ -12,6 +20,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const site = getConfigStore().site(params.site);
 	if (!site) return fail(404, 'Site niet gevonden');
 
+	const declared = Number(request.headers.get('content-length'));
+	if (declared > MAX_IMAGE_BYTES + 64 * 1024) return fail(413, 'Afbeelding is groter dan 5 MB');
+
 	let form: FormData;
 	try {
 		form = await request.formData();
@@ -20,22 +31,38 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	}
 	const alt = form.get('alt');
 	if (typeof alt !== 'string' || !alt.trim()) return fail(400, 'Alt-tekst is verplicht');
+	if (alt.length > 500) return fail(400, 'Alt-tekst is te lang (maximaal 500 tekens)');
 	const file = form.get('bestand');
 	const pagina = form.get('pagina');
 	if (!(file instanceof File)) return fail(400, 'Bestand ontbreekt');
-	if (typeof pagina !== 'string' || !pagina || pagina.split('/').includes('..')) {
-		return fail(400, 'Pagina ontbreekt');
+	if (
+		typeof pagina !== 'string' ||
+		pagina.startsWith('/') ||
+		pagina.includes('\\') ||
+		pagina.split('/').includes('..') ||
+		!pagina.startsWith(`${site.content.pad}/`) ||
+		!pagina.endsWith('.md')
+	) {
+		return fail(400, 'Ongeldige pagina');
 	}
+	if (file.size > MAX_IMAGE_BYTES) return fail(413, 'Afbeelding is groter dan 5 MB');
 
 	let bytes = new Uint8Array(await file.arrayBuffer());
 	const checked = validateImage(bytes, file.type);
 	if (!checked.ok) return fail(checked.status, checked.message);
 	if (checked.mime === 'image/svg+xml') {
-		bytes = new TextEncoder().encode(sanitizeSvg(new TextDecoder().decode(bytes)));
+		const clean = sanitizeSvg(new TextDecoder().decode(bytes));
+		if (!isSvgDocument(clean)) {
+			return fail(415, 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)');
+		}
+		bytes = new TextEncoder().encode(clean);
 	}
+	const ext = ALLOWED_IMAGE_TYPES[checked.mime as keyof typeof ALLOWED_IMAGE_TYPES];
+	const dot = file.name.lastIndexOf('.');
+	const fileName = `${dot === -1 ? file.name : file.name.slice(0, dot)}.${ext}`;
 
 	try {
-		const { repoPath, markdownRef } = imagePath(site, pagina, file.name);
+		const { repoPath, markdownRef } = imagePath(site, pagina, fileName);
 		return json({
 			repoPath,
 			markdownRef,
