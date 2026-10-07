@@ -44,7 +44,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			? { [schema.titel.slice('veld:'.length)]: title }
 			: {};
 		return {
-			site: { id: site.id, naam: site.naam, concepten: site.concepten },
+			site: {
+				id: site.id,
+				naam: site.naam,
+				concepten: site.concepten,
+				afbeeldingen: site.content.afbeeldingen != null
+			},
 			path: pad,
 			repoPath,
 			sha: null as string | null,
@@ -90,7 +95,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const encode = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 	const githubUrl = `https://github.com/${site.repo}/blob/${encode(site.standaardbranch)}/${encode(repoPath)}`;
 	const base = {
-		site: { id: site.id, naam: site.naam, concepten: site.concepten },
+		site: {
+				id: site.id,
+				naam: site.naam,
+				concepten: site.concepten,
+				afbeeldingen: site.content.afbeeldingen != null
+			},
 		path: pad,
 		repoPath,
 		sha: file.sha as string | null,

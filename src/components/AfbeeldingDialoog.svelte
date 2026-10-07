@@ -15,6 +15,8 @@
 	let alt = $state('');
 	let fout = $state<string | null>(null);
 	let busy = $state(false);
+	let ronde = $state(0);
+	let abort: AbortController | null = null;
 	let altField: HTMLElement | undefined = $state();
 
 	const size = $derived(
@@ -29,6 +31,10 @@
 	});
 
 	function reset() {
+		abort?.abort();
+		abort = null;
+		busy = false;
+		ronde += 1;
 		alt = '';
 		fout = null;
 		file = null;
@@ -50,6 +56,8 @@
 		if (!klaar || !file) return;
 		busy = true;
 		fout = null;
+		const controller = new AbortController();
+		abort = controller;
 		try {
 			const form = new FormData();
 			form.set('bestand', file);
@@ -58,9 +66,11 @@
 			const res = await fetch(`/api/sites/${siteId}/afbeelding`, {
 				method: 'POST',
 				headers: { 'X-Requested-With': 'Schrijver' },
-				body: form
+				body: form,
+				signal: controller.signal
 			});
 			const data = await res.json().catch(() => ({}));
+			if (controller.signal.aborted) return;
 			if (!res.ok) {
 				fout = meldingVoor(res.status, data.message);
 				return;
@@ -68,9 +78,13 @@
 			oninvoegen(alt.trim(), data as Result);
 			sluit();
 		} catch {
+			if (controller.signal.aborted) return;
 			fout = 'De afbeelding kon niet worden verstuurd: geen verbinding';
 		} finally {
-			busy = false;
+			if (abort === controller) {
+				abort = null;
+				busy = false;
+			}
 		}
 	}
 </script>
@@ -83,6 +97,7 @@
 	}}
 >
 	<div class="velden">
+		{#key ronde}
 		<nldd-form-field label="Bestand">
 			<nldd-file-field
 				accept="image/png,image/jpeg,image/webp,image/svg+xml"
@@ -92,6 +107,7 @@
 				}}
 			></nldd-file-field>
 		</nldd-form-field>
+		{/key}
 		{#if file}
 			<p class="bestand">{file.name} ({size})</p>
 		{/if}

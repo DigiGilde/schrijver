@@ -17,6 +17,7 @@
 		prNumber,
 		nieuw,
 		snapshot,
+		tekst,
 		labels,
 		images,
 		onverstuurd,
@@ -31,6 +32,7 @@
 		prNumber: number | null;
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
+		tekst: string;
 		labels: Record<string, string>;
 		images: () => PendingImage[];
 		onverstuurd: (sent: PendingImage[]) => void;
@@ -118,6 +120,11 @@
 		onovernemen(conflict.theirs);
 		conflict = null;
 	}
+
+	$effect(() => {
+		void tekst;
+		mermaidFout = null;
+	});
 
 	onMount(() => {
 		const onkey = (e: KeyboardEvent) => {

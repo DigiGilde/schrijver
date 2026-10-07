@@ -12,10 +12,12 @@
 		onkop: (niveau: 2 | 3 | 4) => void;
 		onafbeelding: () => void;
 		onmermaid: () => void;
+		afbeeldingen?: boolean;
+		schrijfhulpPaneel?: string;
 		schrijfhulpOpen?: boolean;
 		onschrijfhulp?: () => void;
 	};
-	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
+	let { state, disabled = false, onactie, onkop, onafbeelding, onmermaid, afbeeldingen = true, schrijfhulpPaneel, schrijfhulpOpen = false, onschrijfhulp }: Props = $props();
 
 	const active = $derived(state?.active);
 
@@ -71,10 +73,12 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-icon-button
 		icon="photo"
-		accessible-label="Afbeelding invoegen"
+		accessible-label={afbeeldingen
+			? 'Afbeelding invoegen'
+			: 'Afbeelding invoegen (deze site accepteert geen afbeeldingen)'}
 		size="sm"
 		appearance="neutral-transparent"
-		disabled={disabled || undefined}
+		disabled={disabled || !afbeeldingen || undefined}
 		onclick={onafbeelding}
 	></nldd-icon-button>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -93,6 +97,7 @@
 			size="sm"
 			text="Schrijfhulp"
 			expanded={schrijfhulpOpen}
+			aria-controls={schrijfhulpPaneel}
 			onclick={onschrijfhulp}
 		></nldd-button>
 	{/if}
