@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 
 const port = 4393;
-const env = {
-	...process.env,
+const baseEnv = { ...process.env, PORT: String(port) };
+// Development mode enables the fake forge and the test session cookie.
+const serverEnv = {
+	...baseEnv,
 	NODE_ENV: 'development',
-	PORT: String(port),
 	SCHRIJVER_FAKE_FORGE: '1',
 	SCHRIJVER_TEST_SESSION: JSON.stringify({
 		sub: 'test',
@@ -20,16 +21,26 @@ const env = {
 	ORIGIN: `http://localhost:${port}`
 };
 
-function run(command, args, options = {}) {
+function run(command, args, env) {
 	return new Promise((resolve) => {
-		const child = spawn(command, args, { stdio: 'inherit', env, ...options });
+		const child = spawn(command, args, { stdio: 'inherit', env });
 		child.on('exit', (code) => resolve(code ?? 1));
 	});
 }
 
-if ((await run('npm', ['run', 'build'])) !== 0) process.exit(1);
+// Build as production: a development NODE_ENV would build the Lit dev bundle.
+const buildEnv = { ...baseEnv };
+delete buildEnv.NODE_ENV;
+if ((await run('npm', ['run', 'build'], buildEnv)) !== 0) process.exit(1);
 
-const server = spawn('node', ['build'], { stdio: 'inherit', env });
+const server = spawn('node', ['build'], { stdio: 'inherit', env: serverEnv });
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.on(signal, () => {
+		server.kill();
+		process.exit(1);
+	});
+}
+
 let code = 1;
 try {
 	let up = false;
@@ -37,11 +48,12 @@ try {
 		try {
 			up = (await fetch(`http://localhost:${port}/healthz`)).ok;
 		} catch {
-			await new Promise((r) => setTimeout(r, 500));
+			// not listening yet
 		}
+		if (!up) await new Promise((r) => setTimeout(r, 500));
 	}
 	if (!up) throw new Error('server did not start');
-	code = await run('npx', ['pa11y-ci', '--config', '.pa11yci']);
+	code = await run('npx', ['pa11y-ci', '--config', '.pa11yci'], baseEnv);
 } finally {
 	server.kill();
 }
