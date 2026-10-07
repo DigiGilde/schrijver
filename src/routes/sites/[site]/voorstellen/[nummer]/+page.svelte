@@ -29,11 +29,15 @@
 	let busy = $state(false);
 	let melding = $state<Melding | null>(null);
 	let opmerking = $state('');
+	let opmerkingFout = $state<string | null>(null);
+	/* One persistent live region: a banner inserted together with its text is not reliably announced. */
+	let status = $state('');
 
 	async function stuur(actie: string, gelukt: string, body: unknown = {}) {
 		if (busy) return;
 		busy = true;
 		melding = null;
+		status = 'Bezig';
 		try {
 			const res = await fetch(`/api/sites/${data.site.id}/voorstellen/${data.proposal.number}/${actie}`, {
 				method: 'POST',
@@ -58,6 +62,7 @@
 			melding = { variant: 'critical', text: 'De actie is mislukt: geen verbinding', detail: String(e) };
 		} finally {
 			busy = false;
+			status = melding?.text ?? '';
 		}
 	}
 </script>
@@ -83,6 +88,8 @@
 			{/if}
 			<nldd-link href={data.githubUrl} target="_blank" text="Bekijk op GitHub"></nldd-link>
 		</nldd-container>
+
+		<p class="sr-only" role="status">{status}</p>
 
 		{#if melding}
 			<nldd-banner variant={melding.variant} text={melding.text}>
@@ -143,6 +150,11 @@
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
+					opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
+					if (opmerkingFout) {
+						status = opmerkingFout;
+						return;
+					}
 					void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
 				}}
 			>
@@ -151,15 +163,21 @@
 						rows="4"
 						maxlength="5000"
 						value={opmerking}
-						oninput={(e: Event) => (opmerking = (e.currentTarget as HTMLInputElement).value)}
+						invalid={opmerkingFout !== null || undefined}
+						oninput={(e: Event) => {
+							opmerking = (e.currentTarget as HTMLInputElement).value;
+							opmerkingFout = null;
+						}}
 					></nldd-multi-line-text-field>
+					{#if opmerkingFout}
+						<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
+					{/if}
 				</nldd-form-field>
 				<nldd-button
 					appearance="secondary"
 					type="submit"
 					text="Opmerking plaatsen"
 					loading={busy || undefined}
-					disabled={opmerking.trim() === '' || undefined}
 				></nldd-button>
 			</form>
 		{/if}
@@ -210,6 +228,14 @@
 	pre {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	.bestanden {
 		border-collapse: collapse;

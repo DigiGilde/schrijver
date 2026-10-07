@@ -13,15 +13,18 @@ import { GET } from '../../src/routes/login/callback/+server';
 describe('login callback failure', () => {
 	beforeEach(() => vi.restoreAllMocks());
 
-	it('returns 400 with a Dutch message, clears the login cookie and logs without tokens', async () => {
+	it('sends the user to the Dutch failure page, clears the login cookie and logs without tokens', async () => {
 		const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 		const cookies = { get: vi.fn(() => 'sealed'), delete: vi.fn(), set: vi.fn() };
-		const res = await GET({
-			url: new URL('http://localhost/login/callback?code=SECRETCODE&state=x'),
-			cookies
-		} as unknown as Parameters<typeof GET>[0]);
-		expect(res.status).toBe(400);
-		expect(await res.text()).toContain('Inloggen is niet gelukt');
+		const res = await Promise.resolve()
+			.then(() =>
+				GET({
+					url: new URL('http://localhost/login/callback?code=SECRETCODE&state=x'),
+					cookies
+				} as unknown as Parameters<typeof GET>[0])
+			)
+			.catch((r: unknown) => r);
+		expect(res).toMatchObject({ status: 303, location: '/login/mislukt' });
 		expect(cookies.delete).toHaveBeenCalledWith('schrijver_login', { path: '/' });
 		expect(cookies.set).not.toHaveBeenCalled();
 		const line = JSON.parse(String(write.mock.calls[0][0]));

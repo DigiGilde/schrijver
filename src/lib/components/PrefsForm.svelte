@@ -38,6 +38,10 @@
 	}
 </script>
 
+<!-- One persistent live region: a banner inserted together with its text is not reliably announced. -->
+<p class="sr-only" role="status">
+	{error ?? (saved ? 'Instellingen opgeslagen' : justLinked ? 'Je GitHub-account is gekoppeld' : '')}
+</p>
 {#if error}
 	<nldd-banner variant="critical" text={error}></nldd-banner>
 {/if}
@@ -137,3 +141,14 @@
 		</form>
 	{/if}
 </nldd-container>
+
+<style>
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

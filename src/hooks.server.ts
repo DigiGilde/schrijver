@@ -26,7 +26,7 @@ import {
 assertSafeEnvironment();
 assertStrongSecrets();
 
-const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/uitloggen', '/healthz']);
+const PUBLIC_PATHS = new Set(['/login', '/login/callback', '/login/mislukt', '/uitloggen', '/healthz']);
 const PUBLIC_PREFIXES = ['/api/webhook/'];
 const ONBOARDING_EXEMPT = new Set([
 	'/onboarding',
@@ -112,7 +112,17 @@ const authHandle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	if (!event.locals.user) return see('/login');
+	if (!event.locals.user) {
+		// A fetch would follow a redirect to the SSO login and fail without a reason; say it.
+		if (path.startsWith('/api/')) {
+			const message = 'Je sessie is verlopen. Log opnieuw in; je tekst blijft in deze browser bewaard.';
+			return new Response(JSON.stringify({ ok: false, message, error: { message } }), {
+				status: 401,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+		return see('/login');
+	}
 	if (!event.locals.user.prefs.onboarded && !ONBOARDING_EXEMPT.has(path)) return see('/onboarding');
 	return resolve(event);
 };
@@ -120,6 +130,7 @@ const authHandle: Handle = async ({ event, resolve }) => {
 export const handle = sequence(securityHeaders, apiGuard, rateLimit, authHandle);
 
 export const handleError: HandleServerError = ({ error, status }) => {
+	if (status === 404) return { message: 'Deze pagina bestaat niet' };
 	const id = randomUUID();
 	log.error('server.error', { id, status, ...errorFields(error) });
 	return { message: 'Er ging iets mis', id };

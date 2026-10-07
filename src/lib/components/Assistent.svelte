@@ -10,8 +10,10 @@
 		onApply: (from: number, to: number, replacement: string, original: string) => string | null;
 		onMark: (from: number, to: number) => void;
 		onUnmark: () => void;
+		/** Called once a suggestion is taken or dropped: its buttons are gone, so focus has to go somewhere. */
+		onDone: () => void;
 	};
-	let { siteId, getSelection, getAll, onApply, onMark, onUnmark }: Props = $props();
+	let { siteId, getSelection, getAll, onApply, onMark, onUnmark, onDone }: Props = $props();
 
 	const actions: { action: Exclude<Action, 'vrij'>; label: string }[] = [
 		{ action: 'korter', label: 'Korter' },
@@ -95,6 +97,7 @@
 	function dismiss() {
 		clearPending();
 		outcome = 'verworpen';
+		onDone();
 	}
 
 	function accept() {
@@ -109,6 +112,7 @@
 		} else {
 			outcome = 'overgenomen';
 		}
+		onDone();
 	}
 </script>
 

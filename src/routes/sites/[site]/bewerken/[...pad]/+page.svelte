@@ -188,6 +188,8 @@
 				images={() => images}
 				onverstuurd={(sent) => (images = withoutSent(images, sent))}
 				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
+				onveldfouten={(fouten) => (fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
+				focusEditor={() => editor?.focus()}
 			/>
 			{#if images.length}
 				<nldd-text color="secondary" size="sm">Afbeeldingen worden meegestuurd bij het bewaren</nldd-text>

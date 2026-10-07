@@ -80,7 +80,7 @@
 <style>
 	.kolommen {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 		gap: 24px;
 	}
 	pre {

@@ -5,13 +5,6 @@ import { SESSION_COOKIE, SESSION_TTL_MS, cookieOptions, sealSession, sessionSecr
 import { getPrefs } from '$lib/auth/users';
 import { log } from '$lib/log';
 
-const failed = () =>
-	new Response(
-		'<!doctype html><html lang="nl"><meta charset="utf-8"><title>Inloggen is niet gelukt</title>' +
-			'<h1>Inloggen is niet gelukt</h1><p><a href="/login">Probeer het opnieuw</a></p></html>',
-		{ status: 400, headers: { 'content-type': 'text/html; charset=utf-8' } }
-	);
-
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	let session;
 	let onboarded;
@@ -21,7 +14,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	} catch (err) {
 		log.error('auth.callback_failed', { reason: err instanceof Error ? err.message : 'unknown' });
 		cookies.delete(LOGIN_COOKIE, { path: '/' });
-		return failed();
+		redirect(303, '/login/mislukt');
 	}
 	cookies.delete(LOGIN_COOKIE, { path: '/' });
 	cookies.set(SESSION_COOKIE, sealSession(session, sessionSecret()), cookieOptions(SESSION_TTL_MS / 1000));

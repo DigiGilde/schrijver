@@ -50,13 +50,13 @@ export const actions: Actions = {
 		const soort = typeof soortRaw === 'string' && soortRaw !== '' ? soortRaw : null;
 		const map = String(form.get('map') ?? '');
 		const titel = String(form.get('titel') ?? '').trim();
-		if (!titel) return fail(400, { error: 'Geef de pagina een titel' });
-		if (!slugify(titel)) return fail(400, { error: 'Geef een titel met letters of cijfers' });
+		if (!titel) return fail(400, { error: 'Geef de pagina een titel', veld: 'titel' });
+		if (!slugify(titel)) return fail(400, { error: 'Geef een titel met letters of cijfers', veld: 'titel' });
 		let pad: string;
 		try {
 			pad = newPagePath(store.schema(site.id), soort, map, titel, new Date());
 		} catch {
-			return fail(400, { error: 'Deze combinatie van soort en map is niet toegestaan' });
+			return fail(400, { error: 'Deze combinatie van soort en map is niet toegestaan', veld: null });
 		}
 		const query = new URLSearchParams({ nieuw: '1', map, titel });
 		if (soort) query.set('soort', soort);

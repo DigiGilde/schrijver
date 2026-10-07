@@ -19,9 +19,10 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 	await expect(dialog.getByText('pixel.png (1 kB)')).toBeVisible();
 
 	const invoegen = dialog.getByRole('button', { name: 'Invoegen' });
-	await expect(invoegen).toBeDisabled();
+	await invoegen.click();
+	await expect(dialog.getByText('Vul een alt-tekst in').first()).toBeVisible();
+	await expect(dialog.getByLabel('Alt-tekst')).toBeFocused();
 	await dialog.getByLabel('Alt-tekst').fill('Een pixel');
-	await expect(invoegen).toBeEnabled();
 	await invoegen.click();
 
 	await expect(editor).toContainText('![Een pixel](');
@@ -32,7 +33,7 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.images).toHaveLength(1);
 	expect(sent.images[0].path).toMatch(/^docs\/afbeeldingen\/.+pixel\.png$/);
-	await expect(page.getByText(/Concept bewaard als voorstel #\d+/)).toBeVisible();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(page.getByText('Afbeeldingen worden meegestuurd bij het bewaren')).toHaveCount(0);
 });
 
@@ -66,7 +67,9 @@ test('inserts a Mermaid scaffold and blocks saving without a description', async
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.type('```mermaid\nflowchart LR\n  A --> B\n```');
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
-	await expect(page.getByRole('alert').filter({ hasText: 'accDescr' })).toContainText('regel 1');
+	const melding = page.getByRole('alert').filter({ hasText: 'accDescr' });
+	await expect(melding).toContainText('regel 1');
+	await expect(melding).toBeFocused();
 });
 
 test('applies an assistant suggestion to the selection', async ({ page }) => {
@@ -88,6 +91,12 @@ test('applies an assistant suggestion to the selection', async ({ page }) => {
 	await page.getByRole('button', { name: 'Overnemen' }).click();
 	await expect(editor).toContainText('Kort en krachtig.');
 	await expect(editor).not.toContainText('Het Digi Handboek');
+	await expect(editor).toBeFocused();
+
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.getByRole('button', { name: 'Korter' }).click();
+	await page.getByRole('button', { name: 'Verwerpen' }).click();
+	await expect(editor).toBeFocused();
 });
 
 const pickPng = async (page: import('@playwright/test').Page, alt: string) => {
@@ -106,7 +115,8 @@ test('opens the dialog with an empty file picker the second time', async ({ page
 	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
 	const dialog = page.locator('nldd-modal-dialog');
 	await expect(dialog.getByText('pixel.png')).toHaveCount(0);
-	await expect(dialog.getByRole('button', { name: 'Invoegen' })).toBeDisabled();
+	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await expect(dialog.getByText('Kies eerst een afbeelding').first()).toBeVisible();
 });
 
 test('keeps pending images with the draft across a reload', async ({ page }) => {

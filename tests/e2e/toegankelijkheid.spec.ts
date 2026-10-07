@@ -116,17 +116,31 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 
 	const stops = await tabTo(page, (s) => /text-editor|cm-content/.test(s.key));
 	const keys = stops.map((s) => s.key);
-	const at = (needle: string) => keys.findIndex((k) => k.includes(needle));
-	expect(at('Vet'), 'toolbar has Vet').toBeGreaterThan(-1);
-	expect(at('Afbeelding invoegen'), 'toolbar has Afbeelding invoegen').toBeGreaterThan(-1);
-	expect(at('Vet')).toBeLessThan(at('Afbeelding invoegen'));
-	expect(at('Afbeelding invoegen')).toBeLessThan(keys.length - 1);
-	expect(keys.length - 1, 'editor comes after the toolbar').toBeGreaterThan(at('Mermaid'));
+	const toolbar = [
+		'Vet',
+		'Cursief',
+		'Kop 2',
+		'Kop 3',
+		'Kop 4',
+		'Lijst met opsommingstekens',
+		'Citaat',
+		'Link',
+		'Code in de regel',
+		'Afbeelding invoegen',
+		'Mermaid-diagram invoegen',
+		'Schrijfhulp'
+	];
+	const positions = toolbar.map((label) => keys.findIndex((k) => k.includes(`.${label}`)));
+	for (const [i, label] of toolbar.entries()) {
+		expect(positions[i], `toolbar stop "${label}" reached by Tab`).toBeGreaterThan(-1);
+	}
+	expect(positions, 'toolbar stops in visual order').toEqual([...positions].sort((a, b) => a - b));
+	expect(keys.length - 1, 'the editor comes right after the toolbar').toBe(positions.at(-1)! + 1);
 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nToetsenbordregel uit e2e');
 	await page.keyboard.press('ControlOrMeta+s');
-	await expect(page.getByText(/Concept bewaard als voorstel #\d+/)).toBeVisible();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 
 	await page.keyboard.down('Shift');
 	let stop: Stop | undefined;
@@ -147,18 +161,55 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 	await expect(page.locator('#schrijfhulp-paneel')).toBeHidden();
 });
 
-// Werkbalk renders `expanded` on nldd-button as a present attribute even when false, so the closed
-// button announces aria-expanded="true". Remove test.fail() once Werkbalk passes `expanded={open || undefined}`.
-test('Schrijfhulp button is not expanded while the panel is closed', async ({ page }) => {
-	test.fail();
+test('Schrijfhulp button announces its collapsed and expanded state', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/bewerken/index.md');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
 	await expect(page.locator('#schrijfhulp-paneel')).toBeHidden();
-	await expect(page.getByRole('button', { name: 'Schrijfhulp', expanded: true })).toHaveCount(0);
+	const knop = page.getByRole('button', { name: 'Schrijfhulp' });
+	await expect(knop).toHaveAttribute('aria-expanded', 'false');
+	await knop.click();
+	await expect(knop).toHaveAttribute('aria-expanded', 'true');
+	await expect(page.getByRole('complementary', { name: 'Schrijfhulp' })).toBeVisible();
+});
+
+test('a save conflict takes focus, and choosing a version returns it to the editor', async ({ page }) => {
+	await page.route('**/opslaan', (route) =>
+		route.fulfill({
+			status: 409,
+			json: { ok: false, conflict: { mine: '# Mijn\n', theirs: '# Hun\n', sha: 'abc1234' } }
+		})
+	);
+	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	const editor = page.locator('nldd-text-editor .cm-content');
+	await expect(editor).toBeVisible();
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await expect(page.getByRole('alert').filter({ hasText: 'intussen' })).toBeFocused();
+	await page.getByRole('button', { name: 'Hun versie overnemen' }).click();
+	await expect(editor).toBeFocused();
+	await expect(editor).toContainText('Hun');
+});
+
+test('field errors from a save mark the field and take focus', async ({ page }) => {
+	await page.route('**/opslaan', (route) =>
+		route.fulfill({
+			status: 400,
+			json: {
+				ok: false,
+				error: { message: 'Controleer de gemarkeerde velden', fields: { description: 'Dit veld is verplicht' } }
+			}
+		})
+	);
+	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const melding = page.getByRole('alert').filter({ hasText: 'Controleer de gemarkeerde velden' });
+	await expect(melding).toBeFocused();
+	await expect(melding).toContainText('Samenvatting: Dit veld is verplicht');
+	await expect(page.locator('nldd-text-field[invalid]')).toHaveCount(1);
 });
 
 test.describe('forms have a submit control', () => {
-	for (const url of ['/sites/digi-handboek/voorstellen/1', '/instellingen']) {
+	for (const url of ['/sites/digi-handboek/voorstellen/1', '/instellingen', '/onboarding', '/sites/digi-handboek/nieuw']) {
 		test(url, async ({ page }) => {
 			await page.goto(url);
 			await page.evaluate(() => customElements.whenDefined('nldd-button'));

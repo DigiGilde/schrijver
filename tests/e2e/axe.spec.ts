@@ -7,7 +7,10 @@ const pages = [
 	'/sites/digi-handboek/bewerken/index.md',
 	'/sites/digi-handboek/voorstellen/1',
 	'/help',
-	'/instellingen'
+	'/instellingen',
+	'/onboarding',
+	'/sites/digi-handboek/nieuw',
+	'/sites/moza-site/nieuw'
 ];
 
 /**

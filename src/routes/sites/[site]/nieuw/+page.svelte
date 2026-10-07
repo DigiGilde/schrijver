@@ -18,47 +18,43 @@
 		<nldd-banner variant="critical" text={form.error}></nldd-banner>
 	{/if}
 
-	<form method="POST" class="formulier">
-		{#if data.options[0].naam !== null}
-			<label>
-				Soort
-				<select name="soort" bind:value={soort}>
-					{#each data.options as o (o.naam)}
-						<option value={o.naam}>{o.naam}</option>
-					{/each}
-				</select>
-			</label>
-		{/if}
-		{#if option.fixed === null && option.folders.length > 0}
-			<label>
-				Map
-				<select name="map" value={gekozenMap} onchange={(e) => (map = e.currentTarget.value)}>
-					{#each option.folders as f (f)}
-						<option value={f}>{f}</option>
-					{/each}
-				</select>
-			</label>
-		{:else if option.fixed !== null}
-			<input type="hidden" name="map" value={option.fixed} />
-		{/if}
-		<label>
-			Titel
-			<input name="titel" required />
-		</label>
-		<div><button type="submit">Pagina maken</button></div>
-	</form>
+	<nldd-form>
+		<form method="POST">
+			{#if data.options[0].naam !== null}
+				<nldd-form-field label="Soort">
+					<nldd-dropdown>
+						<select name="soort" bind:value={soort}>
+							{#each data.options as o (o.naam)}
+								<option value={o.naam}>{o.naam}</option>
+							{/each}
+						</select>
+					</nldd-dropdown>
+				</nldd-form-field>
+			{/if}
+			{#if option.fixed === null && option.folders.length > 0}
+				<nldd-form-field label="Map">
+					<nldd-dropdown>
+						<select name="map" value={gekozenMap} onchange={(e) => (map = e.currentTarget.value)}>
+							{#each option.folders as f (f)}
+								<option value={f}>{f}</option>
+							{/each}
+						</select>
+					</nldd-dropdown>
+				</nldd-form-field>
+			{:else if option.fixed !== null}
+				<input type="hidden" name="map" value={option.fixed} />
+			{/if}
+			<nldd-form-field label="Titel">
+				<nldd-text-field name="titel" required invalid={form?.veld === 'titel' || undefined}></nldd-text-field>
+				{#if form?.veld === 'titel'}
+					<nldd-form-field-help-text>{form.error}</nldd-form-field-help-text>
+				{/if}
+			</nldd-form-field>
+			<nldd-form-actions>
+				<nldd-button-group>
+					<nldd-button appearance="primary" type="submit" text="Pagina maken"></nldd-button>
+				</nldd-button-group>
+			</nldd-form-actions>
+		</form>
+	</nldd-form>
 </nldd-container>
-
-<style>
-	.formulier {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		align-items: flex-start;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-</style>

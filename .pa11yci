@@ -23,6 +23,18 @@
 		{
 			"url": "http://localhost:4393/instellingen",
 			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/onboarding",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/sites/digi-handboek/nieuw",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/sites/moza-site/nieuw",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
 		}
 	]
 }

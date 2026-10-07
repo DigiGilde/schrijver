@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { PendingImage } from '$lib/client/pending-images';
 	import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '$lib/content/mermaid';
 
@@ -23,7 +23,9 @@
 		onverstuurd,
 		onbewaard,
 		onovernemen,
-		onbasis
+		onbasis,
+		onveldfouten,
+		focusEditor
 	}: {
 		siteId: string;
 		repoPath: string;
@@ -39,6 +41,9 @@
 		onbewaard: (saved: { sha: string; branch: string }) => void;
 		onovernemen: (text: string) => void;
 		onbasis: (sha: string) => void;
+		/** Field errors from the server, so the form can mark the fields. */
+		onveldfouten: (fields: Record<string, string>) => void;
+		focusEditor: () => void;
 	} = $props();
 
 	/* The props are the initial values of the editing session; later saves update them locally. */
@@ -55,6 +60,15 @@
 	let fout = $state<Fout | null>(null);
 	let conflict = $state<Conflict | null>(null);
 	let mermaidFout = $state<string | null>(null);
+	/* One persistent live region: a region inserted together with its text is not reliably announced. */
+	let status = $state('');
+	let foutBlok: HTMLElement | undefined = $state();
+	let conflictKop: HTMLElement | undefined = $state();
+
+	async function toon(element: () => HTMLElement | undefined) {
+		await tick();
+		element()?.focus();
+	}
 
 	async function opslaan(overrideSha?: string) {
 		if (busy) return;
@@ -62,12 +76,14 @@
 		const zonder = missingDescriptions(body);
 		if (zonder.length) {
 			mermaidFout = `${MERMAID_DESCR_MESSAGE} (regel ${zonder.join(', ')})`;
+			void toon(() => foutBlok);
 			return;
 		}
 		mermaidFout = null;
 		busy = true;
 		fout = null;
 		conflict = null;
+		status = 'Bezig met bewaren';
 		const sent = images();
 		try {
 			const res = await fetch(`/api/sites/${siteId}/opslaan`, {
@@ -97,8 +113,11 @@
 				replaceState(`?${params}`, {});
 				onverstuurd(sent);
 				onbewaard({ sha: result.sha, branch: result.branch });
+				status = `Concept bewaard als voorstel #${result.prNumber}`;
 			} else if (result?.conflict) {
 				conflict = result.conflict;
+				status = '';
+				void toon(() => conflictKop);
 			} else {
 				fout = result?.error ?? { message: 'Opslaan is mislukt' };
 			}
@@ -107,10 +126,18 @@
 		} finally {
 			busy = false;
 		}
+		if (fout) {
+			status = '';
+			if (fout.fields) onveldfouten(fout.fields);
+			void toon(() => foutBlok);
+		}
 	}
 
 	function behoudMijn() {
-		if (conflict) void opslaan(conflict.sha);
+		if (!conflict) return;
+		const sha = conflict.sha;
+		focusEditor();
+		void opslaan(sha);
 	}
 
 	function neemOver() {
@@ -119,6 +146,8 @@
 		onbasis(conflict.sha);
 		onovernemen(conflict.theirs);
 		conflict = null;
+		status = 'Hun versie overgenomen';
+		focusEditor();
 	}
 
 	$effect(() => {
@@ -146,15 +175,20 @@
 	onclick={() => opslaan()}
 ></nldd-button>
 
+<p class="sr-only" role="status">{status}</p>
+
 {#if mermaidFout}
-	<p role="alert" class="fout">{mermaidFout}</p>
+	<p role="alert" class="fout" tabindex="-1" bind:this={foutBlok}>{mermaidFout}</p>
 {/if}
 
 {#if bewaard}
 	<nldd-notification
 		variant="success"
 		text={`Concept bewaard als voorstel #${bewaard.nummer}`}
-		ondismiss={() => (bewaard = null)}
+		ondismiss={() => {
+			bewaard = null;
+			focusEditor();
+		}}
 	>
 		<nldd-button slot="actions" appearance="secondary" text="Open op GitHub" href={bewaard.url} target="_blank"
 		></nldd-button>
@@ -168,7 +202,7 @@
 {/if}
 
 {#if fout}
-	<div role="alert" class="fout">
+	<div role="alert" class="fout" tabindex="-1" bind:this={foutBlok}>
 		<p>{fout.message}</p>
 		{#if fout.fields}
 			<ul>
@@ -188,7 +222,9 @@
 
 {#if conflict}
 	<div class="conflict">
-		<p role="alert">Deze pagina is intussen door iemand anders gewijzigd. Kies welke versie je wilt houden.</p>
+		<p role="alert" tabindex="-1" bind:this={conflictKop}>
+			Deze pagina is intussen door iemand anders gewijzigd. Kies welke versie je wilt houden.
+		</p>
 		<div class="versies">
 			<section aria-label="Mijn versie">
 				<h3>Mijn versie</h3>
@@ -207,6 +243,14 @@
 {/if}
 
 <style>
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
 	pre {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;

@@ -57,24 +57,16 @@
 
 	const dnd = actions.dropHandlers((file) => openDialog(file));
 
-	function onTabChange(event: Event) {
-		const item = (event as CustomEvent<{ item: HTMLElement }>).detail.item;
-		tab = item.dataset.tab === 'voorbeeld' ? 'voorbeeld' : 'schrijven';
+	function onWeergave(event: Event) {
+		tab = (event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld' ? 'voorbeeld' : 'schrijven';
 	}
 </script>
 
-<nldd-tab-bar class="tabs" accessible-label="Weergave" ontabchange={onTabChange}>
-	<nldd-tab-bar-item
-		data-tab="schrijven"
-		text="Schrijven"
-		current={tab === 'schrijven' || undefined}
-	></nldd-tab-bar-item>
-	<nldd-tab-bar-item
-		data-tab="voorbeeld"
-		text="Voorbeeld"
-		current={tab === 'voorbeeld' || undefined}
-	></nldd-tab-bar-item>
-</nldd-tab-bar>
+<!-- A radio group that shows one of the two panels, rather than tabs: tab roles cannot reach the panels across the shadow root. -->
+<nldd-segmented-control class="tabs" accessible-label="Weergave" value={tab} onchange={onWeergave}>
+	<nldd-segmented-control-item value="schrijven" text="Schrijven"></nldd-segmented-control-item>
+	<nldd-segmented-control-item value="voorbeeld" text="Voorbeeld"></nldd-segmented-control-item>
+</nldd-segmented-control>
 
 <div class="panelen">
 	<section class="paneel" class:verborgen={tab !== 'schrijven'} aria-label="Schrijven">
@@ -102,7 +94,7 @@
 	</section>
 </div>
 
-<aside class="hulp" id="schrijfhulp-paneel" hidden={!hulpOpen}>
+<aside class="hulp" id="schrijfhulp-paneel" aria-label="Schrijfhulp" hidden={!hulpOpen}>
 	{#if hulpOpen}
 			<Assistent
 			{siteId}
@@ -112,6 +104,7 @@
 				actions.applySuggestion(editor, body, from, to, text, original)}
 			onMark={(from, to) => actions.markRange(editor, body, from, to)}
 			onUnmark={() => editor?.setAnnotations([])}
+			onDone={() => editor?.focus()}
 		/>
 	{/if}
 </aside>

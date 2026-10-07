@@ -152,8 +152,8 @@ describe('callback', () => {
 	it('rejects a wrong state', async () => {
 		const { cookies } = begin();
 		const res = await call(cookies, 'code=thecode&state=other');
-		expect(res.status).toBe(400);
-		expect(await res.text()).toContain('Koppelen met GitHub is niet gelukt');
+		expect(res.status).toBe(303);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
 		expect(log.error).toHaveBeenCalledWith('auth.github_link_failed', expect.any(Object));
 	});
@@ -161,7 +161,7 @@ describe('callback', () => {
 	it('rejects a cookie sealed for another user', async () => {
 		const { cookies, state } = begin();
 		const res = await call(cookies, `code=thecode&state=${state}`, 'someone-else');
-		expect(res.status).toBe(400);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
 
@@ -169,7 +169,7 @@ describe('callback', () => {
 		const { cookies, state } = begin();
 		cookies.store.schrijver_github_link = sealPayload({ state, sub: 'abc', exp: Date.now() + 60_000 }, 'test-secret', 'github-link');
 		const res = await call(cookies, `code=thecode&state=${state}`);
-		expect(res.status).toBe(400);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
 
@@ -181,13 +181,13 @@ describe('callback', () => {
 			'github-link'
 		);
 		const res = await call(cookies, `code=thecode&state=${state}`);
-		expect(res.status).toBe(400);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
 
 	it('rejects a missing cookie', async () => {
 		const res = await call(jar(), 'code=thecode&state=x');
-		expect(res.status).toBe(400);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(savePrefs).not.toHaveBeenCalled();
 	});
 
@@ -195,7 +195,7 @@ describe('callback', () => {
 		server.use(http.post('https://github.com/login/oauth/access_token', () => new HttpResponse(null, { status: 500 })));
 		const { cookies, state } = begin();
 		const res = await call(cookies, `code=thecode&state=${state}`);
-		expect(res.status).toBe(400);
+		expect(res.location).toBe('/instellingen?koppelen=mislukt');
 		expect(JSON.stringify(vi.mocked(log.error).mock.calls)).not.toContain('ghu_');
 		expect(savePrefs).not.toHaveBeenCalled();
 	});

@@ -21,9 +21,23 @@ const serverEnv = {
 	ORIGIN: `http://localhost:${port}`
 };
 
+const children = new Set();
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.on(signal, () => {
+		for (const child of children) child.kill();
+		process.exit(1);
+	});
+}
+
+function track(child) {
+	children.add(child);
+	child.on('exit', () => children.delete(child));
+	return child;
+}
+
 function run(command, args, env) {
 	return new Promise((resolve) => {
-		const child = spawn(command, args, { stdio: 'inherit', env });
+		const child = track(spawn(command, args, { stdio: 'inherit', env }));
 		child.on('exit', (code) => resolve(code ?? 1));
 	});
 }
@@ -33,13 +47,7 @@ const buildEnv = { ...baseEnv };
 delete buildEnv.NODE_ENV;
 if ((await run('npm', ['run', 'build'], buildEnv)) !== 0) process.exit(1);
 
-const server = spawn('node', ['build'], { stdio: 'inherit', env: serverEnv });
-for (const signal of ['SIGINT', 'SIGTERM']) {
-	process.on(signal, () => {
-		server.kill();
-		process.exit(1);
-	});
-}
+const server = track(spawn('node', ['build'], { stdio: 'inherit', env: serverEnv }));
 
 let code = 1;
 try {

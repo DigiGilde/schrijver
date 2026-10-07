@@ -38,3 +38,12 @@ test('the proposals list shows the seeded draft', async ({ page }) => {
 	);
 	await expect(page.getByText('Voorbeeldvoorstel Digi Handboek')).toBeVisible();
 });
+
+test('the new page form submits through the design system controls', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/nieuw');
+	await page.evaluate(() => customElements.whenDefined('nldd-text-field'));
+	await page.getByLabel('Map').selectOption('werkwijze');
+	await page.getByLabel('Titel').fill('Toegankelijk formulier');
+	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await expect(page).toHaveURL(/\/bewerken\/werkwijze\/toegankelijk-formulier\.md\?/);
+});

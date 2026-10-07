@@ -8,7 +8,7 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 	await page.keyboard.type('\n\nOpgeslagen door e2e');
 
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
-	await expect(page.getByText(/Concept bewaard als voorstel #\d+/)).toBeVisible();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
 
 	await page.reload();

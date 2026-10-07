@@ -14,7 +14,7 @@
 		githubLogin={data.githubLogin}
 		emailVerified={data.emailVerified}
 		sites={data.sites}
-		error={form?.error}
+		error={form?.error ?? (data.linkFailed ? 'Koppelen met GitHub is niet gelukt. Probeer het opnieuw.' : undefined)}
 		saved={form?.saved || form?.unlinked}
 		justLinked={data.justLinked}
 	/>

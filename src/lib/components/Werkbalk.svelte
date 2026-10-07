@@ -91,15 +91,20 @@
 	></nldd-icon-button>
 	{#if onschrijfhulp}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<!-- `expandable` keeps aria-expanded present while closed; aria-controls cannot cross the shadow root. -->
 		<nldd-button
 			appearance="secondary"
 			size="sm"
 			text="Schrijfhulp"
-			expanded={schrijfhulpOpen}
+			expandable
+			expanded={schrijfhulpOpen || undefined}
 			onclick={onschrijfhulp}
 		></nldd-button>
 	{/if}
 </div>
+{#if !afbeeldingen}
+	<nldd-text color="secondary" size="sm">Deze site accepteert geen afbeeldingen.</nldd-text>
+{/if}
 
 {#snippet schakel(icon: string, label: string, aan: () => boolean | undefined, doe: () => void)}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

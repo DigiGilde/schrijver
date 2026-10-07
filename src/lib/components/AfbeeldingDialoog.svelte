@@ -14,6 +14,8 @@
 
 	let alt = $state('');
 	let fout = $state<string | null>(null);
+	let bestandFout = $state<string | null>(null);
+	let altFout = $state<string | null>(null);
 	let busy = $state(false);
 	let ronde = $state(0);
 	let abort: AbortController | null = null;
@@ -22,11 +24,12 @@
 	const size = $derived(
 		file ? (file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} kB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`) : ''
 	);
-	const klaar = $derived(!!file && alt.trim().length > 0 && !busy);
 
 	$effect(() => {
 		if (!open) return;
 		fout = null;
+		bestandFout = null;
+		altFout = null;
 		void tick().then(() => setTimeout(() => altField?.focus(), 50));
 	});
 
@@ -37,6 +40,8 @@
 		ronde += 1;
 		alt = '';
 		fout = null;
+		bestandFout = null;
+		altFout = null;
 		file = null;
 	}
 
@@ -52,8 +57,13 @@
 		return message ?? 'De afbeelding kon niet worden verwerkt';
 	}
 
+	/* The button stays enabled, so pressing it can say what is missing (a disabled button gives no reason). */
 	async function invoegen() {
-		if (!klaar || !file) return;
+		if (busy) return;
+		bestandFout = file ? null : 'Kies eerst een afbeelding';
+		altFout = alt.trim() ? null : 'Vul een alt-tekst in';
+		if (altFout) altField?.focus();
+		if (bestandFout || altFout || !file) return;
 		busy = true;
 		fout = null;
 		const controller = new AbortController();
@@ -104,8 +114,13 @@
 				onchange={(e: Event) => {
 					file = (e as CustomEvent<{ files: File[] }>).detail.files[0] ?? null;
 					fout = null;
+					bestandFout = null;
 				}}
+				invalid={bestandFout !== null || undefined}
 			></nldd-file-field>
+			{#if bestandFout}
+				<nldd-form-field-help-text>{bestandFout}</nldd-form-field-help-text>
+			{/if}
 		</nldd-form-field>
 		{/key}
 		{#if file}
@@ -119,19 +134,27 @@
 				value={alt}
 				maxlength={500}
 				required
+				invalid={altFout !== null || undefined}
 				onkeydown={(e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
 						e.preventDefault();
 						void invoegen();
 					}
 				}}
-				oninput={(e: Event) => (alt = (e.target as HTMLInputElement).value)}
+				oninput={(e: Event) => {
+					alt = (e.target as HTMLInputElement).value;
+					altFout = null;
+				}}
 			></nldd-text-field>
+			{#if altFout}
+				<nldd-form-field-help-text>{altFout}</nldd-form-field-help-text>
+			{/if}
 			<nldd-form-field-help-text
 				>Beschrijf wat er op de afbeelding staat voor wie die niet kan zien</nldd-form-field-help-text
 			>
 		</nldd-form-field>
 
+		<p class="sr-only" role="status">{[bestandFout, altFout].filter(Boolean).join('. ')}</p>
 		{#if fout}
 			<p role="alert" class="fout">{fout}</p>
 		{/if}
@@ -143,7 +166,6 @@
 		slot="actions"
 		appearance="primary"
 		text="Invoegen"
-		disabled={!klaar || undefined}
 		loading={busy || undefined}
 		onclick={invoegen}
 	></nldd-button>
@@ -159,5 +181,13 @@
 	.bestand,
 	.fout {
 		margin: 0;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>
