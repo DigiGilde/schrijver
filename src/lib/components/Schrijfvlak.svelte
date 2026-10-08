@@ -21,6 +21,8 @@
 		onsamenvatting?: ((text: string) => void) | null;
 		/** Opens the page properties; null when the page has none. */
 		oneigenschappen?: (() => void) | null;
+		/** How many required properties are still empty. */
+		eigenschappenLeeg?: number;
 		/** The sticky bars above the page; the caret stays below them. */
 		kop?: HTMLElement;
 	};
@@ -33,6 +35,7 @@
 		afbeeldingen,
 		onsamenvatting = null,
 		oneigenschappen = null,
+		eigenschappenLeeg = 0,
 		kop
 	}: Props = $props();
 
@@ -107,6 +110,7 @@
 	{weergave}
 	onweergave={(keuze) => (weergave = keuze)}
 	{oneigenschappen}
+	{eigenschappenLeeg}
 	schrijfhulpOpen={hulpOpen}
 	onschrijfhulp={wisselHulp}
 />

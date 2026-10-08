@@ -4,6 +4,7 @@ import { parseSchemaYaml } from '../../src/lib/config/types';
 import {
 	applyForm,
 	buildForm,
+	emptyRequired,
 	fieldLabel,
 	newPagePath,
 	pageTitle,
@@ -102,6 +103,16 @@ describe('fieldLabel', () => {
 	it('shows any other key with a capital', () => {
 		expect(fieldLabel({ key: 'hero', def })).toBe('Hero');
 		expect(fieldLabel({ key: 'constructor', def })).toBe('Constructor');
+	});
+});
+
+describe('emptyRequired', () => {
+	it('counts the required fields without a value', () => {
+		expect(emptyRequired(buildForm(moza, {}, 'content/a.md'))).toBe(2);
+		expect(emptyRequired(buildForm(moza, { title: 'Contact' }, 'content/a.md'))).toBe(1);
+		expect(emptyRequired(buildForm(moza, { title: 'Contact', description: ' ' }, 'a.md'))).toBe(1);
+		expect(emptyRequired(buildForm(moza, { title: 'Contact', description: 'x' }, 'a.md'))).toBe(0);
+		expect(emptyRequired(buildForm(handboek, {}, 'docs/a.md'))).toBe(0);
 	});
 });
 

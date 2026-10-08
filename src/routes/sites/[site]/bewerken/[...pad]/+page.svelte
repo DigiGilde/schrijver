@@ -19,6 +19,7 @@
 	import { parsePage } from '$lib/content/frontmatter';
 	import {
 		applyForm,
+		emptyRequired,
 		pageTitle,
 		summaryField,
 		validateForm,
@@ -295,6 +296,7 @@
 					? (text) => (fields = withValue(fields, samenvattingVeld, text))
 					: null}
 				oneigenschappen={fields.length > 0 ? openEigenschappen : null}
+				eigenschappenLeeg={emptyRequired(fields)}
 				{kop}
 			/>
 		{/if}

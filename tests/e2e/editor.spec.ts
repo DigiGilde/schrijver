@@ -280,6 +280,31 @@ test('the properties sheet sits in the document root and leaves with the page', 
 	).toHaveCount(0);
 });
 
+test('the toolbar counts the empty required properties before a save', async ({ page }) => {
+	await page.goto('/sites/moza-site/bewerken/contact.md');
+	const sheet = page.locator('nldd-sheet');
+	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
+	const een = page.getByRole('button', { name: 'Eigenschappen, 1 verplicht veld leeg' });
+	await expect(een).toBeVisible();
+	await expect(een).toHaveText('Eigenschappen (1)');
+
+	await een.click();
+	await sheet.getByRole('textbox', { name: 'Titel' }).fill('');
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	const twee = page.getByRole('button', { name: 'Eigenschappen, 2 verplichte velden leeg' });
+	await expect(twee).toHaveText('Eigenschappen (2)');
+
+	await twee.click();
+	await sheet.getByRole('textbox', { name: 'Titel' }).fill('Contact');
+	await sheet.getByRole('textbox', { name: 'Beschrijving' }).fill('Hoe je het team bereikt.');
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	const geen = page.getByRole('button', { name: 'Eigenschappen', exact: true });
+	await expect(geen).toHaveText('Eigenschappen');
+	await expect(page.getByRole('button', { name: /verplicht/ })).toHaveCount(0);
+});
+
 test('a save with a missing required field offers to open the properties', async ({ page }) => {
 	await page.goto('/sites/moza-site/bewerken/contact.md');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');

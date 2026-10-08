@@ -89,6 +89,11 @@ export function validateForm(fields: FormField[]): { ok: boolean; fields: FormFi
 	return { ok: result.every((f) => f.error === null), fields: result };
 }
 
+/** How many required fields are still empty. */
+export function emptyRequired(fields: FormField[]): number {
+	return fields.filter((field) => field.def.verplicht && isEmpty(field.value)).length;
+}
+
 function outputValue(field: FormField): unknown {
 	const { def, value } = field;
 	if (isEmpty(value)) return undefined;

@@ -18,6 +18,8 @@
 		onweergave: (weergave: Weergave) => void;
 		/** Opens the page properties; null when the page has none. */
 		oneigenschappen?: (() => void) | null;
+		/** How many required properties are still empty. */
+		eigenschappenLeeg?: number;
 		schrijfhulpOpen?: boolean;
 		onschrijfhulp?: () => void;
 	};
@@ -32,6 +34,7 @@
 		weergave,
 		onweergave,
 		oneigenschappen = null,
+		eigenschappenLeeg = 0,
 		schrijfhulpOpen = false,
 		onschrijfhulp
 	}: Props = $props();
@@ -196,11 +199,22 @@
 		</nldd-menu-group>
 	</nldd-toolbar-item>
 	{#if oneigenschappen}
+		{@const leeg = eigenschappenLeeg
+			? `${eigenschappenLeeg} ${eigenschappenLeeg === 1 ? 'verplicht veld' : 'verplichte velden'} leeg`
+			: ''}
 		<nldd-toolbar-item slot="end" priority={PRIORITEIT.eigenschappen}>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<nldd-button appearance="secondary" text="Eigenschappen" onclick={oneigenschappen}
+			<nldd-button
+				appearance="secondary"
+				text={eigenschappenLeeg ? `Eigenschappen (${eigenschappenLeeg})` : 'Eigenschappen'}
+				accessible-label={leeg ? `Eigenschappen, ${leeg}` : undefined}
+				onclick={oneigenschappen}
 			></nldd-button>
-			<nldd-menu-item slot="overflow" text="Eigenschappen" onselect={oneigenschappen}
+			<nldd-menu-item
+				slot="overflow"
+				text="Eigenschappen"
+				details={leeg || undefined}
+				onselect={oneigenschappen}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
 	{/if}
