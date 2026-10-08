@@ -40,6 +40,9 @@ A list of sites. Keys are in Dutch.
 | `preview.label` | string | required for `bij-label` | Label that triggers the preview build. |
 | `preview.url` | string | required unless `soort` is `geen` | Preview URL pattern. Must contain `{nummer}`, replaced by the pull request number. |
 | `schrijfwijzer` | string | none | File in `schrijfwijzer/` with the site's writing guide. |
+| `mermaid.tokens` | map of token name to `licht` and `donker` | none | Colours for `var(--token)` in Mermaid diagrams, such as `classDef inzicht fill:var(--color-bg-light)`. The key is the custom property name with its `--`; `licht` and `donker` are hex colours (quote them, a bare `#` starts a YAML comment). "Voorbeeld" puts the colour of the current colour scheme in place before it draws, as the site's build does. A token missing here shows as grey, and "Voorbeeld" names it. |
+
+"Voorbeeld" draws Mermaid diagrams the way the MOZa site's build does (NLDD colours, RijksSans, the `nldd:` icons from the design system, a light and a dark variant), for every site. Only the token colours are per site.
 
 Anyone signed in may propose on any site whose repository has the App installed. Editorial may also approve, comment and merge.
 
@@ -140,7 +143,7 @@ nieuwe-pagina:
 
 ## Worked example: Hugo section (MOZa, including Weekly)
 
-Pages are `content/**/*.md` except `documenten/**` (read-only), the title is the `title` field, images go in an `images` folder next to the page, and a label triggers the preview.
+Pages are `content/**/*.md` except `documenten/**` (read-only), the title is the `title` field, images go in an `images` folder next to the page, and a label triggers the preview. The Mermaid tokens are the three that MOZa's diagrams use in a `classDef`, with the values its build resolves from its token files.
 
 ```yaml
 # sites.yaml
@@ -168,6 +171,11 @@ Pages are `content/**/*.md` except `documenten/**` (read-only), the title is the
     label: preview
     url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
   schrijfwijzer: moza-site.md
+  mermaid:
+    tokens:
+      --color-bg-light: { licht: "#f0f7ff", donker: "#172538" }
+      --color-rijks-oranje: { licht: "#e17000", donker: "#e17000" }
+      --color-text: { licht: "#091629", donker: "#ebeef2" }
 ```
 
 ```yaml

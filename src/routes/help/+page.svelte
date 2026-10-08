@@ -17,8 +17,11 @@
 				<li>Kies een site op de beginpagina.</li>
 				<li>Open een bestaande pagina, of kies "Nieuwe pagina" en het soort pagina.</li>
 				<li>
-					Bewerk de tekst met de werkbalk: vet, cursief, koppen, lijsten, links, afbeeldingen en
-					diagrammen. Velden zoals de samenvatting vul je in bij "Eigenschappen" in de werkbalk.
+					Bewerk de tekst met de werkbalk: vet, cursief, koppen, lijsten met opsommingstekens of
+					nummers, citaten, links, code en codeblokken, tabellen, horizontale lijnen, afbeeldingen
+					en diagrammen. Met "Inspringen" en "Uitspringen" zet je een punt in een lijst een niveau
+					dieper of terug. Velden zoals de samenvatting vul je in bij "Eigenschappen" in de
+					werkbalk.
 				</li>
 				<li>
 					Kies "Voorbeeld" in de werkbalk om de pagina te zien met afbeeldingen en diagrammen. Het
