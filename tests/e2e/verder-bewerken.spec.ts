@@ -65,7 +65,9 @@ test('the page row and the proposal row both lead back into the open proposal', 
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
 });
 
-test('segmented rows keep their chevron and show the shortcut as a link', async ({ page }) => {
+test('the shortcut of a segmented row reads as a link and gives up its label first', async ({
+	page
+}) => {
 	await page.goto('/sites/digi-handboek/bewerken/offboarding.md');
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
@@ -96,5 +98,13 @@ test('segmented rows keep their chevron and show the shortcut as a link', async 
 			'pencil'
 		);
 		await expect(shortcut.locator('nldd-text-cell')).toHaveAttribute('color', 'accent');
+		await expect(shortcut.locator('nldd-text-cell')).toBeVisible();
+	}
+
+	await page.setViewportSize({ width: 360, height: 800 });
+	for (const { list } of rows) {
+		const shortcut = list.locator(`nldd-list-item-segment[href$="&pr=${nummer}"]`);
+		await expect(shortcut.locator('nldd-icon-cell')).toBeVisible();
+		await expect(shortcut.locator('nldd-text-cell')).toBeHidden();
 	}
 });

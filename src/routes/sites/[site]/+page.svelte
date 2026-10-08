@@ -111,8 +111,12 @@
 								accessible-label="Verder met je voorstel voor {page.title}"
 							>
 								<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
-								<nldd-spacer-cell size="8"></nldd-spacer-cell>
-								<nldd-text-cell text="Verder met je voorstel" color="accent" width="fit-content"
+								<nldd-spacer-cell size="8" hide-below="360px"></nldd-spacer-cell>
+								<nldd-text-cell
+									text="Verder met je voorstel"
+									color="accent"
+									width="fit-content"
+									hide-below="360px"
 								></nldd-text-cell>
 							</nldd-list-item-segment>
 						</nldd-list-item>

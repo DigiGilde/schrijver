@@ -96,8 +96,12 @@
 					</nldd-list-item-segment>
 					<nldd-list-item-segment href={verder.href} accessible-label="Verder bewerken: {p.title}">
 						<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
-						<nldd-spacer-cell size="8"></nldd-spacer-cell>
-						<nldd-text-cell text="Verder bewerken" color="accent" width="fit-content"
+						<nldd-spacer-cell size="8" hide-below="360px"></nldd-spacer-cell>
+						<nldd-text-cell
+							text="Verder bewerken"
+							color="accent"
+							width="fit-content"
+							hide-below="360px"
 						></nldd-text-cell>
 					</nldd-list-item-segment>
 				</nldd-list-item>
