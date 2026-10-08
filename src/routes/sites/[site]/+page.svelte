@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import Pagina from '$lib/components/Pagina.svelte';
 	import VoorstelLijst from '$lib/components/VoorstelLijst.svelte';
 
@@ -15,17 +16,42 @@
 	const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 	const depth = (folder: string) => folder.split('/').length - 1;
 	const label = (folder: string) => folder.slice(folder.lastIndexOf('/') + 1);
+
+	// Clears the sticky app bar (61px) and title bar (50px), plus the column's own 16px inset.
+	const STICKY_TOP = '127px';
+
+	let mappen = $state<(HTMLElement & { show(): void; hide(): void }) | null>(null);
+	let mappenKnop = $state<(HTMLElement & { expanded: boolean }) | null>(null);
+	const mappenOpen = (open: boolean) => mappenKnop && (mappenKnop.expanded = open);
+
+	// Choosing a folder navigates within this page, so the sheet it was chosen in has to close itself.
+	// The first navigation is hydration, before the design system has upgraded the element: no hide() yet.
+	afterNavigate(() => mappen?.hide?.());
 </script>
 
 <svelte:head><title>{data.site.naam} · Schrijver</title></svelte:head>
 
-<Pagina titel={data.site.naam} terug={{ href: '/', tekst: 'Sites' }}>
+<Pagina titel={data.site.naam} ondertitel={data.site.repo} terug={{ href: '/', tekst: 'Sites' }}>
 	<nldd-container gap="24">
-		<nldd-link href="/sites/{data.site.id}/nieuw" start-icon="plus" text="Nieuwe pagina"
-		></nldd-link>
+		<nldd-toolbar label="Acties voor {data.site.naam}">
+			<nldd-toolbar-item slot="start">
+				<nldd-button
+					appearance="primary"
+					start-icon="plus"
+					text="Nieuwe pagina"
+					href="/sites/{data.site.id}/nieuw"
+				></nldd-button>
+				<nldd-menu-item
+					slot="overflow"
+					icon="plus"
+					text="Nieuwe pagina"
+					href="/sites/{data.site.id}/nieuw"
+				></nldd-menu-item>
+			</nldd-toolbar-item>
+		</nldd-toolbar>
 
 		{#if data.editorial}
-			<section aria-label="Te beoordelen">
+			<nldd-container gap="8">
 				<nldd-title size="3" heading-level="2" text="Te beoordelen ({data.teBeoordelen.length})"
 				></nldd-title>
 				<VoorstelLijst
@@ -36,67 +62,82 @@
 					editorial
 					tabs={false}
 				/>
-			</section>
+			</nldd-container>
 		{/if}
+	</nldd-container>
 
-		<nldd-container layout="wrap" gap="32">
-			<nav aria-label="Mappen">
-				<nldd-title size="4" heading-level="2" text="Mappen"></nldd-title>
-				<ul class="lijst">
-					<li>
-						<nldd-link href={mapHref('')} text="Hoogste niveau"></nldd-link>
-					</li>
-					{#each data.folders as folder (folder)}
-						<li style:padding-inline-start="{depth(folder) * 16}px">
-							<nldd-link
-								href={mapHref(folder)}
-								text={label(folder)}
-								aria-current={folder === data.map ? 'true' : undefined}
-							></nldd-link>
-						</li>
-					{/each}
-				</ul>
-			</nav>
-
-			<section aria-label="Pagina's">
+	{#snippet vervolg()}
+		<nldd-sidebar-section
+			bind:this={mappen}
+			sidebar-label="Mappen"
+			sticky-top={STICKY_TOP}
+			onopen={() => mappenOpen(true)}
+			onclose={() => mappenOpen(false)}
+		>
+			<nldd-container slot="header" layout="wrap" gap="16" vertical-alignment="center">
 				<nldd-title
-					size="4"
+					size="3"
 					heading-level="2"
 					text={data.map ? `Pagina's in ${data.map}` : "Pagina's"}
 				></nldd-title>
-				{#if data.pages.length === 0}
-					<nldd-text>Geen pagina's in deze map.</nldd-text>
-				{:else}
-					<ul class="lijst">
-						{#each data.pages as page (page.path)}
-							<li>
-								<nldd-container layout="wrap" gap="12">
-									<nldd-text weight="bold">{page.title}</nldd-text>
-									<nldd-text color="secondary" size="sm">{page.name}</nldd-text>
-									<nldd-link
-										size="sm"
-										href="/sites/{data.site.id}/bewerken/{encodePath(page.path)}"
-										text="Bewerken"
-										accessible-label="Bewerken {page.title}"
-									></nldd-link>
-									{#if page.verderBewerken}
-										<nldd-link
-											size="sm"
-											href={page.verderBewerken}
-											text="Verder met je voorstel"
-											accessible-label="Verder met je voorstel voor {page.title}"
-										></nldd-link>
-									{/if}
-								</nldd-container>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-		</nldd-container>
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button
+					bind:this={mappenKnop}
+					class="mappen"
+					appearance="secondary"
+					start-icon="folder"
+					text="Mappen"
+					popup-type="dialog"
+					onclick={() => mappen?.show()}
+				></nldd-button>
+			</nldd-container>
 
-		<section aria-label="Voorstellen">
-			<nldd-title size="3" heading-level="2" text="Voorstellen"></nldd-title>
+			<nldd-container slot="sidebar" padding="16">
+				<!-- A navigation list is named by aria-label; it ignores accessible-label. -->
+				<nldd-list type="navigation" accessible-label="Mappen" aria-label="Mappen">
+					<nldd-list-item href={mapHref('')} current={data.map === '' || undefined}>
+						<nldd-text-cell text="Hoogste niveau"></nldd-text-cell>
+					</nldd-list-item>
+					{#each data.folders as folder (folder)}
+						<nldd-list-item href={mapHref(folder)} current={folder === data.map || undefined}>
+							{#each { length: depth(folder) } as _, niveau (niveau)}
+								<nldd-spacer-cell size="16"></nldd-spacer-cell>
+							{/each}
+							<nldd-text-cell text={label(folder)}></nldd-text-cell>
+						</nldd-list-item>
+					{/each}
+				</nldd-list>
+			</nldd-container>
+
+			<nldd-list accessible-label={data.map ? `Pagina's in ${data.map}` : "Pagina's"}>
+				<nldd-inline-dialog slot="empty" text="Geen pagina's in deze map"></nldd-inline-dialog>
+				{#each data.pages as page (page.path)}
+					{@const bewerkHref = `/sites/${data.site.id}/bewerken/${encodePath(page.path)}`}
+					{#if page.verderBewerken}
+						<nldd-list-item>
+							<nldd-list-item-segment href={bewerkHref} width="full">
+								<nldd-text-cell text={page.title} supporting-text={page.name}></nldd-text-cell>
+							</nldd-list-item-segment>
+							<nldd-list-item-segment
+								href={page.verderBewerken}
+								accessible-label="Verder met je voorstel voor {page.title}"
+							>
+								<nldd-text-cell text="Verder met je voorstel" width="fit-content"></nldd-text-cell>
+							</nldd-list-item-segment>
+						</nldd-list-item>
+					{:else}
+						<nldd-list-item href={bewerkHref}>
+							<nldd-text-cell text={page.title} supporting-text={page.name}></nldd-text-cell>
+							<nldd-spacer-cell size="8"></nldd-spacer-cell>
+							<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
+						</nldd-list-item>
+					{/if}
+				{/each}
+			</nldd-list>
+		</nldd-sidebar-section>
+
+		<nldd-simple-section>
+			<nldd-title slot="header" size="3" heading-level="2" text="Voorstellen"></nldd-title>
 			{#if data.proposalsError}
 				<nldd-text color="critical">De voorstellen konden niet worden opgehaald.</nldd-text>
 			{:else}
@@ -108,16 +149,15 @@
 					editorial={data.editorial}
 				/>
 			{/if}
-		</section>
-	</nldd-container>
+		</nldd-simple-section>
+	{/snippet}
 </Pagina>
 
 <style>
-	.lijst {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: grid;
-		gap: 8px;
+	.mappen {
+		display: none;
+	}
+	:global(nldd-sidebar-section[collapsed]) .mappen {
+		display: inline-flex;
 	}
 </style>

@@ -113,7 +113,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				: ('mijn' as const);
 
 	return {
-		site: { id: site.id, naam: site.naam },
+		site: { id: site.id, naam: site.naam, repo: site.repo },
 		map,
 		folders: [...folders].sort(),
 		pages: pages.map((page) => ({
