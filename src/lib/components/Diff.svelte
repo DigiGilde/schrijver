@@ -144,7 +144,8 @@
 					{#if view === 'bron'}
 						Toegevoegde regels zijn groen met een plus, verwijderde regels rood met een min.
 					{:else}
-						Toegevoegd is groen en onderstreept, verwijderd is rood en doorgestreept.
+						Nieuwe tekst is groen, verwijderde tekst rood en doorgestreept; gewijzigde woorden zijn
+						extra gemarkeerd.
 					{/if}
 				{/if}
 			</nldd-text>
@@ -223,26 +224,26 @@
 		color: var(--semantics-categories-critical-tinted-content-color);
 	}
 	.woord {
-		background: none;
-		color: inherit;
 		border-radius: 2px;
 	}
 	.added .woord {
-		outline: 1px solid var(--semantics-categories-success-tinted-highlight-border-color);
+		background-color: var(--semantics-categories-success-filled-background-color);
+		color: var(--semantics-categories-success-filled-content-color);
 	}
 	.removed .woord {
-		outline: 1px solid var(--semantics-categories-critical-tinted-highlight-border-color);
+		background-color: var(--semantics-categories-critical-filled-background-color);
+		color: var(--semantics-categories-critical-filled-content-color);
 	}
 
 	.inhoud :global([data-diff='toegevoegd']),
 	.inhoud :global([data-diff='wordt']) {
 		background-color: var(--semantics-categories-success-tinted-background-color);
-		box-shadow: inset 4px 0 0 var(--semantics-categories-success-tinted-highlight-border-color);
+		box-shadow: inset 4px 0 0 var(--semantics-categories-success-filled-background-color);
 	}
 	.inhoud :global([data-diff='verwijderd']),
 	.inhoud :global([data-diff='was']) {
 		background-color: var(--semantics-categories-critical-tinted-background-color);
-		box-shadow: inset 4px 0 0 var(--semantics-categories-critical-tinted-highlight-border-color);
+		box-shadow: inset 4px 0 0 var(--semantics-categories-critical-filled-background-color);
 	}
 	.inhoud :global([data-diff='verwijderd']) {
 		text-decoration: line-through;
@@ -256,13 +257,20 @@
 	}
 	.inhoud :global([data-diff='wordt'] ins),
 	.gegevens ins {
-		background-color: var(--semantics-categories-success-tinted-background-color);
+		background-color: var(--semantics-categories-success-filled-background-color);
+		color: var(--semantics-categories-success-filled-content-color);
 		text-decoration: underline 2px;
+		border-radius: 2px;
 	}
 	.inhoud :global([data-diff='was'] del),
 	.gegevens del {
-		background-color: var(--semantics-categories-critical-tinted-background-color);
+		background-color: var(--semantics-categories-critical-filled-background-color);
+		color: var(--semantics-categories-critical-filled-content-color);
 		text-decoration: line-through 2px;
+		border-radius: 2px;
+	}
+	.inhoud :global(:is(ins, del) a) {
+		color: inherit;
 	}
 	.inhoud :global(.diff-overgeslagen) {
 		color: var(--semantics-content-secondary-color);
