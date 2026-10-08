@@ -6,6 +6,7 @@ import {
 	assertSafeEnvironment,
 	createRateLimit,
 	devBypassesAllowed,
+	newProposalsPerHour,
 	securityHeaders
 } from '../../src/lib/server/security';
 
@@ -194,5 +195,28 @@ describe('assertSafeEnvironment', () => {
 		expect(devBypassesAllowed({ NODE_ENV: 'test' })).toBe(true);
 		expect(devBypassesAllowed({ NODE_ENV: 'production' })).toBe(false);
 		expect(devBypassesAllowed({})).toBe(false);
+	});
+});
+
+describe('newProposalsPerHour', () => {
+	const raised = { SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR: '1000' };
+
+	it('takes the raised limit only where the development bypasses are allowed', () => {
+		expect(newProposalsPerHour({ ...raised, NODE_ENV: 'development' })).toBe(1000);
+		expect(newProposalsPerHour({ ...raised, NODE_ENV: 'test' })).toBe(1000);
+		expect(newProposalsPerHour({ ...raised, NODE_ENV: 'production' })).toBe(20);
+		expect(newProposalsPerHour(raised)).toBe(20);
+	});
+
+	it('keeps the default for anything but a positive whole number', () => {
+		for (const value of ['-1', '0', '2.5', 'veel', ''])
+			expect(
+				newProposalsPerHour({
+					NODE_ENV: 'development',
+					SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR: value
+				}),
+				value
+			).toBe(20);
+		expect(newProposalsPerHour({ NODE_ENV: 'development' })).toBe(20);
 	});
 });

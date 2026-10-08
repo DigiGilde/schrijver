@@ -163,8 +163,13 @@ export function createWindowCounter(limit: number, windowMs: number, now: () => 
 	};
 }
 
-/** New branches and draft pull requests per user per hour; the e2e suite raises it, as all its tests share one user. */
-export const newProposalLimit = createWindowCounter(
-	Number(process.env.SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR) || 20,
-	3600_000
-);
+/**
+ * New branches and draft pull requests per user per hour. The e2e suite raises it, as all its tests
+ * share one user; like the other test bypasses, only where NODE_ENV is development or test.
+ */
+export function newProposalsPerHour(env: Env = process.env): number {
+	const raised = Number(env.SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR);
+	return devBypassesAllowed(env) && Number.isInteger(raised) && raised > 0 ? raised : 20;
+}
+
+export const newProposalLimit = createWindowCounter(newProposalsPerHour(), 3600_000);
