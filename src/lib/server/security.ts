@@ -88,7 +88,8 @@ const WINDOW_MS = 60_000;
 const RULES: { test: RegExp; name: string; limit: number }[] = [
 	{ test: /^\/api\/assistent$/, name: 'assistent', limit: 20 },
 	{ test: /^\/api\/sites\/[^/]+\/opslaan$/, name: 'opslaan', limit: 60 },
-	{ test: /^\/api\/sites\/[^/]+\/afbeelding$/, name: 'afbeelding', limit: 60 }
+	{ test: /^\/api\/sites\/[^/]+\/afbeelding$/, name: 'afbeelding', limit: 60 },
+	{ test: /^\/api\/sites\/[^/]+\/afbeeldingsgebruik$/, name: 'afbeeldingsgebruik', limit: 30 }
 ];
 
 function clientKey(event: RequestEvent): string {

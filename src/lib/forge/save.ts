@@ -90,7 +90,7 @@ function inContentRules(site: SiteConfig, p: string): boolean {
 	return excluded.length === 0 || !picomatch(excluded)(relative);
 }
 
-function validPagePath(site: SiteConfig, p: string): boolean {
+export function validPagePath(site: SiteConfig, p: string): boolean {
 	return !(
 		typeof p !== 'string' ||
 		hasControlCharacters(p) ||

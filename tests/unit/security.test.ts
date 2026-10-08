@@ -146,6 +146,13 @@ describe('rateLimit', () => {
 			expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
 		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(429);
 	});
+	it('allows 30 image usage checks per minute, apart from the saves', async () => {
+		const h = createRateLimit(() => 5);
+		for (let i = 0; i < 30; i++)
+			expect((await call(h, ev('/api/sites/x/afbeeldingsgebruik')).res).status).toBe(200);
+		expect((await call(h, ev('/api/sites/x/afbeeldingsgebruik')).res).status).toBe(429);
+		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
+	});
 	it('does not limit other paths and sweeps stale buckets', async () => {
 		let t = 0;
 		const h = createRateLimit(() => t);
