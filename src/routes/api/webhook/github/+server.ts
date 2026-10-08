@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { CachingForge } from '$lib/forge/cache';
+import { sameRepo } from '$lib/forge/repo';
 import { log } from '$lib/log';
 import { configRepoName, getForge, reloadConfig } from '$lib/server/services';
 import type { RequestHandler } from './$types';
@@ -37,7 +38,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (repo && (event === 'push' || event === 'pull_request')) {
 		const forge = getForge();
 		if (forge instanceof CachingForge) forge.invalidate(repo);
-		if (event === 'push' && repo === configRepoName()) await reloadConfig();
+		if (event === 'push' && sameRepo(repo, configRepoName())) await reloadConfig();
 	}
 	return new Response(null, { status: 204 });
 };

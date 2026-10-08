@@ -1,3 +1,4 @@
+import { repoKey } from './repo';
 import type { FileChange, FileEntry, Forge, PrFile, PrSummary, Ref } from './types';
 
 interface Entry {
@@ -17,7 +18,7 @@ export class CachingForge implements Forge {
 	) {}
 
 	invalidate(repo: string): void {
-		this.entries.delete(repo);
+		this.entries.delete(repoKey(repo));
 	}
 
 	private cached<T>(
@@ -27,6 +28,7 @@ export class CachingForge implements Forge {
 		ttl = this.ttlMs
 	): Promise<T> {
 		const now = this.clock();
+		repo = repoKey(repo);
 		const existing = this.entries.get(repo)?.get(key);
 		if (existing && existing.expires > now) return existing.promise as Promise<T>;
 		const promise = load();

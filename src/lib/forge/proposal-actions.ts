@@ -2,6 +2,7 @@ import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
 import { SENT_MARKER, isSentIn } from './proposals';
+import { sameRepo } from './repo';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 import { ForgeError, type Forge, type PrSummary } from './types';
 
@@ -27,10 +28,7 @@ export async function canAct(
 	pr: PrSummary,
 	forge: Forge
 ): Promise<{ owner: boolean; editorial: boolean }> {
-	if (
-		pr.headRepo.toLowerCase() !== site.repo.toLowerCase() ||
-		pr.baseRef !== site.standaardbranch
-	) {
+	if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
 		return { owner: false, editorial: false };
 	}
 	return {

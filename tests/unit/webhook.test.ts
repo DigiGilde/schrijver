@@ -71,6 +71,12 @@ describe('github webhook', () => {
 		expect(invalidate).toHaveBeenCalledWith('o/config');
 	});
 
+	it('reloads config when the payload casing differs from GITHUB_CONFIG_REPO', async () => {
+		const res = await call('push', { repository: { full_name: 'O/Config' } });
+		expect(res.status).toBe(204);
+		expect(reloadConfig).toHaveBeenCalledTimes(1);
+	});
+
 	it('invalidates the cache on a push to a site repo', async () => {
 		const res = await call('push', { repository: { full_name: 'o/site' } });
 		expect(res.status).toBe(204);

@@ -15,6 +15,7 @@ import {
 import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '../content/mermaid';
 import { slugify } from '../content/slug';
 import { buildForm, newPagePath, titleOf, validateForm } from '../content/schema-form';
+import { sameRepo } from './repo';
 import { ForgeError, type FileChange, type Forge } from './types';
 import {
 	commitMessage,
@@ -220,7 +221,10 @@ export async function save(
 		if (req.branch !== null) {
 			existingPr = await forge.getPr(site.repo, req.prNumber as number);
 			const own = isOwnTrailer(identityFromPrBody(existingPr.body), opts.identities ?? [identity]);
-			if (existingPr.headRepo !== site.repo || existingPr.baseRef !== site.standaardbranch) {
+			if (
+				!sameRepo(existingPr.headRepo, site.repo) ||
+				existingPr.baseRef !== site.standaardbranch
+			) {
 				return fail(403, 'Dit voorstel is niet van jou');
 			}
 			if (existingPr.state !== 'open' || existingPr.headRef !== req.branch) {

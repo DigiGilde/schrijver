@@ -367,6 +367,18 @@ describe('save', () => {
 			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(1);
 		});
 
+		it('accepts the own PR when GitHub casing differs from the config', async () => {
+			const first = ok(await save(forge, digi, digiSchema, identity, req()));
+			const real = forge.prs.get(first.prNumber)!;
+			const stub = {
+				...forge,
+				getPr: async () => ({ ...real, headRepo: digi.repo.toUpperCase() })
+			} as unknown as FakeForge;
+			Object.setPrototypeOf(stub, forge);
+			ok(await save(stub, digi, digiSchema, identity, next(first)));
+			expect(forge.commitsOf(digi.repo, first.branch)).toHaveLength(2);
+		});
+
 		it('refuses a PR with another base branch', async () => {
 			const first = ok(await save(forge, digi, digiSchema, identity, req()));
 			forge.prs.get(first.prNumber)!.baseRef = 'andere';

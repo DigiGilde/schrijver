@@ -46,6 +46,16 @@ describe('CachingForge', () => {
 		expect(readTree).toHaveBeenCalledTimes(2);
 	});
 
+	it('keys repositories case-insensitively', async () => {
+		const { cache, readFile } = setup();
+		await cache.readFile('o/site', 'main', 'a.md');
+		await cache.readFile('O/Site', 'main', 'a.md');
+		expect(readFile).toHaveBeenCalledTimes(1);
+		cache.invalidate('O/SITE');
+		await cache.readFile('o/site', 'main', 'a.md');
+		expect(readFile).toHaveBeenCalledTimes(2);
+	});
+
 	it('coalesces concurrent identical reads', async () => {
 		const { cache, readFile } = setup();
 		const [a, b] = await Promise.all([

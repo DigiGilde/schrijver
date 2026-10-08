@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { parsePage } from '$lib/content/frontmatter';
 import { buildForm, newPagePath } from '$lib/content/schema-form';
+import { sameRepo } from '$lib/forge/repo';
 import { getRepoVisibility } from '$lib/server/repo-visibility';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -81,7 +82,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		if (
 			!pr ||
 			pr.headRef !== wanted ||
-			pr.headRepo !== site.repo ||
+			!sameRepo(pr.headRepo, site.repo) ||
 			pr.baseRef !== site.standaardbranch ||
 			pr.state !== 'open'
 		)

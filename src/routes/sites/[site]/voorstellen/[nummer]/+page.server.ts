@@ -4,6 +4,7 @@ import { identitiesFor, identityFor } from '$lib/auth/identity';
 import { canAct } from '$lib/forge/proposal-actions';
 import { isSentIn, toProposal } from '$lib/forge/proposals';
 import { sourceDiff } from '$lib/content/source-diff';
+import { sameRepo } from '$lib/forge/repo';
 import { identityFromPrBody } from '$lib/forge/trailers';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
@@ -24,7 +25,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const pr = await forge.getPr(site.repo, nummer);
 		const files = await forge.prFiles(site.repo, nummer);
 		const proposal = toProposal(pr, files, site, identities);
-		const fromFork = pr.headRepo.toLowerCase() !== site.repo.toLowerCase();
+		const fromFork = !sameRepo(pr.headRepo, site.repo);
 		const text = async (ref: string, path: string) => {
 			const file = await forge.readFile(site.repo, ref, path);
 			return file ? decoder.decode(file.content) : null;
