@@ -26,8 +26,9 @@ const pages = [
  * 11.3:1 in light mode, 11.4:1 in dark mode; 9.5:1 and 8.8:1 where page text shows through).
  * The app bar sits in that same sticky header, so its text is unresolved for the same reason: the test environment bar,
  * the S of the wordmark, the rest of the wordmark and the Menu button (measured by hand, light / dark mode: 6.2:1 / 6.2:1,
- * 9.8:1 / 6.2:1, 11.3:1 / 11.4:1 and 15.4:1 / 11.4:1). Axe names the same node by what else is on the page, so the
- * sole-button case is matched loosely.
+ * 9.8:1 / 6.2:1, 11.3:1 / 11.4:1 and 15.4:1 / 11.4:1). The text on a site card of the start page is overlapped by the
+ * card's own link overlay (bgOverlap): title, description and status lines are 11.3:1 / 11.4:1, the address 6.2:1 / 6.2:1.
+ * Axe names the same node by what else is on the page, so the attribute groups and the sole-button case are matched loosely.
  */
 const allowedContrast = [
 	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
@@ -38,7 +39,10 @@ const allowedContrast = [
 	/^nldd-step-bar-item\[(status="current"|text="[^"]+")\],\.step-bar__item-(number|title)$/,
 	/^nldd-status-bar,\.status-bar__text$/,
 	/^\.(blok|woord)$/,
-	/^(nldd-button|\.menuknop),\.button__text$/
+	/^(nldd-button|\.menuknop),\.button__text$/,
+	/^nldd-title\[text="(Digi Handboek|MijnOverheid Zakelijk)"\],h2$/,
+	/^nldd-card\[accessible-label="[^"]+"\] > nldd-container(\[[a-z-]+="\d+"\]|:nth-child\(\d+\))* > nldd-text(\[[a-z-]+="[a-z]+"\]|:nth-child\(\d+\))*$/,
+	/^nldd-text\[weight="medium"\](\[size="sm"\])?(:nth-child\([12]\))?$/
 ];
 
 const tags = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];

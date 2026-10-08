@@ -24,12 +24,11 @@ function inDocumentOrder(page: Page, selectors: string[]) {
 test('the home page lists both sites', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('heading', { name: 'Kies een site' })).toBeVisible();
-	const sites = list(page, 'Sites');
-	await expect(sites.getByRole('link', { name: /Digi Handboek/ })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: 'Digi Handboek' })).toHaveAttribute(
 		'href',
 		'/sites/digi-handboek'
 	);
-	await expect(sites.getByRole('link', { name: /MijnOverheid Zakelijk/ })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: 'MijnOverheid Zakelijk' })).toHaveAttribute(
 		'href',
 		'/sites/moza-site'
 	);
