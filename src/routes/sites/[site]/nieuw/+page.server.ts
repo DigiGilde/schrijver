@@ -77,6 +77,7 @@ export const actions: Actions = {
 		}
 		const query = new URLSearchParams({ nieuw: '1', map, titel });
 		if (soort) query.set('soort', soort);
+		if (form.get('opzet') === '1') query.set('opzet', '1');
 		redirect(
 			303,
 			`/sites/${site.id}/bewerken/${pad.split('/').map(encodeURIComponent).join('/')}?${query}`

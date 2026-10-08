@@ -30,3 +30,28 @@ export function filePreview(
 	const one = newPagePath(schema, soort, folder, 'a', now);
 	return one === newPagePath(schema, soort, folder, 'b', now) ? one : null;
 }
+
+/** The template the editor starts a new page with; keep in step with the editor's loader. */
+export function templateFor(schema: PageSchema, soort: string | null): string {
+	const config = schema['nieuwe-pagina'];
+	const own =
+		'soorten' in config ? config.soorten.find((s) => s.naam === soort)?.sjabloon : config.sjabloon;
+	return own ?? (schema.titel === 'uit-h1' ? '# {titel}\n\n' : '');
+}
+
+/** The starting text of a new page: its template with the title, then the outline. */
+export function startText(template: string, title: string, outline: string): string {
+	const head = template.replaceAll('{titel}', title).trimEnd();
+	const body = outline.trim();
+	return head ? `${head}\n\n${body}\n` : `${body}\n`;
+}
+
+/** The properties a new page starts with, as the editor fills them in. */
+export function startFrontmatter(schema: PageSchema, title: string): Record<string, unknown> {
+	return schema.titel.startsWith('veld:') ? { [schema.titel.slice('veld:'.length)]: title } : {};
+}
+
+/** Where the editor keeps the unsaved draft of a page that is not on a proposal branch yet. */
+export function draftKey(siteId: string, path: string): string {
+	return `schrijver:${siteId}:new:${path}`;
+}
