@@ -24,7 +24,7 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 | 14 | Security testing | missing | CodeQL, ZAP baseline against a preview, pentest before go-live |
 | 15 | Secure build and deploy | partly | Separate secrets, database, OIDC client and App for previews; restrict who may label; scope `GITHUB_ADMIN_TOKEN` |
 | 16 | Test coverage of security behaviour | covered | Add tests for the reviewer and `toegestaan` fixes |
-| 17 | Abuse and DoS protection | partly | Set `ADDRESS_HEADER` and `XFF_DEPTH` on ZAD; shared limit store if more than one replica |
+| 17 | Abuse and DoS protection | partly | Set `ADDRESS_HEADER` and `XFF_DEPTH` on ZAD; shared limit store if more than one replica; parse Markdown for the preview and the diff in a worker with a time limit (crafted Markdown can keep the parser busy for seconds in the browser; the diff itself is bounded and answers "te groot") |
 | 18 | Supplier agreements | missing | Statements from ZAD, SSC-ICT and GitHub, recorded here and in the register |
 | 19 | Classification (BIV) and risk analysis | missing | Short BIV classification and risk table; decide the highest classification VLAM may receive |
 | 20 | Exit and portability | partly | Document and test a rebuild: config repo, secrets list, GitHub App |
