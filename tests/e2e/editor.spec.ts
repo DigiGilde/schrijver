@@ -57,6 +57,82 @@ test('a page without a title of its own is called by its file name', async ({ pa
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('index.md');
 });
 
+test('a link in Voorbeeld opens a new tab and the editor keeps its own file', async ({
+	page,
+	context
+}) => {
+	await page.goto('/sites/digi-handboek/bewerken/contact.md');
+	const editor = page.locator('nldd-text-editor .cm-content');
+	await expect(editor).toContainText('Heb je een vraag over het Digi Gilde');
+	await editor.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nAangevuld bij contact');
+
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
+	const link = page
+		.getByRole('region', { name: 'Voorbeeld' })
+		.getByRole('link', { name: 'bijdragen aan het Digi Handboek (opent in nieuw tabblad)' });
+	await expect(link).toHaveAttribute('target', '_blank');
+	await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+	const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
+	await expect(tab).toHaveURL(/\/bewerken\/bijdragen-aan-handboek\.md$/);
+	await tab.close();
+
+	await expect(page).toHaveURL(/\/bewerken\/contact\.md$/);
+	await expect(page).toHaveTitle(/^Contact bewerken/);
+	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const sent = JSON.parse((await request).postData() ?? '{}');
+	expect(sent.path).toBe('docs/contact.md');
+	expect(sent.body).toContain('Aangevuld bij contact');
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+});
+
+test('moving client-side to another page starts a session for that page', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/bewerken/contact.md');
+	const editor = page.locator('nldd-text-editor .cm-content');
+	await expect(editor).toContainText('Heb je een vraag over het Digi Gilde');
+	// SvelteKit keeps the page component when only the file changes; a link in the app does that.
+	await page.evaluate(() => {
+		const link = document.createElement('a');
+		link.href = '/sites/digi-handboek/bewerken/offboarding.md';
+		link.textContent = 'Naar offboarding';
+		document.querySelector('#inhoud')!.prepend(link);
+	});
+	let release = () => {};
+	const held = new Promise<void>((resolve) => (release = resolve));
+	await page.route(/__data\.json/, async (route) => {
+		await held;
+		await route.continue();
+	});
+	await page.getByRole('link', { name: 'Naar offboarding' }).click();
+	// Typed while the next page loads, so the draft is flushed as this page leaves.
+	await editor.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nAlleen voor contact');
+	release();
+
+	await expect(page).toHaveURL(/\/bewerken\/offboarding\.md$/);
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Offboarding');
+	await expect.poll(() => editorValue(page)).toContain('We vinden het jammer om je te zien gaan');
+	expect(await editorValue(page)).not.toContain('Alleen voor contact');
+	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
+	const drafts = await page.evaluate(() => ({
+		contact: localStorage.getItem('schrijver:digi-handboek:new:contact.md'),
+		offboarding: localStorage.getItem('schrijver:digi-handboek:new:offboarding.md')
+	}));
+	expect(drafts.contact).toContain('Alleen voor contact');
+	expect(drafts.offboarding).toBeNull();
+
+	await page.unroute(/__data\.json/);
+	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const sent = JSON.parse((await request).postData() ?? '{}');
+	expect(sent.path).toBe('docs/offboarding.md');
+	expect(sent.body).toContain('We vinden het jammer om je te zien gaan');
+	expect(sent.body).not.toContain('Alleen voor contact');
+});
+
 test('rejects path traversal and unknown files', async ({ request }) => {
 	expect((await request.get('/sites/digi-handboek/bewerken/..%2f..%2fx.md')).status()).toBe(400);
 	expect((await request.get('/sites/digi-handboek/bewerken/bestaat-niet.md')).status()).toBe(404);

@@ -24,8 +24,23 @@
 
 	$effect(() => {
 		void html;
+		if (container) inNieuwTabblad(container);
 		void renderDiagrams();
 	});
+
+	/* Following a link in the preview must never replace the page being edited; a jump within it may. */
+	function inNieuwTabblad(root: HTMLElement) {
+		for (const link of root.querySelectorAll<HTMLAnchorElement>(
+			'a[href]:not([href^="#"]):not([target])'
+		)) {
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			const melding = document.createElement('span');
+			melding.className = 'nieuw-tabblad';
+			melding.textContent = ' (opent in nieuw tabblad)';
+			link.append(melding);
+		}
+	}
 
 	async function renderDiagrams() {
 		await tick();
@@ -54,5 +69,13 @@
 	div :global(.niet-in-voorbeeld) {
 		opacity: 0.7;
 		font-style: italic;
+	}
+	div :global(.nieuw-tabblad) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

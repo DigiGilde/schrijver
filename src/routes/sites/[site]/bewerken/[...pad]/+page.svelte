@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import type { PageData } from './$types';
 	import ConceptBanner from '$lib/components/ConceptBanner.svelte';
 	import FrontmatterFormulier from '$lib/components/FrontmatterFormulier.svelte';
@@ -28,7 +28,7 @@
 	const SAVE_DELAY_MS = 500;
 	const BRANCH = 'new';
 
-	/* The page is keyed by route, so the props are the initial values of the editing session. */
+	/* The layout keys the page by file and branch: the props are the initial values of the session. */
 	// svelte-ignore state_referenced_locally
 	let body = $state(data.body);
 	// svelte-ignore state_referenced_locally
@@ -66,15 +66,18 @@
 		return applyForm(fields, data.frontmatter).frontmatter;
 	}
 
-	function writeDraft(draft: Draft | null) {
-		imagesLost = !storeDraft(storageKey, draft) && !!draft;
+	function writeDraft(draft: Draft | null, key = storageKey) {
+		imagesLost = !storeDraft(key, draft) && !!draft;
 	}
 
-	function sameAsServer(draft: { body: string; frontmatter: Record<string, unknown> }) {
+	function sameAsServer(
+		draft: { body: string; frontmatter: Record<string, unknown> },
+		server: PageData = data
+	) {
 		return (
-			draft.body === data.body &&
+			draft.body === server.body &&
 			JSON.stringify(draft.frontmatter) ===
-				JSON.stringify(applyForm(data.form, data.frontmatter).frontmatter)
+				JSON.stringify(applyForm(server.form, server.frontmatter).frontmatter)
 		);
 	}
 
@@ -98,18 +101,23 @@
 		const snapshot = { body, fields };
 		if (!ready || restorable || readOnly) return;
 		clearTimeout(timer);
+		// Taken now: a flush while the page leaves runs when `data` already holds the next page.
+		const { key, server } = untrack(() => ({ key: storageKey, server: data }));
 		flushPending = () => {
-			const frontmatter = applyForm(snapshot.fields, data.frontmatter).frontmatter;
-			if (sameAsServer({ body: snapshot.body, frontmatter })) writeDraft(null);
+			const frontmatter = applyForm(snapshot.fields, server.frontmatter).frontmatter;
+			if (sameAsServer({ body: snapshot.body, frontmatter }, server)) writeDraft(null, key);
 			else
-				writeDraft({
-					path: data.path,
-					body: snapshot.body,
-					frontmatter,
-					at: Date.now(),
-					sha: baseSha,
-					images
-				});
+				writeDraft(
+					{
+						path: server.path,
+						body: snapshot.body,
+						frontmatter,
+						at: Date.now(),
+						sha: baseSha,
+						images
+					},
+					key
+				);
 		};
 		timer = setTimeout(flush, SAVE_DELAY_MS);
 		return () => clearTimeout(timer);
