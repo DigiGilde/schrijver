@@ -1,5 +1,7 @@
 <script lang="ts">
 	import '@nldd/design-system/styles';
+	import favicon from '@nldd/design-system/favicon.svg';
+	import touchIcon from '@nldd/design-system/touch-icon.png';
 	import { onMount } from 'svelte';
 	import { clearAllDrafts } from '$lib/client/draft';
 
@@ -19,6 +21,11 @@
 		formulier.submit();
 	}
 </script>
+
+<svelte:head>
+	<link rel="icon" type="image/svg+xml" href={favicon} />
+	<link rel="apple-touch-icon" href={touchIcon} />
+</svelte:head>
 
 <nldd-app-view>
 	<nldd-bar-split-view>
