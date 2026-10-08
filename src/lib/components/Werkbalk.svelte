@@ -1,5 +1,6 @@
 <script module lang="ts">
 	export type Actie = 'bold' | 'italic' | 'bullet' | 'quote' | 'link' | 'code';
+	export type Weergave = 'schrijven' | 'voorbeeld';
 </script>
 
 <script lang="ts">
@@ -13,6 +14,10 @@
 		onafbeelding: () => void;
 		onmermaid: () => void;
 		afbeeldingen?: boolean;
+		weergave: Weergave;
+		onweergave: (weergave: Weergave) => void;
+		/** Opens the page properties; null when the page has none. */
+		oneigenschappen?: (() => void) | null;
 		schrijfhulpOpen?: boolean;
 		onschrijfhulp?: () => void;
 	};
@@ -24,6 +29,9 @@
 		onafbeelding,
 		onmermaid,
 		afbeeldingen = true,
+		weergave,
+		onweergave,
+		oneigenschappen = null,
 		schrijfhulpOpen = false,
 		onschrijfhulp
 	}: Props = $props();
@@ -41,113 +49,182 @@
 		return { update: (next: boolean) => (element.expanded = next) };
 	}
 
-	const knoppen: {
-		actie: Actie;
-		icon: string;
-		label: string;
-		actief: () => boolean | undefined;
-	}[] = [
-		{ actie: 'bold', icon: 'bold', label: 'Vet', actief: () => active?.bold },
-		{ actie: 'italic', icon: 'italic', label: 'Cursief', actief: () => active?.italic }
-	];
-	const lijst: typeof knoppen = [
+	type Opmaak = { icon: string; label: string; aan: () => boolean | undefined; doe: () => void };
+	const koppen = [2, 3, 4] as const;
+	const opmaak: Opmaak[] = [
+		{ icon: 'bold', label: 'Vet', aan: () => active?.bold, doe: () => onactie('bold') },
+		{ icon: 'italic', label: 'Cursief', aan: () => active?.italic, doe: () => onactie('italic') },
+		...koppen.map((niveau) => ({
+			icon: `heading-${niveau}`,
+			label: `Kop ${niveau}`,
+			aan: () => active?.heading === niveau,
+			doe: () => onkop(niveau)
+		})),
 		{
-			actie: 'bullet',
 			icon: 'bullet-list',
 			label: 'Lijst met opsommingstekens',
-			actief: () => active?.bulletList
+			aan: () => active?.bulletList,
+			doe: () => onactie('bullet')
 		},
-		{ actie: 'quote', icon: 'text-quote', label: 'Citaat', actief: () => active?.quote },
-		{ actie: 'link', icon: 'link', label: 'Link', actief: () => active?.link },
+		{ icon: 'text-quote', label: 'Citaat', aan: () => active?.quote, doe: () => onactie('quote') },
+		{ icon: 'link', label: 'Link', aan: () => active?.link, doe: () => onactie('link') },
 		{
-			actie: 'code',
 			icon: 'chevron-left-forward-slash-chevron-right',
 			label: 'Code in de regel',
-			actief: () => active?.inlineCode
+			aan: () => active?.inlineCode,
+			doe: () => onactie('code')
 		}
 	];
-	const koppen = [2, 3, 4] as const;
+
+	/*
+	 * Lower priorities move into the overflow menu first: the insert buttons, then the formatting from
+	 * right to left. The end of the bar goes last, the view switch at the very last.
+	 */
+	const PRIORITEIT = {
+		mermaid: 1,
+		afbeelding: 2,
+		schrijfhulp: 12,
+		eigenschappen: 13,
+		weergave: 14
+	};
+	const prioriteit = (index: number) => opmaak.length + 2 - index;
+
+	const afbeeldingLabel = $derived(
+		afbeeldingen
+			? 'Afbeelding invoegen'
+			: 'Afbeelding invoegen (deze site accepteert geen afbeeldingen)'
+	);
 
 	/** The toggle flips itself on click; put it back in line with the editor once the state event has landed. */
 	function resync(event: Event, aan: () => boolean | undefined) {
 		const element = event.currentTarget as HTMLElement & { selected: boolean };
 		setTimeout(() => (element.selected = !!aan()), 0);
 	}
+
+	function kies(event: Event) {
+		onweergave(
+			(event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld'
+				? 'voorbeeld'
+				: 'schrijven'
+		);
+	}
 </script>
 
-<div class="werkbalk" role="toolbar" aria-label="Opmaak">
-	{#each knoppen as knop (knop.actie)}
-		{@render schakel(knop.icon, knop.label, knop.actief, () => onactie(knop.actie))}
-	{/each}
-	{#each koppen as niveau (niveau)}
-		{@render schakel(
-			`heading-${niveau}`,
-			`Kop ${niveau}`,
-			() => active?.heading === niveau,
-			() => onkop(niveau)
-		)}
-	{/each}
-	{#each lijst as knop (knop.actie)}
-		{@render schakel(knop.icon, knop.label, knop.actief, () => onactie(knop.actie))}
-	{/each}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-icon-button
-		icon="photo"
-		accessible-label={afbeeldingen
-			? 'Afbeelding invoegen'
-			: 'Afbeelding invoegen (deze site accepteert geen afbeeldingen)'}
-		size="sm"
-		appearance="neutral-transparent"
-		disabled={disabled || !afbeeldingen || undefined}
-		onclick={onafbeelding}
-	></nldd-icon-button>
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-icon-button
-		icon="network-structure"
-		accessible-label="Mermaid-diagram invoegen"
-		size="sm"
-		appearance="neutral-transparent"
-		disabled={disabled || undefined}
-		onclick={onmermaid}
-	></nldd-icon-button>
-	{#if onschrijfhulp}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<!-- `expandable` keeps aria-expanded present while closed; aria-controls cannot cross the shadow root. -->
-		<nldd-button
-			appearance="secondary"
-			size="sm"
-			text="Schrijfhulp"
-			expandable
-			use:uitgeklapt={schrijfhulpOpen}
-			onclick={onschrijfhulp}
-		></nldd-button>
+<!-- Every item carries its own twin in slot="overflow": the toolbar shows those in its menu once the item no longer fits. -->
+<nldd-toolbar label="Opmaak" size="sm">
+	{#if weergave === 'schrijven'}
+		{#each opmaak as knop, index (knop.label)}
+			<nldd-toolbar-item slot="start" priority={prioriteit(index)}>
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-toggle-button
+					type="button"
+					icon={knop.icon}
+					accessible-label={knop.label}
+					appearance="neutral-transparent"
+					selected={knop.aan() || undefined}
+					disabled={disabled || undefined}
+					onclick={(event: Event) => {
+						knop.doe();
+						resync(event, knop.aan);
+					}}
+				></nldd-toggle-button>
+				<nldd-menu-item
+					slot="overflow"
+					type="checkbox"
+					icon={knop.icon}
+					text={knop.label}
+					selected={knop.aan() || undefined}
+					disabled={disabled || undefined}
+					onselect={knop.doe}
+				></nldd-menu-item>
+			</nldd-toolbar-item>
+		{/each}
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.afbeelding}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="photo"
+				accessible-label={afbeeldingLabel}
+				appearance="neutral-transparent"
+				disabled={disabled || !afbeeldingen || undefined}
+				onclick={onafbeelding}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="photo"
+				text={afbeeldingLabel}
+				disabled={disabled || !afbeeldingen || undefined}
+				onselect={onafbeelding}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.mermaid}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="network-structure"
+				accessible-label="Mermaid-diagram invoegen"
+				appearance="neutral-transparent"
+				disabled={disabled || undefined}
+				onclick={onmermaid}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="network-structure"
+				text="Mermaid-diagram invoegen"
+				disabled={disabled || undefined}
+				onselect={onmermaid}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
 	{/if}
-</div>
-{#if !afbeeldingen}
+	<nldd-toolbar-item slot="end" priority={PRIORITEIT.weergave}>
+		<!-- A radio group that shows the editor or the preview, rather than tabs: tab roles cannot reach a panel across the shadow root. -->
+		<nldd-segmented-control accessible-label="Weergave" value={weergave} onchange={kies}>
+			<nldd-segmented-control-item value="schrijven" text="Schrijven"></nldd-segmented-control-item>
+			<nldd-segmented-control-item value="voorbeeld" text="Voorbeeld"></nldd-segmented-control-item>
+		</nldd-segmented-control>
+		<nldd-menu-group slot="overflow" text="Weergave">
+			<nldd-menu-item
+				type="radio"
+				text="Schrijven"
+				selected={weergave === 'schrijven' || undefined}
+				onselect={() => onweergave('schrijven')}
+			></nldd-menu-item>
+			<nldd-menu-item
+				type="radio"
+				text="Voorbeeld"
+				selected={weergave === 'voorbeeld' || undefined}
+				onselect={() => onweergave('voorbeeld')}
+			></nldd-menu-item>
+		</nldd-menu-group>
+	</nldd-toolbar-item>
+	{#if oneigenschappen}
+		<nldd-toolbar-item slot="end" priority={PRIORITEIT.eigenschappen}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-button appearance="secondary" text="Eigenschappen" onclick={oneigenschappen}
+			></nldd-button>
+			<nldd-menu-item slot="overflow" text="Eigenschappen" onselect={oneigenschappen}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+	{/if}
+	{#if onschrijfhulp}
+		<nldd-toolbar-item slot="end" priority={PRIORITEIT.schrijfhulp}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<!-- `expandable` keeps aria-expanded present while closed; aria-controls cannot cross the shadow root. -->
+			<nldd-button
+				appearance="secondary"
+				text="Schrijfhulp"
+				expandable
+				use:uitgeklapt={schrijfhulpOpen}
+				onclick={onschrijfhulp}
+			></nldd-button>
+			<nldd-menu-item
+				slot="overflow"
+				type="checkbox"
+				text="Schrijfhulp"
+				selected={schrijfhulpOpen || undefined}
+				onselect={onschrijfhulp}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+	{/if}
+</nldd-toolbar>
+{#if !afbeeldingen && weergave === 'schrijven'}
 	<nldd-text color="secondary" size="sm">Deze site accepteert geen afbeeldingen.</nldd-text>
 {/if}
-
-{#snippet schakel(icon: string, label: string, aan: () => boolean | undefined, doe: () => void)}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-toggle-button
-		type="button"
-		{icon}
-		accessible-label={label}
-		size="sm"
-		appearance="neutral-transparent"
-		selected={aan() || undefined}
-		disabled={disabled || undefined}
-		onclick={(event: Event) => {
-			doe();
-			resync(event, aan);
-		}}
-	></nldd-toggle-button>
-{/snippet}
-
-<style>
-	.werkbalk {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-	}
-</style>

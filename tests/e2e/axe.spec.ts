@@ -17,10 +17,14 @@ const pages = [
  * Allowed color-contrast "incomplete" results. CodeMirror lines that cross the edge of the editor's own scroll
  * container cannot be resolved by axe (elmPartiallyObscuring); the lines that can be resolved pass. The back
  * button of nldd-top-title-bar draws a pseudo-element behind its text, which axe does not resolve (pseudoContent).
+ * The same goes for the editor's save button in that bar: the sticky page header around it draws its fade as a
+ * pseudo-element. With the properties sheet on the page there are two title bars, and axe names the page's own bar
+ * by its class.
  */
 const allowedContrast = [
 	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
-	/^nldd-top-title-bar,nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/
+	/^(nldd-top-title-bar|\.optisch),nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/,
+	/^nldd-button\[text="(Concept bewaren|Opslaan)"\],\.button__text$/
 ];
 
 const tags = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];

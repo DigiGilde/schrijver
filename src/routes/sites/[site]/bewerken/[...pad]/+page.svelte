@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import type { PageData } from './$types';
 	import ConceptBanner from '$lib/components/ConceptBanner.svelte';
-	import Editor from '$lib/components/Editor.svelte';
 	import FrontmatterFormulier from '$lib/components/FrontmatterFormulier.svelte';
 	import LeesAlleenBanner from '$lib/components/LeesAlleenBanner.svelte';
 	import Opslaan from '$lib/components/Opslaan.svelte';
@@ -16,7 +15,13 @@
 	} from '$lib/client/draft';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
-	import { applyForm, summaryField, withValue, type FormField } from '$lib/content/schema-form';
+	import {
+		applyForm,
+		pageTitle,
+		summaryField,
+		withValue,
+		type FormField
+	} from '$lib/content/schema-form';
 
 	let { data }: { data: PageData } = $props();
 
@@ -28,7 +33,12 @@
 	let body = $state(data.body);
 	// svelte-ignore state_referenced_locally
 	let fields = $state<FormField[]>(data.form);
-	let editor: ReturnType<typeof Editor> | undefined = $state();
+	let schrijfvlak: ReturnType<typeof Schrijfvlak> | undefined = $state();
+	let opslaan: ReturnType<typeof Opslaan> | undefined = $state();
+	let bezig = $state(false);
+	let knoptekst = $state('');
+	let eigenschappenOpen = $state(false);
+	let melding = $state('');
 	let restorable = $state<Draft | null>(null);
 	let ready = $state(false);
 	let images = $state<PendingImage[]>([]);
@@ -37,6 +47,15 @@
 	const readOnly = $derived(data.readOnly);
 	const samenvattingVeld = $derived(summaryField(fields));
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
+	const titel = $derived(
+		pageTitle(
+			{ titel: data.titel },
+			currentFrontmatter(),
+			// Unparsed, the frontmatter is part of the text, and its comments would pass for a heading.
+			readOnly ? '' : body,
+			data.path
+		)
+	);
 	// svelte-ignore state_referenced_locally
 	let baseSha = $state(data.sha);
 	// svelte-ignore state_referenced_locally
@@ -129,14 +148,49 @@
 			value: restoredValue(field, page.frontmatter[field.key])
 		}));
 	}
+
+	const openEigenschappen = () => (eigenschappenOpen = true);
+
+	async function vulSamenvatting(veld: string, text: string) {
+		fields = withValue(fields, veld, text);
+		melding = '';
+		await tick();
+		melding = 'Samenvatting ingevuld bij Eigenschappen';
+	}
+
+	/*
+	 * The design system upgrades elements in definition order, a title bar before its page, and a bar
+	 * with a collapse anchor then finds no scroll target. The sheet is only built once nldd-page is defined.
+	 */
+	let sheetGereed = $state(false);
+	onMount(() => {
+		void customElements.whenDefined('nldd-page').then(() => (sheetGereed = true));
+	});
+
+	/** A sheet belongs in the document root, outside the panes of the application shell. */
+	function naarDocument(node: HTMLElement) {
+		document.body.append(node);
+		return () => node.remove();
+	}
 </script>
 
 <svelte:head><title>{data.path} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
 
+{#snippet bewaarKnop()}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<nldd-button
+		appearance="primary"
+		text={knoptekst}
+		loading={bezig || undefined}
+		onclick={() => void opslaan?.opslaan()}
+	></nldd-button>
+{/snippet}
+
 <Pagina
-	titel={data.path}
-	ondertitel={openbaarConcept ? 'Openbaar concept' : undefined}
+	{titel}
+	ondertitel={openbaarConcept ? `${data.repoPath} · Openbaar concept` : data.repoPath}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
+	balk={readOnly ? undefined : bewaarKnop}
 >
 	<nldd-container gap="16">
 		{#if readOnly}
@@ -148,33 +202,23 @@
 				verouderd={restorable.sha !== baseSha}
 				onherstel={() => {
 					restore();
-					editor?.focus();
+					void schrijfvlak?.focus();
 				}}
 				onweggooien={() => {
 					discard();
-					editor?.focus();
+					void schrijfvlak?.focus();
 				}}
 			/>
 		{/if}
 
 		{#if !readOnly}
-			<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
-
-			<Schrijfvlak
-				bind:editor
-				bind:body
-				bind:images
-				siteId={data.site.id}
-				pagina={data.repoPath}
-				branch={activeBranch}
-				afbeeldingen={data.site.afbeeldingen}
-				onsamenvatting={samenvattingVeld
-					? (text) => (fields = withValue(fields, samenvattingVeld, text))
-					: null}
-			/>
-
-			<div class="opslaan">
+			<div class="meldingen">
 				<Opslaan
+					bind:this={opslaan}
+					bind:busy={bezig}
+					bind:knoptekst
+					knop={false}
+					oneigenschappen={fields.length > 0 ? openEigenschappen : null}
 					siteId={data.site.id}
 					repoPath={data.repoPath}
 					sha={data.sha}
@@ -198,7 +242,7 @@
 					labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 					onveldfouten={(fouten) =>
 						(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
-					focusEditor={() => editor?.focus()}
+					focusEditor={() => void schrijfvlak?.focus()}
 				/>
 				{#if images.length}
 					<nldd-text color="secondary" size="sm"
@@ -217,15 +261,66 @@
 					</nldd-text>
 				{/if}
 			</div>
+			<p class="sr-only" role="status">{melding}</p>
+
+			<Schrijfvlak
+				bind:this={schrijfvlak}
+				bind:body
+				bind:images
+				siteId={data.site.id}
+				pagina={data.repoPath}
+				branch={activeBranch}
+				afbeeldingen={data.site.afbeeldingen}
+				onsamenvatting={samenvattingVeld ? (text) => vulSamenvatting(samenvattingVeld, text) : null}
+				oneigenschappen={fields.length > 0 ? openEigenschappen : null}
+			/>
 		{/if}
 	</nldd-container>
 </Pagina>
 
+{#if sheetGereed && !readOnly && fields.length > 0}
+	<nldd-sheet
+		placement="right"
+		width="480px"
+		open={eigenschappenOpen || undefined}
+		onclose={() => (eigenschappenOpen = false)}
+		{@attach naarDocument}
+	>
+		<nldd-page>
+			<nldd-top-title-bar
+				slot="header"
+				text="Eigenschappen"
+				dismiss-text="Sluit"
+				collapse-anchor="eigenschappen-titel"
+			></nldd-top-title-bar>
+			<nldd-simple-section>
+				<nldd-title
+					id="eigenschappen-titel"
+					slot="header"
+					size="2"
+					heading-level="1"
+					text="Eigenschappen"
+					supporting-text="Deze waarden worden met de pagina bewaard."
+				></nldd-title>
+				<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
+			</nldd-simple-section>
+		</nldd-page>
+	</nldd-sheet>
+{/if}
+
 <style>
-	.opslaan {
+	.meldingen {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

@@ -4,8 +4,9 @@ type Stop = { key: string; ring: boolean; obscured: boolean };
 
 /**
  * Describes the focused element (piercing shadow roots) and checks, in the page:
- * - ring: some element in the focused chain gains an outline or box-shadow (also on ::before/::after)
- *   compared with the same element when unfocused (WCAG 2.4.7);
+ * - ring: some element in the focused chain, or in the focused element's own shadow tree, gains an
+ *   outline or box-shadow (also on ::before/::after) compared with the same element when unfocused
+ *   (WCAG 2.4.7);
  * - obscured: the element's centre is covered by something outside its own composed subtree/ancestry (WCAG 2.4.11).
  */
 async function focusStop(page: Page): Promise<Stop> {
@@ -28,6 +29,8 @@ async function focusStop(page: Page): Promise<Stop> {
 		for (let n: Node | null = leaf; n; n = parentOf(n)) {
 			if (n instanceof Element && n.matches(':focus-within')) chain.push(n);
 		}
+		// A focused host can draw its ring on its own shadow content (a radio in nldd-segmented-control).
+		chain.push(...(leaf.shadowRoot?.querySelectorAll('*') ?? []));
 		const snapshot = () =>
 			chain.map((el) =>
 				[undefined, '::before', '::after'].map((pseudo) => {
@@ -128,6 +131,8 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 		'Code in de regel',
 		'Afbeelding invoegen',
 		'Mermaid-diagram invoegen',
+		'Schrijven',
+		'Eigenschappen',
 		'Schrijfhulp'
 	];
 	const positions = toolbar.map((label) => keys.findIndex((k) => k.includes(`.${label}`)));
@@ -136,6 +141,9 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 	}
 	expect(positions, 'toolbar stops in visual order').toEqual([...positions].sort((a, b) => a - b));
 	expect(keys.length - 1, 'the editor comes right after the toolbar').toBe(positions.at(-1)! + 1);
+	const bewaren = keys.findIndex((k) => k.includes('.Concept bewaren'));
+	expect(bewaren, 'the save button in the title bar comes before the toolbar').toBeGreaterThan(-1);
+	expect(bewaren).toBeLessThan(positions[0]);
 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nToetsenbordregel uit e2e');
@@ -287,4 +295,32 @@ test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 			expect(sticking, 'elements wider than the viewport').toEqual([]);
 		});
 	}
+
+	test('the editor toolbar moves what does not fit into its menu', async ({ page }) => {
+		await page.goto('/sites/digi-handboek/bewerken/index.md');
+		await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+		await expect(page.getByRole('radio', { name: 'Schrijven' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Vet' })).toBeHidden();
+
+		await page.getByRole('button', { name: 'Meer' }).click();
+		const vet = page.getByRole('menuitemcheckbox', { name: 'Vet' });
+		await expect(vet).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Eigenschappen' })).toBeVisible();
+		for (const item of [vet, page.getByRole('menuitem', { name: 'Mermaid-diagram invoegen' })]) {
+			const box = (await item.boundingBox())!;
+			expect(box.x).toBeGreaterThanOrEqual(0);
+			expect(box.x + box.width, 'menu fits the viewport').toBeLessThanOrEqual(320);
+		}
+		const width = await page.evaluate(() => document.documentElement.scrollWidth);
+		expect(width, 'no horizontal scrolling with the menu open').toBeLessThanOrEqual(320);
+
+		await vet.click();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+		await page.keyboard.type('vet');
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await expect(page.getByRole('menuitemcheckbox', { name: 'Vet' })).toHaveAttribute(
+			'aria-checked',
+			'true'
+		);
+	});
 });

@@ -8,7 +8,7 @@ const PNG = Buffer.from(
 
 test('inserts an image with alt text and sends it along on save', async ({ page }) => {
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+End');
@@ -29,6 +29,7 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 
 	await expect(editor).toContainText('![Een pixel](');
 	await expect(page.getByText('Afbeeldingen worden meegestuurd bij het bewaren')).toBeVisible();
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 	const plaatje = page.locator('nldd-rich-text img[alt="Een pixel"]');
 	await expect(plaatje).toHaveAttribute('src', /^data:image\/png;base64,/);
 
@@ -52,7 +53,7 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 
 test('shows a server error inside the dialog and closes on Escape', async ({ page }) => {
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
 	const dialog = page.locator('nldd-modal-dialog');
 	await dialog.locator('input[type=file]').setInputFiles({
@@ -70,7 +71,7 @@ test('shows a server error inside the dialog and closes on Escape', async ({ pag
 
 test('inserts a Mermaid scaffold and blocks saving without a description', async ({ page }) => {
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+End');
@@ -98,7 +99,7 @@ test('applies an assistant suggestion to the selection', async ({ page }) => {
 		})
 	);
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+a');
@@ -125,18 +126,23 @@ test('writes a summary into the description field and leaves the text alone', as
 		})
 	);
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await page.getByRole('button', { name: 'Schrijfhulp' }).click();
 	await page.getByRole('button', { name: 'Samenvatting', exact: true }).click();
 	await expect(page.getByText('Een korte samenvatting.')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Overnemen' })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Gebruik als samenvatting' }).click();
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Samenvatting ingevuld bij Eigenschappen' })
+	).toHaveCount(1);
+	await expect(editor).toContainText('Het Digi Handboek');
+	await expect(editor).not.toContainText('Een korte samenvatting.');
+
+	await page.getByRole('button', { name: 'Eigenschappen' }).click();
 	await expect(page.getByRole('textbox', { name: 'Samenvatting' })).toHaveValue(
 		'Een korte samenvatting.'
 	);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
-	await expect(editor).not.toContainText('Een korte samenvatting.');
 });
 
 const pickPng = async (page: import('@playwright/test').Page, alt: string) => {
@@ -152,7 +158,7 @@ const pickPng = async (page: import('@playwright/test').Page, alt: string) => {
 
 test('opens the dialog with an empty file picker the second time', async ({ page }) => {
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	await pickPng(page, 'Eerste');
 	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
 	const dialog = page.locator('nldd-modal-dialog');
@@ -163,7 +169,7 @@ test('opens the dialog with an empty file picker the second time', async ({ page
 
 test('keeps pending images with the draft across a reload', async ({ page }) => {
 	await page.goto(url);
-	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	await pickPng(page, 'Bewaard');
 	await expect
 		.poll(() => page.evaluate(() => localStorage.getItem('schrijver:digi-handboek:new:index.md')))

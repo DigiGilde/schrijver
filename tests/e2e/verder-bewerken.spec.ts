@@ -15,7 +15,9 @@ test('returns to an open proposal and saves into the same pull request', async (
 	await page.getByRole('link', { name: 'Verder bewerken' }).click();
 	await expect(page).toHaveURL(new RegExp(`branch=schrijver%2Fdigi-handboek%2F.+&pr=${nummer}`));
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 	await expect(page.locator('nldd-rich-text')).toContainText('Eerste sessie');
+	await page.getByRole('radio', { name: 'Schrijven' }).click();
 
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');

@@ -13,6 +13,7 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 
 	await page.reload();
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 	await expect(page.locator('nldd-rich-text')).toContainText('Opgeslagen door e2e');
 
 	await page.goto('/sites/digi-handboek?tab=alle');

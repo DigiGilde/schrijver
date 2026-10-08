@@ -1,16 +1,16 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { TextEditorState } from '@nldd/design-system/text-editor';
 	import AfbeeldingDialoog from './AfbeeldingDialoog.svelte';
 	import Assistent from './Assistent.svelte';
 	import Editor from './Editor.svelte';
 	import Voorbeeld from './Voorbeeld.svelte';
-	import Werkbalk, { type Actie } from './Werkbalk.svelte';
+	import Werkbalk, { type Actie, type Weergave } from './Werkbalk.svelte';
 	import * as actions from '$lib/client/editor-actions';
 	import { addImage, uniqueImage, type PendingImage } from '$lib/client/pending-images';
 	import { previewImages } from '$lib/content/markdown-preview';
 
 	type Props = {
-		editor?: ReturnType<typeof Editor>;
 		body: string;
 		images: PendingImage[];
 		siteId: string;
@@ -19,24 +19,36 @@
 		afbeeldingen: boolean;
 		/** Fills the description field with a summary; null when the page has none. */
 		onsamenvatting?: ((text: string) => void) | null;
+		/** Opens the page properties; null when the page has none. */
+		oneigenschappen?: (() => void) | null;
 	};
 	let {
-		editor = $bindable(),
 		body = $bindable(),
 		images = $bindable(),
 		siteId,
 		pagina,
 		branch,
 		afbeeldingen,
-		onsamenvatting = null
+		onsamenvatting = null,
+		oneigenschappen = null
 	}: Props = $props();
 
+	let editor: ReturnType<typeof Editor> | undefined = $state();
 	let editorState = $state<TextEditorState | null>(null);
-	let tab = $state<'schrijven' | 'voorbeeld'>('schrijven');
+	let weergave = $state<Weergave>('schrijven');
 	let dialogOpen = $state(false);
 	let dialogFile = $state<File | null>(null);
 	let hulpOpen = $state(false);
 	let returnFocus: HTMLElement | null = null;
+
+	/** Puts focus in the editor, switching back from the preview when that is showing. */
+	export async function focus() {
+		if (weergave !== 'schrijven') {
+			weergave = 'schrijven';
+			await tick();
+		}
+		editor?.focus();
+	}
 
 	function onActie(actie: Actie) {
 		const commands = {
@@ -62,65 +74,64 @@
 	}
 
 	const dnd = actions.dropHandlers((file) => openDialog(file));
-
-	function onWeergave(event: Event) {
-		tab =
-			(event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld'
-				? 'voorbeeld'
-				: 'schrijven';
-	}
 </script>
 
-<!-- A radio group that shows one of the two panels, rather than tabs: tab roles cannot reach the panels across the shadow root. -->
-<nldd-segmented-control class="tabs" accessible-label="Weergave" value={tab} onchange={onWeergave}>
-	<nldd-segmented-control-item value="schrijven" text="Schrijven"></nldd-segmented-control-item>
-	<nldd-segmented-control-item value="voorbeeld" text="Voorbeeld"></nldd-segmented-control-item>
-</nldd-segmented-control>
+<Werkbalk
+	state={editorState}
+	onactie={onActie}
+	onkop={(niveau) => editor?.toggleHeading(niveau)}
+	onafbeelding={() => openDialog()}
+	onmermaid={() => actions.insertMermaid(editor, body)}
+	{afbeeldingen}
+	{weergave}
+	onweergave={(keuze) => (weergave = keuze)}
+	{oneigenschappen}
+	schrijfhulpOpen={hulpOpen}
+	onschrijfhulp={() => (hulpOpen = !hulpOpen)}
+/>
 
-<div class="panelen">
-	<section class="paneel" class:verborgen={tab !== 'schrijven'} aria-label="Schrijven">
-		<Werkbalk
-			state={editorState}
-			onactie={onActie}
-			onkop={(niveau) => editor?.toggleHeading(niveau)}
-			onafbeelding={() => openDialog()}
-			onmermaid={() => actions.insertMermaid(editor, body)}
-			{afbeeldingen}
-			schrijfhulpOpen={hulpOpen}
-			onschrijfhulp={() => (hulpOpen = !hulpOpen)}
-		/>
+<div class="vlak" class:met-hulp={hulpOpen}>
+	<div class="tekst">
+		<!-- Hidden rather than unmounted while the preview shows: the editor keeps its undo history and selection. -->
 		<div
 			role="presentation"
+			class:verborgen={weergave !== 'schrijven'}
 			ondropcapture={afbeeldingen ? dnd.ondrop : undefined}
 			ondragovercapture={afbeeldingen ? dnd.ondragover : undefined}
 			onpastecapture={afbeeldingen ? dnd.onpaste : undefined}
 		>
 			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
 		</div>
-	</section>
-	<section class="paneel" class:verborgen={tab !== 'voorbeeld'} aria-label="Voorbeeld">
-		<Voorbeeld
-			value={body}
-			resolveImage={previewImages({ siteId, page: pagina, ref: branch, pending: images })}
-		/>
-	</section>
-</div>
+		{#if weergave === 'voorbeeld'}
+			<section aria-label="Voorbeeld">
+				<nldd-card>
+					<nldd-container padding="24" sm-padding="16">
+						<Voorbeeld
+							value={body}
+							resolveImage={previewImages({ siteId, page: pagina, ref: branch, pending: images })}
+						/>
+					</nldd-container>
+				</nldd-card>
+			</section>
+		{/if}
+	</div>
 
-<aside class="hulp" id="schrijfhulp-paneel" aria-label="Schrijfhulp" hidden={!hulpOpen}>
-	{#if hulpOpen}
-		<Assistent
-			{siteId}
-			getSelection={() => actions.currentSelection(editor, body)}
-			getAll={() => body}
-			onApply={(from, to, text, original) =>
-				actions.applySuggestion(editor, body, from, to, text, original)}
-			onMark={(from, to) => actions.markRange(editor, body, from, to)}
-			onUnmark={() => editor?.setAnnotations([])}
-			onDone={() => editor?.focus()}
-			onSummary={onsamenvatting}
-		/>
-	{/if}
-</aside>
+	<aside class="hulp" id="schrijfhulp-paneel" aria-label="Schrijfhulp" hidden={!hulpOpen}>
+		{#if hulpOpen}
+			<Assistent
+				{siteId}
+				getSelection={() => actions.currentSelection(editor, body)}
+				getAll={() => body}
+				onApply={(from, to, text, original) =>
+					actions.applySuggestion(editor, body, from, to, text, original)}
+				onMark={(from, to) => actions.markRange(editor, body, from, to)}
+				onUnmark={() => editor?.setAnnotations([])}
+				onDone={() => void focus()}
+				onSummary={onsamenvatting}
+			/>
+		{/if}
+	</aside>
+</div>
 
 <AfbeeldingDialoog
 	bind:open={dialogOpen}
@@ -134,18 +145,16 @@
 />
 
 <style>
-	.panelen {
+	.vlak {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: 16px;
+		align-items: start;
 	}
-	.paneel {
+	.tekst {
 		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
 	}
-	.paneel.verborgen {
+	.verborgen {
 		display: none;
 	}
 	.hulp {
@@ -153,15 +162,9 @@
 		border-radius: 8px;
 		padding: 16px;
 	}
-	@media (min-width: 1024px) {
-		.panelen {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		}
-		.paneel.verborgen {
-			display: flex;
-		}
-		.tabs {
-			display: none;
+	@media (min-width: 1008px) {
+		.vlak.met-hulp {
+			grid-template-columns: minmax(0, 1fr) 22rem;
 		}
 	}
 </style>
