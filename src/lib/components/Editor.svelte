@@ -65,15 +65,14 @@
 	export const getState = () => element?.getState();
 </script>
 
-<nldd-form-field label="Tekst">
-	<nldd-text-editor
-		bind:this={element}
-		appearance="input-field"
-		rows="20"
-		{value}
-		annotatable
-		readonly={readonly ? true : undefined}
-		oninput={onInput}
-		onnldd-text-editor-state={onState}
-	></nldd-text-editor>
-</nldd-form-field>
+<nldd-text-editor
+	bind:this={element}
+	appearance="input-field"
+	rows="20"
+	accessible-label="Tekst"
+	{value}
+	annotatable
+	readonly={readonly ? true : undefined}
+	oninput={onInput}
+	onnldd-text-editor-state={onState}
+></nldd-text-editor>

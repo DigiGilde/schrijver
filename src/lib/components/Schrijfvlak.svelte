@@ -47,6 +47,7 @@
 	let hulpOpen = $state(false);
 	let hulpPaneel: HTMLElement | undefined = $state();
 	let voorbeeld: HTMLElement | undefined = $state();
+	let werkbalkHoogte = $state(0);
 	let returnFocus: HTMLElement | null = null;
 
 	/*
@@ -100,22 +101,25 @@
 	const dnd = actions.dropHandlers((file) => openDialog(file));
 </script>
 
-<Werkbalk
-	state={editorState}
-	onactie={onActie}
-	onkop={(niveau) => editor?.toggleHeading(niveau)}
-	onafbeelding={() => openDialog()}
-	onmermaid={() => actions.insertMermaid(editor, body)}
-	{afbeeldingen}
-	{weergave}
-	onweergave={(keuze) => (weergave = keuze)}
-	{oneigenschappen}
-	{eigenschappenLeeg}
-	schrijfhulpOpen={hulpOpen}
-	onschrijfhulp={wisselHulp}
-/>
+<!-- data-plakt: the page counts this bar in the document's scroll padding, the caret code stays below it. -->
+<div class="werkbalk" data-plakt bind:offsetHeight={werkbalkHoogte}>
+	<Werkbalk
+		state={editorState}
+		onactie={onActie}
+		onkop={(niveau) => editor?.toggleHeading(niveau)}
+		onafbeelding={() => openDialog()}
+		onmermaid={() => actions.insertMermaid(editor, body)}
+		{afbeeldingen}
+		{weergave}
+		onweergave={(keuze) => (weergave = keuze)}
+		{oneigenschappen}
+		{eigenschappenLeeg}
+		schrijfhulpOpen={hulpOpen}
+		onschrijfhulp={wisselHulp}
+	/>
+</div>
 
-<div class="vlak" class:met-hulp={hulpOpen}>
+<div class="vlak" class:met-hulp={hulpOpen} style:--werkbalk-hoogte="{werkbalkHoogte}px">
 	<div class="tekst">
 		<!-- Hidden rather than unmounted while the preview shows: the editor keeps its undo history and selection. -->
 		<div
@@ -177,6 +181,18 @@
 />
 
 <style>
+	/* The padding keeps the bar clear of the title bar once it sticks; the margin takes it back in the flow. */
+	.werkbalk {
+		position: sticky;
+		top: var(--context-inset-top, 0px);
+		z-index: 1;
+		margin-block: -8px;
+		padding-block: 8px;
+		background-color: var(
+			--context-parent-background-color,
+			var(--semantics-surfaces-base-background-color)
+		);
+	}
 	.vlak {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -198,11 +214,11 @@
 		.vlak.met-hulp {
 			grid-template-columns: minmax(0, 1fr) 22rem;
 		}
-		/* Beside a long text the panel stays in view, below the sticky bars the page reports. */
+		/* Beside a long text the panel stays in view, below the sticky bars the page reports and the toolbar. */
 		.hulp {
 			position: sticky;
-			top: calc(var(--context-inset-top, 0px) + 16px);
-			max-height: calc(100dvh - var(--context-inset-top, 0px) - 32px);
+			top: calc(var(--context-inset-top, 0px) + var(--werkbalk-hoogte) + 16px);
+			max-height: calc(100dvh - var(--context-inset-top, 0px) - var(--werkbalk-hoogte) - 32px);
 			overflow-y: auto;
 		}
 	}

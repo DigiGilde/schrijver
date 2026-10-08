@@ -40,6 +40,21 @@ test('opens a file, follows edits and offers to restore a draft', async ({ page 
 	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), key)).toBeNull();
 });
 
+test('the text has no visible label and keeps its name, right below the toolbar', async ({
+	page
+}) => {
+	await page.goto(url);
+	const tekst = page.getByRole('textbox', { name: 'Tekst', exact: true });
+	await expect(tekst).toBeVisible();
+	await expect(page.locator('nldd-form-field[label="Tekst"]')).toHaveCount(0);
+	await expect(page.getByText('Tekst', { exact: true })).toHaveCount(0);
+	const toolbar = (await page.locator('nldd-toolbar[label="Opmaak"]').boundingBox())!;
+	const editor = (await page.locator('nldd-text-editor').boundingBox())!;
+	expect(editor.y - (toolbar.y + toolbar.height), 'nothing between toolbar and text').toBeLessThan(
+		24
+	);
+});
+
 test('the page title follows the first heading as you type', async ({ page }) => {
 	await page.goto(url);
 	await page.locator('nldd-text-editor .cm-line', { hasText: '# Het Digi Handboek' }).click();
@@ -195,6 +210,24 @@ test.describe('one writing surface at 1280 px', () => {
 		await expect.poll(() => editorValue(page)).not.toContain('Getypt voor het voorbeeld');
 	});
 
+	test('the toolbar sticks below the title bar to the end of a long page', async ({ page }) => {
+		await page.goto(url);
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+		const toolbar = page.locator('nldd-toolbar[label="Opmaak"]');
+		await expect(toolbar).toBeInViewport();
+		await expect
+			.poll(async () => {
+				const bar = (await page.locator('nldd-top-title-bar').first().boundingBox())!;
+				return (await toolbar.boundingBox())!.y - (bar.y + bar.height);
+			}, 'the toolbar sits just below the title bar, not under it')
+			.toBeGreaterThanOrEqual(0);
+		const bar = (await page.locator('nldd-top-title-bar').first().boundingBox())!;
+		expect((await toolbar.boundingBox())!.y).toBeLessThan(bar.y + bar.height + 16);
+		await page.getByRole('button', { name: 'Vet' }).click();
+		await expect(page.getByRole('button', { name: 'Vet' })).toHaveAttribute('aria-pressed', 'true');
+	});
+
 	test('the save button stays in view at the end of a long page', async ({ page }) => {
 		await page.goto(url);
 		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
@@ -215,7 +248,7 @@ for (const viewport of [
 		test.use({ viewport });
 
 		// From the end the caret needs some 25 lines to reach the bars; 40 also walks it past them.
-		test('moving up through a long page keeps the caret line below the title bar', async ({
+		test('moving up through a long page keeps the caret line below the toolbar', async ({
 			page
 		}) => {
 			await page.goto(url);
@@ -226,8 +259,11 @@ for (const viewport of [
 					const editor = document.querySelector('nldd-text-editor') as unknown as {
 						getSelection(): { rect: DOMRect | null };
 					};
-					const bar = document.querySelector('nldd-top-title-bar')!.getBoundingClientRect();
-					return (editor.getSelection().rect?.top ?? -Infinity) - bar.bottom;
+					const bars = [
+						document.querySelector('nldd-top-title-bar')!,
+						document.querySelector('nldd-toolbar[label="Opmaak"]')!
+					].map((bar) => bar.getBoundingClientRect().bottom);
+					return (editor.getSelection().rect?.top ?? -Infinity) - Math.max(...bars);
 				});
 			for (let line = 1; line <= 40; line++) {
 				await page.keyboard.press('ArrowUp');
