@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
-	import type { PendingImage } from '$lib/client/pending-images';
+	import {
+		IMAGES_TOO_LARGE,
+		MAX_PENDING_IMAGE_BYTES,
+		pendingBytes,
+		referenced,
+		type PendingImage
+	} from '$lib/client/pending-images';
 	import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '$lib/content/mermaid';
 
 	type Nieuw = { soort: string | null; folder: string; title: string };
@@ -80,11 +86,17 @@
 			return;
 		}
 		mermaidFout = null;
+		const sent = referenced(images(), body);
+		if (pendingBytes(sent) > MAX_PENDING_IMAGE_BYTES) {
+			fout = { message: IMAGES_TOO_LARGE };
+			status = '';
+			void toon(() => foutBlok);
+			return;
+		}
 		busy = true;
 		fout = null;
 		conflict = null;
 		status = 'Bezig met bewaren';
-		const sent = images();
 		try {
 			const res = await fetch(`/api/sites/${siteId}/opslaan`, {
 				method: 'POST',
@@ -119,7 +131,9 @@
 				status = '';
 				void toon(() => conflictKop);
 			} else {
-				fout = result?.error ?? { message: 'Opslaan is mislukt' };
+				fout = result?.error ??
+					// The server's body limit answers 413 without JSON.
+					{ message: res.status === 413 ? IMAGES_TOO_LARGE : 'Opslaan is mislukt' };
 			}
 		} catch (e) {
 			fout = { message: 'Opslaan is mislukt: geen verbinding', detail: String(e) };

@@ -4,6 +4,9 @@ services:
       context: .
       dockerfile: Containerfile
     env_file: .env
+    environment:
+      # Fits 10 MB of images as base64 plus the page text in one save.
+      BODY_SIZE_LIMIT: 16M
     ports:
       - '8080:8080'
     depends_on:

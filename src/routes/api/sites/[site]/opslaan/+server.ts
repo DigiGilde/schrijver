@@ -2,6 +2,11 @@ import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
+import {
+	IMAGES_TOO_LARGE,
+	MAX_PENDING_IMAGE_BYTES,
+	pendingBytes
+} from '$lib/client/pending-images';
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
@@ -26,7 +31,7 @@ function boundedJson(value: unknown): boolean {
 	return walk(value, 0);
 }
 
-const MESSAGES = new Set([BODY_TOO_LONG, FRONTMATTER_TOO_DEEP]);
+const MESSAGES = new Set([BODY_TOO_LONG, FRONTMATTER_TOO_DEEP, IMAGES_TOO_LARGE]);
 
 const BodySchema = z.object({
 	path: z.string().max(500),
@@ -38,7 +43,12 @@ const BodySchema = z.object({
 	baseSha: z.string().nullable(),
 	branch: z.string().max(300).nullable(),
 	prNumber: z.number().int().positive().nullable(),
-	images: z.array(z.object({ path: z.string().max(500), base64: z.string() })).max(50),
+	images: z
+		.array(z.object({ path: z.string().max(500), base64: z.string() }))
+		.max(50)
+		.refine((list) => pendingBytes(list) <= MAX_PENDING_IMAGE_BYTES, {
+			message: IMAGES_TOO_LARGE
+		}),
 	newPage: z
 		.object({ soort: z.string().nullable(), folder: z.string(), title: z.string().max(300) })
 		.optional(),
@@ -61,7 +71,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	} catch (e) {
 		const known =
 			e instanceof z.ZodError ? e.issues.find((i) => MESSAGES.has(i.message)) : undefined;
-		return json(message(known?.message ?? 'Ongeldig verzoek'), { status: 400 });
+		return json(message(known?.message ?? 'Ongeldig verzoek'), {
+			status: known?.message === IMAGES_TOO_LARGE ? 413 : 400
+		});
 	}
 
 	if (parsed.branch === null && !newProposalLimit.take((user.session as { sub: string }).sub)) {

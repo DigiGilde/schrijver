@@ -71,6 +71,17 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
 	});
 
+	it('refuses images that together exceed 10 MB with a Dutch message', async () => {
+		const fourMb = 'A'.repeat(Math.ceil((4 * 1024 * 1024) / 3) * 4);
+		const images = [1, 2, 3].map((n) => ({ path: `docs/afb/${n}.png`, base64: fourMb }));
+		const res = await call({ body: { ...good, images } });
+		expect(res.status).toBe(413);
+		expect((await res.json()).error.message).toBe(
+			'De afbeeldingen in dit concept zijn samen groter dan 10 MB; verwijder er een paar of maak ze kleiner'
+		);
+		expect((await call({ body: { ...good, images: images.slice(0, 2) } })).status).toBe(200);
+	});
+
 	it('refuses a 2,000,000-character body quickly with a Dutch message', async () => {
 		const start = performance.now();
 		const res = await call({ body: { ...good, body: '!['.repeat(1_000_000) } });

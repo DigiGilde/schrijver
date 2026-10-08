@@ -6,7 +6,7 @@
 	import Voorbeeld from './Voorbeeld.svelte';
 	import Werkbalk, { type Actie } from './Werkbalk.svelte';
 	import * as actions from '$lib/client/editor-actions';
-	import { addImage, type PendingImage } from '$lib/client/pending-images';
+	import { addImage, uniqueImage, type PendingImage } from '$lib/client/pending-images';
 
 	type Props = {
 		editor?: ReturnType<typeof Editor>;
@@ -121,7 +121,7 @@
 	{pagina}
 	{branch}
 	oninvoegen={(alt, result) =>
-		(images = addImage(images, actions.insertImage(editor, alt, result)))}
+		(images = addImage(images, actions.insertImage(editor, alt, uniqueImage(images, result))))}
 	onclose={closeDialog}
 />
 
