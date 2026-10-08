@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+// The merge changes main of the forge that all specs share. On a page no other spec edits, their
+// saves meet no newer version, whatever order the spec files run in.
 test('sends in, comments and merges a draft proposal', async ({ page }) => {
-	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	await page.goto('/sites/digi-handboek/bewerken/onboarding/hybride-werken.md');
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page
 		.locator('nldd-text-editor .cm-line')
-		.filter({ hasText: 'Het Digi Gilde is enthousiast' })
+		.filter({ hasText: 'Een goede thuiswerkplek is belangrijk' })
 		.click({ position: { x: 2, y: 2 } });
 	await page.keyboard.press('Shift+ControlOrMeta+End');
 	await page.keyboard.type('Voorstel door e2e');
@@ -24,7 +26,7 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await expect(
 		page.locator('[data-diff="toegevoegd"]').filter({ hasText: 'Voorstel door e2e' })
 	).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Over het Digi Gilde' })).toHaveCount(0);
+	await expect(page.getByRole('heading', { name: 'Locaties' })).toHaveCount(0);
 	await expect(
 		page.locator('nldd-rich-text').filter({ hasText: 'Voorstel door e2e' })
 	).toBeVisible();
@@ -39,12 +41,12 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await expect(page.getByText('doorgetrokken lijn')).toContainText('onderbroken lijn');
 	await expect(page.getByRole('button', { name: 'Goedkeuren' })).toHaveCount(0);
 	await expect(page.getByRole('table', { name: 'Alle gewijzigde bestanden' })).toContainText(
-		'docs/index.md'
+		'docs/onboarding/hybride-werken.md'
 	);
 	await page.getByRole('radio', { name: 'Brontekst' }).click();
 	await expect(page.locator('pre.bron ins').filter({ hasText: 'Voorstel door e2e' })).toBeVisible();
 	await page.getByRole('radio', { name: 'Hele pagina' }).click();
-	await expect(page.getByRole('heading', { name: 'Over het Digi Gilde' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Locaties' })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Insturen' }).click();
 	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();

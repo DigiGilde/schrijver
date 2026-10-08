@@ -28,7 +28,6 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 	await expect(page.getByText('Het Digi Handboek').first()).toBeVisible();
 });
 
-// These two save pages other than index.md, which the proposal test merges into main meanwhile.
 test('the save notification leaving on its own keeps the view and the focus', async ({ page }) => {
 	await page.clock.install();
 	await page.goto('/sites/digi-handboek/bewerken/werkwijze/principes.md');
