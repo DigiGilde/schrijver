@@ -43,7 +43,7 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	const opzet = page.getByLabel('Opzet', { exact: true });
 	await expect(opzet).toHaveValue(/^## Waar gaat het over\n\nEen pagina over de koffieautomaat\./);
 	await expect(page.getByText(/^Testantwoord, geen AI: /)).toBeVisible();
-	await expect(page.getByRole('status')).toHaveText(
+	await expect(page.locator('form').getByRole('status')).toHaveText(
 		'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.'
 	);
 	await expect(
