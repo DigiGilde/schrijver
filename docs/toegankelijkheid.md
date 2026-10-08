@@ -27,10 +27,10 @@ Found by code review on 2026-10-08. "Code wave" marks what the follow-up code ch
 | 3 | 3.3.1, 3.3.3, 4.1.3 | Form errors are not announced and focus does not move to the first error; Mermaid errors give a line number without a way to jump | Read the alert area above the save button | Code wave (error announcement) |
 | 4 | 3.3.2 | Disabled buttons give no reason: image button on sites without images, "Gekoppeld" before linking, "Invoegen" without alt text | Fill in the alt text; link GitHub in "Instellingen" | Open |
 | 5 | 3.3.2 | "Nieuwe pagina" uses plain browser controls and is not covered by axe or pa11y | None needed; the controls are native | Open |
-| 6 | 2.4.1, 1.3.1 | Default SvelteKit error pages and the failed-login page are unstyled and have no skip link or `main` | Use the link back to the start page | Open |
+| 6 | 2.4.1, 1.3.1 | Default SvelteKit error pages and the failed-login page are unstyled and have no skip link or `main` | Use the link back to the start page | Fixed for Schrijver's error page and the failed-login page, which now render in the application shell; SvelteKit's static fallback, shown only when the shell itself fails, stays plain |
 | 7 | 1.4.3, 4.1.2 | The text editor (`nldd-text-editor`, CodeMirror based) is a third-party component: contrast of some lines and screen-reader behaviour of the Markdown surface are not fully tested | None | Open, to report upstream to the NLDD Designsysteem |
 | 8 | 2.1.1 (advisory) | The toolbar has `role="toolbar"` but every button is a separate Tab stop | Tab through, or jump past with the mouse | Open |
-| 9 | 1.4.4, 1.4.10, 1.4.12 | Zoom, 320 px reflow (the proposal diff may overflow) and text spacing are not tested | None | Open, see the manual audit |
+| 9 | 1.4.4, 1.4.10, 1.4.12 | Zoom and text spacing are not tested; 320 px reflow is tested automatically on the start page, a site page, a proposal, the editor and settings | None | Partly tested, see the manual audit |
 | 10 | 3.2.5 (advisory) | Links that open in a new tab do not say so | None | Open |
 | 11 | 4.1.3 | Success messages are inserted already filled and may not be announced consistently | None | Open |
 | 12 | 3.3.3 | When the session lapses during editing, "Opslaan is mislukt" does not say why; the local draft survives | Sign in again; the draft is kept | Open |
@@ -38,11 +38,11 @@ Found by code review on 2026-10-08. "Code wave" marks what the follow-up code ch
 ## Still needs a manual audit
 
 - Screen reader pass with NVDA and VoiceOver on the editor: toolbar toggles, the Markdown surface, Schrijfhulp state changes, save result, conflict dialog, image dialog.
-- Zoom to 200% and 400%, and a 320 px viewport, on every route, including the two-column editor and the proposal diff.
+- Zoom to 200% and 400% on every route, including the editor with Schrijfhulp beside the text and the three views of the proposal diff.
 - Text spacing (1.4.12), forced colors, reduced motion and dark-mode screenshots.
 - Dialog and assistant states, which the automated scans only see closed: image dialog open, assistant with a suggestion, error banners, save conflict, draft-restore banner, read-only banner, validation errors.
 - Pages missing from the scans: `/onboarding`, `/sites/[site]/nieuw`, the login-failed page and the error pages.
-- Keyboard: forward Tab from the editor to "Concept bewaren", opening the image dialog and Esc, the conflict flow.
+- Keyboard: "Concept bewaren" in the sticky title bar, the properties sheet, opening the image dialog and Esc, the conflict flow.
 - Voice control: visible labels match accessible names (2.5.3).
 - A short user test with a screen-reader user and a keyboard-only user on the whole task: edit, save, send in.
 
