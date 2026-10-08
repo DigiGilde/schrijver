@@ -14,6 +14,8 @@ All checks run against the fake forge (`SCHRIJVER_FAKE_FORGE=1`) at a desktop wi
 
 pa11y ignores `H32.2` (form without submit button) on the editor, proposal and settings pages; the keyboard test covers the submit control for proposal and settings.
 
+The back button of `nldd-top-title-bar` draws a pseudo-element behind its text, so axe cannot resolve its contrast and returns it as "incomplete" (`pseudoContent`). The Playwright axe test allows exactly that node; pa11y counts incomplete results as errors, so `.pa11yci` hides the title bar. The document's scroll padding keeps a focused element clear of the sticky app bar and title bar (WCAG 2.4.11), checked by the keyboard walkthrough.
+
 ## Known issues
 
 Found by code review on 2026-10-08. "Code wave" marks what the follow-up code change addresses; the rest is open.
