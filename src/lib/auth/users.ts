@@ -96,6 +96,11 @@ function realStore(): UsersStore {
 	return (store ??= createUsersStore(client()));
 }
 
+/** Dev and test sessions only: keeps preferences in memory, so settings save without a database. */
+export function useUsersStore(next: UsersStore): void {
+	store = next;
+}
+
 export const getPrefs = (sub: string) => realStore().getPrefs(sub);
 export const savePrefs = (p: UserPrefs) => realStore().savePrefs(p);
 export const listLinkedLogins = (limit: number) => realStore().listLinkedLogins(limit);

@@ -13,7 +13,14 @@ import {
 	sealSession,
 	sessionSecret
 } from '$lib/auth/session';
-import { applySchema, getPrefs, type UserPrefs } from '$lib/auth/users';
+import {
+	applySchema,
+	getPrefs,
+	MemoryUsersStore,
+	savePrefs,
+	useUsersStore,
+	type UserPrefs
+} from '$lib/auth/users';
 import { initServices } from '$lib/server/services';
 import {
 	apiGuard,
@@ -82,6 +89,13 @@ const testPrefs = (sub: string): UserPrefs => ({
 	onboarded: true
 });
 
+let testStoreReady: Promise<void> | undefined;
+const ensureTestStore = (sub: string) =>
+	(testStoreReady ??= (async () => {
+		useUsersStore(new MemoryUsersStore());
+		await savePrefs(testPrefs(sub));
+	})());
+
 const isPublic = (path: string) =>
 	PUBLIC_PATHS.has(path) || PUBLIC_PREFIXES.some((p) => path.startsWith(p));
 
@@ -96,7 +110,8 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	const test = devSession();
 	if (test) {
 		await ensureServices();
-		event.locals.user = { session: test, prefs: testPrefs(test.sub) };
+		await ensureTestStore(test.sub);
+		event.locals.user = { session: test, prefs: await getPrefs(test.sub) };
 		return resolve(event);
 	}
 
