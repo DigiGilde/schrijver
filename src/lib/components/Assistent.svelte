@@ -174,7 +174,7 @@
 				appearance="secondary"
 				size="sm"
 				text={label}
-				loading={busy}
+				loading={busy || undefined}
 				onclick={() => run(action)}
 			></nldd-button>
 		{/each}
@@ -192,7 +192,7 @@
 		appearance="secondary"
 		size="sm"
 		text="Vraag"
-		loading={busy}
+		loading={busy || undefined}
 		disabled={!instruction.trim()}
 		onclick={() => run('vrij')}
 	></nldd-button>

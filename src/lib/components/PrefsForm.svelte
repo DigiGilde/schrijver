@@ -96,19 +96,19 @@
 					<nldd-radio-button-field
 						value="anoniem"
 						label="Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vast pseudoniem."
-						checked={selected === 'anoniem'}
+						checked={selected === 'anoniem' || undefined}
 					></nldd-radio-button-field>
 					<nldd-radio-button-field
 						value="gekoppeld"
 						label="Gekoppeld aan mijn GitHub-account: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
-						checked={selected === 'gekoppeld'}
-						disabled={!linked}
+						checked={selected === 'gekoppeld' || undefined}
+						disabled={!linked || undefined}
 					></nldd-radio-button-field>
 					<nldd-radio-button-field
 						value="op-naam"
 						label="Op naam: je naam en e-mailadres staan bij de wijziging."
-						checked={selected === 'op-naam'}
-						disabled={!emailVerified}
+						checked={selected === 'op-naam' || undefined}
+						disabled={!emailVerified || undefined}
 					></nldd-radio-button-field>
 				</nldd-radio-button-group>
 				{#if !linked}
@@ -141,7 +141,7 @@
 
 			<nldd-form-actions>
 				<nldd-button-group>
-					<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy}
+					<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy || undefined}
 					></nldd-button>
 				</nldd-button-group>
 			</nldd-form-actions>
@@ -172,7 +172,7 @@
 				appearance="secondary"
 				type="submit"
 				text="Koppeling verwijderen"
-				loading={unlinking}
+				loading={unlinking || undefined}
 			></nldd-button>
 		</form>
 	{:else}
