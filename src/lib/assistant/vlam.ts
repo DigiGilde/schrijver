@@ -24,8 +24,6 @@ export interface Outline {
 	explanation: string;
 }
 
-export const OUTLINE_DESCRIPTION_MAX = 2000;
-
 export class AssistantUnavailable extends Error {
 	constructor(message: string) {
 		super(message);

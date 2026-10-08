@@ -2,10 +2,10 @@ import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
 import { fakeAssistantActive, fakeOutline, fakeSuggestion } from '$lib/assistant/fake';
+import { OUTLINE_DESCRIPTION_MAX } from '$lib/assistant/shared';
 import {
 	AssistantUnavailable,
 	DEFAULT_MODEL,
-	OUTLINE_DESCRIPTION_MAX,
 	outline,
 	suggest,
 	vlamClientFromEnv

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { diffWords } from 'diff';
+	import { AI_NOTICE } from '$lib/assistant/shared';
 	import type { Action, Suggestion } from '$lib/assistant/vlam';
 
 	type Props = {
@@ -172,10 +173,7 @@
 >
 	<nldd-title size="5"><h2 id="schrijfhulp-kop">Schrijfhulp</h2></nldd-title>
 	<nldd-spacer size="8"></nldd-spacer>
-	<nldd-text size="sm" color="secondary">
-		Voorstellen komen van een AI-taalmodel (VLAM). Je tekst gaat daarvoor naar VLAM: zet er geen
-		persoonsgegevens of vertrouwelijke informatie in. Controleer elk voorstel zelf.
-	</nldd-text>
+	<nldd-text size="sm" color="secondary">{AI_NOTICE}</nldd-text>
 	<nldd-spacer size="24"></nldd-spacer>
 
 	<div role="group" aria-labelledby="schrijfhulp-bereik">

@@ -3,7 +3,6 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 vi.mock('../../src/lib/assistant/vlam', () => ({
 	AssistantUnavailable: class AssistantUnavailable extends Error {},
 	DEFAULT_MODEL: 'm',
-	OUTLINE_DESCRIPTION_MAX: 2000,
 	vlamClientFromEnv: vi.fn(() => ({})),
 	suggest: vi.fn(async () => ({ replacement: 'r', explanation: 'e' })),
 	outline: vi.fn(async () => ({ title: 't', outline: '## o', explanation: 'e' }))
