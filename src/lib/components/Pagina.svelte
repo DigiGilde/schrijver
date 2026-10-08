@@ -87,7 +87,11 @@
 <nldd-page sticky-header>
 	<div slot="header" bind:this={kop}>
 		<nldd-skip-link href="#inhoud">
-			<AppBalk userName={page.data.userName} email={page.data.email} />
+			<AppBalk
+				userName={page.data.userName}
+				email={page.data.email}
+				testEnvironment={page.data.testEnvironment}
+			/>
 		</nldd-skip-link>
 		{#if terug && pagina.ready}
 			<div class="uitgelijnd">

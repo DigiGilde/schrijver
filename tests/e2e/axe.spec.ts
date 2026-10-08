@@ -24,9 +24,10 @@ const pages = [
  * steps (measured by hand, in both modes: at least 4.5:1 for the numbers, 6.2:1 for the labels).
  * The coach mark on the save button draws its card as a blurred pseudo-element as well (measured by hand:
  * 11.3:1 in light mode, 11.4:1 in dark mode; 9.5:1 and 8.8:1 where page text shows through).
- * The app bar sits in that same sticky header, so its text is unresolved for the same reason: the S of the wordmark, the
- * rest of the wordmark and the Menu button (measured by hand, light / dark mode: 9.8:1 / 6.2:1, 11.3:1 / 11.4:1 and
- * 15.4:1 / 11.4:1). Axe names the same node by what else is on the page, so the sole-button case is matched loosely.
+ * The app bar sits in that same sticky header, so its text is unresolved for the same reason: the test environment bar,
+ * the S of the wordmark, the rest of the wordmark and the Menu button (measured by hand, light / dark mode: 6.2:1 / 6.2:1,
+ * 9.8:1 / 6.2:1, 11.3:1 / 11.4:1 and 15.4:1 / 11.4:1). Axe names the same node by what else is on the page, so the
+ * sole-button case is matched loosely.
  */
 const allowedContrast = [
 	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
@@ -35,6 +36,7 @@ const allowedContrast = [
 	/^nldd-just-in-time-education,\.just-in-time-education__(text|supporting-text)$/,
 	/^nldd-text-cell\[text="Hoogste niveau"\],\.text-cell__text$/,
 	/^nldd-step-bar-item\[(status="current"|text="[^"]+")\],\.step-bar__item-(number|title)$/,
+	/^nldd-status-bar,\.status-bar__text$/,
 	/^\.(blok|woord)$/,
 	/^(nldd-button|\.menuknop),\.button__text$/
 ];

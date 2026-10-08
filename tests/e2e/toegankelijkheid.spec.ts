@@ -391,6 +391,17 @@ test.describe('app bar', () => {
 		await expect(page.getByRole('img', { name: 'Schrijver', exact: true })).toHaveCount(1);
 	});
 
+	test('the test environment bar is a status above the app bar', async ({ page }) => {
+		await page.goto('/help');
+		const bar = page.getByRole('status').filter({ hasText: 'Testomgeving' });
+		await expect(bar).toHaveText(
+			'Testomgeving: wat je bewaart blijft op deze computer en gaat niet naar GitHub.'
+		);
+		const toolbar = (await page.getByRole('toolbar', { name: 'Schrijver' }).boundingBox())!;
+		const status = (await bar.boundingBox())!;
+		expect(status.y + status.height).toBeLessThanOrEqual(toolbar.y);
+	});
+
 	test('the shell has no bar split view, so no divider under the app bar', async ({ page }) => {
 		await page.goto('/help');
 		await expect(page.locator('nldd-app-view > nldd-page')).toHaveCount(1);

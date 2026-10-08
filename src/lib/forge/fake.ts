@@ -153,7 +153,7 @@ export class FakeForge implements Forge {
 			headSha: this.repo(repo).heads.get(head) ?? '',
 			headRepo: repo,
 			baseRef: base,
-			url: `https://github.com/${repo}/pull/${number}`,
+			url: `https://github.com/${repo}/pulls`,
 			labels: [],
 			updatedAt: new Date().toISOString(),
 			mergeable: this.mergeableByPr.get(number) ?? true,

@@ -3,8 +3,10 @@
 		/** Name and address of the signed-in user; without a user the bar shows only the wordmark. */
 		userName: string | null;
 		email: string | null;
+		/** The local preview, where nothing reaches GitHub. */
+		testEnvironment: boolean;
 	};
-	let { userName, email }: Props = $props();
+	let { userName, email, testEnvironment }: Props = $props();
 
 	const navigation = [
 		{ text: 'Sites', icon: 'globe', href: '/' },
@@ -34,6 +36,12 @@
 	</nldd-container>
 {/snippet}
 
+{#if testEnvironment}
+	<nldd-status-bar
+		variant="warning"
+		text="Testomgeving: wat je bewaart blijft op deze computer en gaat niet naar GitHub."
+	></nldd-status-bar>
+{/if}
 <div class="uitgelijnd appbalk">
 	<nldd-toolbar label="Schrijver">
 		<!-- The wordmark carries the name, so the title has no `text`: with both, the S is read twice. -->

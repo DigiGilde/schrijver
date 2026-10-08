@@ -93,7 +93,7 @@ describe('FakeForge', () => {
 			labels: [],
 			headRef: 'draft',
 			baseRef: 'main',
-			url: `https://github.com/${REPO}/pull/1`
+			url: `https://github.com/${REPO}/pulls`
 		});
 		expect(await forge.listPrs(REPO, 'open')).toHaveLength(1);
 		expect((await forge.getPr(REPO, 1)).title).toBe('Title');
