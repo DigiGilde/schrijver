@@ -285,8 +285,11 @@ test('a save with a missing required field offers to open the properties', async
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 
-	const melding = page.getByRole('alert').filter({ hasText: 'Controleer de gemarkeerde velden' });
+	const melding = page
+		.getByRole('alert')
+		.filter({ hasText: 'Vul de gemarkeerde velden in bij Eigenschappen' });
 	await expect(page.locator('.foutmelding')).toBeFocused();
+	await expect(melding.getByRole('listitem')).toHaveText(['Beschrijving is verplicht']);
 	const aanpassen = melding.getByRole('button', { name: 'Eigenschappen aanpassen' });
 	for (let i = 0; i < 4; i++) {
 		await page.keyboard.press('Tab');
@@ -299,9 +302,9 @@ test('a save with a missing required field offers to open the properties', async
 	await expect(dialog).toBeVisible();
 	const sheet = page.locator('nldd-sheet');
 	await expect(sheet.locator('nldd-text-field[invalid]')).toHaveCount(1);
-	await expect(sheet.getByText('Dit veld is verplicht')).toBeVisible();
+	await expect(sheet.getByText('Beschrijving is verplicht')).toBeVisible();
 
-	await sheet.getByRole('textbox', { name: 'description' }).fill('Hoe je het team bereikt.');
+	await sheet.getByRole('textbox', { name: 'Beschrijving' }).fill('Hoe je het team bereikt.');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
@@ -317,8 +320,8 @@ test('a new page shows its properties once when a required one is still empty', 
 	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
 	await expect(dialog).toBeVisible();
 	const sheet = page.locator('nldd-sheet');
-	await expect(sheet.getByRole('textbox', { name: 'title' })).toHaveValue('Nieuw onderwerp');
-	await sheet.getByRole('textbox', { name: 'description' }).fill('Een onderwerp uit e2e.');
+	await expect(sheet.getByRole('textbox', { name: 'Titel' })).toHaveValue('Nieuw onderwerp');
+	await sheet.getByRole('textbox', { name: 'Beschrijving' }).fill('Een onderwerp uit e2e.');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
@@ -349,7 +352,7 @@ test('the title of a field-titled page follows the field', async ({ page }) => {
 	await page.goto('/sites/moza-site/bewerken/contact.md');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');
 	await page.getByRole('button', { name: 'Eigenschappen' }).click();
-	await page.getByRole('textbox', { name: 'title' }).fill('Contact met het team');
+	await page.getByRole('textbox', { name: 'Titel' }).fill('Contact met het team');
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeHidden();
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact met het team');

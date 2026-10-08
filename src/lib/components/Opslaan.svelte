@@ -24,7 +24,6 @@
 		nieuw,
 		snapshot,
 		tekst,
-		labels,
 		images,
 		onverstuurd,
 		onbewaard,
@@ -45,7 +44,6 @@
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
 		tekst: string;
-		labels: Record<string, string>;
 		images: () => PendingImage[];
 		onverstuurd: (sent: PendingImage[]) => void;
 		onbewaard: (saved: { sha: string; branch: string }) => void;
@@ -242,7 +240,7 @@
 				<nldd-rich-text>
 					<ul>
 						{#each Object.entries(fout.fields) as [veld, melding] (veld)}
-							<li>{labels[veld] ?? veld}: {melding}</li>
+							<li>{melding}</li>
 						{/each}
 					</ul>
 				</nldd-rich-text>

@@ -147,7 +147,13 @@ describe('save', () => {
 					body: 'Tekst'
 				})
 			);
-			expect(r).toMatchObject({ ok: false, error: { fields: { title: 'Dit veld is verplicht' } } });
+			expect(r).toMatchObject({
+				ok: false,
+				error: {
+					message: 'Vul de gemarkeerde velden in bij Eigenschappen',
+					fields: { title: 'Titel is verplicht' }
+				}
+			});
 			expect(forge.branches(moza.repo)).toEqual(['main']);
 		});
 

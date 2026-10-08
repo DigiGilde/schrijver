@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FormField } from '$lib/content/schema-form';
+	import { fieldLabel, type FormField } from '$lib/content/schema-form';
 
 	type Props = { fields: FormField[]; onchange: (fields: FormField[]) => void; disabled?: boolean };
 	let { fields, onchange, disabled = false }: Props = $props();
@@ -20,7 +20,6 @@
 			.split(',')
 			.map((part) => part.trim())
 			.filter(Boolean);
-	const label = (field: FormField) => field.def.label ?? field.key;
 </script>
 
 {#if fields.length > 0}
@@ -30,7 +29,7 @@
 				{#if field.def.type === 'ja-nee'}
 					<nldd-form-field>
 						<nldd-checkbox-field
-							label={label(field)}
+							label={fieldLabel(field)}
 							checked={field.value === true || undefined}
 							invalid={field.error !== null || undefined}
 							disabled={disabled || undefined}
@@ -46,7 +45,7 @@
 					</nldd-form-field>
 				{:else}
 					<nldd-form-field
-						label={label(field)}
+						label={fieldLabel(field)}
 						supporting-label={field.def.type === 'paginaverwijzing'
 							? (field.def.hulp ??
 								(field.def.meervoud

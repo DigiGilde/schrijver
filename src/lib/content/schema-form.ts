@@ -6,6 +6,29 @@ export type FormField = { key: string; def: FieldDef; value: unknown; error: str
 
 type Frontmatter = Record<string, unknown>;
 
+const DEFAULT_LABELS: Record<string, string> = {
+	title: 'Titel',
+	description: 'Beschrijving',
+	summary: 'Samenvatting',
+	date: 'Datum',
+	weight: 'Volgorde',
+	tags: 'Tags',
+	categories: 'Categorieën',
+	draft: 'Concept',
+	aliases: 'Andere adressen',
+	slug: 'Adres',
+	image: 'Afbeelding',
+	author: 'Auteur'
+};
+
+/** The label a writer sees for a field: the schema's own, a Dutch default, or the key itself. */
+export function fieldLabel(field: Pick<FormField, 'key' | 'def'>): string {
+	const { key, def } = field;
+	if (def.label) return def.label;
+	if (Object.hasOwn(DEFAULT_LABELS, key)) return DEFAULT_LABELS[key];
+	return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 function matchesPath(globs: string[], path: string): boolean {
 	const parts = path.split('/');
 	const candidates = parts.map((_, i) => parts.slice(i).join('/'));
@@ -39,21 +62,24 @@ function isEmpty(value: unknown): boolean {
 	return false;
 }
 
+/* A message names its field: the list of a failed save shows it without the form around it. */
 function fieldError(field: FormField): string | null {
 	const { def, value } = field;
-	if (isEmpty(value)) return def.verplicht ? 'Dit veld is verplicht' : null;
+	const label = fieldLabel(field);
+	if (isEmpty(value)) return def.verplicht ? `${label} is verplicht` : null;
 	if (def.type === 'getal') {
 		const n = typeof value === 'number' ? value : Number(String(value).trim().replace(',', '.'));
-		if (!Number.isFinite(n)) return 'Moet een getal zijn';
+		if (!Number.isFinite(n)) return `${label} moet een getal zijn`;
 	}
 	if (def.type === 'datum') {
 		const s = value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
 		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
 		const valid = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toISOString().slice(0, 10) === s;
-		if (!valid) return 'Datum als JJJJ-MM-DD';
+		if (!valid) return `${label} moet de vorm JJJJ-MM-DD hebben`;
 	}
 	if (def.type === 'paginaverwijzing' && def.meervoud && def.max !== undefined) {
-		if (Array.isArray(value) && value.length > def.max) return `Maximaal ${def.max} verwijzingen`;
+		if (Array.isArray(value) && value.length > def.max)
+			return `${label} mag maximaal ${def.max} verwijzingen bevatten`;
 	}
 	return null;
 }

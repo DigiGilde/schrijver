@@ -261,7 +261,6 @@
 					tekst={body}
 					images={() => images}
 					onverstuurd={(sent) => (images = withoutSent(images, sent))}
-					labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 					onveldfouten={(fouten) =>
 						(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
 					focusEditor={(wissel) => void schrijfvlak?.focus(wissel)}

@@ -4,6 +4,7 @@ import { parseSchemaYaml } from '../../src/lib/config/types';
 import {
 	applyForm,
 	buildForm,
+	fieldLabel,
 	newPagePath,
 	pageTitle,
 	summaryField,
@@ -37,10 +38,13 @@ describe('buildForm', () => {
 });
 
 describe('validateForm', () => {
-	it('flags required empty fields', () => {
+	it('flags required empty fields by their label', () => {
 		const r = validateForm(buildForm(moza, {}, 'content/a.md'));
 		expect(r.ok).toBe(false);
-		expect(r.fields[0].error).toBe('Dit veld is verplicht');
+		expect(r.fields.map((f) => f.error)).toEqual([
+			'Titel is verplicht',
+			'Beschrijving is verplicht'
+		]);
 	});
 	it('checks datum, getal and max', () => {
 		const schema = {
@@ -55,12 +59,49 @@ describe('validateForm', () => {
 			buildForm(schema, { d: '7-10-2026', n: 'x', r: ['a', 'b', 'c'] }, 'a.md')
 		);
 		expect(r.fields.map((f) => f.error)).toEqual([
-			'Datum als JJJJ-MM-DD',
-			'Moet een getal zijn',
-			'Maximaal 2 verwijzingen'
+			'D moet de vorm JJJJ-MM-DD hebben',
+			'N moet een getal zijn',
+			'R mag maximaal 2 verwijzingen bevatten'
 		]);
 		const ok = validateForm(buildForm(schema, { d: '2026-10-07', n: 3, r: ['a'] }, 'a.md'));
 		expect(ok.ok).toBe(true);
+	});
+});
+
+describe('fieldLabel', () => {
+	const def = { type: 'tekst', verplicht: false, verborgen: false } as const;
+
+	it('gives common keys a Dutch label', () => {
+		const labels = {
+			title: 'Titel',
+			description: 'Beschrijving',
+			summary: 'Samenvatting',
+			date: 'Datum',
+			weight: 'Volgorde',
+			tags: 'Tags',
+			categories: 'Categorieën',
+			draft: 'Concept',
+			aliases: 'Andere adressen',
+			slug: 'Adres',
+			image: 'Afbeelding',
+			author: 'Auteur'
+		};
+		for (const [key, label] of Object.entries(labels)) expect(fieldLabel({ key, def })).toBe(label);
+	});
+
+	it("keeps the schema's own label", () => {
+		expect(fieldLabel({ key: 'description', def: { ...def, label: 'Samenvatting' } })).toBe(
+			'Samenvatting'
+		);
+		expect(buildForm(handboek, {}, 'docs/a.md').map(fieldLabel)).toEqual([
+			'Samenvatting',
+			'Lees ook'
+		]);
+	});
+
+	it('shows any other key with a capital', () => {
+		expect(fieldLabel({ key: 'hero', def })).toBe('Hero');
+		expect(fieldLabel({ key: 'constructor', def })).toBe('Constructor');
 	});
 });
 

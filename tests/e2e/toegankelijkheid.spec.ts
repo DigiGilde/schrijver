@@ -230,8 +230,8 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 			json: {
 				ok: false,
 				error: {
-					message: 'Controleer de gemarkeerde velden',
-					fields: { description: 'Dit veld is verplicht' }
+					message: 'Vul de gemarkeerde velden in bij Eigenschappen',
+					fields: { description: 'Samenvatting is verplicht' }
 				}
 			}
 		})
@@ -239,10 +239,12 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 	await page.goto('/sites/digi-handboek/bewerken/index.md');
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
-	const melding = page.getByRole('alert').filter({ hasText: 'Controleer de gemarkeerde velden' });
+	const melding = page
+		.getByRole('alert')
+		.filter({ hasText: 'Vul de gemarkeerde velden in bij Eigenschappen' });
 	await expect(page.locator('.foutmelding')).toBeFocused();
 	await expect(melding).toHaveAttribute('variant', 'critical');
-	await expect(melding).toContainText('Samenvatting: Dit veld is verplicht');
+	await expect(melding).toContainText('Samenvatting is verplicht');
 	await expect(page.locator('nldd-text-field[invalid]')).toHaveCount(1);
 });
 

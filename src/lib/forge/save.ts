@@ -178,7 +178,7 @@ export async function save(
 		const fields = Object.fromEntries(
 			form.fields.filter((f) => f.error).map((f) => [f.key, f.error as string])
 		);
-		return fail(400, 'Controleer de gemarkeerde velden', { fields });
+		return fail(400, 'Vul de gemarkeerde velden in bij Eigenschappen', { fields });
 	}
 	if (missingDescriptions(req.body).length > 0) return fail(400, MERMAID_DESCR_MESSAGE);
 	if (hasImageWithoutAlt(req.body)) return fail(400, 'Elke afbeelding heeft een alt-tekst nodig');
