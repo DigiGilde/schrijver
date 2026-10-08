@@ -65,7 +65,7 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	).toBeVisible();
 	await expect(
 		page.getByText(
-			'Goedkeuren kan de redactie (naam@rijksoverheid.nl en test@example.org) of iemand met schrijfrechten op de repository op GitHub.'
+			'Goedkeuren gebeurt op GitHub: door de redactie (naam@rijksoverheid.nl en test@example.org) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
 		)
 	).toBeVisible();
 	await expect(
@@ -86,5 +86,5 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await expect(
 		page.getByText('Klaar: de wijziging staat op de site na de volgende publicatie.')
 	).toBeVisible();
-	await expect(page.getByText(/^Goedkeuren kan/)).toHaveCount(0);
+	await expect(page.getByText(/^Goedkeuren gebeurt/)).toHaveCount(0);
 });

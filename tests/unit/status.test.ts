@@ -8,6 +8,7 @@ import {
 	stepOf,
 	updatedText,
 	waitsForReview,
+	whoApproves,
 	whoDecides,
 	type Status
 } from '../../src/lib/forge/status';
@@ -100,12 +101,27 @@ describe('the flow of a proposal', () => {
 		expect(listing(['a@x'])).toBe('a@x');
 		expect(listing(['a@x', 'b@x', 'c@x'])).toBe('a@x, b@x en c@x');
 		expect(whoDecides('ingestuurd', ['a@x', 'b@x'])).toBe(
-			'Goedkeuren kan de redactie (a@x en b@x) of iemand met schrijfrechten op de repository op GitHub.'
+			'Goedkeuren gebeurt op GitHub: door de redactie (a@x en b@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
 		);
 		expect(whoDecides('goedgekeurd', [])).toBe(
 			'Samenvoegen kan iemand met schrijfrechten op de repository op GitHub.'
 		);
 		expect(whoDecides('samengevoegd', ['a@x'])).toBeNull();
 		expect(whoDecides('gesloten', ['a@x'])).toBeNull();
+	});
+
+	it('says approving happens on GitHub, where an editor known by address needs an account', () => {
+		const sentence =
+			'Goedkeuren gebeurt op GitHub: door de redactie (a@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.';
+		expect(whoApproves(['a@x'])).toBe(sentence);
+		for (const status of ['concept', 'ingestuurd', 'wijzigingen-gevraagd'] as const) {
+			expect(whoDecides(status, ['a@x'])).toBe(sentence);
+		}
+		expect(whoApproves([])).toBe(
+			'Goedkeuren gebeurt op GitHub: door iemand met schrijfrechten op de repository.'
+		);
+		expect(whoDecides('goedgekeurd', ['a@x'])).toBe(
+			'Samenvoegen kan de redactie (a@x) of iemand met schrijfrechten op de repository op GitHub.'
+		);
 	});
 });

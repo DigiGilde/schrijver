@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Pagina from '$lib/components/Pagina.svelte';
 	import SiteKop from '$lib/components/SiteKop.svelte';
+	import { whoApproves } from '$lib/forge/status';
 
 	let { data } = $props();
 
@@ -101,7 +102,7 @@
 								</ul>
 							</li>
 							<li>
-								Goedkeuren doet de redactie op GitHub.
+								{whoApproves(data.redactie)}
 								{data.mergenVanuitSchrijver
 									? 'Samenvoegen kan in Schrijver en op GitHub.'
 									: 'Samenvoegen gebeurt ook op GitHub, niet in Schrijver.'}

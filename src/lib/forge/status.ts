@@ -122,12 +122,20 @@ export function listing(items: string[]): string {
 	return `${items.slice(0, -1).join(', ')} en ${items.at(-1)}`;
 }
 
+const WRITE_ACCESS = 'iemand met schrijfrechten op de repository';
+
+/** Approving happens on GitHub only, so an editor known by address needs a GitHub account as well. */
+export function whoApproves(redactie: string[]): string {
+	return redactie.length === 0
+		? `Goedkeuren gebeurt op GitHub: door ${WRITE_ACCESS}.`
+		: `Goedkeuren gebeurt op GitHub: door de redactie (${listing(redactie)}) met een GitHub-account, of door ${WRITE_ACCESS}.`;
+}
+
 /** Who approves or merges an open proposal: the site's editors by address, or anyone with write access. */
 export function whoDecides(status: Status, redactie: string[]): string | null {
 	if (status === 'samengevoegd' || status === 'gesloten') return null;
-	const verb = status === 'goedgekeurd' ? 'Samenvoegen' : 'Goedkeuren';
-	const github = 'iemand met schrijfrechten op de repository op GitHub';
+	if (status !== 'goedgekeurd') return whoApproves(redactie);
 	return redactie.length === 0
-		? `${verb} kan ${github}.`
-		: `${verb} kan de redactie (${listing(redactie)}) of ${github}.`;
+		? `Samenvoegen kan ${WRITE_ACCESS} op GitHub.`
+		: `Samenvoegen kan de redactie (${listing(redactie)}) of ${WRITE_ACCESS} op GitHub.`;
 }

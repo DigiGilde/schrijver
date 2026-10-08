@@ -183,6 +183,11 @@ test('the about page explains the flow and names the redactie', async ({ page })
 	await expect(
 		tekst.getByText('iedereen met schrijfrechten op de repository op GitHub.')
 	).toBeVisible();
+	await expect(
+		tekst.getByText(
+			'Goedkeuren gebeurt op GitHub: door de redactie (naam@rijksoverheid.nl en test@example.org) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
+		)
+	).toBeVisible();
 	await expect(tekst.getByText('Op naam', { exact: true })).toBeVisible();
 	await expect(
 		tekst.getByText(
