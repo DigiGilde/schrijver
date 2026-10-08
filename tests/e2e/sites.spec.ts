@@ -127,6 +127,21 @@ test('the proposals list shows the seeded draft', async ({ page }) => {
 	await expect(page.getByText('Voorbeeldvoorstel Digi Handboek')).toBeVisible();
 });
 
+test('the Te beoordelen block is there only while a proposal waits for the editors', async ({
+	page
+}) => {
+	// The block and the tab list come from one load, so a single visit tells which state this is.
+	await page.goto('/sites/digi-handboek?tab=beoordelen');
+	const lists = page.locator('nldd-list[accessible-label="Te beoordelen"]');
+	await expect(lists.last()).toBeVisible();
+	const waiting = await lists.last().locator('nldd-list-item').count();
+	await expect(page.getByRole('heading', { name: /^Te beoordelen \(/, level: 2 })).toHaveCount(
+		waiting > 0 ? 1 : 0
+	);
+	await expect(lists).toHaveCount(waiting > 0 ? 2 : 1);
+	await expect(page.getByRole('link', { name: 'Te beoordelen' })).toBeVisible();
+});
+
 test('the proposal page shows what changed before the comment form', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/voorstellen/1');
 	await expect(page.getByRole('heading', { name: 'Wijzigingen', level: 2 })).toBeVisible();

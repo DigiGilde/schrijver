@@ -47,7 +47,7 @@
 			</nldd-toolbar-item>
 		</nldd-toolbar>
 
-		{#if data.editorial}
+		{#if data.teBeoordelen.length > 0}
 			<nldd-container gap="8">
 				<nldd-title size="3" heading-level="2" text="Te beoordelen ({data.teBeoordelen.length})"
 				></nldd-title>
