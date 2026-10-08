@@ -25,7 +25,7 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 	await expect(page.locator('nldd-rich-text')).toContainText('Opgeslagen door e2e');
 
 	await page.goto('/sites/digi-handboek?tab=alle');
-	await expect(page.getByText('Het Digi Handboek').first()).toBeVisible();
+	await expect(page.getByRole('link', { name: /^Het Digi Handboek/ }).first()).toBeVisible();
 });
 
 test('the save notification leaving on its own keeps the view and the focus', async ({ page }) => {
