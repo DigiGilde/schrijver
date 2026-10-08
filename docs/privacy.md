@@ -13,7 +13,7 @@ Processing inventory, register draft, DPIA advice and open statements. How ident
 | Pseudonym (HMAC-SHA256, 12 hex) | Anonymous attribution, "my proposals" | 6(1)(e) | Permanent in git history and PR bodies | Public repositories; personal data (pseudonymised, art. 4(5)) |
 | GitHub login and id | Link, `gekoppeld`, editorial check, reviewer pool | 6(1)(a) | `user_prefs` until unlink | Postgres; public in the `gekoppeld` trailer; sent to GitHub in permission checks |
 | Identity choice, onboarding flag | Apply the choice | 6(1)(e) | As `user_prefs` | Postgres |
-| Page text, frontmatter, images | The product | 6(1)(e); content owner responsible | From the first save | Public GitHub from "Concept bewaren" |
+| Page text, frontmatter, images | The product | 6(1)(e); content owner responsible | From the first save | Public GitHub from "Concept bewaren". Photo metadata (camera, location) goes along unless the writer chooses "Verklein voor het web", which drops it |
 | PR body, title, review comments | Review, "my proposals" | 6(1)(e) | While the PR exists | Public GitHub |
 | Log fields | Operation, security | 6(1)(e), (f) for security | Unknown (ZAD) | ZAD logging: site, PR, branch, event, status, token counts, error text; no `sub` |
 | VLAM payload | Writing suggestions | 6(1)(e) | Unknown (SSC-ICT) | Page text, instruction, writing guide; no identity |

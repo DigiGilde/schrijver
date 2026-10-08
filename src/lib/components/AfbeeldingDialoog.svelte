@@ -36,13 +36,7 @@
 	let aanbod = $state.raw<Shrunk | null>(null);
 	let verklein = $state(false);
 
-	const size = $derived(
-		file
-			? file.size < 1024 * 1024
-				? `${Math.max(1, Math.round(file.size / 1024))} kB`
-				: `${(file.size / 1024 / 1024).toFixed(1)} MB`
-			: ''
-	);
+	const size = $derived(file ? formatBytes(file.size) : '');
 	/* Only a large file gets the message; any other is judged on its dimensions, too quick to announce. */
 	const toonBerekenen = $derived(berekent && file !== null && isLarge(file));
 	const aanbodMelding = $derived(
@@ -97,7 +91,10 @@
 	}
 
 	function meldingVoor(status: number, message?: string) {
-		if (status === 413) return 'De afbeelding is groter dan 5 MB';
+		if (status === 413)
+			return aanbod && !verklein
+				? 'De afbeelding is groter dan 5 MB. Kies "Verklein voor het web" en voeg haar opnieuw in.'
+				: 'De afbeelding is groter dan 5 MB';
 		if (status === 415) return 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)';
 		return message ?? 'De afbeelding kon niet worden verwerkt';
 	}
