@@ -19,10 +19,13 @@ The NLDD design system distinguishes two compositions: an application (panes, to
 ## Consequences
 
 - The Rijkslint is gone. The design system reserves the top navigation bar for landing and information pages; Schrijver is an internal work tool, and the favicon keeps the rijkswapen.
-- Bars line up with the content through the page-section variables (`--semantics-page-sections-*`), as Plak does. The design system calls its variables internal, so check this on every upgrade.
+- Bars line up with the content through the page-section variables (`--semantics-page-sections-*`), as Plak does, and the diff colours come from the category variables (`--semantics-categories-*`). The design system calls its variables internal, so check both on every upgrade.
 - After server rendering the design system upgrades elements in definition order: a title bar upgrades before its page and throws when it looks for the scroll target. The page component renders the title bar once `nldd-page` is defined. To report upstream.
 - The app bar and the title bar stick while the document scrolls. A scroll padding on the document keeps a focused element in view (WCAG 2.4.11). To report upstream: the root scroll mode sets no scroll padding of its own.
+- CodeMirror inside `nldd-text-editor` ignores that scroll padding, so the line being edited could slide behind the bars. Schrijver keeps the caret below the title bar itself, reading the cursor position from the editor's shadow root. To report upstream: the editor should pass the page insets to CodeMirror's scroll margins.
+- "Uitloggen" in the account menu leads to the block on the settings page that says unsaved drafts are cleared, where "Log uit" does it. Logging out straight from the menu would discard drafts without a word.
 - axe cannot resolve the contrast of the title bar's back button (`pseudoContent`). The Playwright axe test allows exactly that node; pa11y, which counts unresolved results as errors, hides the title bar.
 - Page properties are one click further away. A save that fails on a property offers "Eigenschappen aanpassen", which opens the sheet.
 - The app toolbar stays at the top on phones, where the application pattern prefers the bottom; with only a name and an account menu that costs little.
 - The "Voorbeeld" link left the proposal lists; it stays on the proposal page.
+- Also to report upstream: the save notification floats over the sticky bars for ten seconds, and Enter on a list row made of segments does nothing.
