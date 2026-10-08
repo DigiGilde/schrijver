@@ -55,7 +55,8 @@
 		onveldfouten: (fields: Record<string, string>) => void;
 		/** Opens the page properties; offered with field errors. */
 		oneigenschappen?: (() => void) | null;
-		focusEditor: () => void;
+		/** Returns focus to the editor; with `false` a showing preview stays and takes it instead. */
+		focusEditor: (wissel?: boolean) => void;
 		/** Without its own button, a parent shows one and calls opslaan(). */
 		knop?: boolean;
 		busy?: boolean;
@@ -215,9 +216,11 @@
 	<nldd-notification
 		variant="success"
 		text={`Concept bewaard als voorstel #${bewaard.nummer}`}
-		ondismiss={() => {
+		ondismiss={(event: Event) => {
+			// Its own clock pauses while focus is inside, so only a dismiss from within had it.
+			const hadFocus = (event.currentTarget as Element).matches(':focus-within');
 			bewaard = null;
-			focusEditor();
+			if (hadFocus) focusEditor(false);
 		}}
 	>
 		<nldd-button

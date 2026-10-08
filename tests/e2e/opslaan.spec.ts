@@ -20,6 +20,43 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 	await expect(page.getByText('Het Digi Handboek').first()).toBeVisible();
 });
 
+test('the save notification leaving on its own keeps the view and the focus', async ({ page }) => {
+	await page.clock.install();
+	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nBewaard en dan bekeken');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const melding = page.locator('nldd-notification');
+	await expect(melding).toBeVisible();
+
+	const voorbeeld = page.getByRole('radio', { name: 'Voorbeeld' });
+	await voorbeeld.click();
+	await expect(page.getByRole('region', { name: 'Voorbeeld' })).toBeVisible();
+	await page.clock.fastForward(11_000);
+	await expect(melding).toHaveCount(0);
+	await expect(voorbeeld).toBeChecked();
+	await expect(voorbeeld).toBeFocused();
+	await expect(page.getByRole('region', { name: 'Voorbeeld' })).toBeVisible();
+});
+
+test('dismissing the save notification from within keeps the preview showing', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nBewaard en weggeklikt');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const melding = page.locator('nldd-notification');
+	await expect(melding).toBeVisible();
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
+
+	await melding.getByRole('link', { name: 'Bekijk voorstel' }).focus();
+	await page.keyboard.press('Escape');
+	await expect(melding).toHaveCount(0);
+	await expect(page.getByRole('radio', { name: 'Voorbeeld' })).toBeChecked();
+	await expect(page.getByRole('region', { name: 'Voorbeeld' })).toBeFocused();
+});
+
 test('warns when a stored draft is based on an older version', async ({ page }) => {
 	const key = 'schrijver:digi-handboek:new:index.md';
 	await page.goto('/sites/digi-handboek/bewerken/index.md');

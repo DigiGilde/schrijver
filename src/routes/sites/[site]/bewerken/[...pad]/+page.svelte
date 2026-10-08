@@ -250,7 +250,7 @@
 					labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
 					onveldfouten={(fouten) =>
 						(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
-					focusEditor={() => void schrijfvlak?.focus()}
+					focusEditor={(wissel) => void schrijfvlak?.focus(wissel)}
 				/>
 				{#if images.length}
 					<nldd-text color="secondary" size="sm"

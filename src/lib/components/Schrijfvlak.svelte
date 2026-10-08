@@ -40,6 +40,7 @@
 	let dialogFile = $state<File | null>(null);
 	let hulpOpen = $state(false);
 	let hulpPaneel: HTMLElement | undefined = $state();
+	let voorbeeld: HTMLElement | undefined = $state();
 	let returnFocus: HTMLElement | null = null;
 
 	/*
@@ -54,9 +55,13 @@
 		hulpPaneel?.scrollIntoView({ block: 'start' });
 	}
 
-	/** Puts focus in the editor, switching back from the preview when that is showing. */
-	export async function focus() {
+	/**
+	 * Puts focus in the editor, switching back from the preview when that is showing. With `wissel`
+	 * false the preview stays and takes the focus itself.
+	 */
+	export async function focus(wissel = true) {
 		if (weergave !== 'schrijven') {
+			if (!wissel) return voorbeeld?.focus();
 			weergave = 'schrijven';
 			await tick();
 		}
@@ -116,7 +121,7 @@
 			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
 		</div>
 		{#if weergave === 'voorbeeld'}
-			<section aria-label="Voorbeeld">
+			<section aria-label="Voorbeeld" tabindex="-1" bind:this={voorbeeld}>
 				<nldd-card>
 					<nldd-container padding="24" sm-padding="16">
 						<Voorbeeld
