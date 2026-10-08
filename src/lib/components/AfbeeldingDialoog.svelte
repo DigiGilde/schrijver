@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { formatBytes, isLarge, shrink, type Shrunk } from '$lib/client/verkleinen';
 
 	type Result = { repoPath: string; markdownRef: string; base64: string; mime: string };
 	type Props = {
@@ -31,6 +32,9 @@
 	let ronde = $state(0);
 	let abort: AbortController | null = null;
 	let altField: HTMLElement | undefined = $state();
+	let berekent = $state(false);
+	let aanbod = $state.raw<Shrunk | null>(null);
+	let verklein = $state(false);
 
 	const size = $derived(
 		file
@@ -39,6 +43,33 @@
 				: `${(file.size / 1024 / 1024).toFixed(1)} MB`
 			: ''
 	);
+	/* Only a large file gets the message; any other is judged on its dimensions, too quick to announce. */
+	const toonBerekenen = $derived(berekent && file !== null && isLarge(file));
+	const aanbodMelding = $derived(
+		toonBerekenen
+			? 'Bezig met berekenen of de afbeelding kleiner kan'
+			: aanbod
+				? 'Je kunt de afbeelding verkleinen: zie de optie Verklein voor het web'
+				: ''
+	);
+
+	const beschrijf = (m: Shrunk['from']) =>
+		`${formatBytes(m.bytes)}, ${m.width} × ${m.height} pixels`;
+
+	$effect(() => {
+		const gekozen = file;
+		aanbod = null;
+		verklein = false;
+		berekent = gekozen !== null;
+		if (!gekozen) return;
+		let vervallen = false;
+		void shrink(gekozen).then((uitkomst) => {
+			if (vervallen) return;
+			aanbod = uitkomst;
+			berekent = false;
+		});
+		return () => (vervallen = true);
+	});
 
 	$effect(() => {
 		if (!open) return;
@@ -84,7 +115,7 @@
 		abort = controller;
 		try {
 			const form = new FormData();
-			form.set('bestand', file);
+			form.set('bestand', verklein && aanbod ? aanbod.file : file);
 			form.set('pagina', pagina);
 			if (branch) form.set('branch', branch);
 			form.set('alt', alt.trim());
@@ -142,6 +173,26 @@
 		{#if file}
 			<p class="bestand">{file.name} ({size})</p>
 		{/if}
+		{#if toonBerekenen}
+			<nldd-text size="sm" color="secondary" aria-hidden="true"
+				>Bezig met berekenen of de afbeelding kleiner kan...</nldd-text
+			>
+		{:else if aanbod}
+			<nldd-form-field>
+				<nldd-checkbox-field
+					label="Verklein voor het web"
+					checked={verklein || undefined}
+					onchange={(e: Event) =>
+						(verklein = (e as CustomEvent<{ checked: boolean }>).detail.checked)}
+				></nldd-checkbox-field>
+				<nldd-form-field-help-text
+					>Van {beschrijf(aanbod.from)}, naar {beschrijf(aanbod.to)}. De pagina laadt sneller.</nldd-form-field-help-text
+				>
+				<nldd-form-field-help-text
+					>Ook de fotogegevens, zoals de locatie, gaan eruit.</nldd-form-field-help-text
+				>
+			</nldd-form-field>
+		{/if}
 
 		<nldd-form-field label="Alt-tekst">
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -171,6 +222,7 @@
 		</nldd-form-field>
 
 		<p class="sr-only" role="status">{[bestandFout, altFout].filter(Boolean).join('. ')}</p>
+		<p class="sr-only" role="status">{aanbodMelding}</p>
 		{#if fout}
 			<p role="alert" class="fout">{fout}</p>
 		{/if}
