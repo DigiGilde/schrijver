@@ -1,42 +1,151 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/** A list is found by its host: its rows are slotted into it, so they are not descendants of its role=list. */
+const list = (page: Page, label: string) => page.locator(`nldd-list[accessible-label="${label}"]`);
+
+/** True when the first match of every selector comes after the previous one in document order. */
+function inDocumentOrder(page: Page, selectors: string[]) {
+	return page.evaluate(
+		(selectorList) =>
+			selectorList.every(
+				(selector, i) =>
+					i === 0 ||
+					!!(
+						document
+							.querySelector(selectorList[i - 1])!
+							.compareDocumentPosition(document.querySelector(selector)!) &
+						Node.DOCUMENT_POSITION_FOLLOWING
+					)
+			),
+		selectors
+	);
+}
 
 test('the home page lists both sites', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('heading', { name: 'Kies een site' })).toBeVisible();
-	await expect(page.getByRole('link', { name: /Digi Handboek/ })).toHaveAttribute(
+	const sites = list(page, 'Sites');
+	await expect(sites.getByRole('link', { name: /Digi Handboek/ })).toHaveAttribute(
 		'href',
 		'/sites/digi-handboek'
 	);
-	await expect(page.getByRole('link', { name: /MOZa-site/ })).toHaveAttribute(
+	await expect(sites.getByRole('link', { name: /MOZa-site/ })).toHaveAttribute(
 		'href',
 		'/sites/moza-site'
 	);
 });
 
 test('the site page shows the folder tree and page titles', async ({ page }) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(String(error)));
 	await page.goto('/sites/digi-handboek');
-	await expect(page.getByRole('link', { name: 'kennis' })).toBeVisible();
-	await expect(page.getByText('Het Digi Handboek', { exact: true })).toBeVisible();
-	await expect(page.getByRole('link', { name: /Bewerken.*Het Digi Handboek/ })).toHaveAttribute(
-		'href',
-		'/sites/digi-handboek/bewerken/index.md'
-	);
-	await page.getByRole('link', { name: 'kennis' }).click();
+	const folders = page.getByRole('navigation', { name: 'Mappen' });
+	await expect(folders.getByRole('link', { name: 'kennis', exact: true })).toBeVisible();
+	await expect(
+		list(page, "Pagina's").getByText('Het Digi Handboek', { exact: true })
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Mappen' })).toBeHidden();
+	await folders.getByRole('link', { name: 'kennis', exact: true }).click();
 	await expect(page).toHaveURL(/map=kennis/);
-	await expect(page.getByRole('link', { name: /^Bewerken/ }).first()).toHaveAttribute(
+	await expect(list(page, "Pagina's in kennis").getByRole('link').first()).toHaveAttribute(
 		'href',
 		/\/sites\/digi-handboek\/bewerken\/kennis\//
 	);
+	expect(errors).toEqual([]);
+});
+
+test.describe('on a narrow screen', () => {
+	test.use({ viewport: { width: 400, height: 800 } });
+
+	test('the folders open in a sheet behind a Mappen button', async ({ page }) => {
+		const errors: string[] = [];
+		page.on('pageerror', (error) => errors.push(String(error)));
+		await page.goto('/sites/digi-handboek');
+		const button = page.getByRole('button', { name: 'Mappen' });
+		const folders = page.getByRole('navigation', { name: 'Mappen' });
+		await expect(button).toBeVisible();
+		await expect(button).toHaveAttribute('aria-expanded', 'false');
+		await expect(folders).toBeHidden();
+
+		await button.click();
+		await expect(button).toHaveAttribute('aria-expanded', 'true');
+		await folders.getByRole('link', { name: 'kennis', exact: true }).click();
+		await expect(page).toHaveURL(/map=kennis/);
+		await expect(button).toHaveAttribute('aria-expanded', 'false');
+		await expect(folders).toBeHidden();
+		await expect(list(page, "Pagina's in kennis")).toBeVisible();
+		expect(errors).toEqual([]);
+	});
+});
+
+test('a page row is one link to the editor, named after the page title', async ({ page }) => {
+	await page.goto('/sites/digi-handboek');
+	const rows = list(page, "Pagina's");
+	for (const [title, file] of [
+		['Het Digi Handboek', 'index.md'],
+		['Contact', 'contact.md'],
+		['Bijdragen aan het Digi Handboek', 'bijdragen-aan-handboek.md']
+	]) {
+		const link = rows.getByRole('link', { name: new RegExp(`^${title}`) });
+		await expect(link).toHaveAttribute('href', `/sites/digi-handboek/bewerken/${file}`);
+		await expect(link).toHaveAccessibleName(`${title} ${file}`);
+	}
+});
+
+test('the open folder is marked as current', async ({ page }) => {
+	await page.goto('/sites/digi-handboek');
+	const folders = page.getByRole('navigation', { name: 'Mappen' });
+	const top = folders.getByRole('link', { name: 'Hoogste niveau' });
+	const kennis = folders.getByRole('link', { name: 'kennis', exact: true });
+	await expect(top).toHaveAttribute('aria-current', 'page');
+	await expect(kennis).not.toHaveAttribute('aria-current', 'page');
+	await kennis.click();
+	await expect(page).toHaveURL(/map=kennis/);
+	await expect(kennis).toHaveAttribute('aria-current', 'page');
+	await expect(top).not.toHaveAttribute('aria-current', 'page');
 });
 
 test('the proposals list shows the seeded draft', async ({ page }) => {
 	await page.goto('/sites/digi-handboek?tab=alle');
 	await expect(page.getByText('Concept').first()).toBeVisible();
-	await expect(page.getByRole('link', { name: /Bekijken/ }).first()).toHaveAttribute(
+	await expect(page.getByRole('link', { name: /Voorbeeldvoorstel Digi Handboek/ })).toHaveAttribute(
 		'href',
 		/\/sites\/digi-handboek\/voorstellen\/\d+/
 	);
 	await expect(page.getByText('Voorbeeldvoorstel Digi Handboek')).toBeVisible();
+});
+
+test('the proposal page shows what changed before the comment form', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen/1');
+	await expect(page.getByRole('heading', { name: 'Wijzigingen', level: 2 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Opmerking', level: 2 })).toBeVisible();
+	expect(
+		await inDocumentOrder(page, [
+			'nldd-badge',
+			'nldd-toolbar[label="Acties voor dit voorstel"]',
+			'nldd-title[text="Wijzigingen"]',
+			'nldd-title[text="Opmerking"]'
+		]),
+		'status, actions, changes, comment'
+	).toBe(true);
+});
+
+test('the settings page has a block each for signing, GitHub and logging out', async ({ page }) => {
+	await page.goto('/instellingen');
+	for (const name of ['Ondertekenen', 'GitHub-account', 'Uitloggen']) {
+		await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible();
+	}
+	expect(
+		await inDocumentOrder(page, [
+			'nldd-title[text="Ondertekenen"]',
+			'nldd-title[text="GitHub-account"]',
+			'nldd-title[text="Uitloggen"]'
+		])
+	).toBe(true);
+
+	await page.goto('/onboarding');
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2 })).toHaveCount(0);
 });
 
 test('the new page form submits through the design system controls', async ({ page }) => {

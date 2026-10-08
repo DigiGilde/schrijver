@@ -192,10 +192,7 @@ test('Schrijfhulp button is collapsed on first render after a client-side naviga
 	await page.goto('/sites/digi-handboek');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
 	const before = await page.evaluate(() => performance.getEntriesByType('navigation').length);
-	await page
-		.getByRole('link', { name: /Bewerken/ })
-		.first()
-		.click();
+	await page.locator('nldd-list[accessible-label="Pagina\'s"]').getByRole('link').first().click();
 	await expect(page).toHaveURL(/\/bewerken\//);
 	const knop = page.getByRole('button', { name: 'Schrijfhulp' });
 	await expect(knop).toHaveAttribute('aria-expanded', 'false');
@@ -273,6 +270,8 @@ test.describe('forms have a submit control', () => {
 test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 	test.use({ viewport: { width: 320, height: 800 } });
 	for (const url of [
+		'/',
+		'/sites/digi-handboek',
 		'/sites/digi-handboek/voorstellen/1',
 		'/sites/digi-handboek/bewerken/index.md',
 		'/instellingen'

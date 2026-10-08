@@ -30,3 +30,37 @@ test('returns to an open proposal and saves into the same pull request', async (
 		page.getByRole('link', { name: /Verder met je voorstel voor/ }).first()
 	).toBeVisible();
 });
+
+test('the page row and the proposal row both lead back into the open proposal', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/bewerken/offboarding.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nVoorstel voor de lijsten');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const saved = page.getByText(/Concept bewaard als voorstel #\d+/).first();
+	await expect(saved).toBeVisible();
+	const nummer = (await saved.textContent())!.match(/#(\d+)/)![1];
+	const verder = new RegExp(
+		`/bewerken/offboarding\\.md\\?branch=schrijver%2Fdigi-handboek%2F.+&pr=${nummer}$`
+	);
+
+	await page.goto('/sites/digi-handboek');
+	const pages = page.locator('nldd-list[accessible-label="Pagina\'s"]');
+	await expect(pages.getByRole('link', { name: /^Offboarding/ })).toHaveAttribute(
+		'href',
+		'/sites/digi-handboek/bewerken/offboarding.md'
+	);
+	const next = pages.getByRole('link', { name: 'Verder met je voorstel voor Offboarding' });
+	await expect(next).toHaveAttribute('href', verder);
+	await expect(
+		page
+			.locator('nldd-list[accessible-label="Mijn voorstellen"]')
+			.getByRole('link', { name: 'Verder bewerken: Offboarding' })
+	).toHaveAttribute('href', verder);
+
+	await next.click();
+	await expect(page).toHaveURL(new RegExp(`pr=${nummer}`));
+	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+});
