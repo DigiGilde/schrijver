@@ -94,6 +94,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			site: { id: site.id, naam: site.naam },
 			terug: await backToProposals(site, forge, url, locals.user!),
 			redactie: site.review.redactie,
+			mergeInSchrijver: site.review['mergen-vanuit-schrijver'],
 			proposal,
 			diffs,
 			nietVergeleken: Math.max(pages.length - MAX_DIFF_PAGES, 0),

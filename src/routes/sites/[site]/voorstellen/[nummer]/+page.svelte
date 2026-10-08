@@ -22,7 +22,7 @@
 
 	const stand = $derived(STATUS[data.proposal.status]);
 	const stap = $derived(stepOf(data.proposal.status));
-	const wie = $derived(whoDecides(data.proposal.status, data.redactie));
+	const wie = $derived(whoDecides(data.proposal.status, data.redactie, data.mergeInSchrijver));
 
 	let busy = $state(false);
 	let melding = $state<Melding | null>(null);

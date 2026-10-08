@@ -136,11 +136,23 @@ export function whoApproves(redactie: string[]): string {
 		: `Goedkeuren gebeurt op GitHub: door de redactie (${listing(redactie)}) met een GitHub-account, of door ${WRITE_ACCESS}.`;
 }
 
-/** Who approves or merges an open proposal: the site's editors by address, or anyone with write access. */
-export function whoDecides(status: Status, redactie: string[]): string | null {
+/**
+ * Who approves or merges an open proposal. `mergeInSchrijver`: the site lets its editors merge from
+ * Schrijver, where an editor known by address needs no GitHub account.
+ */
+export function whoDecides(
+	status: Status,
+	redactie: string[],
+	mergeInSchrijver: boolean
+): string | null {
 	if (status === 'samengevoegd' || status === 'gesloten') return null;
 	if (status !== 'goedgekeurd') return whoApproves(redactie);
+	if (mergeInSchrijver) {
+		return redactie.length === 0
+			? `Samenvoegen kan ${WRITE_ACCESS}, in Schrijver of op GitHub.`
+			: `Samenvoegen kan de redactie (${listing(redactie)}) in Schrijver, of ${WRITE_ACCESS} op GitHub.`;
+	}
 	return redactie.length === 0
-		? `Samenvoegen kan ${WRITE_ACCESS} op GitHub.`
-		: `Samenvoegen kan de redactie (${listing(redactie)}) of ${WRITE_ACCESS} op GitHub.`;
+		? `Samenvoegen gebeurt op GitHub: door ${WRITE_ACCESS}.`
+		: `Samenvoegen gebeurt op GitHub: door de redactie (${listing(redactie)}) met een GitHub-account, of door ${WRITE_ACCESS}.`;
 }

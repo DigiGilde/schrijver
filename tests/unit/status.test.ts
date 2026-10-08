@@ -111,14 +111,11 @@ describe('the flow of a proposal', () => {
 		expect(listing([])).toBe('');
 		expect(listing(['a@x'])).toBe('a@x');
 		expect(listing(['a@x', 'b@x', 'c@x'])).toBe('a@x, b@x en c@x');
-		expect(whoDecides('ingestuurd', ['a@x', 'b@x'])).toBe(
+		expect(whoDecides('ingestuurd', ['a@x', 'b@x'], true)).toBe(
 			'Goedkeuren gebeurt op GitHub: door de redactie (a@x en b@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
 		);
-		expect(whoDecides('goedgekeurd', [])).toBe(
-			'Samenvoegen kan iemand met schrijfrechten op de repository op GitHub.'
-		);
-		expect(whoDecides('samengevoegd', ['a@x'])).toBeNull();
-		expect(whoDecides('gesloten', ['a@x'])).toBeNull();
+		expect(whoDecides('samengevoegd', ['a@x'], true)).toBeNull();
+		expect(whoDecides('gesloten', ['a@x'], true)).toBeNull();
 	});
 
 	it('says approving happens on GitHub, where an editor known by address needs an account', () => {
@@ -126,13 +123,25 @@ describe('the flow of a proposal', () => {
 			'Goedkeuren gebeurt op GitHub: door de redactie (a@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.';
 		expect(whoApproves(['a@x'])).toBe(sentence);
 		for (const status of ['concept', 'ingestuurd', 'wijzigingen-gevraagd'] as const) {
-			expect(whoDecides(status, ['a@x'])).toBe(sentence);
+			expect(whoDecides(status, ['a@x'], true)).toBe(sentence);
 		}
 		expect(whoApproves([])).toBe(
 			'Goedkeuren gebeurt op GitHub: door iemand met schrijfrechten op de repository.'
 		);
-		expect(whoDecides('goedgekeurd', ['a@x'])).toBe(
-			'Samenvoegen kan de redactie (a@x) of iemand met schrijfrechten op de repository op GitHub.'
+	});
+
+	it('says where an approved proposal is merged, as the site allows', () => {
+		expect(whoDecides('goedgekeurd', ['a@x'], true)).toBe(
+			'Samenvoegen kan de redactie (a@x) in Schrijver, of iemand met schrijfrechten op de repository op GitHub.'
+		);
+		expect(whoDecides('goedgekeurd', [], true)).toBe(
+			'Samenvoegen kan iemand met schrijfrechten op de repository, in Schrijver of op GitHub.'
+		);
+		expect(whoDecides('goedgekeurd', ['a@x'], false)).toBe(
+			'Samenvoegen gebeurt op GitHub: door de redactie (a@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
+		);
+		expect(whoDecides('goedgekeurd', [], false)).toBe(
+			'Samenvoegen gebeurt op GitHub: door iemand met schrijfrechten op de repository.'
 		);
 	});
 });
