@@ -9,7 +9,7 @@
 <svelte:head><title>Instellingen · Schrijver</title></svelte:head>
 
 <Pagina titel="Instellingen">
-	<nldd-container gap="16">
+	<nldd-container gap="32">
 		<PrefsForm
 			identity={form?.identity ?? data.identity}
 			githubLogin={data.githubLogin}
@@ -19,12 +19,16 @@
 				(data.linkFailed ? 'Koppelen met GitHub is niet gelukt. Probeer het opnieuw.' : undefined)}
 			saved={form?.saved || form?.unlinked}
 			justLinked={data.justLinked}
+			headings
 		/>
-		<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
-			<nldd-button appearance="secondary" type="submit" text="Uitloggen"></nldd-button>
-			<nldd-text color="secondary" size="sm"
-				>Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text
-			>
-		</form>
+		<nldd-container gap="8">
+			<nldd-title size="3" heading-level="2" text="Uitloggen"></nldd-title>
+			<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
+				<nldd-button appearance="secondary" type="submit" text="Uitloggen"></nldd-button>
+				<nldd-text color="secondary" size="sm"
+					>Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text
+				>
+			</form>
+		</nldd-container>
 	</nldd-container>
 </Pagina>

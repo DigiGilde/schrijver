@@ -10,8 +10,18 @@
 		error?: string;
 		saved?: boolean;
 		justLinked?: boolean;
+		headings?: boolean;
 	};
-	let { identity, githubLogin, emailVerified, sites, error, saved, justLinked }: Props = $props();
+	let {
+		identity,
+		githubLogin,
+		emailVerified,
+		sites,
+		error,
+		saved,
+		justLinked,
+		headings = false
+	}: Props = $props();
 
 	const NAAM: Record<Kind, string> = {
 		anoniem: 'anoniem',
@@ -65,74 +75,84 @@
 	></nldd-banner>
 {/if}
 
-<nldd-form>
-	<form
-		method="post"
-		action="?/opslaan"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update({ reset: false });
-				busy = false;
-			};
-		}}
-	>
-		<nldd-form-field label="Hoe wil je je wijzigingen ondertekenen?">
-			<nldd-radio-button-group name="identity" required onchange={onChange}>
-				<nldd-radio-button-field
-					value="anoniem"
-					label="Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vast pseudoniem."
-					checked={selected === 'anoniem'}
-				></nldd-radio-button-field>
-				<nldd-radio-button-field
-					value="gekoppeld"
-					label="Gekoppeld aan mijn GitHub-account: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
-					checked={selected === 'gekoppeld'}
-					disabled={!linked}
-				></nldd-radio-button-field>
-				<nldd-radio-button-field
-					value="op-naam"
-					label="Op naam: je naam en e-mailadres staan bij de wijziging."
-					checked={selected === 'op-naam'}
-					disabled={!emailVerified}
-				></nldd-radio-button-field>
-			</nldd-radio-button-group>
-			{#if !linked}
-				<nldd-form-field-help-text
-					>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
-				>
-			{/if}
-			{#if !emailVerified}
-				<nldd-form-field-help-text
-					>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text
-				>
-			{/if}
-			<nldd-form-field-help-text>
-				Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed
-				zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets anders kiest.
-			</nldd-form-field-help-text>
-		</nldd-form-field>
+<nldd-container gap="16">
+	{#if headings}
+		<nldd-title size="3" heading-level="2" text="Ondertekenen"></nldd-title>
+	{/if}
+	<nldd-form>
+		<form
+			method="post"
+			action="?/opslaan"
+			use:enhance={() => {
+				busy = true;
+				return async ({ update }) => {
+					await update({ reset: false });
+					busy = false;
+				};
+			}}
+		>
+			<nldd-form-field label="Hoe wil je je wijzigingen ondertekenen?">
+				<nldd-radio-button-group name="identity" required onchange={onChange}>
+					<nldd-radio-button-field
+						value="anoniem"
+						label="Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vast pseudoniem."
+						checked={selected === 'anoniem'}
+					></nldd-radio-button-field>
+					<nldd-radio-button-field
+						value="gekoppeld"
+						label="Gekoppeld aan mijn GitHub-account: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
+						checked={selected === 'gekoppeld'}
+						disabled={!linked}
+					></nldd-radio-button-field>
+					<nldd-radio-button-field
+						value="op-naam"
+						label="Op naam: je naam en e-mailadres staan bij de wijziging."
+						checked={selected === 'op-naam'}
+						disabled={!emailVerified}
+					></nldd-radio-button-field>
+				</nldd-radio-button-group>
+				{#if !linked}
+					<nldd-form-field-help-text
+						>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
+					>
+				{/if}
+				{#if !emailVerified}
+					<nldd-form-field-help-text
+						>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text
+					>
+				{/if}
+				<nldd-form-field-help-text>
+					Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed
+					zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets anders
+					kiest.
+				</nldd-form-field-help-text>
+			</nldd-form-field>
 
-		{#if afwijkend.length > 0}
-			<div>
-				<nldd-text>Niet elke site staat deze keuze toe:</nldd-text>
-				<ul>
-					{#each afwijkend as site (site.naam)}
-						<li>Op {site.naam} onderteken je {NAAM[site.wordt]}.</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
+			{#if afwijkend.length > 0}
+				<div>
+					<nldd-text>Niet elke site staat deze keuze toe:</nldd-text>
+					<ul>
+						{#each afwijkend as site (site.naam)}
+							<li>Op {site.naam} onderteken je {NAAM[site.wordt]}.</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 
-		<nldd-form-actions>
-			<nldd-button-group>
-				<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy}></nldd-button>
-			</nldd-button-group>
-		</nldd-form-actions>
-	</form>
-</nldd-form>
+			<nldd-form-actions>
+				<nldd-button-group>
+					<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy}
+					></nldd-button>
+				</nldd-button-group>
+			</nldd-form-actions>
+		</form>
+	</nldd-form>
+</nldd-container>
 
 <nldd-container gap="8">
+	{#if headings}
+		<nldd-title size="3" heading-level="2" text="GitHub-account"></nldd-title>
+	{/if}
 	{#if linked}
 		<p>Gekoppeld aan GitHub-account {githubLogin}</p>
 		<form
