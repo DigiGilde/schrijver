@@ -517,6 +517,26 @@ test(
 	}
 );
 
+test(
+	'the public-draft coach mark takes the focus on arrival and hands it to the save button',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.goto('/sites/digi-handboek/bewerken/over/licentie.md');
+		const uitleg = page.getByRole('dialog', { name: 'Je concept wordt openbaar' });
+		await expect(uitleg).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(uitleg).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(page.getByRole('button', { name: 'Vet' })).toBeFocused();
+
+		await page.reload();
+		const coachmark = page.locator('nldd-just-in-time-education');
+		await expect(coachmark).toBeAttached();
+		await expect(coachmark).not.toHaveAttribute('active');
+	}
+);
+
 test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', async ({ page }) => {
 	await page.setViewportSize({ width: 400, height: 800 });
 	await page.goto('/sites/digi-handboek/bewerken/index.md');

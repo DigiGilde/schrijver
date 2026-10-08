@@ -94,6 +94,10 @@ async function tabTo(page: Page, matches: (stop: Stop) => boolean, max = 80) {
 test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp', async ({
 	page
 }) => {
+	// The coach mark of a first visit takes the focus on arrival; editor.spec.ts walks that path.
+	await page.addInitScript(() =>
+		localStorage.setItem('schrijver:digi-handboek:openbaar-uitgelegd', '1')
+	);
 	await page.goto('/sites/digi-handboek');
 	await page.evaluate(() => customElements.whenDefined('nldd-skip-link'));
 	await expect(page.getByText('Het Digi Handboek').first()).toBeVisible();

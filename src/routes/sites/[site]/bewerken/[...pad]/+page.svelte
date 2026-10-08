@@ -53,6 +53,8 @@
 	let images = $state<PendingImage[]>([]);
 	let imagesLost = $state(false);
 	let uitlegTonen = $state(false);
+	let bewaarKnopZichtbaar = $state(false);
+	let breed = $state(false);
 	let focusVeld = $state<string | null>(null);
 
 	const readOnly = $derived(data.readOnly);
@@ -128,6 +130,35 @@
 		const { reason } = (event as CustomEvent<{ reason: string }>).detail;
 		if (reason !== 'ignored') rememberPublicDraftExplained(data.site.id);
 	}
+
+	/*
+	 * The coach mark picks its side from the button's box and moves the focus into itself as it opens.
+	 * The title bar shows its toolbar slot a moment after the button exists: the coach mark waits for it.
+	 */
+	function zichtbaar(node: Element) {
+		const observer = new ResizeObserver(() => {
+			bewaarKnopZichtbaar = node.getBoundingClientRect().width > 0;
+		});
+		observer.observe(node);
+		return () => {
+			observer.disconnect();
+			bewaarKnopZichtbaar = false;
+		};
+	}
+
+	/* A save closes it, also one by Ctrl+S; after a conflict it would come back with the button. */
+	$effect(() => {
+		if (bezig) uitlegTonen = false;
+	});
+
+	/* Beside the button the coach mark covers no controls; a narrow screen has no room for it there. */
+	onMount(() => {
+		const query = window.matchMedia('(min-width: 1008px)');
+		const kijk = () => (breed = query.matches);
+		kijk();
+		query.addEventListener('change', kijk);
+		return () => query.removeEventListener('change', kijk);
+	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let flushPending: (() => void) | null = null;
@@ -252,7 +283,8 @@
 		text="Je concept wordt openbaar"
 		supporting-text="Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt."
 		dismissable
-		active={uitlegTonen || undefined}
+		placement={breed ? 'left' : 'bottom'}
+		active={(uitlegTonen && bewaarKnopZichtbaar) || undefined}
 		onnldd-close={sluitUitleg}
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -261,6 +293,7 @@
 			text={knoptekst}
 			loading={bezig || undefined}
 			onclick={() => void opslaan?.opslaan()}
+			{@attach zichtbaar}
 		></nldd-button>
 	</nldd-just-in-time-education>
 {/snippet}
