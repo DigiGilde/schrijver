@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+/* A first visit shows the public-draft coach mark on the save button; editor.spec.ts covers it. */
+test.beforeEach(({ page }) =>
+	page.addInitScript(() => {
+		for (const site of ['digi-handboek', 'moza-site'])
+			localStorage.setItem(`schrijver:${site}:openbaar-uitgelegd`, '1');
+	})
+);
+
 test('saves an edit as a draft proposal and keeps the branch on reload', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/bewerken/index.md');
 	const editor = page.locator('nldd-text-editor .cm-content');

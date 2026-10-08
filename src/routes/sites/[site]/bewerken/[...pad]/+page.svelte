@@ -16,6 +16,10 @@
 	import { focusTarget, restoreFocus } from '$lib/client/editor-actions';
 	import { pageReady } from '$lib/client/page-ready.svelte';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
+	import {
+		publicDraftExplained,
+		rememberPublicDraftExplained
+	} from '$lib/client/public-draft-notice';
 	import { parsePage } from '$lib/content/frontmatter';
 	import {
 		applyForm,
@@ -48,6 +52,7 @@
 	let ready = $state(false);
 	let images = $state<PendingImage[]>([]);
 	let imagesLost = $state(false);
+	let uitlegTonen = $state(false);
 	let focusVeld = $state<string | null>(null);
 
 	const readOnly = $derived(data.readOnly);
@@ -108,8 +113,21 @@
 			if (draft && !sameAsServer(draft)) restorable = draft;
 			else if (draft) writeDraft(null);
 		}
+		uitlegTonen =
+			openbaarConcept &&
+			!readOnly &&
+			!activeBranch &&
+			!eigenschappenBijAankomst() &&
+			!publicDraftExplained(data.site.id);
 		ready = true;
 	});
+
+	/* Shown on arrival until the first save on this site or a dismissal; clicking past it does not count. */
+	function sluitUitleg(event: Event) {
+		uitlegTonen = false;
+		const { reason } = (event as CustomEvent<{ reason: string }>).detail;
+		if (reason !== 'ignored') rememberPublicDraftExplained(data.site.id);
+	}
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let flushPending: (() => void) | null = null;
@@ -203,11 +221,12 @@
 	/* The sheet holds a title bar with a collapse anchor. */
 	const sheetPagina = pageReady();
 
-	/* A new page whose properties would fail the first save shows them once, on arrival. */
+	/** A new page whose properties would fail the first save shows them once, on arrival. */
+	const eigenschappenBijAankomst = () => !!data.nieuw && !validateForm(fields).ok;
 	$effect(() => {
 		if (!sheetPagina.ready) return;
 		untrack(() => {
-			if (data.nieuw && !validateForm(fields).ok) void tick().then(openEigenschappen);
+			if (eigenschappenBijAankomst()) void tick().then(openEigenschappen);
 		});
 	});
 
@@ -229,13 +248,21 @@
 <svelte:head><title>{titel} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
 
 {#snippet bewaarKnop()}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-button
-		appearance="primary"
-		text={knoptekst}
-		loading={bezig || undefined}
-		onclick={() => void opslaan?.opslaan()}
-	></nldd-button>
+	<nldd-just-in-time-education
+		text="Je concept wordt openbaar"
+		supporting-text="Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt."
+		dismissable
+		active={uitlegTonen || undefined}
+		onnldd-close={sluitUitleg}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance="primary"
+			text={knoptekst}
+			loading={bezig || undefined}
+			onclick={() => void opslaan?.opslaan()}
+		></nldd-button>
+	</nldd-just-in-time-education>
 {/snippet}
 
 <Pagina
@@ -298,6 +325,8 @@
 						activeBranch = saved.branch;
 						flushPending = null;
 						writeDraft(null);
+						if (openbaarConcept) rememberPublicDraftExplained(data.site.id);
+						uitlegTonen = false;
 					}}
 					onovernemen={neemOver}
 					onbasis={(sha) => (baseSha = sha)}
@@ -316,12 +345,6 @@
 				{#if imagesLost}
 					<nldd-text color="secondary" size="sm" role="status">
 						Afbeeldingen konden niet lokaal worden bewaard; voeg ze opnieuw toe na een herlaad
-					</nldd-text>
-				{/if}
-				{#if openbaarConcept}
-					<nldd-text color="secondary" size="sm">
-						Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
-						instuurt.
 					</nldd-text>
 				{/if}
 			</div>
@@ -376,6 +399,10 @@
 {/if}
 
 <style>
+	/* The coach mark keeps its card 320px wide, which scrolls a 320px screen sideways (WCAG 1.4.10). */
+	nldd-just-in-time-education {
+		--_just-in-time-education-text-width: min(var(--primitives-area-320), calc(100vw - 32px));
+	}
 	.meldingen {
 		display: flex;
 		flex-direction: column;

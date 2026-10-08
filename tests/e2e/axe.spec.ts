@@ -22,11 +22,14 @@ const pages = [
  * by its class. So does the current row of the folder list: its fill is a pseudo-element (measured by hand: 15.5:1
  * in light mode, 9.8:1 in dark mode). The step bar of a proposal draws its track as a pseudo-element across the
  * steps (measured by hand, in both modes: at least 4.5:1 for the numbers, 6.2:1 for the labels).
+ * The coach mark on the save button draws its card as a blurred pseudo-element as well (measured by hand:
+ * 11.3:1 in light mode, 11.4:1 in dark mode; 9.5:1 and 8.8:1 where page text shows through).
  */
 const allowedContrast = [
 	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
 	/^(nldd-top-title-bar|\.optisch),nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/,
 	/^nldd-button\[text="(Concept bewaren|Opslaan)"\],\.button__text$/,
+	/^nldd-just-in-time-education,\.just-in-time-education__(text|supporting-text)$/,
 	/^nldd-text-cell\[text="Hoogste niveau"\],\.text-cell__text$/,
 	/^nldd-step-bar-item\[(status="current"|text="[^"]+")\],\.step-bar__item-(number|title)$/
 ];

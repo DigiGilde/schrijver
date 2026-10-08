@@ -9,6 +9,15 @@ const editorValue = (page: Page) =>
 		() => (document.querySelector('nldd-text-editor') as unknown as { value: string }).value
 	);
 
+/* A first visit shows the public-draft coach mark; the tests tagged @uitleg are about it, the others start past it. */
+test.beforeEach(async ({ page }, testInfo) => {
+	if (testInfo.tags.includes('@uitleg')) return;
+	await page.addInitScript(() => {
+		for (const site of ['digi-handboek', 'moza-site'])
+			localStorage.setItem(`schrijver:${site}:openbaar-uitgelegd`, '1');
+	});
+});
+
 test('opens a file, follows edits and offers to restore a draft', async ({ page }) => {
 	await page.goto(url);
 
@@ -445,6 +454,57 @@ test('the title button opens the properties with the focus in the title field', 
 	await expect(dialog).toBeVisible();
 	await expect(veld).not.toBeFocused();
 });
+
+test(
+	'the save button says once that a draft becomes public, until the first save',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.goto('/sites/digi-handboek/bewerken/onboarding/eerste-dagen.md');
+		const uitleg = page.getByRole('dialog', { name: 'Je concept wordt openbaar' });
+		await expect(uitleg).toBeVisible();
+		await expect(uitleg).toContainText(
+			'Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt.'
+		);
+		await expect(
+			page.getByText('docs/onboarding/eerste-dagen.md · Openbaar concept')
+		).toBeVisible();
+		await expect(page.getByText('openbaar leesbaar')).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Concept bewaren' }).click();
+		await expect(uitleg).toBeHidden();
+		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+
+		await page.goto('/sites/digi-handboek/bewerken/onboarding/accounts.md');
+		const coachmark = page.locator('nldd-just-in-time-education');
+		await expect(coachmark).toBeAttached();
+		await expect(coachmark).not.toHaveAttribute('active');
+
+		await page.goto('/sites/moza-site/bewerken/over-moza.md');
+		await expect(uitleg).toBeVisible();
+	}
+);
+
+test(
+	'the public-draft coach mark comes back when clicked past, not when dismissed',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.goto('/sites/moza-site/bewerken/onderwerpen/notificatiedienst.md');
+		const uitleg = page.getByRole('dialog', { name: 'Je concept wordt openbaar' });
+		await expect(uitleg).toBeVisible();
+		await page.locator('nldd-text-editor .cm-content').click();
+		await expect(uitleg).toBeHidden();
+
+		await page.reload();
+		await expect(uitleg).toBeVisible();
+		await uitleg.getByRole('button', { name: 'Verberg' }).click();
+		await expect(uitleg).toBeHidden();
+
+		await page.reload();
+		const coachmark = page.locator('nldd-just-in-time-education');
+		await expect(coachmark).toBeAttached();
+		await expect(coachmark).not.toHaveAttribute('active');
+	}
+);
 
 test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', async ({ page }) => {
 	await page.setViewportSize({ width: 400, height: 800 });

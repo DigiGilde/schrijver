@@ -8,6 +8,14 @@ const PNG = Buffer.from(
 	'base64'
 );
 
+/* A first visit shows the public-draft coach mark on the save button; editor.spec.ts covers it. */
+test.beforeEach(({ page }) =>
+	page.addInitScript(() => {
+		for (const site of ['digi-handboek', 'moza-site'])
+			localStorage.setItem(`schrijver:${site}:openbaar-uitgelegd`, '1');
+	})
+);
+
 test('inserts an image with alt text and sends it along on save', async ({ page }) => {
 	await page.goto(url);
 	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
