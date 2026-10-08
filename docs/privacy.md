@@ -17,7 +17,7 @@ Processing inventory, register draft, DPIA advice and open statements. How ident
 | PR body, title, review comments | Review, "my proposals" | 6(1)(e) | While the PR exists | Public GitHub |
 | Log fields | Operation, security | 6(1)(e), (f) for security | Unknown (ZAD) | ZAD logging: site, PR, branch, event, status, token counts, error text; no `sub` |
 | VLAM payload | Writing suggestions | 6(1)(e) | Unknown (SSC-ICT) | Page text, instruction, writing guide; no identity |
-| Browser drafts (`localStorage`) | Safety net | 6(1)(e) | No expiry, not cleared on logout | Unencrypted in the browser profile, including images |
+| Browser drafts (`localStorage`) | Safety net | 6(1)(e) | Until the page is saved or the user logs out of Schrijver; no expiry otherwise | Unencrypted in the browser profile, including images |
 | OAuth state and verifier cookies | Login and link flow | 6(1)(e) | 10 minutes | Cookie |
 
 The pseudonym is HMAC-SHA256 over `sub` with `PSEUDONYM_SECRET`. It is pseudonymisation, not anonymisation: anyone holding the secret and a list of candidate `sub` values can re-identify it, a leaked secret de-anonymises every anonymous commit retroactively, and the pseudonym is constant across sites, so a person's anonymous contributions are linkable. Treat the secret as the most sensitive one in the system.
