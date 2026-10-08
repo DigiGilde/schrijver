@@ -1,3 +1,5 @@
+// Named to sort after voorstel.spec.ts: a spec file ahead of it delays its merge into main until
+// other workers save index.md, and those saves then end in a conflict.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
