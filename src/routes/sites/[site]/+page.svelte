@@ -17,9 +17,6 @@
 	const depth = (folder: string) => folder.split('/').length - 1;
 	const label = (folder: string) => folder.slice(folder.lastIndexOf('/') + 1);
 
-	// Clears the sticky app bar (61px) and title bar (50px), plus the column's own 16px inset.
-	const STICKY_TOP = '127px';
-
 	let mappen = $state<(HTMLElement & { show(): void; hide(): void }) | null>(null);
 	let mappenKnop = $state<(HTMLElement & { expanded: boolean }) | null>(null);
 	const mappenOpen = (open: boolean) => mappenKnop && (mappenKnop.expanded = open);
@@ -70,7 +67,6 @@
 		<nldd-sidebar-section
 			bind:this={mappen}
 			sidebar-label="Mappen"
-			sticky-top={STICKY_TOP}
 			onopen={() => mappenOpen(true)}
 			onclose={() => mappenOpen(false)}
 		>

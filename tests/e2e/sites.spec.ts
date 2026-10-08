@@ -105,6 +105,18 @@ test('the open folder is marked as current', async ({ page }) => {
 	await expect(top).not.toHaveAttribute('aria-current', 'page');
 });
 
+test('the folder column stays below the sticky bars while the page scrolls', async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 600 });
+	await page.goto('/sites/moza-site?map=weekly%2F2025');
+	await page.evaluate(() => customElements.whenDefined('nldd-sidebar-section'));
+	await page.evaluate(() => scrollTo(0, 400));
+	const titleBar = (await page.locator('nldd-top-title-bar').boundingBox())!;
+	const column = page.locator('nldd-sidebar-section > [slot="sidebar"]');
+	await expect
+		.poll(async () => (await column.boundingBox())!.y)
+		.toBeGreaterThanOrEqual(titleBar.y + titleBar.height);
+});
+
 test('the proposals list shows the seeded draft', async ({ page }) => {
 	await page.goto('/sites/digi-handboek?tab=alle');
 	await expect(page.getByText('Concept').first()).toBeVisible();
