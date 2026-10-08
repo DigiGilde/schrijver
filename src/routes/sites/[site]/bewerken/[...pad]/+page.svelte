@@ -471,7 +471,7 @@
 					size="2"
 					heading-level="1"
 					text="Eigenschappen"
-					supporting-text="Deze waarden worden met de pagina bewaard."
+					supporting-text="Deze waarden worden met de pagina bewaard. De bestandsnaam is het adres van de pagina op de site. Die verandert niet als je de titel wijzigt."
 				></nldd-title>
 				<FrontmatterFormulier {fields} focus={focusVeld} onchange={(next) => (fields = next)} />
 			</nldd-simple-section>

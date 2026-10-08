@@ -533,6 +533,20 @@ test('the title button opens the properties with the focus in the title field', 
 	await expect(veld).not.toBeFocused();
 });
 
+test('the properties and the help page say that a new title keeps the file name', async ({
+	page
+}) => {
+	const regel =
+		'De bestandsnaam is het adres van de pagina op de site. Die verandert niet als je de titel wijzigt.';
+	await page.goto('/sites/moza-site/bewerken/over-moza.md');
+	await page.getByRole('button', { name: 'Titel wijzigen' }).click();
+	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeVisible();
+	await expect(page.locator('nldd-sheet').getByText(regel)).toBeVisible();
+
+	await page.goto('/help');
+	await expect(page.getByText(regel)).toBeVisible();
+});
+
 test(
 	'the save button says once that a draft becomes public, until the first save',
 	{ tag: '@uitleg' },

@@ -21,7 +21,8 @@
 					nummers, citaten, links, code en codeblokken, tabellen, horizontale lijnen, afbeeldingen
 					en diagrammen. Met "Inspringen" en "Uitspringen" zet je een punt in een lijst een niveau
 					dieper of terug. Velden zoals de samenvatting vul je in bij "Eigenschappen" in de
-					werkbalk.
+					werkbalk. De bestandsnaam is het adres van de pagina op de site. Die verandert niet als je
+					de titel wijzigt.
 				</li>
 				<li>
 					Kies "Voorbeeld" in de werkbalk om de pagina te zien met afbeeldingen en diagrammen. Het
