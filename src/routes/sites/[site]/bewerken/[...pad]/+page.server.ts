@@ -5,6 +5,7 @@ import { buildForm, newPagePath } from '$lib/content/schema-form';
 import { sameRepo } from '$lib/forge/repo';
 import { getRepoVisibility } from '$lib/server/repo-visibility';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { startFrontmatter, templateFor } from '../../nieuw/new-page';
 
 const decoder = new TextDecoder();
 
@@ -37,14 +38,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		if (await forge.readFile(site.repo, site.standaardbranch, repoPath)) {
 			error(409, 'Deze pagina bestaat al');
 		}
-		const config = schema['nieuwe-pagina'];
-		const sjabloon =
-			('soorten' in config
-				? config.soorten.find((s) => s.naam === soort)?.sjabloon
-				: config.sjabloon) ?? (schema.titel === 'uit-h1' ? '# {titel}\n\n' : '');
-		const frontmatter: Record<string, unknown> = schema.titel.startsWith('veld:')
-			? { [schema.titel.slice('veld:'.length)]: title }
-			: {};
+		const sjabloon = templateFor(schema, soort);
+		const frontmatter = startFrontmatter(schema, title);
 		return {
 			site: {
 				id: site.id,

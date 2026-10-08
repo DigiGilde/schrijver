@@ -31,7 +31,7 @@ export function filePreview(
 	return one === newPagePath(schema, soort, folder, 'b', now) ? one : null;
 }
 
-/** The template the editor starts a new page with; keep in step with the editor's loader. */
+/** The template a new page starts with. */
 export function templateFor(schema: PageSchema, soort: string | null): string {
 	const config = schema['nieuwe-pagina'];
 	const own =
