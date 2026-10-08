@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import {
+	imageNameTails,
 	inImageFolder,
+	mentionsName,
 	referencedImages,
 	removedImages,
-	resolveImageRef
+	resolveImageRef,
+	resolveSiteRootRef
 } from '../../src/lib/content/image-refs';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
@@ -48,6 +51,22 @@ describe('resolveImageRef', () => {
 			'kat%E0.png'
 		])
 			expect(resolveImageRef('docs/a.md', src), src).toBeNull();
+	});
+});
+
+describe('resolveSiteRootRef', () => {
+	it('puts the content folder in front of a site-root path', () => {
+		expect(resolveSiteRootRef('content', '/onderwerpen/images/kaart.png')).toBe(
+			'content/onderwerpen/images/kaart.png'
+		);
+		expect(resolveSiteRootRef('docs', '/afbeeldingen/privacy/kat%20zwart.png?v=2')).toBe(
+			'docs/afbeeldingen/privacy/kat zwart.png'
+		);
+	});
+
+	it('leaves relative paths, URLs and protocol-relative addresses out', () => {
+		for (const src of ['images/a.png', 'https://example.org/a.png', '//cdn.example.org/a.png'])
+			expect(resolveSiteRootRef('content', src), src).toBeNull();
 	});
 });
 
@@ -126,6 +145,55 @@ describe('referencedImages', () => {
 			const start = performance.now();
 			referencedImages(text, 'docs/a.md');
 			expect(performance.now() - start).toBeLessThan(200);
+		}
+	});
+});
+
+describe('referencedImages with the content folder', () => {
+	it('counts a site-root path as the image under the content folder', () => {
+		const text = '![Kaart](/onderwerpen/images/kaart.png) en ![Logo](images/logo.svg)';
+		expect([...referencedImages(text, 'content/over.md', 'content')].sort()).toEqual([
+			'content/images/logo.svg',
+			'content/onderwerpen/images/kaart.png'
+		]);
+		expect([...referencedImages(text, 'content/over.md')]).toEqual(['content/images/logo.svg']);
+	});
+});
+
+describe('mentionsName', () => {
+	const mentions = (text: string, image: string) => mentionsName(imageNameTails(text), image);
+
+	it('finds the file name anywhere, whatever stands around it or how it is cased', () => {
+		const image = 'content/a/images/Team foto.JPEG';
+		expect(mentions('foto: "elders/team foto.jpeg"', image)).toBe(true);
+		expect(mentions('fotos:\n  - Team foto.JPEG\n', image)).toBe(true);
+		expect(mentions('{"src":"images\\/team%20foto.jpeg"}', image)).toBe(true);
+		expect(mentions('mijn\\_team foto.jpeg', 'docs/x/mijn_team foto.jpeg')).toBe(true);
+		expect(mentions('background: url(../images/team foto.jpeg);', image)).toBe(true);
+	});
+
+	it('does not find another name, or the name without its extension', () => {
+		const image = 'content/a/images/team.jpeg';
+		expect(mentions('team.png en team.jpg en teamjpeg', image)).toBe(false);
+		expect(mentions('team', image)).toBe(false);
+		expect(mentions('', image)).toBe(false);
+	});
+
+	it('compares a long name by its end', () => {
+		const name = `${'a'.repeat(100)}.png`;
+		expect(mentions(`zie ${name}`, `docs/x/${name}`)).toBe(true);
+		expect(mentions(`zie ${'b'.repeat(100)}.png`, `docs/x/${name}`)).toBe(false);
+	});
+
+	it('stays linear on adversarial input', () => {
+		for (const text of [
+			'.png'.repeat(100_000),
+			`${'a'.repeat(400_000)}.png`,
+			'%.svg'.repeat(80_000)
+		]) {
+			const start = performance.now();
+			mentions(text, 'docs/x/kat.png');
+			expect(performance.now() - start).toBeLessThan(500);
 		}
 	});
 });

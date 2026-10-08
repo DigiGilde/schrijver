@@ -5,6 +5,9 @@ export interface FileEntry {
 	sha: string;
 }
 
+/** A recursive listing; `truncated` when the forge left entries out of it. */
+export type FileTree = FileEntry[] & { truncated?: true };
+
 export type FileChange =
 	| { path: string; content: Uint8Array | string } // string = utf8 text
 	| { path: string; deleted: true };
@@ -46,7 +49,7 @@ export class ForgeError extends Error {
 }
 
 export interface Forge {
-	readTree(repo: string, ref: Ref, dir: string): Promise<FileEntry[]>; // recursive
+	readTree(repo: string, ref: Ref, dir: string): Promise<FileTree>; // recursive
 	/** With `maxBytes`, a larger file is not downloaded: it comes back empty with `tooLarge`. */
 	readFile(
 		repo: string,

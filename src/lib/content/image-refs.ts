@@ -37,10 +37,19 @@ export function resolveImageRef(page: string, src: string): string | null {
 }
 
 /**
+ * The repository path a site-root reference points at, for a site that publishes its content folder at
+ * the root as Hugo and MkDocs do: `/a/images/x.png` is `content/a/images/x.png`. Null for anything else.
+ */
+export function resolveSiteRootRef(contentFolder: string, src: string): string | null {
+	if (!src.startsWith('/') || src.startsWith('//')) return null;
+	return resolveImageRef(`${contentFolder}/`, src.slice(1));
+}
+
+/**
  * Every string in a text that may refer to an image file: Markdown, HTML, shortcodes, frontmatter, links.
  * Generous on purpose, since a use that is missed would offer to delete a file a page still shows.
  */
-function imageRefs(text: string): string[] {
+export function imageRefs(text: string): string[] {
 	const found: string[] = [];
 	// Index scans, not regular expressions: a pattern anchored at the end backtracks quadratically on "....".
 	const take = (raw: string) => {
@@ -57,14 +66,62 @@ function imageRefs(text: string): string[] {
 	return found;
 }
 
-/** Repository paths of the images a text on `page` refers to. */
-export function referencedImages(text: string, page: string): Set<string> {
+/** Repository paths that `refs` on `page` point at; with `contentFolder`, a site-root path counts too. */
+export function resolveImageRefs(
+	refs: Iterable<string>,
+	page: string,
+	contentFolder?: string
+): Set<string> {
 	const paths = new Set<string>();
-	for (const ref of imageRefs(text)) {
-		const path = resolveImageRef(page, ref);
+	for (const ref of refs) {
+		const path =
+			resolveImageRef(page, ref) ??
+			(contentFolder === undefined ? null : resolveSiteRootRef(contentFolder, ref));
 		if (path) paths.add(path);
 	}
 	return paths;
+}
+
+/** Repository paths of the images a text on `page` refers to; with `contentFolder`, by site root too. */
+export function referencedImages(text: string, page: string, contentFolder?: string): Set<string> {
+	return resolveImageRefs(imageRefs(text), page, contentFolder);
+}
+
+/** Names compare on their last characters only, which keeps what is remembered of a file small. */
+const NAME_TAIL = 64;
+const IMAGE_EXTENSION = /\.(?:png|jpe?g|gif|webp|avif|svg)/gi;
+
+/**
+ * The end of every run of text up to an image extension, in lower case and percent-decoded too: enough
+ * to tell whether a file name appears anywhere in the text, whatever stands around it.
+ */
+export function imageNameTails(text: string): string[] {
+	const plain = text.replace(/\\([!-/:-@[-`{-~])/g, '$1');
+	const tails = new Set<string>();
+	for (const match of plain.matchAll(IMAGE_EXTENSION)) {
+		const end = match.index + match[0].length;
+		let start = end;
+		while (start > 0 && end - start < NAME_TAIL && !'/\\\n\r'.includes(plain[start - 1])) start--;
+		const tail = plain.slice(start, end).toLowerCase();
+		if (tails.has(tail)) continue;
+		tails.add(tail);
+		if (!tail.includes('%')) continue;
+		try {
+			tails.add(decodeURIComponent(tail));
+		} catch {
+			// a tail cut through an escape
+		}
+	}
+	return [...tails];
+}
+
+/** Whether the file name of `image` appears in a text with these tails. */
+export function mentionsName(tails: string[], image: string): boolean {
+	const name = image
+		.slice(image.lastIndexOf('/') + 1)
+		.toLowerCase()
+		.slice(-NAME_TAIL);
+	return tails.some((tail) => tail.endsWith(name));
 }
 
 /** The images `before` refers to and `after` no longer does, both texts on `page`. */

@@ -38,6 +38,28 @@ beforeEach(() => {
 const forge = () => new GitHubForge({ appId: '1', privateKey });
 
 describe('GitHubForge', () => {
+	it('says when GitHub cut the tree listing off', async () => {
+		let truncated = false;
+		server.use(
+			http.get(`${API}/repos/o/r/git/trees/main`, () =>
+				HttpResponse.json({
+					truncated,
+					tree: [
+						{ path: 'docs/a.md', type: 'blob', sha: 'a' },
+						{ path: 'docs', type: 'tree', sha: 'd' }
+					]
+				})
+			)
+		);
+		const whole = await forge().readTree('o/r', 'main', '');
+		expect(whole).toEqual([{ path: 'docs/a.md', sha: 'a' }]);
+		expect(whole.truncated).toBeUndefined();
+		truncated = true;
+		const cut = await forge().readTree('o/r', 'main', 'docs');
+		expect([...cut]).toEqual([{ path: 'docs/a.md', sha: 'a' }]);
+		expect(cut.truncated).toBe(true);
+	});
+
 	it('reports a file above maxBytes without downloading its blob', async () => {
 		let blobRequests = 0;
 		server.use(

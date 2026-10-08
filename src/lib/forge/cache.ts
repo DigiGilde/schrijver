@@ -1,5 +1,5 @@
 import { repoKey } from './repo';
-import type { FileChange, FileEntry, Forge, PrFile, PrSummary, Ref } from './types';
+import type { FileChange, FileTree, Forge, PrFile, PrSummary, Ref } from './types';
 
 interface Entry {
 	promise: Promise<unknown>;
@@ -50,7 +50,7 @@ export class CachingForge implements Forge {
 		}
 	}
 
-	readTree(repo: string, ref: Ref, dir: string): Promise<FileEntry[]> {
+	readTree(repo: string, ref: Ref, dir: string): Promise<FileTree> {
 		return this.cached(repo, `tree\0${ref}\0${dir}`, () => this.inner.readTree(repo, ref, dir));
 	}
 

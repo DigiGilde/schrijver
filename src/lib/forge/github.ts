@@ -5,7 +5,7 @@ import { log } from '../log';
 import {
 	ForgeError,
 	type FileChange,
-	type FileEntry,
+	type FileTree,
 	type Forge,
 	type PrFile,
 	type PrSummary,
@@ -139,16 +139,18 @@ export class GitHubForge implements Forge {
 		}
 	}
 
-	async readTree(repo: string, ref: Ref, dir: string): Promise<FileEntry[]> {
+	async readTree(repo: string, ref: Ref, dir: string): Promise<FileTree> {
 		const data = await this.request(repo, 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}', {
 			tree_sha: ref,
 			recursive: '1'
 		});
-		if (data.truncated) log.warn('forge.tree_truncated', { repo, ref });
 		const prefix = dir === '' || dir === '.' ? '' : dir.replace(/\/+$/, '') + '/';
-		return (data.tree as Json[])
+		const entries: FileTree = (data.tree as Json[])
 			.filter((n) => n.type === 'blob' && n.path.startsWith(prefix))
 			.map((n) => ({ path: n.path as string, sha: n.sha as string }));
+		if (!data.truncated) return entries;
+		log.warn('forge.tree_truncated', { repo, ref });
+		return Object.assign(entries, { truncated: true as const });
 	}
 
 	async readFile(

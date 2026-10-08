@@ -91,7 +91,7 @@ describe('imageUsage', () => {
 				'---\ntitle: Rituelen\n---\n\n![Schema](../images/schema.png)\n',
 			'content/actueel/bericht/index.md':
 				'---\ntitle: Bericht\nlead_image: ../../handboek/images/schema.png\n---\n\nTekst.\n',
-			'content/contact.md': '---\ntitle: Contact\n---\n\n![Schema](images/schema.png)\n'
+			'content/contact.md': '---\ntitle: Contact\n---\n\n![Schema](images/plattegrond.png)\n'
 		});
 		const result = await imageUsage(
 			forge,
@@ -107,6 +107,79 @@ describe('imageUsage', () => {
 		]);
 	});
 
+	it('counts a file that names the image, even when its path would point elsewhere', async () => {
+		const schema = 'content/handboek/images/schema.png';
+		forge.seedRepo(moza.repo, 'main', {
+			[schema]: PNG,
+			'content/handboek/_index.md': '---\ntitle: Handboek\n---\n\n![Schema](images/schema.png)\n',
+			'content/contact.md': '---\ntitle: Contact\n---\n\n![Schema](images/schema.png)\n'
+		});
+		const result = await imageUsage(
+			forge,
+			moza,
+			{ titel: 'veld:title' },
+			'main',
+			'content/handboek/_index.md',
+			[schema]
+		);
+		expect(result.images[0].usedOn).toEqual([{ path: 'content/contact.md', title: 'Contact' }]);
+	});
+
+	it('reads every kind of text file under the content folder', async () => {
+		const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
+		forge.seedRepo(moza.repo, 'main', {
+			[team]: PNG,
+			'content/contact.md': '---\ntitle: Contact\n---\n\nTekst.\n',
+			'content/documenten/presentaties/pulse/index.html':
+				'<section><img src="images/team.jpeg" alt="Het team"></section>\n',
+			'content/documenten/presentaties/pulse/stijl.css':
+				'.kop { background: url("images/team.jpeg"); }\n',
+			'content/actueel/bericht/index.md':
+				'---\ntitle: Bericht\ngalerij: [team.jpeg]\n---\n\nTekst.\n',
+			'content/data/fotos.yaml': '- foto: presentaties/pulse/images/team.jpeg\n',
+			'content/data/fotos.json': '{"foto":"pulse\\/images\\/team.jpeg"}\n',
+			'content/data/fotos.toml': 'foto = "team.jpeg"\n',
+			'content/over/a.markdown': 'Zie team.jpeg.\n',
+			'content/over/b.mdx': '<Foto src="../documenten/presentaties/pulse/images/team.jpeg" />\n',
+			'content/over/c.htm': '<img src="/documenten/presentaties/pulse/images/team.jpeg">\n',
+			'content/over/d.txt': 'team.jpeg\n',
+			'layouts/partials/team.html': '<img src="team.jpeg">\n'
+		});
+		const result = await imageUsage(
+			forge,
+			moza,
+			{ titel: 'veld:title' },
+			'main',
+			'content/contact.md',
+			[team]
+		);
+		expect(result).toEqual({
+			complete: true,
+			images: [
+				{
+					path: team,
+					usedOn: [
+						{ path: 'content/actueel/bericht/index.md', title: 'Bericht' },
+						{ path: 'content/data/fotos.json', title: 'data/fotos.json' },
+						{ path: 'content/data/fotos.toml', title: 'data/fotos.toml' },
+						{ path: 'content/data/fotos.yaml', title: 'data/fotos.yaml' },
+						{
+							path: 'content/documenten/presentaties/pulse/index.html',
+							title: 'documenten/presentaties/pulse/index.html'
+						},
+						{
+							path: 'content/documenten/presentaties/pulse/stijl.css',
+							title: 'documenten/presentaties/pulse/stijl.css'
+						},
+						{ path: 'content/over/a.markdown', title: 'over/a.markdown' },
+						{ path: 'content/over/b.mdx', title: 'over/b.mdx' },
+						{ path: 'content/over/c.htm', title: 'over/c.htm' }
+					]
+				}
+			]
+		});
+	});
+
 	it('is incomplete when a page is too large to read', async () => {
 		await forge.commit(
 			digi.repo,
@@ -116,6 +189,17 @@ describe('imageUsage', () => {
 		);
 		const result = await scan('docs/kennis/privacy.md', [HOND]);
 		expect(result).toEqual({ complete: false, images: [{ path: HOND, usedOn: [] }] });
+	});
+
+	it('is incomplete when the listing of the branch was cut off', async () => {
+		const readTree = forge.readTree.bind(forge);
+		vi.spyOn(forge, 'readTree').mockImplementation(async (...args) =>
+			Object.assign(await readTree(...args), { truncated: true as const })
+		);
+		expect(await scan('docs/kennis/privacy.md', [HOND])).toEqual({
+			complete: false,
+			images: [{ path: HOND, usedOn: [] }]
+		});
 	});
 
 	it('reads no more pages than the bound, and is then incomplete', async () => {
