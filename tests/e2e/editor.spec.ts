@@ -537,6 +537,23 @@ test(
 	}
 );
 
+test(
+	'on a narrow screen the public-draft coach mark leaves the toolbar free',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.setViewportSize({ width: 400, height: 800 });
+		await page.goto('/sites/digi-handboek/bewerken/over/licentie.md');
+		await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeVisible();
+		// Where the coach mark shows, it opens within a frame of the button getting its box.
+		await page.evaluate(
+			() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+		);
+		await expect(page.locator('nldd-just-in-time-education')).not.toHaveAttribute('active');
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await expect(page.getByRole('menuitemcheckbox', { name: 'Vet' })).toBeVisible();
+	}
+);
+
 test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', async ({ page }) => {
 	await page.setViewportSize({ width: 400, height: 800 });
 	await page.goto('/sites/digi-handboek/bewerken/index.md');

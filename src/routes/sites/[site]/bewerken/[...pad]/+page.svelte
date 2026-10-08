@@ -152,7 +152,10 @@
 		if (bezig) uitlegTonen = false;
 	});
 
-	/* Beside the button the coach mark covers no controls; a narrow screen has no room for it there. */
+	/*
+	 * Beside the button the coach mark covers no controls. A narrow screen has no room there, and below
+	 * the button the card would cover the toolbar, which sticks right under the header.
+	 */
 	onMount(() => {
 		const query = window.matchMedia('(min-width: 1008px)');
 		const kijk = () => (breed = query.matches);
@@ -284,8 +287,8 @@
 		text="Je concept wordt openbaar"
 		supporting-text="Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt."
 		dismissable
-		placement={breed ? 'left' : 'bottom'}
-		active={(uitlegTonen && bewaarKnopZichtbaar) || undefined}
+		placement="left"
+		active={(uitlegTonen && bewaarKnopZichtbaar && breed) || undefined}
 		onnldd-close={sluitUitleg}
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -435,10 +438,6 @@
 {/if}
 
 <style>
-	/* The coach mark keeps its card 320px wide, which scrolls a 320px screen sideways (WCAG 1.4.10). */
-	nldd-just-in-time-education {
-		--_just-in-time-education-text-width: min(var(--primitives-area-320), calc(100vw - 32px));
-	}
 	.meldingen {
 		display: flex;
 		flex-direction: column;
