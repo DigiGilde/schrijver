@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Pagina from '$lib/components/Pagina.svelte';
+	import { filePreview } from './new-page';
 
 	let { data, form } = $props();
 
@@ -7,16 +8,29 @@
 	let soort = $state(data.options[0].naam ?? '');
 	// svelte-ignore state_referenced_locally
 	let map = $state('');
+	// svelte-ignore state_referenced_locally
+	let titel = $state(form?.titel ?? '');
+
 	const option = $derived(data.options.find((o) => (o.naam ?? '') === soort) ?? data.options[0]);
 	const gekozenMap = $derived(
 		option.fixed ?? (option.folders.includes(map) ? map : (option.folders[0] ?? ''))
 	);
+	const bestand = $derived.by(() => {
+		try {
+			return (
+				filePreview(data.schema, option.naam, gekozenMap, titel, data.today) ??
+				'de naam komt uit de titel'
+			);
+		} catch {
+			return null;
+		}
+	});
 </script>
 
 <svelte:head><title>Nieuwe pagina · {data.site.naam} · Schrijver</title></svelte:head>
 
 <Pagina titel="Nieuwe pagina" terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}>
-	<nldd-container gap="16">
+	<nldd-container max-width="720px" gap="16">
 		{#if form?.error}
 			<nldd-banner variant="critical" text={form.error}></nldd-banner>
 		{/if}
@@ -37,7 +51,8 @@
 				{#if option.fixed === null && option.folders.length > 0}
 					<nldd-form-field label="Map">
 						<nldd-dropdown>
-							<select name="map" value={gekozenMap} onchange={(e) => (map = e.currentTarget.value)}>
+							<!-- nldd-dropdown stops the select's change event and sends its own; input still bubbles. -->
+							<select name="map" value={gekozenMap} oninput={(e) => (map = e.currentTarget.value)}>
 								{#each option.folders as f (f)}
 									<option value={f}>{f}</option>
 								{/each}
@@ -48,10 +63,18 @@
 					<input type="hidden" name="map" value={option.fixed} />
 				{/if}
 				<nldd-form-field label="Titel">
-					<nldd-text-field name="titel" required invalid={form?.veld === 'titel' || undefined}
+					<nldd-text-field
+						name="titel"
+						required
+						value={titel}
+						invalid={form?.veld === 'titel' || undefined}
+						oninput={(e: Event) => (titel = (e.target as HTMLInputElement).value)}
 					></nldd-text-field>
 					{#if form?.veld === 'titel'}
 						<nldd-form-field-help-text>{form.error}</nldd-form-field-help-text>
+					{/if}
+					{#if bestand}
+						<nldd-form-field-help-text>Bestand: {bestand}</nldd-form-field-help-text>
 					{/if}
 				</nldd-form-field>
 				<nldd-form-actions>

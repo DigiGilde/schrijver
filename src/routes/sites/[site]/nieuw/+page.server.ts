@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { slugify } from '$lib/content/slug';
 import { newPagePath } from '$lib/content/schema-form';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { isoDate } from './new-page';
 
 type Option = { naam: string | null; folders: string[]; fixed: string | null };
 
@@ -11,7 +12,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	const store = getConfigStore();
 	const site = store.site(params.site);
 	if (!site) error(404, 'Site niet gevonden');
-	const config = store.schema(site.id)['nieuwe-pagina'];
+	const schema = store.schema(site.id);
+	const config = schema['nieuwe-pagina'];
 
 	const root = site.content.pad.replace(/\/+$/, '');
 	const entries = await getForge().readTree(site.repo, site.standaardbranch, root);
@@ -31,7 +33,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			])
 		].sort();
 
-	const year = String(new Date().getFullYear());
+	const now = new Date();
+	const year = String(now.getFullYear());
 	const options: Option[] =
 		'soorten' in config
 			? config.soorten.map((s) => ({
@@ -41,7 +44,7 @@ export const load: PageServerLoad = async ({ params }) => {
 				}))
 			: [{ naam: null, folders: foldersFor(config.mappen), fixed: null }];
 
-	return { site: { id: site.id, naam: site.naam }, options };
+	return { site: { id: site.id, naam: site.naam }, options, schema, today: isoDate(now) };
 };
 
 export const actions: Actions = {
@@ -54,17 +57,23 @@ export const actions: Actions = {
 		const soort = typeof soortRaw === 'string' && soortRaw !== '' ? soortRaw : null;
 		const map = String(form.get('map') ?? '');
 		const titel = String(form.get('titel') ?? '').trim();
-		if (!titel) return fail(400, { error: 'Geef de pagina een titel', veld: 'titel' });
+		if (!titel) return fail(400, { error: 'Geef de pagina een titel', veld: 'titel', titel });
 		if (!slugify(titel))
-			return fail(400, { error: 'Geef een titel met letters of cijfers', veld: 'titel' });
+			return fail(400, { error: 'Geef een titel met letters of cijfers', veld: 'titel', titel });
 		let pad: string;
 		try {
 			pad = newPagePath(store.schema(site.id), soort, map, titel, new Date());
 		} catch {
 			return fail(400, {
 				error: 'Deze combinatie van soort en map is niet toegestaan',
-				veld: null
+				veld: null,
+				titel
 			});
+		}
+		const root = site.content.pad.replace(/\/+$/, '');
+		const repoPath = root === '' ? pad : `${root}/${pad}`;
+		if (await getForge().readFile(site.repo, site.standaardbranch, repoPath)) {
+			return fail(409, { error: `Er is al een pagina met het bestand ${pad}`, veld: null, titel });
 		}
 		const query = new URLSearchParams({ nieuw: '1', map, titel });
 		if (soort) query.set('soort', soort);
