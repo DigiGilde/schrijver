@@ -212,8 +212,7 @@
 			></nldd-button>
 			<nldd-menu-item
 				slot="overflow"
-				text="Eigenschappen"
-				details={leeg || undefined}
+				text={leeg ? `Eigenschappen (${leeg})` : 'Eigenschappen'}
 				onselect={oneigenschappen}
 			></nldd-menu-item>
 		</nldd-toolbar-item>

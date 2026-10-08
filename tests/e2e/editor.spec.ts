@@ -353,6 +353,17 @@ test('the toolbar counts the empty required properties before a save', async ({ 
 	await expect(page.getByRole('button', { name: /verplicht/ })).toHaveCount(0);
 });
 
+test('in the toolbar menu Eigenschappen spells out the count', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 800 });
+	await page.goto('/sites/moza-site/bewerken/contact.md');
+	await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+	await page.getByRole('button', { name: 'Meer' }).click();
+	const item = page.getByRole('menuitem', { name: 'Eigenschappen (1 verplicht veld leeg)' });
+	await expect(item).toBeVisible();
+	const box = (await item.boundingBox())!;
+	expect(box.x + box.width, 'the item fits the viewport').toBeLessThanOrEqual(320);
+});
+
 test('a save with a missing required field offers to open the properties', async ({ page }) => {
 	await page.goto('/sites/moza-site/bewerken/contact.md');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');
