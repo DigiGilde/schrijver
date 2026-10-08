@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
+import { fakeAssistantActive, fakeSuggestion } from '$lib/assistant/fake';
 import {
 	AssistantUnavailable,
 	DEFAULT_MODEL,
@@ -41,6 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ message: 'Onbekende site' }, { status: 404 });
 		throw err;
 	}
+	if (fakeAssistantActive()) return json(fakeSuggestion(req));
 	try {
 		return json(await suggest(vlamClientFromEnv(), DEFAULT_MODEL, schrijfwijzer, req));
 	} catch (err) {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../src/lib/assistant/vlam', () => ({
 	AssistantUnavailable: class AssistantUnavailable extends Error {},
@@ -34,6 +34,11 @@ function call(opts: { user?: boolean; header?: boolean; body?: unknown }) {
 	} as never);
 }
 
+afterEach(() => {
+	vi.unstubAllEnvs();
+	vi.mocked(vlam.suggest).mockClear();
+});
+
 describe('POST /api/assistent', () => {
 	it('401 without user', async () => {
 		expect((await call({ user: false })).status).toBe(401);
@@ -62,5 +67,38 @@ describe('POST /api/assistent', () => {
 		const res = await call({});
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ replacement: 'r', explanation: 'e' });
+	});
+});
+
+describe('POST /api/assistent in the local preview', () => {
+	it('answers with a marked test suggestion when no VLAM address is configured', async () => {
+		vi.stubEnv('NODE_ENV', 'development');
+		vi.stubEnv('SCHRIJVER_FAKE_FORGE', '1');
+		vi.stubEnv('VLAM_API_URL', '');
+		const res = await call({ body: { ...body, text: 'Eerste zin. Tweede zin.' } });
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({
+			replacement: 'Eerste zin.',
+			explanation: 'Testantwoord, geen AI: alleen de eerste zin blijft staan.'
+		});
+		expect(vlam.suggest).not.toHaveBeenCalled();
+	});
+	it('still checks the site', async () => {
+		vi.stubEnv('NODE_ENV', 'development');
+		vi.stubEnv('SCHRIJVER_FAKE_FORGE', '1');
+		expect((await call({ body: { ...body, siteId: 'onbekend' } })).status).toBe(404);
+	});
+	it('asks the configured model once VLAM_API_URL is set', async () => {
+		vi.stubEnv('NODE_ENV', 'development');
+		vi.stubEnv('SCHRIJVER_FAKE_FORGE', '1');
+		vi.stubEnv('VLAM_API_URL', 'http://localhost:11434');
+		expect(await (await call({})).json()).toEqual({ replacement: 'r', explanation: 'e' });
+		expect(vlam.suggest).toHaveBeenCalledOnce();
+	});
+	it('never answers itself in production', async () => {
+		vi.stubEnv('NODE_ENV', 'production');
+		vi.stubEnv('SCHRIJVER_FAKE_FORGE', '1');
+		expect(await (await call({})).json()).toEqual({ replacement: 'r', explanation: 'e' });
+		expect(vlam.suggest).toHaveBeenCalledOnce();
 	});
 });
