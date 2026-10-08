@@ -5,6 +5,7 @@
 
 <script lang="ts">
 	import type { TextEditorState } from '@nldd/design-system/text-editor';
+	import * as actions from '$lib/client/editor-actions';
 
 	type Props = {
 		state: TextEditorState | null;
@@ -52,7 +53,18 @@
 		return { update: (next: boolean) => (element.expanded = next) };
 	}
 
-	type Opmaak = { icon: string; label: string; aan: () => boolean | undefined; doe: () => void };
+	let balk: HTMLElement | undefined;
+	const editor = () => actions.editorBeside(balk);
+
+	type Opmaak = {
+		icon: string;
+		label: string;
+		doe: () => void;
+		/** The toggle state; an item without one is a plain button. */
+		aan?: () => boolean | undefined;
+		/** False where the action does not apply, such as indenting outside a list. */
+		kan?: () => boolean | undefined;
+	};
 	const koppen = [2, 3, 4] as const;
 	const opmaak: Opmaak[] = [
 		{ icon: 'bold', label: 'Vet', aan: () => active?.bold, doe: () => onactie('bold') },
@@ -67,7 +79,25 @@
 			icon: 'bullet-list',
 			label: 'Lijst met opsommingstekens',
 			aan: () => active?.bulletList,
-			doe: () => onactie('bullet')
+			doe: () => actions.toggleList(editor(), 'bullet', !!active?.bulletList)
+		},
+		{
+			icon: 'numbered-list',
+			label: 'Genummerde lijst',
+			aan: () => active?.orderedList,
+			doe: () => actions.toggleList(editor(), 'ordered', !!active?.orderedList)
+		},
+		{
+			icon: 'indent-increase',
+			label: 'Inspringen',
+			kan: () => state?.canIndent,
+			doe: () => editor()?.indent()
+		},
+		{
+			icon: 'indent-decrease',
+			label: 'Uitspringen',
+			kan: () => state?.canOutdent,
+			doe: () => editor()?.outdent()
 		},
 		{ icon: 'text-quote', label: 'Citaat', aan: () => active?.quote, doe: () => onactie('quote') },
 		{ icon: 'link', label: 'Link', aan: () => active?.link, doe: () => onactie('link') },
@@ -76,6 +106,12 @@
 			label: 'Code in de regel',
 			aan: () => active?.inlineCode,
 			doe: () => onactie('code')
+		},
+		{
+			icon: 'chevron-left-forward-slash-chevron-right-rectangle',
+			label: 'Codeblok',
+			aan: () => active?.codeBlock,
+			doe: () => actions.toggleCodeBlock(editor())
 		}
 	];
 
@@ -84,13 +120,15 @@
 	 * right to left. The end of the bar goes last, the view switch at the very last.
 	 */
 	const PRIORITEIT = {
-		mermaid: 1,
-		afbeelding: 2,
-		schrijfhulp: 12,
-		eigenschappen: 13,
-		weergave: 14
+		lijn: 1,
+		tabel: 2,
+		mermaid: 3,
+		afbeelding: 4,
+		schrijfhulp: opmaak.length + 5,
+		eigenschappen: opmaak.length + 6,
+		weergave: opmaak.length + 7
 	};
-	const prioriteit = (index: number) => opmaak.length + 2 - index;
+	const prioriteit = (index: number) => opmaak.length + 4 - index;
 
 	const afbeeldingLabel = $derived(
 		afbeeldingen
@@ -114,34 +152,87 @@
 </script>
 
 <!-- Every item carries its own twin in slot="overflow": the toolbar shows those in its menu once the item no longer fits. -->
-<nldd-toolbar label="Opmaak" size="sm">
+<nldd-toolbar bind:this={balk} label="Opmaak" size="sm">
 	{#if weergave === 'schrijven'}
 		{#each opmaak as knop, index (knop.label)}
+			{@const aan = knop.aan}
 			<nldd-toolbar-item slot="start" priority={prioriteit(index)}>
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-toggle-button
-					type="button"
-					icon={knop.icon}
-					accessible-label={knop.label}
-					appearance="neutral-transparent"
-					selected={knop.aan() || undefined}
-					disabled={disabled || undefined}
-					onclick={(event: Event) => {
-						knop.doe();
-						resync(event, knop.aan);
-					}}
-				></nldd-toggle-button>
-				<nldd-menu-item
-					slot="overflow"
-					type="checkbox"
-					icon={knop.icon}
-					text={knop.label}
-					selected={knop.aan() || undefined}
-					disabled={disabled || undefined}
-					onselect={knop.doe}
-				></nldd-menu-item>
+				{#if aan}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-toggle-button
+						type="button"
+						icon={knop.icon}
+						accessible-label={knop.label}
+						appearance="neutral-transparent"
+						selected={aan() || undefined}
+						disabled={disabled || undefined}
+						onclick={(event: Event) => {
+							knop.doe();
+							resync(event, aan);
+						}}
+					></nldd-toggle-button>
+					<nldd-menu-item
+						slot="overflow"
+						type="checkbox"
+						icon={knop.icon}
+						text={knop.label}
+						selected={aan() || undefined}
+						disabled={disabled || undefined}
+						onselect={knop.doe}
+					></nldd-menu-item>
+				{:else}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-icon-button
+						icon={knop.icon}
+						accessible-label={knop.label}
+						appearance="neutral-transparent"
+						disabled={disabled || knop.kan?.() === false || undefined}
+						onclick={knop.doe}
+					></nldd-icon-button>
+					<nldd-menu-item
+						slot="overflow"
+						icon={knop.icon}
+						text={knop.label}
+						disabled={disabled || knop.kan?.() === false || undefined}
+						onselect={knop.doe}
+					></nldd-menu-item>
+				{/if}
 			</nldd-toolbar-item>
 		{/each}
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.tabel}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="rectangle-split-2x3"
+				accessible-label="Tabel invoegen"
+				appearance="neutral-transparent"
+				disabled={disabled || undefined}
+				onclick={() => actions.insertBlock(editor(), actions.TABLE_TEMPLATE)}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="rectangle-split-2x3"
+				text="Tabel invoegen"
+				disabled={disabled || undefined}
+				onselect={() => actions.insertBlock(editor(), actions.TABLE_TEMPLATE)}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+		<!-- No icon in the design system says "horizontal line", so this one carries a text. -->
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.lijn}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-button
+				text="Horizontale lijn"
+				accessible-label="Horizontale lijn invoegen"
+				appearance="neutral-transparent"
+				disabled={disabled || undefined}
+				onclick={() => actions.insertBlock(editor(), actions.RULE)}
+			></nldd-button>
+			<nldd-menu-item
+				slot="overflow"
+				text="Horizontale lijn invoegen"
+				disabled={disabled || undefined}
+				onselect={() => actions.insertBlock(editor(), actions.RULE)}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
 		<nldd-toolbar-item slot="start" priority={PRIORITEIT.afbeelding}>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 			<nldd-icon-button

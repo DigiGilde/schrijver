@@ -67,6 +67,68 @@ export function insertImage(
 	return { path: result.repoPath, base64: result.base64 };
 }
 
+/** The commands of nldd-text-editor the toolbar uses beyond those the Editor component passes on. */
+export interface FormattingEditor {
+	readonly value: string;
+	setList(type: 'none' | 'bullet' | 'ordered'): void;
+	toggleCodeBlock(): void;
+	indent(): void;
+	outdent(): void;
+	insertAtCursor(text: string): void;
+	replaceRange(from: number, to: number, text: string): void;
+	getSelection(): { start: number; end: number };
+}
+
+/** The editor a toolbar drives: Schrijfvlak renders the two under one parent. */
+export function editorBeside(toolbar: Element | undefined): FormattingEditor | null {
+	return (
+		toolbar?.parentElement?.querySelector<HTMLElement & FormattingEditor>('nldd-text-editor') ??
+		null
+	);
+}
+
+/** Sets or clears a list type; toggleBulletList would put `- ` in front of `1. ` instead. */
+export function toggleList(
+	editor: FormattingEditor | null,
+	type: 'bullet' | 'ordered',
+	active: boolean
+) {
+	editor?.setList(active ? 'none' : type);
+}
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/** The editor leaves the caret before the opening fence, where typing breaks it; this moves it in. */
+export function toggleCodeBlock(editor: FormattingEditor | null) {
+	if (!editor) return;
+	editor.toggleCodeBlock();
+	const text = editor.value;
+	const caret = editor.getSelection().start;
+	const lineEnd = text.indexOf('\n', caret);
+	const atLineStart = caret === 0 || text[caret - 1] === '\n';
+	if (atLineStart && lineEnd !== -1 && FENCE.test(text.slice(caret, lineEnd))) {
+		editor.replaceRange(lineEnd + 1, lineEnd + 1, '');
+	}
+}
+
+export const TABLE_TEMPLATE = '| Kolom 1 | Kolom 2 |\n| ------- | ------- |\n| Tekst   | Tekst   |';
+export const RULE = '---';
+
+/**
+ * Puts a block at the caret with a blank line on either side: a table would otherwise take in the
+ * line after it as a row, and `---` right under a paragraph turns that paragraph into a heading.
+ */
+export function insertBlock(editor: FormattingEditor | null, block: string) {
+	if (!editor) return;
+	const { start, end } = editor.getSelection();
+	const before = editor.value.slice(0, start);
+	const after = editor.value.slice(end);
+	const open =
+		before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+	const close = after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+	editor.insertAtCursor(open + block + close);
+}
+
 export function insertMermaid(editor: EditorHandle | undefined, body: string) {
 	const sel = editor?.getSelection();
 	const before = sel ? body.slice(0, sel.start) : body;
