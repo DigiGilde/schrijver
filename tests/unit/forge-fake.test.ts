@@ -192,6 +192,54 @@ describe('FakeForge', () => {
 		expect(await forge.listPrs(REPO, 'all')).toHaveLength(1);
 	});
 
+	it('merge applies only what a branch changed since it started, deletions included', async () => {
+		await forge.commit(REPO, 'main', [{ path: 'content/x.png', content: 'png' }], 'x');
+		await forge.createBranch(REPO, 'main', 'p1');
+		await forge.createBranch(REPO, 'main', 'p2');
+		await forge.commit(
+			REPO,
+			'p1',
+			[
+				{ path: 'content/a.md', content: 'alfa' },
+				{ path: 'content/x.png', deleted: true }
+			],
+			'p1'
+		);
+		await forge.commit(REPO, 'p2', [{ path: 'content/c.md', content: '![x](x.png)' }], 'p2');
+		const p1 = await forge.openDraftPr(REPO, 'p1', 'main', 'P1', '');
+		const p2 = await forge.openDraftPr(REPO, 'p2', 'main', 'P2', '');
+		await forge.merge(REPO, p1.number, 'P1');
+		await forge.merge(REPO, p2.number, 'P2');
+		expect(forge.fileText(REPO, 'main', 'content/a.md')).toBe('alfa');
+		expect(forge.fileText(REPO, 'main', 'content/x.png')).toBeNull();
+		expect(forge.fileText(REPO, 'main', 'content/c.md')).toBe('![x](x.png)');
+		expect(forge.fileText(REPO, 'main', 'other/c.md')).toBe('charlie');
+	});
+
+	it('refuses a merge as not mergeable when the base changed the same file since', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		await forge.commit(REPO, 'draft', [{ path: 'content/a.md', content: 'mijn' }], 'mijn');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		await forge.commit(REPO, 'main', [{ path: 'content/a.md', content: 'hun' }], 'hun');
+		expect((await forge.getPr(REPO, pr.number)).mergeable).toBe(false);
+		await expect(forge.merge(REPO, pr.number, 'm')).rejects.toMatchObject({
+			status: 405,
+			detail: 'Pull request is not mergeable'
+		});
+		expect(forge.fileText(REPO, 'main', 'content/a.md')).toBe('hun');
+		expect((await forge.getPr(REPO, pr.number)).state).toBe('open');
+	});
+
+	it('merges when the base made the same change since the fork', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		await forge.commit(REPO, 'draft', [{ path: 'content/sub/b.md', deleted: true }], 'weg');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		await forge.commit(REPO, 'main', [{ path: 'content/sub/b.md', deleted: true }], 'ook weg');
+		expect((await forge.getPr(REPO, pr.number)).mergeable).toBe(true);
+		await forge.merge(REPO, pr.number, 'm');
+		expect((await forge.getPr(REPO, pr.number)).state).toBe('merged');
+	});
+
 	it('prFiles reports added, modified and removed', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		await forge.commit(

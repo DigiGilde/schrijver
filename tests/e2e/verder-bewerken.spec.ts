@@ -32,9 +32,8 @@ test('returns to an open proposal and saves into the same pull request', async (
 });
 
 /*
- * The shortcut tests save MOZa pages that no other test touches. In the fake forge a merge changes what
- * every older open proposal appears to change, and a proposal with two pages has no shortcut; the
- * proposal test merges on Digi Handboek, never on MOZa.
+ * The shortcut tests save MOZa pages that no other test touches, so each proposal holds one page: a
+ * proposal with two pages has no shortcut.
  */
 async function saveMoza(page: Page, path: string, text: string): Promise<string> {
 	await page.goto(`/sites/moza-site/bewerken/${path}`);

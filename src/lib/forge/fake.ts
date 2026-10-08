@@ -33,6 +33,11 @@ const sha1 = (...parts: (Uint8Array | string)[]) => {
 };
 const toBytes = (c: Uint8Array | string) => (typeof c === 'string' ? enc.encode(c) : c);
 const cloneTree = (t: Tree): Tree => new Map([...t].map(([p, b]) => [p, { ...b }]));
+/** Paths whose content differs between two trees, a path that only one of them holds included. */
+const changedPaths = (from: Tree, to: Tree): string[] =>
+	[...new Set([...from.keys(), ...to.keys()])].filter(
+		(path) => from.get(path)?.sha !== to.get(path)?.sha
+	);
 
 export class FakeForge implements Forge {
 	mergeableByPr = new Map<number, boolean>();
@@ -252,10 +257,15 @@ export class FakeForge implements Forge {
 		if (this.view(pr).mergeable === false) {
 			throw new ForgeError(405, 'Samenvoegen geweigerd', 'Pull request is not mergeable');
 		}
+		// Like a squash merge on GitHub: only what the branch changed since its fork point lands.
 		const head = this.tree(repo, pr.headRef);
 		const base = this.tree(repo, pr.baseRef);
-		base.clear();
-		for (const [path, blob] of head) base.set(path, { ...blob });
+		const fork = this.repo(repo).forkTrees.get(pr.headRef) ?? base;
+		for (const path of changedPaths(fork, head)) {
+			const blob = head.get(path);
+			if (blob) base.set(path, { ...blob });
+			else base.delete(path);
+		}
 		this.recordCommit(
 			repo,
 			pr.baseRef,
@@ -307,10 +317,23 @@ export class FakeForge implements Forge {
 	}
 
 	private view(pr: PrSummary): PrSummary {
-		const mergeable = this.mergeableByPr.get(pr.number);
-		const headSha =
-			this.repos.get(this.prRepo.get(pr.number) ?? '')?.heads.get(pr.headRef) ?? pr.headSha;
-		return { ...pr, labels: [...pr.labels], mergeable: mergeable ?? pr.mergeable, headSha };
+		const state = this.repos.get(this.prRepo.get(pr.number) ?? '');
+		const conflicting = state !== undefined && this.conflicts(state, pr);
+		const mergeable = this.mergeableByPr.get(pr.number) ?? (conflicting ? false : pr.mergeable);
+		const headSha = state?.heads.get(pr.headRef) ?? pr.headSha;
+		return { ...pr, labels: [...pr.labels], mergeable, headSha };
+	}
+
+	/** Whether the base changed a path differently from the branch since the branch started. */
+	private conflicts(state: RepoState, pr: PrSummary): boolean {
+		const fork = state.forkTrees.get(pr.headRef);
+		const head = state.trees.get(pr.headRef);
+		const base = state.trees.get(pr.baseRef);
+		if (pr.state !== 'open' || !fork || !head || !base) return false;
+		return changedPaths(fork, head).some((path) => {
+			const theirs = base.get(path)?.sha;
+			return theirs !== fork.get(path)?.sha && theirs !== head.get(path)?.sha;
+		});
 	}
 
 	private touch(repo: string, number: number, patch: Partial<PrSummary>): void {
