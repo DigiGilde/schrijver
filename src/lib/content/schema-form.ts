@@ -157,6 +157,8 @@ function pad(n: number, width: number): string {
 	return String(n).padStart(width, '0');
 }
 
+const SLUG_MAX_LENGTH = 80;
+
 export function newPagePath(
 	schema: PageSchema,
 	soort: string | null,
@@ -184,7 +186,7 @@ export function newPagePath(
 		dir = checkFolder(config.mappen, folder);
 	}
 
-	const slug = slugify(title);
+	const slug = slugify(title, SLUG_MAX_LENGTH);
 	const name =
 		!template || template === 'uit-titel'
 			? slug

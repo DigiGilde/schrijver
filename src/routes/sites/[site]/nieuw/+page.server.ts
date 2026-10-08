@@ -8,6 +8,9 @@ import { isoDate } from './new-page';
 
 type Option = { naam: string | null; folders: string[]; fixed: string | null };
 
+// The save endpoint takes a new page's title only up to this length.
+const TITLE_MAX = 300;
+
 export const load: PageServerLoad = async ({ params }) => {
 	const store = getConfigStore();
 	const site = store.site(params.site);
@@ -58,6 +61,13 @@ export const actions: Actions = {
 		const map = String(form.get('map') ?? '');
 		const titel = String(form.get('titel') ?? '').trim();
 		if (!titel) return fail(400, { error: 'Geef de pagina een titel', veld: 'titel', titel });
+		if (titel.length > TITLE_MAX) {
+			return fail(400, {
+				error: `De titel is te lang: gebruik hoogstens ${TITLE_MAX} tekens`,
+				veld: 'titel',
+				titel
+			});
+		}
 		if (!slugify(titel))
 			return fail(400, { error: 'Geef een titel met letters of cijfers', veld: 'titel', titel });
 		let pad: string;

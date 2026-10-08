@@ -219,6 +219,17 @@ describe('outline', () => {
 		});
 	});
 
+	it('puts the title on one line of at most 120 characters', async () => {
+		const titled = async (title: string) => {
+			server.use(http.post(url, () => reply({ title, outline: '## A', explanation: 'U' })));
+			return (await outline(client(), 'm', '', ask)).title;
+		};
+		expect(await titled('Eerste regel\n\n  tweede\tregel \n')).toBe('Eerste regel tweede regel');
+		expect(await titled('a'.repeat(200))).toBe('a'.repeat(120));
+		expect(await titled('woord '.repeat(40))).toBe(`${'woord '.repeat(19)}woord`);
+		expect(await titled(`${'a'.repeat(119)}😀b`)).toBe(`${'a'.repeat(119)}😀`);
+	});
+
 	it('rejects an answer without a title or an outline', async () => {
 		server.use(http.post(url, () => reply({ title: ' ', outline: '## A', explanation: 'U' })));
 		await expect(outline(client(), 'm', '', ask)).rejects.toThrow('Onbruikbaar antwoord van VLAM');

@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { log } from '$lib/log';
+import { outlineTitle } from './shared';
 
 export type Action = 'korter' | 'b1' | 'actiever' | 'kopjes' | 'samenvatting' | 'vrij';
 export interface SuggestRequest {
@@ -226,7 +227,7 @@ export async function outline(
 	) {
 		throw new AssistantUnavailable(UNUSABLE);
 	}
-	const title = o.title.trim();
+	const title = outlineTitle(o.title);
 	// The form carries the title; an outline that repeats it as an h1 would give the page two.
 	const body = o.outline.replace(/^\s*#[ \t]+[^\n]*\n*/, '').trim();
 	if (!title || !body) throw new AssistantUnavailable(UNUSABLE);

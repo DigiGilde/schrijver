@@ -1,4 +1,5 @@
 import { devBypassesAllowed } from '$lib/server/security';
+import { outlineTitle } from './shared';
 import type { Outline, OutlineRequest, SuggestRequest, Suggestion } from './vlam';
 
 type Env = Record<string, string | undefined>;
@@ -61,7 +62,7 @@ export function fakeOutline(req: OutlineRequest): Outline {
 		.slice(0, 8)
 		.join(' ');
 	return {
-		title: zin.charAt(0).toLocaleUpperCase('nl') + zin.slice(1),
+		title: outlineTitle(zin.charAt(0).toLocaleUpperCase('nl') + zin.slice(1)),
 		outline: [
 			'## Waar gaat het over',
 			beschrijving,

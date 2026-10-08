@@ -184,6 +184,30 @@ describe('newPagePath', () => {
 			'kennis/nieuwe-pagina.md'
 		);
 	});
+	it('caps the slug at 80 characters, cutting at a hyphen', () => {
+		const path = newPagePath(handboek, null, 'kennis', 'woord '.repeat(300), now);
+		expect(path).toBe(`kennis/${'woord-'.repeat(12)}woord.md`);
+		expect(path.length).toBeLessThanOrEqual('kennis/'.length + 80 + '.md'.length);
+		const word = newPagePath(handboek, null, 'kennis', 'x'.repeat(300), now);
+		expect(word).toBe(`kennis/${'x'.repeat(80)}.md`);
+	});
+	it('keeps a title of exactly 80 slug characters whole', () => {
+		const title = `${'a'.repeat(39)} ${'b'.repeat(40)}`;
+		expect(newPagePath(handboek, null, 'kennis', title, now)).toBe(
+			`kennis/${'a'.repeat(39)}-${'b'.repeat(40)}.md`
+		);
+	});
+	it('caps the slug that a file name template puts in {titel}', () => {
+		const nieuws = {
+			...moza,
+			'nieuwe-pagina': {
+				soorten: [{ naam: 'Nieuws', map: 'nieuws', bestandsnaam: '{datum}-{titel}' }]
+			}
+		};
+		expect(newPagePath(nieuws, 'Nieuws', '', 'woord '.repeat(300), now)).toBe(
+			`nieuws/2026-10-07-${'woord-'.repeat(12)}woord.md`
+		);
+	});
 });
 
 describe('summary field', () => {

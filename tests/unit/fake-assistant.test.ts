@@ -58,6 +58,10 @@ describe('fakeOutline', () => {
 			fakeOutline({ siteId: 's', text: 'een twee drie vier vijf zes zeven acht negen tien' }).title
 		).toBe('Een twee drie vier vijf zes zeven acht');
 	});
+	it('caps the title at 120 characters, as the real assistant does', () => {
+		const text = Array(8).fill('Koffieautomaatonderhoudsprocedure').join(' ');
+		expect(fakeOutline({ siteId: 's', text }).title).toBe(text.slice(0, 120));
+	});
 	it('returns a Markdown outline without a title heading, marked as a test', () => {
 		const result = fakeOutline({ siteId: 's', text: description });
 		expect(result.outline).toMatch(/^## Waar gaat het over\n\neen pagina over de koffieautomaat\./);

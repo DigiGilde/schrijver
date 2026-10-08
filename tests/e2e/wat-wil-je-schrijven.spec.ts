@@ -28,6 +28,12 @@ test('the file preview follows the title, the folder and the kind', async ({ pag
 	await expect(page.getByText('Bestand: onderwerpen/nieuw-onderwerp.md')).toBeVisible();
 });
 
+test('the file preview caps a long file name at a word', async ({ page }) => {
+	await open(page, 'digi-handboek');
+	await page.getByLabel('Titel').fill('woord '.repeat(40));
+	await expect(page.getByText(`Bestand: kennis/${'woord-'.repeat(12)}woord.md`)).toBeVisible();
+});
+
 test('Maak een opzet fills title and outline, and Pagina maken opens the editor with them', async ({
 	page
 }) => {
@@ -89,5 +95,19 @@ test('an existing file is refused on the form, before the editor', async ({ page
 	await expect(
 		page.getByRole('alert').filter({ hasText: 'Er is al een pagina met het bestand' })
 	).toContainText('onboarding/accounts.md');
+	await expect(page).toHaveURL(/\/nieuw$/);
+});
+
+test('a title above 300 characters is refused on the form, keeping what was typed', async ({
+	page
+}) => {
+	await open(page, 'digi-handboek');
+	const titel = `${'woord '.repeat(50)}x`;
+	await page.getByLabel('Titel').fill(titel);
+	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await expect(
+		page.getByRole('alert').filter({ hasText: 'De titel is te lang: gebruik hoogstens 300 tekens' })
+	).toBeVisible();
+	await expect(page.getByLabel('Titel')).toHaveValue(titel);
 	await expect(page).toHaveURL(/\/nieuw$/);
 });

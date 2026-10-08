@@ -50,6 +50,11 @@ describe('filePreview', () => {
 	it('refuses a folder the schema does not allow', () => {
 		expect(() => filePreview(handboek, null, 'elders', 'x', today)).toThrow();
 	});
+	it('shows a long file name capped, as the server will name it', () => {
+		expect(filePreview(handboek, null, 'kennis', 'woord '.repeat(40), today)).toBe(
+			`kennis/${'woord-'.repeat(12)}woord.md`
+		);
+	});
 });
 
 describe('the starting text of a page from an outline', () => {
@@ -103,6 +108,25 @@ describe('the new-page form on the server', () => {
 			location: string;
 		};
 		expect(zonder.location).not.toContain('opzet');
+	});
+
+	it('refuses a title above 300 characters, keeping what was typed', async () => {
+		const titel = 'a'.repeat(301);
+		expect(await submit('digi-handboek', { map: 'kennis', titel })).toMatchObject({
+			status: 400,
+			data: { error: 'De titel is te lang: gebruik hoogstens 300 tekens', veld: 'titel', titel }
+		});
+	});
+
+	it('takes a title of 300 characters and names the file with at most 80', async () => {
+		const titel = `${'woord '.repeat(49)}xxxxxx`;
+		expect(titel).toHaveLength(300);
+		const { location } = (await submit('digi-handboek', { map: 'kennis', titel })) as {
+			location: string;
+		};
+		expect(
+			location.startsWith(`/sites/digi-handboek/bewerken/kennis/${'woord-'.repeat(12)}woord.md?`)
+		).toBe(true);
 	});
 
 	it('refuses a file that already exists, keeping the title', async () => {
