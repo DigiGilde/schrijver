@@ -9,7 +9,8 @@ export type DiffBlock =
 	| { kind: 'toegevoegd'; html: string }
 	| { kind: 'verwijderd'; html: string }
 	| { kind: 'gewijzigd'; was: string; wordt: string }
-	| { kind: 'overgeslagen'; aantal: number };
+	| { kind: 'overgeslagen'; aantal: number }
+	| { kind: 'te-groot' };
 
 type Block = { type: string; source: string };
 type Body = { blocks: Block[]; definitions: string };
@@ -22,6 +23,7 @@ type Part = {
 	words: Map<string, number>;
 	chars: number;
 };
+type Budget = { chars: number };
 type Render = (markdown: string) => string;
 
 const ATOMIC = new Set(['code', 'html', 'thematicBreak']);
@@ -33,6 +35,21 @@ const TEXT_NODE = 3;
 const MAX_WORD_EDITS = 1000;
 /** An old and a new block are paired when the word diff keeps this share of the longer text. */
 const SIMILAR = 0.5;
+/** Pages with more characters than this, together, are not compared. */
+const MAX_CHARS = 500_000;
+/** The block diff gives up after this many added and removed blocks, or after `MAX_MS`. */
+const MAX_BLOCK_EDITS = 2000;
+const MAX_MS = 1000;
+/**
+ * Every block is rendered on its own, together with all definitions of its page, so many blocks and many
+ * definitions make a page slow. Rendering is estimated as the characters it parses, plus a fixed cost per block.
+ */
+const RENDER_OVERHEAD = 100;
+const MAX_RENDER_CHARS = 1_000_000;
+/** Longer runs of removed and added blocks are not paired: that takes a word diff for every combination. */
+const MAX_RUN = 50;
+/** The word diffs that decide on pairing may look at this many characters per comparison. */
+const MAX_PAIRING_CHARS = 100_000;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
@@ -54,6 +71,12 @@ function splitBody(markdown: string): Body {
 	}
 	return { blocks, definitions: definitions.join('\n') };
 }
+
+const renderChars = (body: Body) =>
+	body.blocks.reduce(
+		(sum, block) => sum + RENDER_OVERHEAD + block.source.length + body.definitions.length,
+		0
+	);
 
 /** Reference-style links and footnotes need their definitions, which are blocks of their own: they render nothing alone. */
 function renderBlock(body: Body, block: Block, render: Render): string {
@@ -156,7 +179,7 @@ function prepare(body: Body, block: Block, render: Render, doc: Document): Part 
  * The share of the longer text that the word diff keeps, or 0 below `SIMILAR`. Whitespace does not count:
  * the markup of lists and tables is full of it, and it would make unrelated lists look alike.
  */
-function similarity(a: Part, b: Part): number {
+function similarity(a: Part, b: Part, budget: Budget): number {
 	const longer = Math.max(a.chars, b.chars);
 	if (a.type !== b.type || ATOMIC.has(a.type) || longer === 0) return 0;
 	// Tokens in common bound what the word diff can keep, and cost far less than the diff.
@@ -165,6 +188,8 @@ function similarity(a: Part, b: Part): number {
 		shared += Math.min(count, b.words.get(word) ?? 0) * word.length;
 	}
 	if (shared < longer * SIMILAR) return 0;
+	if (a.chars + b.chars > budget.chars) return 0;
+	budget.chars -= a.chars + b.chars;
 	const changes = diffWordsWithSpace(a.text, b.text, { maxEditLength: MAX_WORD_EDITS });
 	if (!changes) return 0;
 	const kept = changes
@@ -174,8 +199,9 @@ function similarity(a: Part, b: Part): number {
 }
 
 /** The pairs, in order on both sides, with the highest summed similarity. */
-function align(gone: Part[], come: Part[]): Pair[] {
-	const score = gone.map((a) => come.map((b) => similarity(a, b)));
+function align(gone: Part[], come: Part[], budget: Budget): Pair[] {
+	if (gone.length > MAX_RUN || come.length > MAX_RUN) return [];
+	const score = gone.map((a) => come.map((b) => similarity(a, b, budget)));
 	const best = Array.from({ length: gone.length + 1 }, () =>
 		new Array<number>(come.length + 1).fill(0)
 	);
@@ -205,18 +231,26 @@ const unpaired = (gone: Part[], come: Part[]): DiffBlock[] => [
 	...come.map((part): DiffBlock => ({ kind: 'toegevoegd', html: part.html }))
 ];
 
+const tooLarge = (): DiffBlock[] => [{ kind: 'te-groot' }];
+
+/** A comparison that is too large gives a single `te-groot` block. */
 export function renderedDiff(
 	before: string,
 	after: string,
 	render: Render,
 	doc: Document
 ): DiffBlock[] {
+	if (before.length + after.length > MAX_CHARS) return tooLarge();
 	const old = splitBody(before);
 	const nieuw = splitBody(after);
+	if (renderChars(old) + renderChars(nieuw) > MAX_RENDER_CHARS) return tooLarge();
 	const changes = diffArrays(
 		old.blocks.map((block) => block.source),
-		nieuw.blocks.map((block) => block.source)
+		nieuw.blocks.map((block) => block.source),
+		{ maxEditLength: MAX_BLOCK_EDITS, timeout: MAX_MS }
 	);
+	if (!changes) return tooLarge();
+	const budget: Budget = { chars: MAX_PAIRING_CHARS };
 	const blocks: DiffBlock[] = [];
 	let oldIndex = 0;
 	let newIndex = 0;
@@ -248,7 +282,7 @@ export function renderedDiff(
 		newIndex += added;
 		let goneFrom = 0;
 		let comeFrom = 0;
-		for (const [g, c] of align(gone, come)) {
+		for (const [g, c] of align(gone, come, budget)) {
 			blocks.push(...unpaired(gone.slice(goneFrom, g), come.slice(comeFrom, c)));
 			blocks.push({ kind: 'gewijzigd', ...markWords(gone[g].html, come[c].html, doc) });
 			goneFrom = g + 1;
@@ -317,6 +351,8 @@ function annotate(html: string, state: string, label: string, doc: Document): st
 const skipped = (aantal: number) =>
 	aantal === 1 ? '1 ongewijzigde alinea' : `${aantal} ongewijzigde alinea's`;
 
+export const TE_GROOT = 'Deze wijziging is te groot om hier te tonen. Bekijk haar op GitHub.';
+
 /** The blocks as HTML for `nldd-rich-text`: every top-level element stays a direct child of it. */
 export function toHtml(blocks: DiffBlock[], doc: Document): string {
 	return blocks
@@ -335,6 +371,8 @@ export function toHtml(blocks: DiffBlock[], doc: Document): string {
 					].join('\n');
 				case 'overgeslagen':
 					return `<p class="diff-overgeslagen">${skipped(block.aantal)}</p>`;
+				case 'te-groot':
+					return `<p class="diff-overgeslagen">${TE_GROOT}</p>`;
 			}
 		})
 		.join('\n');

@@ -81,5 +81,43 @@ describe('sourceDiff', () => {
 			expect(words(removed)).toBeUndefined();
 			expect(words(added)).toBeUndefined();
 		});
+
+		it('marks whole lines once the word diffs have used their share of the characters', () => {
+			const sentence = 'woord '.repeat(4000);
+			const hunks = (last: string) =>
+				['a', 'b', 'c'].map((id) => `gelijk ${id}\n${sentence}${last}\n`).join('');
+			const removed = sourceDiff(hunks('oud'), hunks('nieuw')).filter((p) => p.kind === 'removed');
+			expect(removed.map((part) => words(part) !== undefined)).toEqual([true, true, false]);
+		});
+	});
+
+	describe('size limits', () => {
+		const lines = (prefix: string, count: number) =>
+			Array.from({ length: count }, (_, i) => `${prefix} ${i}`).join('\n') + '\n';
+
+		it('gives up quickly on 20 000 lines that all changed', () => {
+			const started = performance.now();
+			const parts = sourceDiff(lines('oud', 20_000), lines('nieuw', 20_000));
+			expect(performance.now() - started).toBeLessThan(2000);
+			expect(parts).toEqual([{ kind: 'te-groot' }]);
+		});
+
+		it('gives up on texts that together exceed the character limit', () => {
+			expect(sourceDiff('a'.repeat(300_000), 'b'.repeat(300_000))).toEqual([{ kind: 'te-groot' }]);
+			expect(sourceDiff(null, 'a\n'.repeat(300_000))).toEqual([{ kind: 'te-groot' }]);
+		});
+
+		it('still compares a large page with a few changes', () => {
+			const before = lines('regel', 20_000);
+			const parts = sourceDiff(before, before.replace('regel 10000\n', 'tienduizend\n'));
+			expect(parts.map((p) => p.kind)).toEqual([
+				'skip',
+				'same',
+				'removed',
+				'added',
+				'same',
+				'skip'
+			]);
+		});
 	});
 });

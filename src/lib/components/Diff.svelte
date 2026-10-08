@@ -2,7 +2,13 @@
 	import DOMPurify from 'dompurify';
 	import { PURIFY_CONFIG, markdownToHtml } from '$lib/content/markdown-preview';
 	import { parsePage } from '$lib/content/frontmatter';
-	import { countChanges, renderedDiff, toHtml, withContext } from '$lib/content/rendered-diff';
+	import {
+		TE_GROOT,
+		countChanges,
+		renderedDiff,
+		toHtml,
+		withContext
+	} from '$lib/content/rendered-diff';
 	import type { SourcePart, Word } from '$lib/content/source-diff';
 
 	let {
@@ -42,7 +48,7 @@
 
 	let plainHtml = $state('');
 	let diffHtml = $state({ wijzigingen: '', pagina: '' });
-	let aantal = $state(0);
+	let aantal = $state<number | null>(0);
 	let klaar = $state(false);
 
 	$effect(() => {
@@ -51,7 +57,7 @@
 		} else {
 			const blocks = renderedDiff(old.body, nieuw.body, (md) => markdownToHtml(md), document);
 			const clean = (html: string) => DOMPurify.sanitize(html, PURIFY_CONFIG);
-			aantal = countChanges(blocks);
+			aantal = blocks.some((block) => block.kind === 'te-groot') ? null : countChanges(blocks);
 			diffHtml = {
 				wijzigingen: clean(toHtml(withContext(blocks), document)),
 				pagina: clean(toHtml(blocks, document))
@@ -59,6 +65,9 @@
 		}
 		klaar = true;
 	});
+
+	const bronTeGroot = $derived(source.some((part) => part.kind === 'te-groot'));
+	const teGroot = $derived(view === 'bron' ? bronTeGroot : aantal === null);
 
 	type Lines = Extract<SourcePart, { text: string }>;
 	const GUTTER = { added: '+', removed: '-', same: '' };
@@ -134,13 +143,15 @@
 			<nldd-segmented-control-item value="bron" text="Brontekst"></nldd-segmented-control-item>
 		</nldd-segmented-control>
 
-		{#if klaar}
+		{#if klaar && !teGroot}
 			<nldd-text size="sm" color="secondary">
 				{#if aantal === 0}
 					Geen wijzigingen in de tekst.
 				{:else}
-					{aantal}
-					{aantal === 1 ? 'wijziging' : 'wijzigingen'}.
+					{#if aantal !== null}
+						{aantal}
+						{aantal === 1 ? 'wijziging' : 'wijzigingen'}.
+					{/if}
 					{#if view === 'bron'}
 						Toegevoegde regels zijn groen met een plus, verwijderde regels rood met een min.
 					{:else}
@@ -155,6 +166,7 @@
 			<pre class="bron">{#each source as part, i (i)}{#if part.kind === 'skip'}<span
 							class="overgeslagen"
 							>... {part.lines} {part.lines === 1 ? 'regel' : 'regels'} ongewijzigd ...</span
+						>{:else if part.kind === 'te-groot'}<span class="overgeslagen">{TE_GROOT}</span
 						>{:else if part.kind === 'added'}<ins
 							><span class="sr-only">toegevoegd: </span>{@render rows(part)}</ins
 						>{:else if part.kind === 'removed'}<del

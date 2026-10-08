@@ -3,11 +3,19 @@ import { diffLines, diffWordsWithSpace } from 'diff';
 export type Word = { text: string; changed: boolean };
 export type SourcePart =
 	| { kind: 'added' | 'removed' | 'same'; text: string; words?: Word[] }
-	| { kind: 'skip'; lines: number };
+	| { kind: 'skip'; lines: number }
+	| { kind: 'te-groot' };
 
 const CONTEXT = 3;
+/** The line diff runs on the server for every changed page: beyond this many characters in both texts it costs too much. */
+const MAX_CHARS = 500_000;
+/** The line diff gives up after this many added and removed lines, or after `MAX_MS`. */
+const MAX_LINE_EDITS = 2000;
+const MAX_MS = 1000;
 /** The word diff of long, very different texts is expensive and shows little: those lines stay marked as a whole. */
 const MAX_WORD_EDITS = 1000;
+/** The word diffs may look at this many characters per comparison; lines after that stay marked as a whole. */
+const MAX_WORD_CHARS = 100_000;
 
 function splitLines(text: string): string[] {
 	const lines = text.split('\n');
@@ -24,15 +32,28 @@ function wordsOf(removed: string, added: string): { removed: Word[]; added: Word
 	};
 }
 
-/** Line diff of two raw files; long unchanged stretches are shortened to a few lines of context. */
+/**
+ * Line diff of two raw files; long unchanged stretches are shortened to a few lines of context.
+ * A comparison that is too large gives a single `te-groot` part.
+ */
 export function sourceDiff(before: string | null, after: string | null): SourcePart[] {
+	const oldText = before ?? '';
+	const newText = after ?? '';
+	if (oldText.length + newText.length > MAX_CHARS) return [{ kind: 'te-groot' }];
+	const changes = diffLines(oldText, newText, { maxEditLength: MAX_LINE_EDITS, timeout: MAX_MS });
+	if (!changes) return [{ kind: 'te-groot' }];
 	const parts: SourcePart[] = [];
-	const changes = diffLines(before ?? '', after ?? '');
+	let wordChars = MAX_WORD_CHARS;
 	changes.forEach((change, index) => {
 		if (change.added || change.removed) {
 			const part: SourcePart = { kind: change.added ? 'added' : 'removed', text: change.value };
 			const previous = parts[parts.length - 1];
-			if (part.kind === 'added' && previous?.kind === 'removed') {
+			if (
+				part.kind === 'added' &&
+				previous?.kind === 'removed' &&
+				previous.text.length + part.text.length <= wordChars
+			) {
+				wordChars -= previous.text.length + part.text.length;
 				const words = wordsOf(previous.text, part.text);
 				if (words) {
 					previous.words = words.removed;

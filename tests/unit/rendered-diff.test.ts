@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { PURIFY_CONFIG, markdownToHtml } from '../../src/lib/content/markdown-preview';
 import {
+	TE_GROOT,
 	countChanges,
 	renderedDiff,
 	toHtml,
@@ -319,6 +320,64 @@ describe('renderedDiff', () => {
 	});
 });
 
+describe('limits', () => {
+	const paragraphs = (prefix: string, count: number) =>
+		Array.from({ length: count }, (_, i) => `${prefix} ${i}`).join('\n\n') + '\n';
+
+	it('gives up quickly when thousands of blocks changed', () => {
+		const started = performance.now();
+		const blocks = compare(paragraphs('oud', 2500), paragraphs('nieuw', 2500));
+		expect(performance.now() - started).toBeLessThan(2000);
+		expect(blocks).toEqual([{ kind: 'te-groot' }]);
+	});
+
+	it('gives up on pages that together exceed the character limit', () => {
+		expect(compare('a'.repeat(300_000), 'b'.repeat(300_000))).toEqual([{ kind: 'te-groot' }]);
+	});
+
+	it('gives up before rendering anything when rendering would cost too much', () => {
+		const definitions = Array.from(
+			{ length: 200 },
+			(_, i) => `[ref${i}]: https://example.org/${i}`
+		).join('\n');
+		const page = (prefix: string) => `${paragraphs(prefix, 500)}\n${definitions}\n`;
+		let rendered = 0;
+		const counting = (markdown: string) => (rendered++, render(markdown));
+		const blocks = renderedDiff(page('oud'), page('nieuw'), counting, doc);
+		expect(blocks).toEqual([{ kind: 'te-groot' }]);
+		expect(rendered).toBe(0);
+	});
+
+	it('still compares a page of a thousand blocks with one change', () => {
+		const before = paragraphs('Alinea met wat tekst erin, nummer', 1000);
+		const blocks = compare(before, before.replace('nummer 500\n', 'nummer vijfhonderd\n'));
+		expect(blocks.filter((block) => block.kind === 'gelijk')).toHaveLength(999);
+		expect(blocks.filter((block) => block.kind === 'gewijzigd')).toHaveLength(1);
+	});
+
+	it('pairs runs of up to 50 blocks and leaves longer runs unpaired', () => {
+		const page = (count: number, suffix: string) =>
+			Array.from({ length: count }, (_, i) => `Punt ${i}${suffix}.`).join('\n\n') + '\n';
+		expect(
+			kinds(compare(page(50, ''), page(50, ' ok'))).every((kind) => kind === 'gewijzigd')
+		).toBe(true);
+		const long = kinds(compare(page(51, ''), page(51, ' ok')));
+		expect(long.filter((kind) => kind === 'verwijderd')).toHaveLength(51);
+		expect(long.filter((kind) => kind === 'toegevoegd')).toHaveLength(51);
+	});
+
+	it('stops pairing once the word diffs have used their share of the characters', () => {
+		const paragraph = (id: number, last: string) => `${`alfa${id} beta${id} `.repeat(2000)}${last}`;
+		const page = (last: string) => [0, 1, 2].map((id) => paragraph(id, last)).join('\n\n') + '\n';
+		expect(kinds(compare(page('oud'), page('nieuw')))).toEqual([
+			'gewijzigd',
+			'gewijzigd',
+			'verwijderd',
+			'toegevoegd'
+		]);
+	});
+});
+
 describe('withContext', () => {
 	it('keeps one block around a change and folds longer unchanged runs', () => {
 		const blocks = numbered(12, [2, 9]);
@@ -458,6 +517,12 @@ describe('toHtml', () => {
 		expect(html).toBe(
 			'<span class="sr-only">Verwijderd: </span><nldd-code-viewer language="bash" data-diff="verwijderd">ls</nldd-code-viewer>'
 		);
+	});
+
+	it('shows a comparison that is too large as one line', () => {
+		const html = toHtml(withContext([{ kind: 'te-groot' }]), doc);
+		expect(html).toBe(`<p class="diff-overgeslagen">${TE_GROOT}</p>`);
+		expect(TE_GROOT).toBe('Deze wijziging is te groot om hier te tonen. Bekijk haar op GitHub.');
 	});
 
 	it('survives the sanitiser that runs before the markup is shown', () => {
