@@ -1,7 +1,11 @@
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { PURIFY_CONFIG, markdownToHtml } from '../../src/lib/content/markdown-preview';
+import {
+	PURIFY_CONFIG,
+	markdownToHtml,
+	previewImages
+} from '../../src/lib/content/markdown-preview';
 
 const purify = DOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
 const sanitize = (html: string) => purify.sanitize(html, PURIFY_CONFIG);
@@ -69,5 +73,47 @@ describe('markdownToHtml', () => {
 describe('default sanitiser', () => {
 	it('throws without a DOM', () => {
 		expect(() => markdownToHtml('x')).toThrow(/DOM/);
+	});
+});
+
+describe('preview images', () => {
+	const resolve = previewImages({
+		siteId: 'digi-handboek',
+		page: 'docs/kennis/privacy.md',
+		ref: 'schrijver/digi-handboek/privacy-abcd',
+		pending: [{ path: 'docs/afbeeldingen/privacy/nieuw.png', base64: 'iVBORw==' }]
+	});
+	const img = (md: string) => markdownToHtml(md, sanitize, resolve).match(/src="([^"]*)"/)?.[1];
+
+	it('points a relative image at the preview file route for the page folder and branch', () => {
+		expect(img('![Kat](../afbeeldingen/privacy/kat.png)')).toBe(
+			'/api/sites/digi-handboek/bestand?pad=docs%2Fafbeeldingen%2Fprivacy%2Fkat.png&amp;ref=schrijver%2Fdigi-handboek%2Fprivacy-abcd'
+		);
+		expect(img('![Kat](./kat%20zwart.png)')).toBe(
+			'/api/sites/digi-handboek/bestand?pad=docs%2Fkennis%2Fkat+zwart.png&amp;ref=schrijver%2Fdigi-handboek%2Fprivacy-abcd'
+		);
+	});
+
+	it('leaves out the ref on the default branch', () => {
+		const main = previewImages({ siteId: 's', page: 'docs/a.md', ref: null, pending: [] });
+		expect(main('b.png')).toBe('/api/sites/s/bestand?pad=docs%2Fb.png');
+	});
+
+	it('shows an image added in this session from memory', () => {
+		expect(img('![Nieuw](../afbeeldingen/privacy/nieuw.png)')).toBe(
+			'data:image/png;base64,iVBORw=='
+		);
+	});
+
+	it('rewrites reference-style images', () => {
+		expect(img('![Kat][k]\n\n[k]: ../afbeeldingen/kat.png')).toContain(
+			'pad=docs%2Fafbeeldingen%2Fkat.png'
+		);
+	});
+
+	it('leaves absolute, site-root and escaping URLs alone', () => {
+		expect(img('![A](https://example.org/a.png)')).toBe('https://example.org/a.png');
+		expect(img('![A](/images/a.png)')).toBe('/images/a.png');
+		expect(img('![A](../../../a.png)')).toBe('../../../a.png');
 	});
 });

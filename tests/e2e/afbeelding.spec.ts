@@ -29,6 +29,8 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 
 	await expect(editor).toContainText('![Een pixel](');
 	await expect(page.getByText('Afbeeldingen worden meegestuurd bij het bewaren')).toBeVisible();
+	const plaatje = page.locator('nldd-rich-text img[alt="Een pixel"]');
+	await expect(plaatje).toHaveAttribute('src', /^data:image\/png;base64,/);
 
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
@@ -37,6 +39,15 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 	expect(sent.images[0].path).toMatch(/^docs\/afbeeldingen\/.+pixel\.png$/);
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(page.getByText('Afbeeldingen worden meegestuurd bij het bewaren')).toHaveCount(0);
+
+	// Once saved, the preview loads the image from the proposal branch.
+	await expect(plaatje).toHaveAttribute(
+		'src',
+		/^\/api\/sites\/digi-handboek\/bestand\?pad=docs%2F.+pixel\.png&ref=schrijver%2F/
+	);
+	await expect
+		.poll(() => plaatje.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth))
+		.toBe(1);
 });
 
 test('shows a server error inside the dialog and closes on Escape', async ({ page }) => {

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { markdownToHtml } from '$lib/content/markdown-preview';
+	import { markdownToHtml, type ResolveImage } from '$lib/content/markdown-preview';
 
-	type Props = { value: string };
-	let { value }: Props = $props();
+	type Props = { value: string; resolveImage?: ResolveImage };
+	let { value, resolveImage }: Props = $props();
 
 	const DEBOUNCE_MS = 300;
 
@@ -13,10 +13,11 @@
 
 	$effect(() => {
 		const current = value;
+		const resolve = resolveImage;
 		const delay = first ? 0 : DEBOUNCE_MS;
 		first = false;
 		const timer = setTimeout(() => {
-			html = markdownToHtml(current);
+			html = markdownToHtml(current, undefined, resolve);
 		}, delay);
 		return () => clearTimeout(timer);
 	});

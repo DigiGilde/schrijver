@@ -67,12 +67,16 @@ export const securityHeaders: Handle = async ({ event, resolve }) => {
 	}
 };
 
+/** Preview images load through <img>, which cannot send the header; the route only reads. */
+const PREVIEW_FILE = /^\/api\/sites\/[^/]+\/bestand$/;
+
 export const apiGuard: Handle = async ({ event, resolve }) => {
 	const path = normalisePath(event.url.pathname);
 	if (path === null) return json(400, 'Ongeldige aanvraag');
 	if (
 		path.startsWith('/api/') &&
 		!path.startsWith('/api/webhook/') &&
+		!(event.request.method === 'GET' && PREVIEW_FILE.test(path)) &&
 		event.request.headers.get('X-Requested-With') !== 'Schrijver'
 	) {
 		return json(403, 'Ongeldige aanvraag');

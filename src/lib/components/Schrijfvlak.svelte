@@ -7,6 +7,7 @@
 	import Werkbalk, { type Actie } from './Werkbalk.svelte';
 	import * as actions from '$lib/client/editor-actions';
 	import { addImage, uniqueImage, type PendingImage } from '$lib/client/pending-images';
+	import { previewImages } from '$lib/content/markdown-preview';
 
 	type Props = {
 		editor?: ReturnType<typeof Editor>;
@@ -98,7 +99,10 @@
 		</div>
 	</section>
 	<section class="paneel" class:verborgen={tab !== 'voorbeeld'} aria-label="Voorbeeld">
-		<Voorbeeld value={body} />
+		<Voorbeeld
+			value={body}
+			resolveImage={previewImages({ siteId, page: pagina, ref: branch, pending: images })}
+		/>
 	</section>
 </div>
 

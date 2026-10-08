@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import type { Element, Properties } from 'hast';
-import type { Code, Html, Paragraph, Root } from 'mdast';
+import type { Code, Definition, Html, Image, ImageReference, Paragraph, Root } from 'mdast';
 import rehypeStringify from 'rehype-stringify';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
@@ -8,6 +8,8 @@ import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
 export type Sanitize = (html: string) => string;
+/** Maps an image `src` from the Markdown to the URL the preview loads; null leaves it as it is. */
+export type ResolveImage = (src: string) => string | null;
 
 export const PURIFY_CONFIG = {
 	ADD_TAGS: ['nldd-code-viewer'],
@@ -63,6 +65,79 @@ function markUnsupported() {
 	};
 }
 
+function rewriteImages() {
+	return (tree: Root, file: { data: Record<string, unknown> }) => {
+		const resolve = file.data.resolveImage as ResolveImage | undefined;
+		if (!resolve) return;
+		const referenced = new Set<string>();
+		const definitions: Definition[] = [];
+		const walk = (node: { type: string; children?: unknown[] }) => {
+			if (node.type === 'image') {
+				const image = node as Image;
+				image.url = resolve(image.url) ?? image.url;
+			} else if (node.type === 'imageReference') {
+				referenced.add((node as ImageReference).identifier);
+			} else if (node.type === 'definition') {
+				definitions.push(node as Definition);
+			}
+			for (const child of node.children ?? []) walk(child as { type: string });
+		};
+		walk(tree);
+		for (const d of definitions) if (referenced.has(d.identifier)) d.url = resolve(d.url) ?? d.url;
+	};
+}
+
+function normalise(parts: string[]): string[] | null {
+	const out: string[] = [];
+	for (const part of parts) {
+		if (part === '' || part === '.') continue;
+		if (part === '..') {
+			if (out.length === 0) return null;
+			out.pop();
+		} else out.push(part);
+	}
+	return out;
+}
+
+/**
+ * Resolves image references relative to the page: images added in this session come from memory,
+ * the rest from the site repository through the preview file route. Absolute and site-root URLs stay.
+ */
+export function previewImages(opts: {
+	siteId: string;
+	/** Repository path of the page, e.g. docs/kennis/privacy.md. */
+	page: string;
+	/** Proposal branch; null for the default branch. */
+	ref: string | null;
+	pending: { path: string; base64: string }[];
+}): ResolveImage {
+	const folder = opts.page.split('/').slice(0, -1);
+	return (src) => {
+		if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('/') || src.startsWith('#')) return null;
+		let relative = src.replace(/[?#].*$/, '');
+		try {
+			relative = decodeURIComponent(relative);
+		} catch {
+			return null;
+		}
+		const parts = normalise([...folder, ...relative.split('/')]);
+		if (!parts || parts.length === 0) return null;
+		const path = parts.join('/');
+		const pending = opts.pending.find((i) => i.path === path);
+		if (pending) return `data:${mimeOf(path)};base64,${pending.base64}`;
+		const query = new URLSearchParams({ pad: path });
+		if (opts.ref) query.set('ref', opts.ref);
+		return `/api/sites/${encodeURIComponent(opts.siteId)}/bestand?${query}`;
+	};
+}
+
+function mimeOf(path: string): string {
+	const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+	if (ext === 'svg') return 'image/svg+xml';
+	if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+	return `image/${ext}`;
+}
+
 function codeHandler(_state: unknown, node: Code): Element {
 	const text = { type: 'text' as const, value: node.value };
 	if (node.lang === 'mermaid') {
@@ -83,6 +158,7 @@ const processor = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(markUnsupported)
+	.use(rewriteImages)
 	.use(remarkRehype, { allowDangerousHtml: false, handlers: { code: codeHandler } })
 	.use(rehypeStringify);
 
@@ -95,7 +171,11 @@ function defaultSanitize(html: string): string {
 	return browserPurify(html);
 }
 
-export function markdownToHtml(md: string, sanitize: Sanitize = defaultSanitize): string {
-	const html = String(processor.processSync(md));
+export function markdownToHtml(
+	md: string,
+	sanitize: Sanitize = defaultSanitize,
+	resolveImage?: ResolveImage
+): string {
+	const html = String(processor.processSync({ value: md, data: { resolveImage } }));
 	return sanitize(html);
 }
