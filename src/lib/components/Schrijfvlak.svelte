@@ -200,6 +200,10 @@
 			var(--semantics-surfaces-base-background-color)
 		);
 	}
+	/* Pagina drops its sticky header on a short viewport; the bar scrolls away with it. */
+	:global(nldd-page:not([sticky-header])) .werkbalk {
+		position: static;
+	}
 	.vlak {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -227,6 +231,10 @@
 			top: calc(var(--context-inset-top, 0px) + var(--werkbalk-hoogte) + 16px);
 			max-height: calc(100dvh - var(--context-inset-top, 0px) - var(--werkbalk-hoogte) - 32px);
 			overflow-y: auto;
+		}
+		/* A toolbar that scrolls away needs no room above the panel. */
+		:global(nldd-page:not([sticky-header])) .hulp {
+			--werkbalk-hoogte: 0px;
 		}
 	}
 </style>

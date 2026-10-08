@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import AppBalk from '$lib/components/AppBalk.svelte';
 	import { pageReady } from '$lib/client/page-ready.svelte';
@@ -36,16 +36,26 @@
 
 	const pagina = pageReady();
 	let inhoud: HTMLElement | undefined = $state();
+	/* On a short viewport, such as 400% zoom or a phone on its side, the header scrolls away. */
+	let plakt = $state(true);
+
+	onMount(() => {
+		const query = window.matchMedia('(max-height: 500px)');
+		const kijk = () => (plakt = !query.matches);
+		kijk();
+		query.addEventListener('change', kijk);
+		return () => query.removeEventListener('change', kijk);
+	});
 
 	/*
 	 * Everything that sticks while the document scrolls: the header, and the bars in the content that
 	 * mark themselves with data-plakt. A fragment or a focused element has to stop below them
-	 * (WCAG 2.4.11).
+	 * (WCAG 2.4.11). Those bars stick only below a sticky header.
 	 */
 	$effect(() => {
 		const header = kop;
 		const content = inhoud;
-		if (!header || !content) return;
+		if (!header || !content || !plakt) return;
 		const root = document.documentElement;
 		const bars = new Set<Element>();
 		const sizes = new ResizeObserver(measure);
@@ -87,7 +97,7 @@
 	});
 </script>
 
-<nldd-page sticky-header>
+<nldd-page sticky-header={plakt || undefined}>
 	<div slot="header" bind:this={kop}>
 		<nldd-skip-link href="#inhoud">
 			<AppBalk

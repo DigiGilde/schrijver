@@ -294,6 +294,58 @@ for (const viewport of [
 	});
 }
 
+test.describe('at 320 by 256 px, a 1280 px screen at 400% zoom', () => {
+	test.use({ viewport: { width: 320, height: 256 } });
+
+	const bottoms = (page: Page) =>
+		page.evaluate(() => {
+			const bottom = (selector: string) =>
+				document.querySelector(selector)!.getBoundingClientRect().bottom;
+			return {
+				header: bottom('nldd-page > [slot="header"]'),
+				toolbar: bottom('nldd-toolbar[label="Opmaak"]')
+			};
+		});
+
+	test('the header and the toolbar scroll away with the page, so the text gets the room', async ({
+		page
+	}) => {
+		await page.goto(url);
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
+		await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight / 2));
+		await expect
+			.poll(async () => (await bottoms(page)).toolbar, 'the toolbar scrolled away')
+			.toBeLessThanOrEqual(0);
+		expect((await bottoms(page)).header, 'the header scrolled away').toBeLessThanOrEqual(0);
+		const text = (await page.locator('nldd-text-editor').boundingBox())!;
+		expect(text.y, 'the text fills the window from the top').toBeLessThanOrEqual(0);
+		expect(text.y + text.height).toBeGreaterThanOrEqual(256);
+
+		await page.setViewportSize({ width: 320, height: 568 });
+		await expect
+			.poll(async () => (await bottoms(page)).toolbar, 'a taller window keeps the bars in view')
+			.toBeGreaterThan(0);
+	});
+
+	test('the caret line can go up to the top of the window', async ({ page }) => {
+		await page.goto(url);
+		await page.locator('nldd-text-editor .cm-content').click();
+		await page.keyboard.press('ControlOrMeta+End');
+		for (let line = 1; line <= 30; line++) await page.keyboard.press('ArrowUp');
+		// The caret code scrolls a frame after the selection moves; read the caret once it has.
+		const top = await page.evaluate(async () => {
+			for (let frame = 0; frame < 3; frame++)
+				await new Promise((done) => requestAnimationFrame(done));
+			const editor = document.querySelector('nldd-text-editor') as unknown as {
+				getSelection(): { rect: DOMRect | null };
+			};
+			return editor.getSelection().rect?.top ?? -1;
+		});
+		expect(top, 'nothing keeps the caret line down').toBeLessThan(64);
+		expect(top, 'the caret line stays in view').toBeGreaterThanOrEqual(0);
+	});
+});
+
 test('the properties sheet opens from the toolbar and its values are saved', async ({ page }) => {
 	await page.goto(url);
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();

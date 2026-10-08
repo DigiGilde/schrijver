@@ -560,4 +560,29 @@ test.describe('scroll padding (WCAG 2.4.11)', () => {
 		});
 		expect(clearance).toBeGreaterThanOrEqual(7);
 	});
+
+	test('goes on a short viewport, where nothing sticks, and comes back with the height', async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: 320, height: 256 });
+		await page.goto('/sites/digi-handboek/bewerken/index.md');
+		await expect(page.locator('nldd-toolbar[label="Opmaak"]')).toBeVisible();
+		await expect
+			.poll(() => page.evaluate(() => document.documentElement.style.scrollPaddingTop))
+			.toBe('');
+
+		await page.setViewportSize({ width: 320, height: 568 });
+		await expect
+			.poll(
+				() =>
+					page.evaluate(() => {
+						const height = (selector: string) =>
+							document.querySelector(selector)!.getBoundingClientRect().height;
+						const bars = height('nldd-page > [slot="header"]') + height('[data-plakt]');
+						return document.documentElement.style.scrollPaddingTop === `${Math.ceil(bars) + 8}px`;
+					}),
+				'the header and the toolbar count again'
+			)
+			.toBe(true);
+	});
 });
