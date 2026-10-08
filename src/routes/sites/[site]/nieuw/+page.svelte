@@ -25,6 +25,7 @@
 	let beschrijvingLeeg = $state(false);
 	let beschrijvingVeld: HTMLElement | undefined = $state();
 	let opzet = $state<string | null>(null);
+	let ingevuldeTitel: string | null = null;
 	let uitleg = $state('');
 	let bezig = $state(false);
 	let melding = $state('');
@@ -64,8 +65,9 @@
 			});
 			const result = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(result.message ?? 'De schrijfhulp is niet beschikbaar');
-			const klaar = titleAfterOutline(titel, result.title);
+			const klaar = titleAfterOutline(titel, result.title, ingevuldeTitel);
 			titel = klaar.title;
+			if (klaar.filled) ingevuldeTitel = klaar.title;
 			opzet = result.outline;
 			uitleg = result.explanation;
 			melding = klaar.status;

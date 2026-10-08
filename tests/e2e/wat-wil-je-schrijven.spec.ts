@@ -89,6 +89,33 @@ test('Maak een opzet keeps a title the writer typed and names the suggestion', a
 	await expect(page.getByText('Bestand: kennis/mijn-eigen-titel.md')).toBeVisible();
 });
 
+test('a second Maak een opzet replaces the title it filled in, not one the writer edited', async ({
+	page
+}) => {
+	await open(page, 'digi-handboek');
+	const beschrijving = page.getByLabel('Of beschrijf wat je wilt schrijven');
+	const opzet = page.getByLabel('Opzet', { exact: true });
+	const maak = page.getByRole('button', { name: 'Maak een opzet' });
+
+	await beschrijving.fill('Een pagina over de koffieautomaat. Waar staat hij en hoe werkt hij?');
+	await maak.click();
+	await expect(page.getByLabel('Titel')).toHaveValue('Een pagina over de koffieautomaat');
+
+	await beschrijving.fill('Een pagina over het afval. Wat gaat waar in?');
+	await maak.click();
+	await expect(opzet).toHaveValue(/Een pagina over het afval\./);
+	await expect(page.getByLabel('Titel')).toHaveValue('Een pagina over het afval');
+
+	await page.getByLabel('Titel').fill('Afval scheiden');
+	await beschrijving.fill('Een pagina over de kantine. Wat staat er op het menu?');
+	await maak.click();
+	await expect(opzet).toHaveValue(/Een pagina over de kantine\./);
+	await expect(page.locator('form').getByRole('status')).toHaveText(
+		'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Een pagina over de kantine". Controleer de opzet voordat je de pagina maakt.'
+	);
+	await expect(page.getByLabel('Titel')).toHaveValue('Afval scheiden');
+});
+
 test('Maak een opzet without a description says what is missing and asks nothing', async ({
 	page
 }) => {

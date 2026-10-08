@@ -59,16 +59,40 @@ describe('filePreview', () => {
 });
 
 describe('the title after "Maak een opzet"', () => {
+	const klaar = 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.';
 	it('fills an empty title with the suggestion', () => {
-		const klaar = 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.';
-		expect(titleAfterOutline('', 'Koffie')).toEqual({ title: 'Koffie', status: klaar });
-		expect(titleAfterOutline(' \t', 'Koffie')).toEqual({ title: 'Koffie', status: klaar });
+		expect(titleAfterOutline('', 'Koffie')).toEqual({
+			title: 'Koffie',
+			status: klaar,
+			filled: true
+		});
+		expect(titleAfterOutline(' \t', 'Koffie')).toEqual({
+			title: 'Koffie',
+			status: klaar,
+			filled: true
+		});
 	});
 	it('keeps a title the writer typed and names the suggestion in the status line', () => {
 		expect(titleAfterOutline('Mijn eigen titel', 'Koffie')).toEqual({
 			title: 'Mijn eigen titel',
 			status:
-				'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Koffie". Controleer de opzet voordat je de pagina maakt.'
+				'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Koffie". Controleer de opzet voordat je de pagina maakt.',
+			filled: false
+		});
+	});
+	it('replaces the title the previous press filled in, until the writer edits it', () => {
+		expect(titleAfterOutline('Koffie', 'Thee', 'Koffie')).toEqual({
+			title: 'Thee',
+			status: klaar,
+			filled: true
+		});
+		expect(titleAfterOutline('Koffie of thee', 'Thee', 'Koffie')).toMatchObject({
+			title: 'Koffie of thee',
+			filled: false
+		});
+		expect(titleAfterOutline('Mijn eigen titel', 'Thee', 'Koffie')).toMatchObject({
+			title: 'Mijn eigen titel',
+			filled: false
 		});
 	});
 });

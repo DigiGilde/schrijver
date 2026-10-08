@@ -53,21 +53,25 @@ export function startFrontmatter(schema: PageSchema, title: string): Record<stri
 
 /**
  * The title field and the status line after "Maak een opzet": the suggested title fills an empty
- * field, and a title the writer already has stays, with the suggestion named in the status line.
+ * field, or one that still holds the title the previous press filled in. A title the writer typed
+ * or edited stays, with the suggestion named in the status line.
  */
 export function titleAfterOutline(
 	typed: string,
-	suggested: string
-): { title: string; status: string } {
-	if (typed.trim() === '') {
+	suggested: string,
+	filledIn: string | null = null
+): { title: string; status: string; filled: boolean } {
+	if (typed.trim() === '' || typed === filledIn) {
 		return {
 			title: suggested,
-			status: 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.'
+			status: 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.',
+			filled: true
 		};
 	}
 	return {
 		title: typed,
-		status: `De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "${suggested}". Controleer de opzet voordat je de pagina maakt.`
+		status: `De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "${suggested}". Controleer de opzet voordat je de pagina maakt.`,
+		filled: false
 	};
 }
 
