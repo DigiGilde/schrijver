@@ -28,6 +28,19 @@ describe('FakeForge', () => {
 		expect(await forge.readFile(REPO, 'main', 'nope.md')).toBeNull();
 	});
 
+	it('lists a pull request against the point its branch started from', async () => {
+		await forge.createBranch(REPO, 'main', 'voorstel');
+		await forge.commit(REPO, 'voorstel', [{ path: 'content/a.md', content: 'alfa' }], 'mijn');
+		const pr = await forge.openDraftPr(REPO, 'voorstel', 'main', 'Mijn', '');
+		await forge.createBranch(REPO, 'main', 'ander');
+		await forge.commit(REPO, 'ander', [{ path: 'other/c.md', content: 'delta' }], 'ander');
+		const other = await forge.openDraftPr(REPO, 'ander', 'main', 'Ander', '');
+		await forge.merge(REPO, other.number, 'Ander');
+		expect(await forge.prFiles(REPO, pr.number)).toEqual([
+			{ path: 'content/a.md', status: 'modified' }
+		]);
+	});
+
 	it('does not hand over a file above maxBytes', async () => {
 		const big = await forge.readFile(REPO, 'main', 'content/a.md', { maxBytes: 3 });
 		expect(big?.tooLarge).toBe(true);

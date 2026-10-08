@@ -20,6 +20,8 @@ interface RepoState {
 	commits: Map<string, { sha: string; message: string }[]>;
 	heads: Map<string, string>;
 	snapshots: Map<string, Tree>;
+	/** The tree a branch started from: GitHub lists a pull request's files against that point, not the base's head. */
+	forkTrees: Map<string, Tree>;
 }
 
 const enc = new TextEncoder();
@@ -56,7 +58,8 @@ export class FakeForge implements Forge {
 			trees: new Map([[defaultBranch, tree]]),
 			commits: new Map([[defaultBranch, []]]),
 			heads: new Map([[defaultBranch, head]]),
-			snapshots: new Map([[head, cloneTree(tree)]])
+			snapshots: new Map([[head, cloneTree(tree)]]),
+			forkTrees: new Map()
 		});
 	}
 
@@ -118,6 +121,7 @@ export class FakeForge implements Forge {
 		if (r.trees.has(name))
 			throw new ForgeError(422, 'Branch bestaat al', `Reference ${name} already exists`);
 		r.trees.set(name, cloneTree(this.tree(repo, from)));
+		r.forkTrees.set(name, cloneTree(this.tree(repo, from)));
 		r.commits.set(name, []);
 		r.heads.set(name, r.heads.get(from) ?? from);
 	}
@@ -201,7 +205,7 @@ export class FakeForge implements Forge {
 		this.maybeFail('prFiles');
 		const pr = this.pr(repo, number);
 		const head = this.tree(repo, pr.headRef);
-		const base = this.tree(repo, pr.baseRef);
+		const base = this.repo(repo).forkTrees.get(pr.headRef) ?? this.tree(repo, pr.baseRef);
 		const files: PrFile[] = [];
 		for (const [path, blob] of head) {
 			const b = base.get(path);
