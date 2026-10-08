@@ -70,7 +70,9 @@ export const SiteConfigSchema = z
 		id: z.string(),
 		naam: z.string(),
 		omschrijving: z.string().optional(),
-		adres: z.string().url().optional(),
+		adres: z
+			.url({ protocol: /^https?$/, error: 'must be a web address such as https://example.org' })
+			.optional(),
 		forge: z.literal('github'),
 		repo: z.string(),
 		standaardbranch: z.string(),

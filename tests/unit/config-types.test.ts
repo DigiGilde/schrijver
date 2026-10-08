@@ -54,6 +54,33 @@ describe('parseSitesYaml', () => {
 		expect(() => parseSitesYaml(base.replace('pr-{nummer}', 'pr-1'))).toThrow(ZodError);
 	});
 
+	it('accepts a web address as the adres of a site, over https or http', () => {
+		const base = fixture('sites.yaml');
+		for (const adres of ['https://digihandboek.rijks.app/', 'http://example.org/pad?x=1#kop']) {
+			const text = base.replace('adres: https://digihandboek.rijks.app/', `adres: ${adres}`);
+			expect(parseSitesYaml(text)[0].adres).toBe(adres);
+		}
+	});
+
+	it('refuses an adres that is not a web address', () => {
+		const base = fixture('sites.yaml');
+		for (const adres of [
+			'javascript:alert(1)',
+			'JavaScript:alert(1)',
+			'data:text/html,<p>x</p>',
+			'ftp://example.org',
+			'mailto:naam@example.org',
+			'https:example.org',
+			'example.org'
+		]) {
+			const text = base.replace(
+				'adres: https://digihandboek.rijks.app/',
+				`adres: ${JSON.stringify(adres)}`
+			);
+			expect(() => parseSitesYaml(text), adres).toThrow('must be a web address');
+		}
+	});
+
 	it('reads the Mermaid token colours of a site', () => {
 		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
 		expect(digi.mermaid).toBeUndefined();
