@@ -6,6 +6,7 @@ import { identitiesFor } from '$lib/auth/identity';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
+import { ForgeError } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -21,7 +22,19 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const prefix = root === '' ? '' : root + '/';
 	const matches = picomatch(site.content.patroon);
 	const excluded = picomatch(site.content.uitsluiten ?? []);
-	const entries = await forge.readTree(site.repo, site.standaardbranch, root);
+	let entries: Awaited<ReturnType<typeof forge.readTree>>;
+	try {
+		entries = await forge.readTree(site.repo, site.standaardbranch, root);
+	} catch (err) {
+		if (err instanceof ForgeError && err.status === 404) {
+			log.warn('tree.not_found', { site: site.id, ...errorFields(err) });
+			error(
+				404,
+				'Deze site is niet bereikbaar: is de Schrijver-app op de repository geïnstalleerd?'
+			);
+		}
+		throw err;
+	}
 	const files = entries
 		.map((e) => e.path.slice(prefix.length))
 		.filter((p) => matches(p) && !(site.content.uitsluiten?.length && excluded(p)))

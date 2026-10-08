@@ -39,6 +39,13 @@ describe('isEditorial', () => {
 		expect(await isEditorial(site, user, forge)).toBe(false);
 	});
 
+	it('does not match a blank e-mail against a blank redactie entry', async () => {
+		const blank = { ...site, review: { ...site.review, redactie: ['', '  '] } };
+		expect(
+			await isEditorial(blank, { email: ' ', emailVerified: true, githubLogin: null }, forge)
+		).toBe(false);
+	});
+
 	it('grants editorial rights to a GitHub login with write permission', async () => {
 		forge.permissionByLogin.set('writer', 'write');
 		const user = { email: null, emailVerified: false, githubLogin: 'writer' };

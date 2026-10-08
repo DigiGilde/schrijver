@@ -30,6 +30,11 @@ describe('parseSitesYaml', () => {
 		expect(site.review['mergen-vanuit-schrijver']).toBe(true);
 	});
 
+	it('drops a trailing slash from content.pad', () => {
+		const sites = parseSitesYaml(fixture('sites.yaml').replace('pad: docs\n', 'pad: docs/\n'));
+		expect(sites[0].content.pad).toBe('docs');
+	});
+
 	it('refuses concepten: privé with a Dutch message', () => {
 		const text = fixture('sites.yaml').replace(
 			'- id: moza-site',

@@ -25,6 +25,20 @@ const MESSAGES: Record<number, string> = {
 	429: 'GitHub-limiet bereikt, probeer het later'
 };
 
+/** Says when the limit resets, from x-ratelimit-reset (epoch seconds) or retry-after (seconds). */
+function rateLimitMessage(headers: Record<string, unknown>, now = Date.now()): string {
+	const reset = Number(headers['x-ratelimit-reset']) * 1000;
+	const retry = Number(headers['retry-after']) * 1000;
+	const at = reset > now ? reset : retry > 0 ? now + retry : 0;
+	if (!at) return MESSAGES[429];
+	const time = new Date(at).toLocaleTimeString('nl-NL', {
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Europe/Amsterdam'
+	});
+	return `GitHub-limiet bereikt, probeer het na ${time} opnieuw`;
+}
+
 function toForgeError(e: unknown): ForgeError {
 	if (e instanceof ForgeError) return e;
 	if (e instanceof RequestError) {
@@ -39,7 +53,9 @@ function toForgeError(e: unknown): ForgeError {
 		const rateLimited =
 			(e.status === 403 || e.status === 429) &&
 			(/rate limit/i.test(detail) || !!e.response?.headers?.['retry-after']);
-		const message = rateLimited ? MESSAGES[429] : (MESSAGES[e.status] ?? 'GitHub gaf een fout');
+		const message = rateLimited
+			? rateLimitMessage(e.response?.headers ?? {})
+			: (MESSAGES[e.status] ?? 'GitHub gaf een fout');
 		return new ForgeError(e.status, message, detail);
 	}
 	const msg = e instanceof Error ? e.message : String(e);

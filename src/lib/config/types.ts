@@ -2,7 +2,7 @@ import { parse } from 'yaml';
 import { z } from 'zod';
 
 const ContentSchema = z.strictObject({
-	pad: z.string(),
+	pad: z.string().transform((p) => p.replace(/\/+$/, '')),
 	patroon: z.string(),
 	schema: z.string(),
 	uitsluiten: z.array(z.string()).optional(),

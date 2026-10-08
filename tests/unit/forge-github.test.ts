@@ -277,7 +277,23 @@ describe('GitHubForge', () => {
 		const err = await forge()
 			.merge('o/r', 3, 't')
 			.catch((e) => e);
-		expect(err.message).toBe('GitHub-limiet bereikt, probeer het later');
+		expect(err.message).toMatch(/^GitHub-limiet bereikt, probeer het na \d\d:\d\d opnieuw$/);
+	});
+
+	it('says when the primary rate limit resets', async () => {
+		const reset = Date.UTC(2030, 0, 1, 12, 5) / 1000;
+		server.use(
+			http.put(`${API}/repos/o/r/pulls/3/merge`, () =>
+				HttpResponse.json(
+					{ message: 'API rate limit exceeded' },
+					{ status: 403, headers: { 'x-ratelimit-reset': String(reset) } }
+				)
+			)
+		);
+		const err = await forge()
+			.merge('o/r', 3, 't')
+			.catch((e) => e);
+		expect(err.message).toBe('GitHub-limiet bereikt, probeer het na 13:05 opnieuw');
 	});
 
 	it('reads repository visibility and fails safe to public on 404', async () => {

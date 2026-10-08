@@ -14,8 +14,8 @@ export async function isEditorial(
 	forge: Forge
 ): Promise<boolean> {
 	try {
-		if (user.emailVerified && user.email !== null) {
-			const email = user.email.trim().toLowerCase();
+		const email = user.email?.trim().toLowerCase() ?? '';
+		if (user.emailVerified && email !== '') {
 			if (site.review.redactie.some((e) => e.trim().toLowerCase() === email)) return true;
 		}
 		if (user.githubLogin !== null) {

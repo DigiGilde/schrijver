@@ -4,6 +4,7 @@ import type { UserPrefs } from '../../src/lib/auth/users';
 import { identityTrailer, pseudonym } from '../../src/lib/forge/trailers';
 import type { FakeForge } from '../../src/lib/forge/fake';
 import type { Proposal } from '../../src/lib/forge/proposals';
+import { ForgeError } from '../../src/lib/forge/types';
 
 vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
@@ -102,5 +103,22 @@ describe('site page', () => {
 		expect(index.verderBewerken).toBe(
 			`/sites/digi-handboek/bewerken/index.md?branch=schrijver%2Fdigi-handboek%2Feigen-cccc&pr=${own}`
 		);
+	});
+});
+
+describe('site page without the App installed', () => {
+	it('answers 404 with a reason instead of a server error', async () => {
+		const original = forge.readTree.bind(forge);
+		forge.readTree = async () => {
+			throw new ForgeError(404, 'Niet gevonden op GitHub', 'Not Found');
+		};
+		try {
+			await expect(visit('iemand@example.org')).rejects.toMatchObject({
+				status: 404,
+				body: { message: expect.stringContaining('Schrijver-app') }
+			});
+		} finally {
+			forge.readTree = original;
+		}
 	});
 });
