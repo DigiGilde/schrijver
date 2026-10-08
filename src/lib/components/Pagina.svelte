@@ -64,10 +64,11 @@
 </nldd-page>
 
 <style>
-	/* The bar and its back button each pad the start; this puts the back chevron on the content edge. */
+	/* The bar pads both ends and its back button the start; this puts the chevron and the last button on the content edges. */
 	.optisch {
 		display: block;
-		margin-inline-start: -18px;
+		width: auto;
+		margin-inline: -18px -6px;
 	}
 	#inhoud:focus {
 		outline: none;

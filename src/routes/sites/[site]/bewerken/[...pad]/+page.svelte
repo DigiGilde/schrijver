@@ -174,7 +174,7 @@
 	}
 </script>
 
-<svelte:head><title>{data.path} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
+<svelte:head><title>{titel} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
 
 {#snippet bewaarKnop()}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
