@@ -75,8 +75,14 @@ export function removedImages(before: string, after: string, page: string): stri
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Whether `path` is an image directly in an image folder that the site's convention gives some page. */
-export function inImageFolder(site: SiteConfig, path: string): boolean {
+/** The part of a site's configuration that places its images. */
+export type ImageConvention = { content: Pick<SiteConfig['content'], 'pad' | 'afbeeldingen'> };
+
+/**
+ * Whether `path` is an image directly in an image folder that the site's convention gives some page.
+ * Only a normalised path qualifies: no `.` or `..` parts, no percent-escapes, no leading slash.
+ */
+export function inImageFolder(site: ImageConvention, path: string): boolean {
 	const convention = site.content.afbeeldingen?.pad.replace(/\/+$/, '');
 	if (
 		!convention ||
@@ -84,6 +90,7 @@ export function inImageFolder(site: SiteConfig, path: string): boolean {
 		path.length > 500 ||
 		CONTROL.test(path) ||
 		path.includes('\\') ||
+		path.includes('%') ||
 		path.split('/').some((part) => part === '' || part === '.' || part === '..')
 	)
 		return false;
