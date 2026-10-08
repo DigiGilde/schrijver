@@ -7,6 +7,13 @@
 <nldd-simple-section>
 	<nldd-container gap="16">
 		<nldd-title size="1" heading-level="1" text="Kies een site"></nldd-title>
+		{#if data.configNotLoaded}
+			<nldd-banner
+				variant="critical"
+				text="Configuratie niet geladen"
+				supporting-text="Schrijver probeert het elke minuut opnieuw. Blijft dit zo, meld het dan bij de beheerders."
+			></nldd-banner>
+		{/if}
 		<nldd-container layout="grid" gap="16">
 			{#each data.sites as site (site.id)}
 				<nldd-card>
