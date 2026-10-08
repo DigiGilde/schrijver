@@ -24,7 +24,7 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 | 14 | Security testing | missing | CodeQL, ZAP baseline against a preview, pentest before go-live |
 | 15 | Secure build and deploy | partly | Separate secrets, database, OIDC client and App for previews; restrict who may label; scope `GITHUB_ADMIN_TOKEN` |
 | 16 | Test coverage of security behaviour | covered | Add tests for the reviewer and `toegestaan` fixes |
-| 17 | Abuse and DoS protection | partly | Set `ADDRESS_HEADER` and `XFF_DEPTH` on ZAD; shared limit store if more than one replica; parse Markdown for the preview and the diff in a worker with a time limit (crafted Markdown can keep the parser busy for seconds in the browser). Already bounded: a proposal view compares at most 20 pages, fetches no page above 500 kB and gives up on a diff that grows too large ("te groot") |
+| 17 | Abuse and DoS protection | partly | Set `ADDRESS_HEADER` and `XFF_DEPTH` on ZAD; shared limit store if more than one replica; parse Markdown for the preview and the diff in a worker with a time limit (crafted Markdown can keep the parser busy for seconds in the browser). Already bounded: a proposal view compares at most 20 pages, fetches no page above 500 kB and gives up on a diff that grows too large ("te groot"); the image usage check takes at most 20 images and reads at most 300 pages of at most 500 kB |
 | 18 | Supplier agreements | missing | Statements from ZAD, SSC-ICT and GitHub, recorded here and in the register |
 | 19 | Classification (BIV) and risk analysis | missing | Short BIV classification and risk table; decide the highest classification VLAM may receive |
 | 20 | Exit and portability | partly | Document and test a rebuild: config repo, secrets list, GitHub App |
@@ -40,7 +40,8 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 - CSRF: custom header on `/api/*`, origin check on forms; CSP with nonce, `frame-ancestors 'none'`, nosniff, no-referrer.
 - Authorisation derived per request; paths, image types and SVG content validated server-side; alt text required.
 - Only text, instruction and writing guide go to VLAM; logs hold no content, e-mail addresses or tokens.
-- Webhook HMAC with constant-time compare; rate limits on assistant, save and upload.
+- Webhook HMAC with constant-time compare; rate limits on assistant, save, upload and the image usage check.
+- An image is deleted only when the server finds it in the site's image folder, present on the branch, and used neither by the saved text nor by any page it could read; the usage check answers with page paths and titles only.
 - Dev bypasses refuse to start outside development and test; non-root container, base image and actions pinned.
 
 ## Questions for ZAD

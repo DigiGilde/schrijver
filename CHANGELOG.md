@@ -22,6 +22,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Every proposal says where it stands and what comes next: a line in its row, and on the proposal page a step bar (Concept, Ingestuurd, Goedgekeurd, Samengevoegd), the next step and who approves.
 - Images show in the editor's "Voorbeeld", served from the site repository through an authenticated route.
 - "Verklein voor het web": an opt-in offer in the image dialog that scales a large photo to 2000 pixels and re-encodes it, with the real sizes shown first.
+- A save that drops the last reference to an image asks, unticked, whether the file may go too; the server checks again that no other page uses it and deletes it in the same commit as the text. An image other pages still show stays, and the save says on which pages.
 - Fake forge for local development and end-to-end tests.
 - Project documentation, in-app help page ("Zo werkt Schrijver"), `publiccode.yml` and the EUPL-1.2 licence.
 
