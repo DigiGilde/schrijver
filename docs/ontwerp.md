@@ -32,7 +32,7 @@ In scope:
 - Edit an existing page or create a new one within the site's content folders.
 - Frontmatter as a form driven by a per-site schema; body in the editor.
 - Images: insert via button, drag or paste; stored in the branch; alt text required.
-- Mermaid: fenced block, rendered in the preview pane, text description required.
+- Mermaid: fenced block, rendered in the "Voorbeeld" view, text description required.
 - Save creates or updates a branch and draft PR. Send in marks it ready for review and requests reviewers.
 - Proposal list per site, read live from GitHub, including PRs made outside Schrijver.
 - Review in Schrijver: readable diff, preview link, approve, comment, merge (squash) when the site allows it and the user is editorial.
@@ -198,7 +198,7 @@ Rate limits: installation tokens have 5000 requests per hour per installation (t
 2. **First save** ("Concept bewaren") creates the branch and a draft PR titled with the page title. Each later save is a commit. See 7.4 for what this means on a public repository.
 3. **Return later**: Schrijver lists the user's open proposals by matching the identity trailer (section 7.2) in the PR body, plus all open proposals of the site for editorial.
 4. **Send in** marks the PR ready, sets the `preview` label where the site uses one, fills the description (what changed, which page, "menu bijwerken" when it is a new page), requests reviewers from `redactie` who have a linked GitHub login, and notifies the editorial list by e-mail if ZAD offers mail (otherwise this step is a visible to-do in the proposal list).
-5. **Review** in Schrijver or on GitHub. Schrijver shows a readable diff (rendered old and new side by side, not a unified patch), the preview URL and its build status, and the GitHub review state.
+5. **Review** in Schrijver or on GitHub. Schrijver shows the changes in colour on the rendered page: a block diff with word marks, in the views "Wijzigingen" (the changes with one block of context), "Hele pagina" and "Brontekst" (decision 0006). Next to it the preview URL and its build status, and the GitHub review state.
 6. **Merge** from Schrijver as squash, only for editorial and only when `mergen-vanuit-schrijver` is true. The squash message carries the identity trailers of every contributing commit.
 
 Required review on MOZa (one approval, last-push approval) applies unchanged. Because the App is the PR author, any editorial member can be that reviewer, including the person who wrote the text in Schrijver. Whether that is acceptable per site is an editorial decision, not something Schrijver enforces in version one.
@@ -232,7 +232,7 @@ Both pilot repositories are public, so a draft PR is readable by anyone on the i
 Version one:
 
 - The first save button is "Concept bewaren", and on a site with a public repository it carries the sentence "Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het instuurt." The editor shows a persistent dimmed "Openbaar concept" line on such sites.
-- Site preview builds only after Send-in: on MOZa the `preview` label is set at Send-in instead of first save; for Digi Handboek, propose a change to `preview.yml` so it skips draft PRs (`if: github.event.pull_request.draft == false`). Schrijver's own preview pane covers the draft phase.
+- Site preview builds only after Send-in: on MOZa the `preview` label is set at Send-in instead of first save; for Digi Handboek, propose a change to `preview.yml` so it skips draft PRs (`if: github.event.pull_request.draft == false`). Schrijver's own "Voorbeeld" covers the draft phase.
 - `sites.yaml` gets `concepten: openbaar | privé`. Version one supports `openbaar` only and refuses to start a site configured as `privé`, so the option is visible but honest.
 
 Planned next step (`concepten: privé`):
@@ -248,12 +248,13 @@ The writing surface is `nldd-text-editor` from `@nldd/design-system`: a hybrid M
 
 Composition:
 
-- **Toolbar** built by Schrijver from the editor's command API (bold, italic, headings, lists, link, quote, code, image, Mermaid, table snippet). The editor is headless; the toolbar reads `nldd-text-editor-state` for toggle state.
-- **Preview pane** beside the editor, rendered client-side from the Markdown with the same stack the sites use where possible: `nldd-rich-text` for typography, `nldd-code-viewer` for fences, Mermaid rendered in the browser. Toggleable; on narrow screens a tab. The preview is "close to the site", not pixel-identical, and says so once.
-- **Frontmatter form** above the text, from the schema, using `nldd-form-field` and friends.
+- **Page layout** after the NLDD application composition (decision 0006): the page title in the content, a sticky title bar with the way back to the site and the save action, one writing surface in the full column.
+- **Toolbar** built by Schrijver from the editor's command API (bold, italic, headings, lists, link, quote, code, image, Mermaid, table snippet) on `nldd-toolbar`, which moves what does not fit into its overflow menu. The editor is headless; the toolbar reads `nldd-text-editor-state` for toggle state. At the end of the toolbar: the switch between "Schrijven" and "Voorbeeld", "Eigenschappen" and "Schrijfhulp".
+- **Voorbeeld** on demand, in place of the editor: the hybrid editor already shows the formatting, so a second rendering beside it was double. The view renders client-side from the Markdown with the same stack the sites use where possible: `nldd-rich-text` for typography, `nldd-code-viewer` for fences, images, Mermaid rendered in the browser. The preview is "close to the site", not pixel-identical, and says so once.
+- **Eigenschappen**: the frontmatter form from the schema, using `nldd-form-field` and friends, in a right-hand sheet that keeps the text in view. A save that fails on a property offers to open the sheet.
 - **Images**: the toolbar button, drag onto the editor or paste. Schrijver asks for alt text in a dialog (required, empty not accepted), stores the file under the site's `afbeeldingen.pad`, and inserts `![alt](relative-path)` with `insertAtCursor`. Images are committed in the same commit as the text. Allowed types: png, jpg, webp, svg; max 5 MB; svg is sanitised.
-- **Mermaid**: the toolbar inserts a fenced `mermaid` block with an `accTitle:` and `accDescr:` scaffold. Save is blocked while a Mermaid block lacks `accDescr`. The preview pane renders it.
-- **Unknown constructs** (shortcodes, HTML) are plain text in the editor and shown as a neutral "niet in voorbeeld" block in the preview pane.
+- **Mermaid**: the toolbar inserts a fenced `mermaid` block with an `accTitle:` and `accDescr:` scaffold. Save is blocked while a Mermaid block lacks `accDescr`. "Voorbeeld" renders it.
+- **Unknown constructs** (shortcodes, HTML) are plain text in the editor and shown as a neutral "niet in voorbeeld" block in "Voorbeeld".
 - **Local safety net**: the draft is kept in `localStorage` per branch until a save succeeds, and restored with a notice when the page is reopened.
 
 Gaps found in `nldd-text-editor` (no image or Mermaid rendering, no block drag) are reported to the design system via the contribute route, with Schrijver as the concrete use case.
