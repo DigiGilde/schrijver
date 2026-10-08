@@ -277,17 +277,19 @@
 		document.body.append(node);
 		return () => node.remove();
 	}
-
-	/** Pagina renders the h1; the button joins the end slot of its title line. */
-	function naarTitel(node: HTMLElement) {
-		const paginatitel = document.getElementById('paginatitel');
-		if (!paginatitel) return;
-		paginatitel.append(node);
-		return () => node.remove();
-	}
 </script>
 
 <svelte:head><title>{titel} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
+
+{#snippet titelKnop()}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<nldd-icon-button
+		icon="edit"
+		text="Titel wijzigen"
+		appearance="neutral-transparent"
+		onclick={wijzigTitel}
+	></nldd-icon-button>
+{/snippet}
 
 {#snippet bewaarKnop()}
 	<nldd-just-in-time-education
@@ -314,21 +316,10 @@
 	{ondertitel}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
 	balk={readOnly || conflictOpen || vraagOpen ? undefined : bewaarKnop}
+	titelactie={ready && titelWijzigbaar ? titelKnop : undefined}
 	bind:kop
 >
 	<nldd-container gap="16">
-		{#if ready && titelWijzigbaar}
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<nldd-icon-button
-				slot="end"
-				icon="edit"
-				text="Titel wijzigen"
-				appearance="neutral-transparent"
-				onclick={wijzigTitel}
-				{@attach naarTitel}
-			></nldd-icon-button>
-		{/if}
-
 		{#if readOnly}
 			<LeesAlleenBanner {readOnly} />
 		{/if}

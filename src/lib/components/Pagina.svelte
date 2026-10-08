@@ -14,6 +14,8 @@
 		breedte?: string;
 		/** Buttons at the end of the title bar; they stay in view while the page scrolls. */
 		balk?: Snippet;
+		/** Controls at the end of the h1 line, such as a button that changes the title. */
+		titelactie?: Snippet;
 		children: Snippet;
 		/** Sections after the first one. */
 		vervolg?: Snippet;
@@ -26,6 +28,7 @@
 		terug = null,
 		breedte,
 		balk,
+		titelactie,
 		children,
 		vervolg,
 		kop = $bindable()
@@ -121,7 +124,11 @@
 				heading-level="1"
 				text={titel}
 				supporting-text={ondertitel}
-			></nldd-title>
+			>
+				{#if titelactie}
+					<div slot="end" class="titelactie">{@render titelactie()}</div>
+				{/if}
+			</nldd-title>
 			{@render children()}
 		</nldd-simple-section>
 		{@render vervolg?.()}
@@ -137,6 +144,9 @@
 	}
 	#inhoud:focus {
 		outline: none;
+	}
+	.titelactie {
+		display: contents;
 	}
 	.balk {
 		display: flex;

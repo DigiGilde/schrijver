@@ -447,7 +447,9 @@ test('the title button opens the properties with the focus in the title field', 
 }) => {
 	await page.goto('/sites/moza-site/bewerken/over-moza.md');
 	const knop = page.getByRole('button', { name: 'Titel wijzigen' });
-	await expect(page.locator('#paginatitel > nldd-icon-button[slot="end"]')).toHaveCount(1);
+	await expect(
+		page.locator('#paginatitel > [slot="end"]').getByRole('button', { name: 'Titel wijzigen' })
+	).toHaveCount(1);
 	await expect(page.getByText('De titel is de eerste kop van de tekst')).toHaveCount(0);
 
 	await knop.click();
