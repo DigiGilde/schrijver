@@ -168,6 +168,17 @@ describe('home page status lines', () => {
 		]);
 	});
 
+	it('count what "Te beoordelen" counts: sent in or changes requested, not approved', async () => {
+		await proposal('digi-handboek', 'ingestuurd-hhhh', { sent: true });
+		const gevraagd = await proposal('digi-handboek', 'gevraagd-iiii', { sent: true });
+		const goed = await proposal('digi-handboek', 'goed-jjjj', { sent: true });
+		forge.prs.get(gevraagd.number)!.reviewState = 'changes_requested';
+		await forge.approve(digi.repo, goed.number, 'Akkoord');
+		expect(await statusOf('digi-handboek', EDITOR)).toEqual([
+			'2 voorstellen wachten op beoordeling'
+		]);
+	});
+
 	it('give an editorial member with an own proposal both lines', async () => {
 		await proposal('digi-handboek', 'eigen-dddd', { mine: true, sent: true });
 		await proposal('digi-handboek', 'ander-eeee', { sent: true });

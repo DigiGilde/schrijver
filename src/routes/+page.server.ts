@@ -3,6 +3,7 @@ import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
 import type { SiteConfig } from '$lib/config/types';
 import { toProposal } from '$lib/forge/proposals';
+import { waitsForReview } from '$lib/forge/status';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 
@@ -19,9 +20,7 @@ async function statusLines(site: SiteConfig, { session, prefs }: User): Promise<
 		// Counting needs no file lists.
 		const proposals = prs.map((pr) => toProposal(pr, [], site, mine));
 		const open = proposals.filter((p) => p.mine).length;
-		const waiting = proposals.filter(
-			(p) => p.status === 'ingestuurd' || p.status === 'wijzigingen-gevraagd'
-		).length;
+		const waiting = proposals.filter((p) => waitsForReview(p.status)).length;
 		const editorial =
 			waiting > 0 &&
 			(await isEditorial(
