@@ -43,6 +43,8 @@
 	};
 
 	let instruction = $state('');
+	let instructionMissing = $state(false);
+	let instructionField: HTMLElement | undefined = $state();
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let pending = $state<Pending | null>(null);
@@ -59,9 +61,7 @@
 						? 'Samenvatting ingevuld bij Eigenschappen'
 						: outcome === 'verworpen'
 							? 'Verworpen'
-							: scope === 'selectie'
-								? 'Op de selectie'
-								: 'Op de hele tekst'
+							: ''
 	);
 
 	let parts = $derived(
@@ -119,6 +119,16 @@
 		}
 	}
 
+	function ask(event: SubmitEvent) {
+		event.preventDefault();
+		if (!instruction.trim()) {
+			instructionMissing = true;
+			instructionField?.focus();
+			return;
+		}
+		void run('vrij');
+	}
+
 	function clearPending() {
 		if (pending && pending.action !== 'samenvatting') onUnmark();
 		pending = null;
@@ -160,113 +170,149 @@
 	onpointerenter={refreshScope}
 	onfocusin={refreshScope}
 >
-	<h2 id="schrijfhulp-kop">Schrijfhulp</h2>
-	<p class="uitleg">
-		<small
-			>Voorstellen komen van een AI-taalmodel (VLAM). Je tekst gaat daarvoor naar VLAM: zet er geen
-			persoonsgegevens of vertrouwelijke informatie in. Controleer elk voorstel zelf.</small
-		>
-	</p>
-	<p class="status" role="status" aria-live="polite"><small>{status}</small></p>
+	<nldd-title size="5"><h2 id="schrijfhulp-kop">Schrijfhulp</h2></nldd-title>
+	<nldd-spacer size="8"></nldd-spacer>
+	<nldd-text size="sm" color="secondary">
+		Voorstellen komen van een AI-taalmodel (VLAM). Je tekst gaat daarvoor naar VLAM: zet er geen
+		persoonsgegevens of vertrouwelijke informatie in. Controleer elk voorstel zelf.
+	</nldd-text>
+	<nldd-spacer size="24"></nldd-spacer>
 
-	<div class="acties">
-		{#each actions as { action, label } (action)}
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<nldd-button
-				appearance="secondary"
-				size="sm"
-				text={label}
-				loading={busy || undefined}
-				onclick={() => run(action)}
-			></nldd-button>
-		{/each}
+	<div role="group" aria-labelledby="schrijfhulp-bereik">
+		<nldd-text id="schrijfhulp-bereik" line-height="flat">
+			{scope === 'selectie' ? 'Op de selectie' : 'Op de hele tekst'}
+		</nldd-text>
+		<nldd-spacer size="8"></nldd-spacer>
+		<nldd-container layout="wrap" gap="8">
+			{#each actions as { action, label } (action)}
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button
+					appearance="secondary"
+					size="sm"
+					text={label}
+					loading={busy || undefined}
+					onclick={() => run(action)}
+				></nldd-button>
+			{/each}
+		</nldd-container>
 	</div>
+	<nldd-spacer size="24"></nldd-spacer>
 
-	<nldd-form-field label="Eigen opdracht">
-		<nldd-text-field
-			value={instruction}
-			maxlength={1000}
-			oninput={(e: Event) => (instruction = (e.target as HTMLInputElement).value)}
-		></nldd-text-field>
-	</nldd-form-field>
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-button
-		appearance="secondary"
-		size="sm"
-		text="Vraag"
-		loading={busy || undefined}
-		disabled={!instruction.trim() || undefined}
-		onclick={() => run('vrij')}
-	></nldd-button>
+	<nldd-form>
+		<form onsubmit={ask}>
+			<nldd-form-field label="Eigen opdracht">
+				<nldd-text-field
+					bind:this={instructionField}
+					value={instruction}
+					maxlength={1000}
+					invalid={instructionMissing || undefined}
+					oninput={(e: Event) => {
+						instruction = (e.target as HTMLInputElement).value;
+						instructionMissing = false;
+					}}
+				></nldd-text-field>
+				{#if instructionMissing}
+					<nldd-form-field-help-text
+						>Een opdracht is nodig om iets te vragen</nldd-form-field-help-text
+					>
+				{/if}
+			</nldd-form-field>
+			<nldd-form-actions>
+				<nldd-button-group size="sm">
+					<nldd-button
+						appearance="secondary"
+						size="sm"
+						type="submit"
+						text="Vraag"
+						loading={busy || undefined}
+					></nldd-button>
+				</nldd-button-group>
+			</nldd-form-actions>
+		</form>
+	</nldd-form>
 
 	{#if error}
 		<nldd-notification variant="warning" text={error} ondismiss={() => (error = null)}
 		></nldd-notification>
 	{/if}
 
-	{#if pending && pending.action === 'samenvatting'}
-		<div class="voorstel">
-			<p id="voorstel-kop">Voorgestelde samenvatting</p>
-			<blockquote aria-labelledby="voorstel-kop">{pending.suggestion.replacement}</blockquote>
-			{#if !onSummary}
-				<p>
-					<small
-						>Deze pagina heeft geen samenvattingsveld; kopieer de tekst als je hem wilt gebruiken.</small
-					>
-				</p>
-			{/if}
-			<div class="acties">
-				{#if onSummary}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button
-						appearance="primary"
-						size="sm"
-						text="Gebruik als samenvatting"
-						onclick={useSummary}
-					></nldd-button>
+	{#if pending}
+		<nldd-spacer size="24"></nldd-spacer>
+		<nldd-box>
+			<nldd-container padding="16">
+				<nldd-title size="6">
+					<h3 id="voorstel-kop">
+						{pending.action === 'samenvatting'
+							? 'Voorgestelde samenvatting'
+							: 'Voorgestelde wijziging'}
+					</h3>
+				</nldd-title>
+				<nldd-spacer size="4"></nldd-spacer>
+				<nldd-text size="sm" color="secondary">{pending.suggestion.explanation}</nldd-text>
+				<nldd-spacer size="12"></nldd-spacer>
+				<nldd-text size="sm">
+					<div role="group" aria-labelledby="voorstel-kop" class="voorstel">
+						{#if pending.action === 'samenvatting'}
+							{pending.suggestion.replacement}
+						{:else}
+							{#each parts as part, i (i)}
+								{#if part.added}<ins><span class="sr-only">toegevoegd: </span>{part.value}</ins
+									>{:else if part.removed}<del
+										><span class="sr-only">verwijderd: </span>{part.value}</del
+									>{:else}{part.value}{/if}
+							{/each}
+						{/if}
+					</div>
+				</nldd-text>
+				{#if pending.action === 'samenvatting' && !onSummary}
+					<nldd-spacer size="12"></nldd-spacer>
+					<nldd-text size="sm" color="secondary">
+						Deze pagina heeft geen samenvattingsveld; kopieer de tekst als je hem wilt gebruiken.
+					</nldd-text>
 				{/if}
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="secondary" size="sm" text="Verwerpen" onclick={dismiss}
-				></nldd-button>
-			</div>
-		</div>
-	{:else if pending}
-		<div class="voorstel">
-			<p>{pending.suggestion.explanation}</p>
-			<p id="voorstel-kop">Voorgestelde wijziging</p>
-			<div role="group" aria-labelledby="voorstel-kop" class="diff">
-				{#each parts as part, i (i)}
-					{#if part.added}<ins><span class="sr-only">toegevoegd: </span>{part.value}</ins
-						>{:else if part.removed}<del><span class="sr-only">verwijderd: </span>{part.value}</del
-						>{:else}{part.value}{/if}
-				{/each}
-			</div>
-			<div class="acties">
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="primary" size="sm" text="Overnemen" onclick={accept}></nldd-button>
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="secondary" size="sm" text="Verwerpen" onclick={dismiss}
-				></nldd-button>
-			</div>
-		</div>
+				<nldd-spacer size="16"></nldd-spacer>
+				<nldd-button-group size="sm">
+					{#if pending.action !== 'samenvatting'}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<nldd-button appearance="primary" size="sm" text="Overnemen" onclick={accept}
+						></nldd-button>
+					{:else if onSummary}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<nldd-button
+							appearance="primary"
+							size="sm"
+							text="Gebruik als samenvatting"
+							onclick={useSummary}
+						></nldd-button>
+					{/if}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button appearance="secondary" size="sm" text="Verwerpen" onclick={dismiss}
+					></nldd-button>
+				</nldd-button-group>
+			</nldd-container>
+		</nldd-box>
 	{/if}
+
+	{#if status}
+		<nldd-spacer size="16"></nldd-spacer>
+	{/if}
+	<nldd-text size="sm" color="secondary" role="status">{status}</nldd-text>
 </section>
 
 <style>
-	.acties {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-block: 0.75rem;
-	}
-	.diff {
+	.voorstel {
 		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 	ins {
 		text-decoration: underline;
+		background-color: var(--semantics-categories-success-tinted-background-color);
+		color: var(--semantics-categories-success-tinted-content-color);
 	}
 	del {
 		text-decoration: line-through;
+		background-color: var(--semantics-categories-critical-tinted-background-color);
+		color: var(--semantics-categories-critical-tinted-content-color);
 	}
 	.sr-only {
 		position: absolute;
