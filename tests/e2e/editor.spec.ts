@@ -80,11 +80,15 @@ test('a link in Voorbeeld opens a new tab and the editor keeps its own file', as
 
 	await expect(page).toHaveURL(/\/bewerken\/contact\.md$/);
 	await expect(page).toHaveTitle(/^Contact bewerken/);
+	await page.getByRole('radio', { name: 'Schrijven' }).click();
+	await editor.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type(' En nog een zin.');
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.path).toBe('docs/contact.md');
-	expect(sent.body).toContain('Aangevuld bij contact');
+	expect(sent.body).toContain('Aangevuld bij contact En nog een zin.');
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 });
 
