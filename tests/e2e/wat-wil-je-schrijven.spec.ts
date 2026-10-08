@@ -57,20 +57,69 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	await opzet.fill('## Waar staat hij\n\nOp de vierde verdieping.');
 	await page.getByRole('button', { name: 'Pagina maken' }).click();
 	await expect(page).toHaveURL(
-		/\/bewerken\/kennis\/een-pagina-over-de-koffieautomaat\.md\?nieuw=1&.*opzet=1/
+		/\/bewerken\/kennis\/een-pagina-over-de-koffieautomaat\.md\?nieuw=1&/
 	);
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
 		'Een pagina over de koffieautomaat'
 	);
 	// The outline arrives as an unsaved draft; nothing reaches the forge before "Concept bewaren".
-	await expect(
-		page.getByText('Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.')
-	).toBeVisible();
+	const herkomst = page.getByText(
+		'Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.'
+	);
+	await expect(herkomst).toBeVisible();
 	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await expect(editor).toContainText('# Een pagina over de koffieautomaat');
 	await expect(editor).toContainText('## Waar staat hij');
 	await expect(editor).toContainText('Op de vierde verdieping.');
+
+	// Once taken over, the outline is the writer's draft: a reload asks about it like any other.
+	await expect.poll(() => page.url(), 'the address drops opzet').not.toContain('opzet=');
+	await editor.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nMijn eigen zin.');
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				localStorage.getItem(
+					'schrijver:digi-handboek:new:kennis/een-pagina-over-de-koffieautomaat.md'
+				)
+			)
+		)
+		.toContain('Mijn eigen zin.');
+	await page.reload();
+	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(herkomst).toHaveCount(0);
+});
+
+test('an outline that arrives with a page load leaves the address as well', async ({ page }) => {
+	const pad = 'kennis/een-opzet-bij-het-laden.md';
+	await open(page, 'digi-handboek');
+	await page.evaluate(
+		(path) =>
+			localStorage.setItem(
+				`schrijver:digi-handboek:new:${path}`,
+				JSON.stringify({
+					path,
+					body: '# Een opzet bij het laden\n\n## Eerst\n',
+					frontmatter: {},
+					at: Date.now(),
+					sha: null,
+					images: []
+				})
+			),
+		pad
+	);
+	const fouten: string[] = [];
+	page.on('pageerror', (fout) => fouten.push(fout.message));
+	await page.goto(
+		`/sites/digi-handboek/bewerken/${pad}?nieuw=1&map=kennis&titel=Een+opzet+bij+het+laden&opzet=1`
+	);
+	await expect(
+		page.getByText('Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.')
+	).toBeVisible();
+	await expect.poll(() => page.url(), 'the address drops opzet').not.toContain('opzet=');
+	expect(fouten).toEqual([]);
 });
 
 test('Maak een opzet keeps a title the writer typed and names the suggestion', async ({ page }) => {

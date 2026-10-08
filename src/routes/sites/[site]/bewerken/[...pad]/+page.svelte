@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { PageData } from './$types';
 	import ConceptBanner from '$lib/components/ConceptBanner.svelte';
@@ -119,6 +120,7 @@
 	}
 
 	onMount(() => {
+		let zonderOpzet: ReturnType<typeof setTimeout> | undefined;
 		if (!readOnly) {
 			const draft = readDraft(storageKey);
 			if (draft && !sameAsServer(draft)) restorable = draft;
@@ -127,12 +129,17 @@
 			if (restorable && data.nieuw && page.url.searchParams.get('opzet') === '1') {
 				restore();
 				opzet = true;
+				const adres = new URL(page.url);
+				adres.searchParams.delete('opzet');
+				// On a page load replaceState throws until the router has started, after this mount.
+				zonderOpzet = setTimeout(() => replaceState(adres, page.state));
 			}
 		}
 		uitlegTonen =
 			openbaarConcept && !readOnly && !activeBranch && !publicDraftExplained(data.site.id);
 		uitlegWacht = eigenschappenBijAankomst();
 		ready = true;
+		return () => clearTimeout(zonderOpzet);
 	});
 
 	const uitlegNu = $derived(uitlegTonen && !uitlegWacht);
