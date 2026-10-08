@@ -391,6 +391,17 @@ test.describe('app bar', () => {
 		await expect(page.getByRole('img', { name: 'Schrijver', exact: true })).toHaveCount(1);
 	});
 
+	test('the Tab order runs from the skip link over the wordmark to the menu', async ({ page }) => {
+		await page.goto('/help');
+		await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+		const first = await checkedTab(page);
+		const second = await checkedTab(page, first);
+		const third = await checkedTab(page, second);
+		expect(first.key).toContain('nldd-skip-link');
+		expect(second.key, 'the wordmark').toContain('@/');
+		expect(third.key).toContain('.Menu');
+	});
+
 	test('the test environment bar is a status above the app bar', async ({ page }) => {
 		await page.goto('/help');
 		const bar = page.getByRole('status').filter({ hasText: 'Testomgeving' });
