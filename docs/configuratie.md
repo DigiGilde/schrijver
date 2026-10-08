@@ -23,14 +23,14 @@ A list of sites. Keys are in Dutch.
 | `forge` | `github` | required | Only `github` in version one. |
 | `repo` | string | required | `owner/name` of the site repository. The GitHub App must be installed on it. |
 | `standaardbranch` | string | required | Branch that proposals start from and merge into. |
-| `concepten` | `openbaar` or `privé` | `openbaar` | Where drafts live. `privé` is refused in version one: the site fails to load with "concepten: privé wordt nog niet ondersteund". |
+| `concepten` | `openbaar` or `privé` | `openbaar` | Where drafts live. `privé` is refused in version one: the whole configuration fails to load with "concepten: privé wordt nog niet ondersteund". |
 | `content.pad` | string | required | Folder with the Markdown pages. |
 | `content.patroon` | string | required | Glob of editable pages, relative to `pad`, for example `**/*.md`. |
 | `content.schema` | string | required | Name of the schema file in `schemas/` (without `.yaml`). |
 | `content.uitsluiten` | list of globs | none | Pages that are not offered for editing, for example `documenten/**`. |
 | `content.afbeeldingen.pad` | string | none | Where uploaded images are stored. Placeholders: `{paginaslug}` (file name of the page without extension) and `{paginamap}` (folder of the page). Without this block the site refuses images ("Deze site accepteert geen afbeeldingen"). |
 | `content.afbeeldingen.verwijzing` | `relatief` | required in the block | How images are referenced from the page. Only `relatief`. |
-| `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct` (merge at once on "Insturen") is refused in version one: the site fails to load with "review.model: direct wordt nog niet ondersteund". |
+| `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct` (merge at once on "Insturen") is refused in version one: the whole configuration fails to load with "review.model: direct wordt nog niet ondersteund". |
 | `review.mergen-vanuit-schrijver` | boolean | `true` | Whether editorial users may merge (squash) from Schrijver. |
 | `review.redactie` | list of e-mail addresses | `[]` | Editorial list. Editorial is the union of this list and users who linked a GitHub account that has push permission on the repository. |
 | `identiteit.toegestaan` | list of `anoniem`, `gekoppeld`, `op-naam` | all three | Identity choices offered on this site. See [identiteit-en-privacy.md](identiteit-en-privacy.md). |
