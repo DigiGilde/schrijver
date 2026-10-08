@@ -38,6 +38,7 @@
 	let bezig = $state(false);
 	let knoptekst = $state('');
 	let eigenschappenOpen = $state(false);
+	let kop: HTMLElement | undefined = $state();
 	let melding = $state('');
 	let restorable = $state<Draft | null>(null);
 	let ready = $state(false);
@@ -199,6 +200,7 @@
 	ondertitel={openbaarConcept ? `${data.repoPath} · Openbaar concept` : data.repoPath}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
 	balk={readOnly ? undefined : bewaarKnop}
+	bind:kop
 >
 	<nldd-container gap="16">
 		{#if readOnly}
@@ -281,6 +283,7 @@
 				afbeeldingen={data.site.afbeeldingen}
 				onsamenvatting={samenvattingVeld ? (text) => vulSamenvatting(samenvattingVeld, text) : null}
 				oneigenschappen={fields.length > 0 ? openEigenschappen : null}
+				{kop}
 			/>
 		{/if}
 	</nldd-container>

@@ -21,6 +21,8 @@
 		onsamenvatting?: ((text: string) => void) | null;
 		/** Opens the page properties; null when the page has none. */
 		oneigenschappen?: (() => void) | null;
+		/** The sticky bars above the page; the caret stays below them. */
+		kop?: HTMLElement;
 	};
 	let {
 		body = $bindable(),
@@ -30,7 +32,8 @@
 		branch,
 		afbeeldingen,
 		onsamenvatting = null,
-		oneigenschappen = null
+		oneigenschappen = null,
+		kop
 	}: Props = $props();
 
 	let editor: ReturnType<typeof Editor> | undefined = $state();
@@ -118,7 +121,7 @@
 			ondragovercapture={afbeeldingen ? dnd.ondragover : undefined}
 			onpastecapture={afbeeldingen ? dnd.onpaste : undefined}
 		>
-			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} />
+			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} {kop} />
 		</div>
 		{#if weergave === 'voorbeeld'}
 			<section aria-label="Voorbeeld" tabindex="-1" bind:this={voorbeeld}>

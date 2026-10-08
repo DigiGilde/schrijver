@@ -203,6 +203,36 @@ test.describe('one writing surface at 1280 px', () => {
 	});
 });
 
+for (const viewport of [
+	{ width: 1280, height: 800 },
+	{ width: 400, height: 700 }
+]) {
+	test.describe(`the caret at ${viewport.width} px`, () => {
+		test.use({ viewport });
+
+		// From the end the caret needs some 25 lines to reach the bars; 40 also walks it past them.
+		test('moving up through a long page keeps the caret line below the title bar', async ({
+			page
+		}) => {
+			await page.goto(url);
+			await page.locator('nldd-text-editor .cm-content').click();
+			await page.keyboard.press('ControlOrMeta+End');
+			const clearance = () =>
+				page.evaluate(() => {
+					const editor = document.querySelector('nldd-text-editor') as unknown as {
+						getSelection(): { rect: DOMRect | null };
+					};
+					const bar = document.querySelector('nldd-top-title-bar')!.getBoundingClientRect();
+					return (editor.getSelection().rect?.top ?? -Infinity) - bar.bottom;
+				});
+			for (let line = 1; line <= 40; line++) {
+				await page.keyboard.press('ArrowUp');
+				await expect.poll(clearance, `caret ${line} lines up`).toBeGreaterThanOrEqual(0);
+			}
+		});
+	});
+}
+
 test('the properties sheet opens from the toolbar and its values are saved', async ({ page }) => {
 	await page.goto(url);
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();

@@ -14,8 +14,19 @@
 		children: Snippet;
 		/** Sections after the first one. */
 		vervolg?: Snippet;
+		/** The sticky header once it renders, for content that has to stay clear of it. */
+		kop?: HTMLElement;
 	};
-	let { titel, ondertitel, terug = null, breedte, balk, children, vervolg }: Props = $props();
+	let {
+		titel,
+		ondertitel,
+		terug = null,
+		breedte,
+		balk,
+		children,
+		vervolg,
+		kop = $bindable()
+	}: Props = $props();
 
 	/*
 	 * The title bar finds its scroll target on the surrounding nldd-page when it connects. After
@@ -30,7 +41,7 @@
 
 <nldd-page sticky-header={terug ? true : undefined}>
 	{#if terug && paginaGereed}
-		<div slot="header" class="uitgelijnd">
+		<div slot="header" class="uitgelijnd" bind:this={kop}>
 			<div>
 				<nldd-top-title-bar
 					class="optisch"

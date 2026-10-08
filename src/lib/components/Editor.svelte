@@ -1,12 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { NLDDTextEditor, TextEditorState } from '@nldd/design-system/text-editor';
+	import { keepCaretBelow } from '$lib/client/caret';
 
 	type Props = {
 		value: string;
 		readonly?: boolean;
 		onstate?: (state: TextEditorState) => void;
+		/** The sticky bars above the editor; the caret stays below them. */
+		kop?: HTMLElement;
 	};
-	let { value = $bindable(), readonly = false, onstate }: Props = $props();
+	let { value = $bindable(), readonly = false, onstate, kop }: Props = $props();
 
 	let element: NLDDTextEditor | undefined = $state();
 
@@ -20,6 +24,26 @@
 	function onState(event: Event) {
 		onstate?.((event as CustomEvent<TextEditorState>).detail);
 	}
+
+	/*
+	 * nldd-text-editor-state only fires when a toggle state changes, so a caret move between two
+	 * paragraphs goes unseen there; the document's selectionchange sees every move. The check waits
+	 * for the next frame, after CodeMirror has scrolled the caret into view its own way.
+	 */
+	onMount(() => {
+		let frame = 0;
+		const onSelection = () => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => {
+				if (element && kop && element.matches(':focus-within')) keepCaretBelow(element, kop);
+			});
+		};
+		document.addEventListener('selectionchange', onSelection);
+		return () => {
+			document.removeEventListener('selectionchange', onSelection);
+			cancelAnimationFrame(frame);
+		};
+	});
 
 	export const toggleBold = () => element?.toggleBold();
 	export const toggleItalic = () => element?.toggleItalic();
