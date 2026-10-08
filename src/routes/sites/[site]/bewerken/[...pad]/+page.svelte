@@ -13,6 +13,7 @@
 		writeDraft as storeDraft,
 		type Draft
 	} from '$lib/client/draft';
+	import { focusTarget, restoreFocus } from '$lib/client/editor-actions';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
 	import {
@@ -158,7 +159,17 @@
 		}));
 	}
 
-	const openEigenschappen = () => (eigenschappenOpen = true);
+	let eigenschappenTerug: HTMLElement | null = null;
+	function openEigenschappen() {
+		eigenschappenTerug = focusTarget();
+		eigenschappenOpen = true;
+	}
+
+	function sluitEigenschappen() {
+		eigenschappenOpen = false;
+		restoreFocus(eigenschappenTerug, () => void schrijfvlak?.focus(false));
+		eigenschappenTerug = null;
+	}
 
 	async function vulSamenvatting(veld: string, text: string) {
 		fields = withValue(fields, veld, text);
@@ -294,7 +305,7 @@
 		placement="right"
 		width="480px"
 		open={eigenschappenOpen || undefined}
-		onclose={() => (eigenschappenOpen = false)}
+		onclose={sluitEigenschappen}
 		{@attach naarDocument}
 	>
 		<nldd-page>

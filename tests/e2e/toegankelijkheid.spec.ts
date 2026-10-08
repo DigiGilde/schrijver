@@ -242,6 +242,43 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 	await expect(page.locator('nldd-text-field[invalid]')).toHaveCount(1);
 });
 
+test.describe('focus after an overlay from the toolbar menu at 320 px (WCAG 2.4.3)', () => {
+	test.use({ viewport: { width: 320, height: 800 } });
+
+	const fromMenu = async (page: Page, item: string) => {
+		await page.goto('/sites/digi-handboek/bewerken/index.md');
+		await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await page.getByRole('menuitem', { name: item }).click();
+	};
+
+	test('closing the properties sheet returns focus to the editor', async ({ page }) => {
+		await fromMenu(page, 'Eigenschappen');
+		const sheet = page.getByRole('dialog', { name: 'Eigenschappen' });
+		await expect(sheet).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(sheet).toBeHidden();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+	});
+
+	test('closing the image dialog returns focus to the editor', async ({ page }) => {
+		await fromMenu(page, 'Afbeelding invoegen');
+		const dialog = page.getByRole('dialog', { name: 'Afbeelding invoegen' });
+		await expect(dialog).toBeVisible();
+		// The buttons are slotted into the dialog element, not into the dialog role inside it.
+		await page.locator('nldd-modal-dialog').getByRole('button', { name: 'Annuleren' }).click();
+		await expect(dialog).toBeHidden();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await page.getByRole('menuitem', { name: 'Afbeelding invoegen' }).click();
+		await expect(dialog).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeHidden();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+	});
+});
+
 test.describe('forms have a submit control', () => {
 	for (const url of [
 		'/sites/digi-handboek/voorstellen/1',

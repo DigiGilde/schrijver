@@ -38,14 +38,22 @@ export function dropHandlers(open: (file: File) => void) {
 	};
 }
 
-/** The element to hand focus back to when the dialog closes. */
+/** The element to hand focus back to when an overlay closes. */
 export function focusTarget(): HTMLElement | null {
 	const active = document.activeElement;
 	return active instanceof HTMLElement && active !== document.body ? active : null;
 }
 
-export function restoreFocus(target: HTMLElement | null, editor: EditorHandle | undefined) {
-	setTimeout(() => (target?.isConnected ? target.focus() : editor?.focus()), 0);
+/**
+ * Hands focus back once an overlay has closed and left it on the body. A host without a focusable
+ * part ignores focus(), such as the toolbar whose menu opened the overlay; `fallback` takes it then.
+ */
+export function restoreFocus(target: HTMLElement | null, fallback: () => void) {
+	setTimeout(() => {
+		if (document.activeElement && document.activeElement !== document.body) return;
+		target?.focus();
+		if (!target || document.activeElement !== target) fallback();
+	}, 0);
 }
 
 export function insertImage(

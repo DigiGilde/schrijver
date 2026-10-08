@@ -10,6 +10,7 @@
 		branch: string | null;
 		file: File | null;
 		oninvoegen: (alt: string, result: Result) => void;
+		/** Called once the dialog has fully closed, however it was closed. */
 		onclose: () => void;
 	};
 	let {
@@ -62,7 +63,6 @@
 	function sluit() {
 		open = false;
 		reset();
-		onclose();
 	}
 
 	function meldingVoor(status: number, message?: string) {
@@ -119,6 +119,7 @@
 	open={open || undefined}
 	onclose={() => {
 		if (open) sluit();
+		onclose();
 	}}
 >
 	<div class="velden">

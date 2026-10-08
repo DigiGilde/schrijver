@@ -90,7 +90,7 @@
 	}
 
 	function closeDialog() {
-		actions.restoreFocus(returnFocus, editor);
+		actions.restoreFocus(returnFocus, () => void focus(false));
 		returnFocus = null;
 	}
 
