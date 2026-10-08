@@ -21,7 +21,7 @@ A list of sites. Keys are in Dutch.
 | `id` | string | required | Stable identifier, used in URLs (`/sites/<id>`) and branch names. |
 | `naam` | string | required | Name shown to colleagues. |
 | `omschrijving` | string | optional | One sentence on what the site is, shown under its name, for example "Hoe het Digi Gilde werkt en wat het maakt." |
-| `adres` | URL | optional | Public address of the site, shown to colleagues instead of the repository, for example `https://digigilde.nl/handboek`. |
+| `adres` | `https:` or `http:` address | optional | Public address of the site, shown to colleagues instead of the repository, for example `https://digigilde.nl/handboek`. |
 | `forge` | `github` | required | Only `github` in version one. |
 | `repo` | string | required | `owner/name` of the site repository. The GitHub App must be installed on it. |
 | `standaardbranch` | string | required | Branch that proposals start from and merge into. |

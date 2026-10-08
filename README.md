@@ -66,6 +66,6 @@ Schrijver signs users in through OIDC (code flow with PKCE). To try it locally a
 Expected:
 
 - You are redirected to `/login`, then to Keycloak. After signing in you land on `/onboarding` (first time) or `/`.
-- Your name appears in the "Account" group of "Menu" in the app bar, above Instellingen and Uitloggen. The session cookie `schrijver_sessie` is `httpOnly` and lasts 8 hours.
+- Your name and address head the "Menu" in the app bar, above the Account group with Instellingen and Uitloggen. The session cookie `schrijver_sessie` is `httpOnly` and lasts 8 hours.
 - `/uitloggen` clears the cookie and, when the realm advertises an end-session endpoint, ends the Keycloak session too.
 - A failed or replayed callback shows "Inloggen is niet gelukt" (status 400) and logs `auth.callback_failed` as JSON on stdout, without tokens.
