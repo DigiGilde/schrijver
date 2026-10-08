@@ -18,7 +18,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - VLAM writing assistant with fixed actions and a free prompt; suggestions only, never direct edits.
 - Pseudonymous authorship through an HMAC of the SSO subject.
 - "Verder bewerken" on a proposal and in the proposal lists reopens the editor on the proposal's branch, so a later session saves into the same pull request.
-- "Te beoordelen" on the site page: editorial members see the sent-in proposals that wait for them.
+- A site in three tabs: "Pagina's", "Voorstellen" with "Te beoordelen" and a count of what waits for editorial members, and "Over deze site", which explains the flow, the editors, signing, public drafts and the preview to colleagues who do not know GitHub. Old `?tab=` links lead to "Voorstellen".
+- Every proposal says where it stands and what comes next: a line in its row, and on the proposal page a step bar (Concept, Ingestuurd, Goedgekeurd, Samengevoegd), the next step and who approves.
 - Images show in the editor's "Voorbeeld", served from the site repository through an authenticated route.
 - Fake forge for local development and end-to-end tests.
 - Project documentation, in-app help page ("Zo werkt Schrijver"), `publiccode.yml` and the EUPL-1.2 licence.
