@@ -10,8 +10,8 @@
 		branch: string | null;
 		file: File | null;
 		oninvoegen: (alt: string, result: Result) => void;
-		/** Called once the dialog has fully closed, however it was closed. */
-		onclose: () => void;
+		/** Called with the dialog element once it has fully closed, however it was closed. */
+		onclose: (dialoog: Element) => void;
 	};
 	let {
 		open = $bindable(),
@@ -117,9 +117,9 @@
 <nldd-modal-dialog
 	text="Afbeelding invoegen"
 	open={open || undefined}
-	onclose={() => {
+	onclose={(event: Event) => {
 		if (open) sluit();
-		onclose();
+		onclose(event.currentTarget as Element);
 	}}
 >
 	<div class="velden">

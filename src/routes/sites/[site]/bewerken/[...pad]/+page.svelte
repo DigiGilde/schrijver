@@ -166,9 +166,13 @@
 		eigenschappenOpen = true;
 	}
 
-	function sluitEigenschappen() {
+	function sluitEigenschappen(event: Event) {
 		eigenschappenOpen = false;
-		restoreFocus(eigenschappenTerug, () => void schrijfvlak?.focus(false));
+		restoreFocus(
+			event.currentTarget as Element,
+			eigenschappenTerug,
+			() => void schrijfvlak?.focus(false)
+		);
 		eigenschappenTerug = null;
 	}
 

@@ -259,6 +259,14 @@ test.describe('focus after an overlay from the toolbar menu at 320 px (WCAG 2.4.
 		await page.keyboard.press('Escape');
 		await expect(sheet).toBeHidden();
 		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+
+		// Closed from a field, focus is still in the sheet when it reports its close.
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await page.getByRole('menuitem', { name: 'Eigenschappen' }).click();
+		await page.locator('nldd-sheet').getByRole('textbox', { name: 'Samenvatting' }).fill('Kort');
+		await page.keyboard.press('Escape');
+		await expect(sheet).toBeHidden();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
 	});
 
 	test('closing the image dialog returns focus to the editor', async ({ page }) => {

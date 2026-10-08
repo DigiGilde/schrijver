@@ -45,12 +45,14 @@ export function focusTarget(): HTMLElement | null {
 }
 
 /**
- * Hands focus back once an overlay has closed and left it on the body. A host without a focusable
- * part ignores focus(), such as the toolbar whose menu opened the overlay; `fallback` takes it then.
+ * Hands focus back once an overlay has closed, when the browser left it on the body or, until its
+ * next rendering update, inside the closed overlay. A host without a focusable part ignores focus(),
+ * such as the toolbar whose menu opened the overlay; `fallback` takes it then.
  */
-export function restoreFocus(target: HTMLElement | null, fallback: () => void) {
+export function restoreFocus(overlay: Element, target: HTMLElement | null, fallback: () => void) {
 	setTimeout(() => {
-		if (document.activeElement && document.activeElement !== document.body) return;
+		const active = document.activeElement;
+		if (active && active !== document.body && !overlay.contains(active)) return;
 		target?.focus();
 		if (!target || document.activeElement !== target) fallback();
 	}, 0);

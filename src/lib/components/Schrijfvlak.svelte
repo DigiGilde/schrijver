@@ -89,8 +89,8 @@
 		dialogOpen = true;
 	}
 
-	function closeDialog() {
-		actions.restoreFocus(returnFocus, () => void focus(false));
+	function closeDialog(dialoog: Element) {
+		actions.restoreFocus(dialoog, returnFocus, () => void focus(false));
 		returnFocus = null;
 	}
 
