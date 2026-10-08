@@ -259,39 +259,45 @@
 		{#if data.canComment}
 			<nldd-simple-section>
 				<nldd-title slot="header" size="3" heading-level="2" text="Opmerking"></nldd-title>
-				<form
-					onsubmit={(e) => {
-						e.preventDefault();
-						opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
-						if (opmerkingFout) {
-							status = opmerkingFout;
-							return;
-						}
-						void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
-					}}
-				>
-					<nldd-form-field label="Opmerking">
-						<nldd-multi-line-text-field
-							rows="4"
-							maxlength="5000"
-							value={opmerking}
-							invalid={opmerkingFout !== null || undefined}
-							oninput={(e: Event) => {
-								opmerking = (e.currentTarget as HTMLInputElement).value;
-								opmerkingFout = null;
-							}}
-						></nldd-multi-line-text-field>
-						{#if opmerkingFout}
-							<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
-						{/if}
-					</nldd-form-field>
-					<nldd-button
-						appearance="secondary"
-						type="submit"
-						text="Opmerking plaatsen"
-						loading={busy || undefined}
-					></nldd-button>
-				</form>
+				<nldd-form>
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
+							if (opmerkingFout) {
+								status = opmerkingFout;
+								return;
+							}
+							void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
+						}}
+					>
+						<nldd-form-field label="Opmerking">
+							<nldd-multi-line-text-field
+								rows="4"
+								maxlength="5000"
+								value={opmerking}
+								invalid={opmerkingFout !== null || undefined}
+								oninput={(e: Event) => {
+									opmerking = (e.currentTarget as HTMLInputElement).value;
+									opmerkingFout = null;
+								}}
+							></nldd-multi-line-text-field>
+							{#if opmerkingFout}
+								<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
+							{/if}
+						</nldd-form-field>
+						<nldd-form-actions>
+							<nldd-button-group>
+								<nldd-button
+									appearance="secondary"
+									type="submit"
+									text="Opmerking plaatsen"
+									loading={busy || undefined}
+								></nldd-button>
+							</nldd-button-group>
+						</nldd-form-actions>
+					</form>
+				</nldd-form>
 			</nldd-simple-section>
 		{/if}
 	{/snippet}
@@ -325,10 +331,5 @@
 		padding: 4px 12px 4px 0;
 		overflow-wrap: anywhere;
 		vertical-align: top;
-	}
-	form {
-		display: grid;
-		gap: 8px;
-		max-width: 40rem;
 	}
 </style>

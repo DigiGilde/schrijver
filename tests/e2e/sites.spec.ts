@@ -169,6 +169,17 @@ test('the proposal page shows what changed before the comment form', async ({ pa
 	).toBe(true);
 });
 
+test('the comment form follows the NLDD form pattern', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen/1');
+	const form = page.locator('nldd-form > form');
+	await expect(
+		form.locator('nldd-form-field[label="Opmerking"] nldd-multi-line-text-field')
+	).toHaveCount(1);
+	await expect(
+		form.locator('nldd-form-actions > nldd-button-group > nldd-button[type="submit"]')
+	).toHaveAttribute('text', 'Opmerking plaatsen');
+});
+
 test('Nieuwe pagina is a plain primary button, not a one-item toolbar', async ({ page }) => {
 	await page.goto('/sites/digi-handboek');
 	const knop = page.locator('nldd-button[text="Nieuwe pagina"]');
