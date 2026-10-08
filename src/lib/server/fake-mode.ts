@@ -24,6 +24,34 @@ function seedFiles(corpus: string, prefix: string): Record<string, string> {
 	return files;
 }
 
+const MELDING_PNG =
+	'iVBORw0KGgoAAAANSUhEUgAAAKAAAABaCAIAAACwpMoFAAAA4UlEQVR42u3bMQ0AIAxFweIWD0hBUBdEYAEHmOgAySXPwW0/bcTIB1v7qKQADBgwYMCAAQMGDFiABRgwYMCAAQMGDBiwAAswYMCAAQMGDBgw4Gx9qiTAgAEDBgwYMGDAgAVYgAEDBmyqNFUCBgwYsAALMGDAgAEDBgwYMGDAgAVYgAEDBgwYMGDAgAELsHwXOroDDBgwYMCAAQMWYAEGDBgwYMCmSlMlYMCAAQuwAAMGDBgwYMCAAQMWYAEGDBgwYMCAAQMGLMACDNjRnaM7wIABAwYMGDBgARZgwIABA/6iC8DQmVuP/5FYAAAAAElFTkSuQmCC';
+const SCHEMA_PNG =
+	'iVBORw0KGgoAAAANSUhEUgAAAKAAAABaCAIAAACwpMoFAAAA30lEQVR42u3csQ3AIAxFQbNtdmAUBqLJEKzABhkgBRVIWCe9/ku+3lGepsSFEwAWYAEWYAEWYAEGLMACLMACLMACDFiABViABViABViAAQuwAAuwAAuwfsDvmEocYMACLMACLMACLMCABViXAEftm1oM2z2z69CAHRqwQwMGDNguYLuA7QIG7NCAHRqwQwO2C9guYLuAATs0YIcG7NCAAQO2C9guYLuAATs0YIcG7NCA7QK2C9guYMAODdihATs0YLuA7QK2CxiwQ+fd9UnKIzQBFmABFmABFmDAAqwr+gABiUhNlKBpRQAAAABJRU5ErkJggg==';
+
+/** Images on pages no other e2e test edits: one shown on a single page, one that three pages share. */
+function withImages(pages: Record<string, string>): Record<string, string | Uint8Array> {
+	const show = (page: string, alt: string, ref: string) => {
+		pages[page] = `${pages[page]}\n![${alt}](${ref})\n`;
+	};
+	show(
+		'docs/over/kwetsbaarheid.md',
+		'Stroomschema van een melding',
+		'../afbeeldingen/kwetsbaarheid/melding.png'
+	);
+	for (const page of [
+		'docs/werkwijze/index.md',
+		'docs/werkwijze/beslissingen-logboek.md',
+		'docs/over/toegankelijkheid.md'
+	])
+		show(page, 'Schema van onze werkwijze', '../afbeeldingen/werkwijze/schema.png');
+	return {
+		...pages,
+		'docs/afbeeldingen/kwetsbaarheid/melding.png': Buffer.from(MELDING_PNG, 'base64'),
+		'docs/afbeeldingen/werkwijze/schema.png': Buffer.from(SCHEMA_PNG, 'base64')
+	};
+}
+
 async function seedDraft(forge: FakeForge, repo: string, path: string, title: string) {
 	const branch = 'schrijver/voorbeeld';
 	await forge.createBranch(repo, 'main', branch);
@@ -61,7 +89,7 @@ function fixtureReader(): ConfigReader {
 
 export async function buildFakeServices(): Promise<{ forge: FakeForge; store: ConfigStore }> {
 	const forge = new FakeForge();
-	forge.seedRepo('DigiGilde/handboek', 'main', seedFiles('digi-handboek', 'docs'));
+	forge.seedRepo('DigiGilde/handboek', 'main', withImages(seedFiles('digi-handboek', 'docs')));
 	forge.seedRepo('MinBZK/moza-site', 'main', seedFiles('moza-site', 'content'));
 	forge.setPublic('DigiGilde/handboek', true);
 	forge.setPublic('MinBZK/moza-site', true);
