@@ -575,6 +575,52 @@ describe('SVG metadata', () => {
 		expect(clean).toContain('<title>Kaart</title>');
 		expect(clean).toContain('<circle r="1"></circle>');
 	});
+
+	const NS = 'xmlns="http://www.w3.org/2000/svg"';
+	const CIRCLE = '<circle r="1"></circle>';
+
+	it('leaves no text of the private copy of the document that Illustrator adds', () => {
+		const clean = sanitizeSvg(
+			`<svg ${NS} xmlns:i="http://ns.adobe.com/AdobeIllustrator/10.0/">` +
+				'<i:pgfRef xlink:href="#adobe_illustrator_pgf"/>' +
+				`<i:pgf id="adobe_illustrator_pgf"><![CDATA[${XMP}]]></i:pgf><circle r="1"/></svg>`
+		);
+		expect(clean).toBe(`<svg ${NS}>${CIRCLE}</svg>`);
+	});
+
+	it('leaves no text of an RDF block outside the metadata element', () => {
+		const clean = sanitizeSvg(
+			`<svg ${NS}><rdf:RDF><cc:Work><dc:creator>Jan Jansen</dc:creator></cc:Work></rdf:RDF>` +
+				'<circle r="1"/></svg>'
+		);
+		expect(clean).toBe(`<svg ${NS}>${CIRCLE}</svg>`);
+	});
+
+	it('drops data attributes and keeps the others', () => {
+		const clean = sanitizeSvg(
+			`<svg ${NS}><circle r="1" data-name="Jan Jansen handtekening" aria-label="Cirkel"/></svg>`
+		);
+		expect(clean).toBe(`<svg ${NS}><circle r="1" aria-label="Cirkel"></circle></svg>`);
+	});
+
+	it('drops text that no text element holds', () => {
+		const clean = sanitizeSvg(`<svg ${NS}><g>Jan Jansen<rect/></g>Jan Jansen</svg>Jan Jansen`);
+		expect(clean).toBe(`<svg ${NS}><g><rect></rect></g></svg>`);
+	});
+
+	it('drops the text of a foreign element inside a text element', () => {
+		const clean = sanitizeSvg(`<svg ${NS}><text>Hallo <i:b>Jan Jansen</i:b>wereld</text></svg>`);
+		expect(clean).toBe(`<svg ${NS}><text>Hallo wereld</text></svg>`);
+	});
+
+	it('keeps the text of a diagram', () => {
+		const diagram =
+			`<svg ${NS} xmlns:xlink="http://www.w3.org/1999/xlink"><title>Kaart</title>` +
+			'<desc>Een kaart van Utrecht</desc><g><text x="1" y="2">Hallo <tspan>wereld</tspan> ' +
+			'<a xlink:href="#x">link</a></text><text><textPath xlink:href="#p">Langs een pad' +
+			'</textPath></text></g></svg>';
+		expect(sanitizeSvg(diagram)).toBe(diagram);
+	});
 });
 
 /* Where images come in: the upload, and the save that commits them */

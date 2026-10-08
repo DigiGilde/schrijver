@@ -111,6 +111,18 @@ purify.addHook('afterSanitizeAttributes', (node) => {
 	}
 });
 
+const TEXT_ELEMENTS = new Set(['text', 'tspan', 'textpath', 'title', 'desc']);
+const TEXT_NODE = 3;
+
+// Only text inside a text element, or inside an element in one such as a link, is ever shown.
+purify.addHook('afterSanitizeElements', (node) => {
+	if (node.nodeType !== TEXT_NODE) return;
+	for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+		if (TEXT_ELEMENTS.has(parent.localName.toLowerCase())) return;
+	}
+	node.parentNode?.removeChild(node);
+});
+
 export function isSvgDocument(text: string): boolean {
 	return /^\s*(<\?xml[^>]*\?>\s*)?<svg[\s>]/.test(text);
 }
@@ -119,7 +131,9 @@ export function sanitizeSvg(text: string): string {
 	return purify.sanitize(text, {
 		USE_PROFILES: { svg: true, svgFilters: true },
 		FORBID_TAGS: ['script', 'foreignObject', 'style', 'use', 'metadata'],
-		// Without this the text inside metadata, such as a creator's name, would stay behind.
-		ADD_FORBID_CONTENTS: ['metadata']
+		ALLOW_DATA_ATTR: false,
+		// Nothing in a removed element stays. That takes all text along, so #text is allowed again.
+		KEEP_CONTENT: false,
+		ADD_TAGS: ['#text']
 	});
 }
