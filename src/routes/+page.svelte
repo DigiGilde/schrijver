@@ -21,7 +21,7 @@
 				supporting-text="Vraag de beheerders om je site aan te sluiten."
 			></nldd-inline-dialog>
 		{:else}
-			<nldd-collection item-width="320px">
+			<nldd-collection item-width="320px" show-load-more>
 				{#each data.sites as site (site.id)}
 					<nldd-card href="/sites/{site.id}" accessible-label={site.naam}>
 						<nldd-container padding="16" gap="8">
