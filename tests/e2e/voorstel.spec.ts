@@ -8,8 +8,10 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	await expect(page.locator('nldd-badge[text="Concept"]')).toBeVisible();
-	await expect(page.getByRole('region', { name: /Huidige versie van/ })).toBeVisible();
-	await expect(page.getByRole('region', { name: /Voorgestelde versie van/ })).toBeVisible();
+	await expect(
+		page.locator('[data-diff="toegevoegd"]').filter({ hasText: 'Voorstel door e2e' })
+	).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Over het Digi Gilde' })).toHaveCount(0);
 	await expect(
 		page.locator('nldd-rich-text').filter({ hasText: 'Voorstel door e2e' })
 	).toBeVisible();
@@ -17,8 +19,10 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await expect(page.getByRole('table', { name: 'Alle gewijzigde bestanden' })).toContainText(
 		'docs/index.md'
 	);
-	await page.getByText('Brontekst vergelijken').first().click();
+	await page.getByRole('radio', { name: 'Brontekst' }).click();
 	await expect(page.locator('pre.bron ins').filter({ hasText: 'Voorstel door e2e' })).toBeVisible();
+	await page.getByRole('radio', { name: 'Hele pagina' }).click();
+	await expect(page.getByRole('heading', { name: 'Over het Digi Gilde' })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Insturen' }).click();
 	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
