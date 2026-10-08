@@ -46,7 +46,7 @@ test('the account menu leads to the logout block and keeps the drafts', async ({
 	await page.goto('/help');
 	await page.evaluate(() => localStorage.setItem('schrijver:x:new:a.md', '{}'));
 	await page.evaluate(() => customElements.whenDefined('nldd-menu-item'));
-	await page.getByRole('button', { name: /^Account van/ }).click();
+	await page.getByRole('button', { name: 'Menu' }).click();
 	await page.getByRole('menuitem', { name: 'Uitloggen' }).click();
 	await expect(page).toHaveURL(/\/instellingen#uitloggen$/);
 	const block = page.locator('#uitloggen');

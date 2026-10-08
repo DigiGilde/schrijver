@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { page } from '$app/state';
+	import AppBalk from '$lib/components/AppBalk.svelte';
 	import { pageReady } from '$lib/client/page-ready.svelte';
 
 	type Props = {
@@ -30,28 +32,83 @@
 	}: Props = $props();
 
 	const pagina = pageReady();
+	let inhoud: HTMLElement | undefined = $state();
+
+	/*
+	 * Everything that sticks while the document scrolls: the header, and the bars in the content that
+	 * mark themselves with data-plakt. A fragment or a focused element has to stop below them
+	 * (WCAG 2.4.11).
+	 */
+	$effect(() => {
+		const header = kop;
+		const content = inhoud;
+		if (!header || !content) return;
+		const root = document.documentElement;
+		const bars = new Set<Element>();
+		const sizes = new ResizeObserver(measure);
+
+		function measure() {
+			let height = header!.getBoundingClientRect().height;
+			for (const bar of bars) height += bar.getBoundingClientRect().height;
+			root.style.scrollPaddingTop = `${Math.ceil(height) + 8}px`;
+		}
+		function watch() {
+			const current = new Set(content!.querySelectorAll('[data-plakt]'));
+			for (const bar of bars) {
+				if (current.has(bar)) continue;
+				sizes.unobserve(bar);
+				bars.delete(bar);
+			}
+			for (const bar of current) {
+				if (bars.has(bar)) continue;
+				sizes.observe(bar);
+				bars.add(bar);
+			}
+			measure();
+		}
+
+		sizes.observe(header);
+		const changes = new MutationObserver(watch);
+		changes.observe(content, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['data-plakt']
+		});
+		watch();
+		return () => {
+			sizes.disconnect();
+			changes.disconnect();
+			root.style.removeProperty('scroll-padding-top');
+		};
+	});
 </script>
 
-<nldd-page sticky-header={terug ? true : undefined}>
-	{#if terug && pagina.ready}
-		<div slot="header" class="uitgelijnd" bind:this={kop}>
-			<div>
-				<nldd-top-title-bar
-					class="optisch"
-					text={titel}
-					back-text={terug.tekst}
-					back-href={terug.href}
-					collapse-anchor="paginatitel"
-				>
-					{#if balk}
-						<div slot="toolbar" class="balk">{@render balk()}</div>
-					{/if}
-				</nldd-top-title-bar>
+<nldd-page sticky-header>
+	<div slot="header" bind:this={kop}>
+		<nldd-skip-link href="#inhoud">
+			<AppBalk userName={page.data.userName} email={page.data.email} />
+		</nldd-skip-link>
+		{#if terug && pagina.ready}
+			<div class="uitgelijnd">
+				<div>
+					<nldd-top-title-bar
+						class="optisch"
+						text={titel}
+						back-text={terug.tekst}
+						back-href={terug.href}
+						collapse-anchor="paginatitel"
+					>
+						{#if balk}
+							<div slot="toolbar" class="balk">{@render balk()}</div>
+						{/if}
+					</nldd-top-title-bar>
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 	<!-- The skip link target is a plain element: a shadow host with tabindex -1 takes its whole content out of the Tab order. -->
-	<div id="inhoud" tabindex="-1">
+	<div id="inhoud" tabindex="-1" bind:this={inhoud}>
 		<nldd-simple-section width={breedte} padding-top={terug ? '16' : undefined}>
 			<nldd-title
 				id="paginatitel"

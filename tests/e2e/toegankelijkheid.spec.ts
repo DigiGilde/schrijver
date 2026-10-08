@@ -380,3 +380,162 @@ test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 		);
 	});
 });
+
+test.describe('app bar', () => {
+	test('the wordmark is one image named Schrijver, and it leads home', async ({ page }) => {
+		await page.goto('/help');
+		await expect(page.getByRole('banner')).toHaveCount(1);
+		const wordmark = page.getByRole('link', { name: 'Schrijver', exact: true });
+		await expect(wordmark).toHaveAttribute('href', '/');
+		await expect(wordmark).toHaveAccessibleName('Schrijver');
+		await expect(page.getByRole('img', { name: 'Schrijver', exact: true })).toHaveCount(1);
+	});
+
+	test('the shell has no bar split view, so no divider under the app bar', async ({ page }) => {
+		await page.goto('/help');
+		await expect(page.locator('nldd-app-view > nldd-page')).toHaveCount(1);
+		await expect(page.locator('nldd-bar-split-view')).toHaveCount(0);
+	});
+
+	test('the menu opens from the keyboard and holds the destinations and the account', async ({
+		page
+	}) => {
+		await page.goto('/help');
+		await page.evaluate(() => customElements.whenDefined('nldd-menu'));
+		const knop = page.getByRole('button', { name: 'Menu' });
+		await knop.focus();
+		await page.keyboard.press('Enter');
+		await expect(knop).toHaveAttribute('aria-expanded', 'true');
+		await expect(page.getByRole('menuitem')).toHaveText([
+			'Sites',
+			'Help',
+			'Instellingen',
+			'Uitloggen'
+		]);
+		await expect(page.getByRole('group', { name: 'Account' })).toBeVisible();
+		await expect(page.getByText('Test Gebruiker').filter({ visible: true })).toBeVisible();
+		await expect(page.getByText('test@example.org').filter({ visible: true })).toBeVisible();
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('menuitem').first()).toBeHidden();
+		await expect(knop).toBeFocused();
+	});
+
+	test('Space follows a menu item instead of scrolling the page behind the menu', async ({
+		page
+	}) => {
+		await page.goto('/help');
+		await page.evaluate(() => customElements.whenDefined('nldd-menu'));
+		const navigations = () =>
+			page.evaluate(() => performance.getEntriesByType('navigation').length);
+		const before = await navigations();
+		const knop = page.getByRole('button', { name: 'Menu' });
+
+		await knop.click();
+		await page.getByRole('menuitem', { name: 'Help' }).focus();
+		await page.keyboard.press('Space');
+		await expect(page.getByRole('menuitem').first()).toBeHidden();
+		expect(await page.evaluate(() => scrollY), 'the page did not scroll').toBe(0);
+
+		await knop.click();
+		await page.getByRole('menuitem', { name: 'Instellingen' }).focus();
+		await page.keyboard.press('Space');
+		await expect(page).toHaveURL(/\/instellingen$/);
+		expect(await navigations(), 'a navigation inside the app, not a page load').toBe(before);
+	});
+
+	test.describe('at 320 px and 200% text', () => {
+		test.use({ viewport: { width: 320, height: 800 } });
+
+		test('the menu moves into the overflow menu, with the account', async ({ page }) => {
+			await page.goto('/');
+			await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+			await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+			await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+				320
+			);
+
+			await page.getByRole('button', { name: 'Meer' }).click();
+			await expect(page.getByRole('menuitem')).toHaveText([
+				'Sites',
+				'Help',
+				'Instellingen',
+				'Uitloggen'
+			]);
+			await expect(page.getByText('test@example.org').filter({ visible: true })).toBeVisible();
+		});
+	});
+});
+
+test.describe('scroll padding (WCAG 2.4.11)', () => {
+	const header = 'nldd-page > [slot="header"]';
+	/** The document's scroll padding equals the sticky header's height plus 8px, extra bars included. */
+	const clears = (page: Page, extra = 0) =>
+		page.evaluate(
+			([selector, more]) => {
+				const bar = document.querySelector(selector as string)!;
+				const height = Math.ceil(bar.getBoundingClientRect().height) + (more as number) + 8;
+				return document.documentElement.style.scrollPaddingTop === `${height}px`;
+			},
+			[header, extra]
+		);
+
+	test('follows the sticky header, title bar included', async ({ page }) => {
+		await page.goto('/sites/digi-handboek');
+		await page.evaluate(() => customElements.whenDefined('nldd-top-title-bar'));
+		await expect(page.locator('nldd-top-title-bar')).toBeVisible();
+		await expect.poll(() => clears(page)).toBe(true);
+		const padding = await page.evaluate(() => document.documentElement.style.scrollPaddingTop);
+		expect(parseInt(padding), 'more than the app bar alone').toBeGreaterThan(110);
+
+		await page.evaluate(() => scrollTo(0, 800));
+		await expect.poll(() => clears(page), 'the title bar collapsed').toBe(true);
+	});
+
+	test('is set again by the page that a navigation leads to', async ({ page }) => {
+		await page.goto('/');
+		await expect.poll(() => clears(page)).toBe(true);
+		const start = await page.evaluate(() => document.documentElement.style.scrollPaddingTop);
+
+		await page.getByRole('link', { name: 'Digi Handboek' }).click();
+		await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
+		await expect(page.locator('nldd-top-title-bar')).toBeVisible();
+		await expect.poll(() => clears(page)).toBe(true);
+		const site = await page.evaluate(() => document.documentElement.style.scrollPaddingTop);
+		expect(parseInt(site)).toBeGreaterThan(parseInt(start));
+	});
+
+	test('adds the bars that mark themselves with data-plakt, and follows their size', async ({
+		page
+	}) => {
+		await page.goto('/help');
+		await expect.poll(() => clears(page)).toBe(true);
+		await page.evaluate(() => {
+			const bar = document.createElement('div');
+			bar.id = 'plakt';
+			bar.dataset.plakt = '';
+			bar.style.height = '40px';
+			document.getElementById('inhoud')!.prepend(bar);
+		});
+		await expect.poll(() => clears(page, 40)).toBe(true);
+
+		await page.evaluate(() => (document.getElementById('plakt')!.style.height = '64px'));
+		await expect.poll(() => clears(page, 64)).toBe(true);
+
+		await page.evaluate(() => delete document.getElementById('plakt')!.dataset.plakt);
+		await expect.poll(() => clears(page)).toBe(true);
+	});
+
+	test('keeps what scrolls into view below the sticky bars', async ({ page }) => {
+		await page.goto('/help');
+		await expect.poll(() => clears(page)).toBe(true);
+		const clearance = await page.evaluate(() => {
+			const heading = [...document.querySelectorAll('nldd-rich-text h2')].at(-1)!;
+			heading.scrollIntoView({ block: 'start' });
+			const bar = document.querySelector('nldd-page > [slot="header"]')!.getBoundingClientRect();
+			return heading.getBoundingClientRect().top - bar.bottom;
+		});
+		expect(clearance).toBeGreaterThanOrEqual(7);
+	});
+});
