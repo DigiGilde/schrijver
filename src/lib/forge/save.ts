@@ -142,23 +142,43 @@ function branchSlug(filePath: string): string {
 	return slugify(stem) || 'pagina';
 }
 
-/** Refuses a deletion unless neither the saved text nor any other page still refers to the image. */
+const NOT_DELETABLE = 'Niet bewaard: dit bestand kan niet worden verwijderd';
+
+interface DeletionCheck {
+	/** The branch the save goes to. */
+	ref: string;
+	page: string;
+	/** The page's text on that branch before this save; empty for a new page. */
+	before: string;
+	after: string;
+	deletions: string[];
+}
+
+/**
+ * Refuses a deletion unless the page showed the image before this save and does no more, the image is
+ * not in the image folder of an excluded page, and no other file still refers to it.
+ */
 async function refuseDeletions(
 	forge: Forge,
 	site: SiteConfig,
 	schema: PageSchema,
-	ref: string,
-	page: string,
-	text: string,
-	deletions: string[]
+	{ ref, page, before, after, deletions }: DeletionCheck
 ): Promise<SaveResult | null> {
-	const own = referencedImages(text, page);
+	const own = referencedImages(after, page, site.content.pad);
 	const kept = deletions.find((p) => own.has(p));
 	if (kept) return fail(400, 'Niet bewaard: de afbeelding staat nog in de tekst', { detail: kept });
+	const shown = referencedImages(before, page, site.content.pad);
+	const foreign = deletions.find((p) => !shown.has(p));
+	if (foreign)
+		return fail(400, 'Niet bewaard: deze afbeelding stond niet op deze pagina', {
+			detail: foreign
+		});
 	const scan = await imageUsage(forge, site, schema, ref, page, deletions);
 	const missing = deletions.find((p) => !scan.images.some((image) => image.path === p));
 	if (missing)
 		return fail(409, 'Niet bewaard: de afbeelding bestaat niet meer', { detail: missing });
+	const excluded = scan.images.find((image) => image.excluded);
+	if (excluded) return fail(400, NOT_DELETABLE, { detail: excluded.path });
 	const used = scan.images.find((image) => image.usedOn.length > 0);
 	if (used) {
 		return fail(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina', {
@@ -248,11 +268,7 @@ export async function save(
 	const notDeletable = deletions.find(
 		(p) => !inImageFolder(site, p) || imageChanges.some((image) => image.path === p)
 	);
-	if (notDeletable) {
-		return fail(400, 'Niet bewaard: dit bestand kan niet worden verwijderd', {
-			detail: notDeletable
-		});
-	}
+	if (notDeletable) return fail(400, NOT_DELETABLE, { detail: notDeletable });
 
 	if (!isNew && req.baseSha === null) return fail(400, 'Ontbrekende basisversie');
 
@@ -316,7 +332,9 @@ export async function save(
 		}
 
 		if (deletions.length > 0) {
-			const refused = await refuseDeletions(forge, site, schema, ref, filePath, text, deletions);
+			const before = current ? currentText : '';
+			const check = { ref, page: filePath, before, after: text, deletions };
+			const refused = await refuseDeletions(forge, site, schema, check);
 			if (refused) return refused;
 		}
 

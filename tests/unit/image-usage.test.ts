@@ -43,9 +43,10 @@ describe('imageUsage', () => {
 					usedOn: [
 						{ path: 'docs/kennis/index.md', title: 'Kennis' },
 						{ path: 'docs/over/kat.md', title: 'over/kat.md' }
-					]
+					],
+					excluded: false
 				},
-				{ path: HOND, usedOn: [] }
+				{ path: HOND, usedOn: [], excluded: false }
 			]
 		});
 	});
@@ -59,7 +60,8 @@ describe('imageUsage', () => {
 					usedOn: [
 						{ path: 'docs/kennis/privacy.md', title: 'Privacy' },
 						{ path: 'docs/over/kat.md', title: 'over/kat.md' }
-					]
+					],
+					excluded: false
 				}
 			]
 		});
@@ -77,7 +79,7 @@ describe('imageUsage', () => {
 			'x'
 		);
 		expect((await scan('docs/kennis/privacy.md', [KAT], BRANCH)).images).toEqual([
-			{ path: KAT, usedOn: [] }
+			{ path: KAT, usedOn: [], excluded: false }
 		]);
 		expect((await scan('docs/kennis/privacy.md', [KAT])).images[0].usedOn).toHaveLength(2);
 	});
@@ -174,10 +176,53 @@ describe('imageUsage', () => {
 						{ path: 'content/over/a.markdown', title: 'over/a.markdown' },
 						{ path: 'content/over/b.mdx', title: 'over/b.mdx' },
 						{ path: 'content/over/c.htm', title: 'over/c.htm' }
-					]
+					],
+					excluded: true
 				}
 			]
 		});
+	});
+
+	it('marks an image under content.uitsluiten, or in the image folder of a page there', async () => {
+		const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
+		const kaart = 'content/images/kaart.png';
+		forge.seedRepo(moza.repo, 'main', {
+			[team]: PNG,
+			[kaart]: PNG,
+			'content/contact.md': '---\ntitle: Contact\n---\n\nTekst.\n'
+		});
+		const moz = await imageUsage(
+			forge,
+			moza,
+			{ titel: 'veld:title' },
+			'main',
+			'content/contact.md',
+			[team, kaart]
+		);
+		expect(moz.images.map((image) => [image.path, image.excluded])).toEqual([
+			[team, true],
+			[kaart, false]
+		]);
+
+		const archief = { ...digi, content: { ...digi.content, uitsluiten: ['archief/**'] } };
+		const oud = 'docs/afbeeldingen/oud/kaart.png';
+		await forge.commit(
+			digi.repo,
+			'main',
+			[
+				{ path: oud, content: PNG },
+				{ path: 'docs/archief/oud.md', content: '# Oud\n' }
+			],
+			'archief'
+		);
+		const dig = await imageUsage(forge, archief, { titel: 'uit-h1' }, 'main', 'docs/index.md', [
+			oud,
+			KAT
+		]);
+		expect(dig.images.map((image) => [image.path, image.excluded])).toEqual([
+			[oud, true],
+			[KAT, false]
+		]);
 	});
 
 	it('is incomplete when a page is too large to read', async () => {
@@ -188,7 +233,10 @@ describe('imageUsage', () => {
 			'x'
 		);
 		const result = await scan('docs/kennis/privacy.md', [HOND]);
-		expect(result).toEqual({ complete: false, images: [{ path: HOND, usedOn: [] }] });
+		expect(result).toEqual({
+			complete: false,
+			images: [{ path: HOND, usedOn: [], excluded: false }]
+		});
 	});
 
 	it('is incomplete when the listing of the branch was cut off', async () => {
@@ -198,7 +246,7 @@ describe('imageUsage', () => {
 		);
 		expect(await scan('docs/kennis/privacy.md', [HOND])).toEqual({
 			complete: false,
-			images: [{ path: HOND, usedOn: [] }]
+			images: [{ path: HOND, usedOn: [], excluded: false }]
 		});
 	});
 

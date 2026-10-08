@@ -690,6 +690,18 @@ describe('save', () => {
 		});
 
 		it('refuses an image that is not there', async () => {
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{
+						path: 'docs/index.md',
+						content: '---\ndescription: Oud\n---\n\n# Home\n\n![Weg](afbeeldingen/docs/weg.png)\n'
+					}
+				],
+				'kapot plaatje'
+			);
+			baseSha = (await forge.readFile(digi.repo, 'main', 'docs/index.md'))!.sha;
 			const r = await save(
 				forge,
 				digi,
@@ -698,6 +710,95 @@ describe('save', () => {
 				req({ body: without, deletions: ['docs/afbeeldingen/docs/weg.png'] })
 			);
 			expect(r).toMatchObject(refused(409, 'Niet bewaard: de afbeelding bestaat niet meer'));
+		});
+
+		it('refuses an image the page did not show before this save', async () => {
+			const oud = 'docs/afbeeldingen/andere-pagina/oud.png';
+			await forge.commit(digi.repo, 'main', [{ path: oud, content: PNG }], 'oud');
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: without, deletions: [KAT, oud] })
+			);
+			expect(r).toMatchObject({
+				...refused(400, 'Niet bewaard: deze afbeelding stond niet op deze pagina'),
+				error: { detail: oud }
+			});
+			expect(forge.branches(digi.repo)).toEqual(['main']);
+		});
+
+		it('refuses an image the saved text still shows from the site root', async () => {
+			const body = '\n# Home\n\n![Een kat](/afbeeldingen/docs/kat.png)\n';
+			const r = await save(forge, digi, digiSchema, identity, req({ body, deletions: [KAT] }));
+			expect(r).toMatchObject(refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst'));
+		});
+
+		it('refuses an image a page under content.uitsluiten shows, which this page never did', async () => {
+			const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
+			await forge.commit(
+				moza.repo,
+				'main',
+				[
+					{ path: team, content: PNG },
+					{
+						path: 'content/documenten/presentaties/pulse/index.html',
+						content: '<img src="images/team.jpeg" alt="Het team">\n'
+					}
+				],
+				'presentatie'
+			);
+			const r = await save(
+				forge,
+				moza,
+				mozaSchema,
+				identity,
+				req({
+					path: 'content/contact.md',
+					baseSha: (await forge.readFile(moza.repo, 'main', 'content/contact.md'))!.sha,
+					frontmatter: { title: 'Contact', description: 'Bel ons' },
+					body: '\nTekst.\n',
+					deletions: [team]
+				})
+			);
+			expect(r).toMatchObject({ ok: false, status: 400 });
+			expect(forge.fileText(moza.repo, 'main', team)).not.toBeNull();
+			expect(forge.branches(moza.repo)).toEqual(['main']);
+		});
+
+		it('refuses an image in the image folder of a page under content.uitsluiten', async () => {
+			const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
+			await forge.commit(
+				moza.repo,
+				'main',
+				[
+					{ path: team, content: PNG },
+					{
+						path: 'content/contact.md',
+						content: `${MOZA_FILE}\n![Het team](documenten/presentaties/pulse/images/team.jpeg)\n`
+					}
+				],
+				'team'
+			);
+			const r = await save(
+				forge,
+				moza,
+				mozaSchema,
+				identity,
+				req({
+					path: 'content/contact.md',
+					baseSha: (await forge.readFile(moza.repo, 'main', 'content/contact.md'))!.sha,
+					frontmatter: { title: 'Contact', description: 'Bel ons' },
+					body: '\nTekst.\n',
+					deletions: [team]
+				})
+			);
+			expect(r).toMatchObject({
+				...refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd'),
+				error: { detail: team }
+			});
+			expect(forge.branches(moza.repo)).toEqual(['main']);
 		});
 
 		it('refuses an image the saved text still shows', async () => {

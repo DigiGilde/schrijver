@@ -71,7 +71,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			images: scan.images.map((image) => ({
 				path: image.path,
 				usedOn: image.usedOn.map((page) => ({ path: page.path, title: page.title })),
-				deletable: scan.complete && image.usedOn.length === 0
+				deletable: scan.complete && image.usedOn.length === 0 && !image.excluded
 			}))
 		});
 	} catch (e) {

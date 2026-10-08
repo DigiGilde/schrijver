@@ -89,6 +89,22 @@ describe('POST /api/sites/[site]/afbeeldingsgebruik', () => {
 		expect((await res.json()).images).toEqual([{ path: HOND, usedOn: [], deletable: true }]);
 	});
 
+	it('never offers an image in the image folder of a page under content.uitsluiten', async () => {
+		const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
+		forge.seedRepo(moza.repo, 'main', {
+			[team]: PNG,
+			'content/contact.md': '---\ntitle: Contact\n---\n\nTekst.\n'
+		});
+		const res = await post(
+			{ path: 'content/contact.md', branch: null, images: [team] },
+			{ site: 'moza-site' }
+		);
+		expect(await res.json()).toEqual({
+			ok: true,
+			images: [{ path: team, usedOn: [], deletable: false }]
+		});
+	});
+
 	it('leaves out an image the folder does not hold', async () => {
 		const res = await post({ ...good, images: ['docs/afbeeldingen/privacy/weg.png'] });
 		expect(await res.json()).toEqual({ ok: true, images: [] });

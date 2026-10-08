@@ -1,8 +1,10 @@
+import { posix } from 'node:path';
+import picomatch from 'picomatch';
 import type { PageSchema, SiteConfig } from '../config/types';
 import { parsePage } from '../content/frontmatter';
 import { imageNameTails, imageRefs, mentionsName, resolveImageRefs } from '../content/image-refs';
 import { titleOf } from '../content/schema-form';
-import type { Forge } from './types';
+import type { FileEntry, Forge } from './types';
 
 /** Bounds on one scan: how many files are read, and how large a file may be to be read at all. */
 export const MAX_SCAN_PAGES = 300;
@@ -21,6 +23,8 @@ export interface ImageUse {
 	path: string;
 	/** The other files that still refer to it. */
 	usedOn: { path: string; title: string }[];
+	/** In the image folder of a page under `content.uitsluiten`, or under it itself: never deleted. */
+	excluded: boolean;
 }
 
 export interface UsageScan {
@@ -47,6 +51,35 @@ function mentionsOf(text: string, schema: Pick<PageSchema, 'titel'>): Mentions {
 	if (refs.length > MAX_MENTIONS || tails.length > MAX_MENTIONS)
 		return { refs: [], tails: [], all: true, title };
 	return { refs, tails, all: false, title };
+}
+
+/** The image folder that the site's convention gives a page, as `imagePath` places it. */
+function imageFolderOf(convention: string, page: string): string {
+	const dir = posix.dirname(page);
+	const name = posix.basename(page).replace(/\.[^.]+$/, '');
+	const slug = name === 'index' || name === '_index' ? posix.basename(dir) : name;
+	return posix.normalize(
+		convention.replaceAll('{paginaslug}', slug).replaceAll('{paginamap}', dir)
+	);
+}
+
+/** Whether an image lies under `content.uitsluiten` or in the image folder of a page there. */
+function excludedImages(site: SiteConfig, prefix: string, files: FileEntry[]) {
+	const patterns = site.content.uitsluiten ?? [];
+	if (patterns.length === 0) return () => false;
+	const excluded = picomatch(patterns);
+	const convention = site.content.afbeeldingen?.pad.replace(/\/+$/, '');
+	const folders = new Set(
+		convention
+			? files
+					.map((file) => file.path)
+					.filter((path) => path.startsWith(prefix) && PAGE_FILE.test(path))
+					.filter((path) => excluded(path.slice(prefix.length)))
+					.map((path) => imageFolderOf(convention, path))
+			: []
+	);
+	return (image: string) =>
+		excluded(image.slice(prefix.length)) || folders.has(posix.dirname(image));
 }
 
 async function each<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void> {
@@ -82,6 +115,7 @@ export async function imageUsage(
 		.filter((path) => path.startsWith(prefix) && TEXT_FILE.test(path) && path !== page)
 		.sort();
 	let complete = !tree.truncated && texts.length <= limits.pages;
+	const excluded = excludedImages(site, prefix, tree);
 	const usedOn = new Map(existing.map((path) => [path, [] as ImageUse['usedOn']]));
 	await each(texts.slice(0, limits.pages), async (path) => {
 		const file = await forge.readFile(site.repo, ref, path, { maxBytes: limits.bytes });
@@ -103,7 +137,8 @@ export async function imageUsage(
 		complete,
 		images: existing.map((path) => ({
 			path,
-			usedOn: usedOn.get(path)!.sort((a, b) => a.path.localeCompare(b.path))
+			usedOn: usedOn.get(path)!.sort((a, b) => a.path.localeCompare(b.path)),
+			excluded: excluded(path)
 		}))
 	};
 }
