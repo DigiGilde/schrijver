@@ -90,7 +90,7 @@ test('inserts a Mermaid scaffold and blocks saving without a description', async
 	const melding = page.getByRole('alert').filter({ hasText: 'accDescr' });
 	await expect(melding).toContainText('regel 1');
 	await expect(melding).toHaveAttribute('variant', 'critical');
-	await expect(melding).toBeFocused();
+	await expect(page.locator('.foutmelding')).toBeFocused();
 });
 
 test('applies an assistant suggestion to the selection', async ({ page }) => {

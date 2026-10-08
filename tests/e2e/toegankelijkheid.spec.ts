@@ -240,7 +240,7 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	const melding = page.getByRole('alert').filter({ hasText: 'Controleer de gemarkeerde velden' });
-	await expect(melding).toBeFocused();
+	await expect(page.locator('.foutmelding')).toBeFocused();
 	await expect(melding).toHaveAttribute('variant', 'critical');
 	await expect(melding).toContainText('Samenvatting: Dit veld is verplicht');
 	await expect(page.locator('nldd-text-field[invalid]')).toHaveCount(1);

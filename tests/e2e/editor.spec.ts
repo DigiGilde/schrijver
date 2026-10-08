@@ -286,8 +286,14 @@ test('a save with a missing required field offers to open the properties', async
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 
 	const melding = page.getByRole('alert').filter({ hasText: 'Controleer de gemarkeerde velden' });
-	await expect(melding).toBeFocused();
-	await melding.getByRole('button', { name: 'Eigenschappen aanpassen' }).click();
+	await expect(page.locator('.foutmelding')).toBeFocused();
+	const aanpassen = melding.getByRole('button', { name: 'Eigenschappen aanpassen' });
+	for (let i = 0; i < 4; i++) {
+		await page.keyboard.press('Tab');
+		if (await aanpassen.evaluate((el) => el.matches(':focus-within'))) break;
+	}
+	await expect(aanpassen, 'the banner keeps its button in the Tab order').toBeFocused();
+	await aanpassen.click();
 
 	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
 	await expect(dialog).toBeVisible();
