@@ -6,6 +6,7 @@
 	import FrontmatterFormulier from '$lib/components/FrontmatterFormulier.svelte';
 	import LeesAlleenBanner from '$lib/components/LeesAlleenBanner.svelte';
 	import Opslaan from '$lib/components/Opslaan.svelte';
+	import Pagina from '$lib/components/Pagina.svelte';
 	import Schrijfvlak from '$lib/components/Schrijfvlak.svelte';
 	import {
 		readDraft,
@@ -130,96 +131,95 @@
 	}
 </script>
 
-<svelte:head><title>{data.path} bewerken - {data.site.naam} - Schrijver</title></svelte:head>
+<svelte:head><title>{data.path} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
 
-<nldd-container padding="16" gap="16">
-	<div>
-		<nldd-title size="2" heading-level="1" text={data.path}></nldd-title>
-		{#if openbaarConcept}
-			<nldd-text color="secondary" size="sm">Openbaar concept</nldd-text>
+<Pagina
+	titel={data.path}
+	ondertitel={openbaarConcept ? 'Openbaar concept' : undefined}
+	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
+>
+	<nldd-container gap="16">
+		{#if readOnly}
+			<LeesAlleenBanner {readOnly} />
 		{/if}
-	</div>
 
-	{#if readOnly}
-		<LeesAlleenBanner {readOnly} />
-	{/if}
-
-	{#if restorable}
-		<ConceptBanner
-			verouderd={restorable.sha !== baseSha}
-			onherstel={() => {
-				restore();
-				editor?.focus();
-			}}
-			onweggooien={() => {
-				discard();
-				editor?.focus();
-			}}
-		/>
-	{/if}
-
-	{#if !readOnly}
-		<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
-
-		<Schrijfvlak
-			bind:editor
-			bind:body
-			bind:images
-			siteId={data.site.id}
-			pagina={data.repoPath}
-			branch={activeBranch}
-			afbeeldingen={data.site.afbeeldingen}
-			onsamenvatting={samenvattingVeld
-				? (text) => (fields = withValue(fields, samenvattingVeld, text))
-				: null}
-		/>
-
-		<div class="opslaan">
-			<Opslaan
-				siteId={data.site.id}
-				repoPath={data.repoPath}
-				sha={data.sha}
-				branch={data.branch}
-				prNumber={data.prNumber}
-				nieuw={data.nieuw}
-				snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
-				onbewaard={(saved) => {
-					clearTimeout(timer);
-					writeDraft(null);
-					baseSha = saved.sha;
-					activeBranch = saved.branch;
-					flushPending = null;
-					writeDraft(null);
+		{#if restorable}
+			<ConceptBanner
+				verouderd={restorable.sha !== baseSha}
+				onherstel={() => {
+					restore();
+					editor?.focus();
 				}}
-				onovernemen={neemOver}
-				onbasis={(sha) => (baseSha = sha)}
-				tekst={body}
-				images={() => images}
-				onverstuurd={(sent) => (images = withoutSent(images, sent))}
-				labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
-				onveldfouten={(fouten) =>
-					(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
-				focusEditor={() => editor?.focus()}
+				onweggooien={() => {
+					discard();
+					editor?.focus();
+				}}
 			/>
-			{#if images.length}
-				<nldd-text color="secondary" size="sm"
-					>Afbeeldingen worden meegestuurd bij het bewaren</nldd-text
-				>
-			{/if}
-			{#if imagesLost}
-				<nldd-text color="secondary" size="sm" role="status">
-					Afbeeldingen konden niet lokaal worden bewaard; voeg ze opnieuw toe na een herlaad
-				</nldd-text>
-			{/if}
-			{#if openbaarConcept}
-				<nldd-text color="secondary" size="sm">
-					Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
-					instuurt.
-				</nldd-text>
-			{/if}
-		</div>
-	{/if}
-</nldd-container>
+		{/if}
+
+		{#if !readOnly}
+			<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
+
+			<Schrijfvlak
+				bind:editor
+				bind:body
+				bind:images
+				siteId={data.site.id}
+				pagina={data.repoPath}
+				branch={activeBranch}
+				afbeeldingen={data.site.afbeeldingen}
+				onsamenvatting={samenvattingVeld
+					? (text) => (fields = withValue(fields, samenvattingVeld, text))
+					: null}
+			/>
+
+			<div class="opslaan">
+				<Opslaan
+					siteId={data.site.id}
+					repoPath={data.repoPath}
+					sha={data.sha}
+					branch={data.branch}
+					prNumber={data.prNumber}
+					nieuw={data.nieuw}
+					snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
+					onbewaard={(saved) => {
+						clearTimeout(timer);
+						writeDraft(null);
+						baseSha = saved.sha;
+						activeBranch = saved.branch;
+						flushPending = null;
+						writeDraft(null);
+					}}
+					onovernemen={neemOver}
+					onbasis={(sha) => (baseSha = sha)}
+					tekst={body}
+					images={() => images}
+					onverstuurd={(sent) => (images = withoutSent(images, sent))}
+					labels={Object.fromEntries(fields.map((f) => [f.key, f.def.label ?? f.key]))}
+					onveldfouten={(fouten) =>
+						(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
+					focusEditor={() => editor?.focus()}
+				/>
+				{#if images.length}
+					<nldd-text color="secondary" size="sm"
+						>Afbeeldingen worden meegestuurd bij het bewaren</nldd-text
+					>
+				{/if}
+				{#if imagesLost}
+					<nldd-text color="secondary" size="sm" role="status">
+						Afbeeldingen konden niet lokaal worden bewaard; voeg ze opnieuw toe na een herlaad
+					</nldd-text>
+				{/if}
+				{#if openbaarConcept}
+					<nldd-text color="secondary" size="sm">
+						Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het
+						instuurt.
+					</nldd-text>
+				{/if}
+			</div>
+		{/if}
+	</nldd-container>
+</Pagina>
 
 <style>
 	.opslaan {

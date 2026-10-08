@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Pagina from '$lib/components/Pagina.svelte';
 	import VoorstelLijst from '$lib/components/VoorstelLijst.svelte';
 
 	let { data } = $props();
@@ -16,18 +17,12 @@
 	const label = (folder: string) => folder.slice(folder.lastIndexOf('/') + 1);
 </script>
 
-<svelte:head><title>{data.site.naam} - Schrijver</title></svelte:head>
+<svelte:head><title>{data.site.naam} · Schrijver</title></svelte:head>
 
-<nldd-simple-section>
+<Pagina titel={data.site.naam} terug={{ href: '/', tekst: 'Sites' }}>
 	<nldd-container gap="24">
-		<nldd-title size="1" heading-level="1" text={data.site.naam}>
-			<nldd-link
-				slot="end"
-				href="/sites/{data.site.id}/nieuw"
-				start-icon="plus"
-				text="Nieuwe pagina"
-			></nldd-link>
-		</nldd-title>
+		<nldd-link href="/sites/{data.site.id}/nieuw" start-icon="plus" text="Nieuwe pagina"
+		></nldd-link>
 
 		{#if data.editorial}
 			<section aria-label="Te beoordelen">
@@ -115,7 +110,7 @@
 			{/if}
 		</section>
 	</nldd-container>
-</nldd-simple-section>
+</Pagina>
 
 <style>
 	.lijst {

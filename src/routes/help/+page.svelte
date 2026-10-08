@@ -1,8 +1,11 @@
-<svelte:head><title>Zo werkt Schrijver - Schrijver</title></svelte:head>
+<script lang="ts">
+	import Pagina from '$lib/components/Pagina.svelte';
+</script>
 
-<nldd-simple-section>
+<svelte:head><title>Zo werkt Schrijver · Schrijver</title></svelte:head>
+
+<Pagina titel="Zo werkt Schrijver">
 	<nldd-container gap="16">
-		<nldd-title size="1" heading-level="1" text="Zo werkt Schrijver"></nldd-title>
 		<nldd-rich-text>
 			<p>
 				Met Schrijver bewerk je pagina's van onze websites in een gewone tekstverwerker-achtige
@@ -82,4 +85,4 @@
 			</p>
 		</nldd-rich-text>
 	</nldd-container>
-</nldd-simple-section>
+</Pagina>

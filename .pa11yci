@@ -5,7 +5,7 @@
 		"wait": 500,
 		"timeout": 60000,
 		"viewport": { "width": 1280, "height": 6000 },
-		"actions": ["wait for element nldd-top-navigation-bar:defined to be added"],
+		"actions": ["wait for element nldd-toolbar:defined to be added"],
 		"chromeLaunchConfig": { "args": ["--no-sandbox"] }
 	},
 	"urls": [

@@ -1,12 +1,13 @@
 <script lang="ts">
+	import Pagina from '$lib/components/Pagina.svelte';
+
 	let { data } = $props();
 </script>
 
-<svelte:head><title>Kies een site - Schrijver</title></svelte:head>
+<svelte:head><title>Kies een site · Schrijver</title></svelte:head>
 
-<nldd-simple-section>
+<Pagina titel="Kies een site">
 	<nldd-container gap="16">
-		<nldd-title size="1" heading-level="1" text="Kies een site"></nldd-title>
 		{#if data.configNotLoaded}
 			<nldd-banner
 				variant="critical"
@@ -27,4 +28,4 @@
 			{/each}
 		</nldd-container>
 	</nldd-container>
-</nldd-simple-section>
+</Pagina>

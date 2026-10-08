@@ -15,9 +15,13 @@ const pages = [
 
 /**
  * Allowed color-contrast "incomplete" results. CodeMirror lines that cross the edge of the editor's own scroll
- * container cannot be resolved by axe (elmPartiallyObscuring); the lines that can be resolved pass.
+ * container cannot be resolved by axe (elmPartiallyObscuring); the lines that can be resolved pass. The back
+ * button of nldd-top-title-bar draws a pseudo-element behind its text, which axe does not resolve (pseudoContent).
  */
-const allowedContrast = [/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/];
+const allowedContrast = [
+	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
+	/^nldd-top-title-bar,nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/
+];
 
 const tags = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
 
@@ -28,7 +32,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		for (const url of pages) {
 			test(url, async ({ page }) => {
 				await page.goto(url);
-				await page.evaluate(() => customElements.whenDefined('nldd-top-navigation-bar'));
+				await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
 				await page.waitForLoadState('networkidle');
 				// A viewport as tall as the page: axe cannot resolve the background of text that crosses the viewport edge.
 				const height = await page.evaluate(() => document.documentElement.scrollHeight);

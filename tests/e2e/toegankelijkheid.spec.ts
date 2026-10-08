@@ -271,7 +271,7 @@ test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 	]) {
 		test(url, async ({ page }) => {
 			await page.goto(url);
-			await page.evaluate(() => customElements.whenDefined('nldd-top-navigation-bar'));
+			await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
 			await page.waitForLoadState('networkidle');
 			const width = await page.evaluate(() => document.documentElement.scrollWidth);
 			expect(width, 'no horizontal scrolling').toBeLessThanOrEqual(320);

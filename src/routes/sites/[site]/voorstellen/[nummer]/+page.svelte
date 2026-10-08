@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import Diff from '$lib/components/Diff.svelte';
+	import Pagina from '$lib/components/Pagina.svelte';
 
 	let { data } = $props();
 
@@ -74,18 +75,13 @@
 	}
 </script>
 
-<svelte:head><title>{data.proposal.title} - Schrijver</title></svelte:head>
+<svelte:head><title>{data.proposal.title} · {data.site.naam} · Schrijver</title></svelte:head>
 
-<nldd-simple-section>
+<Pagina
+	titel={data.proposal.title}
+	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
+>
 	<nldd-container gap="24">
-		<nldd-link
-			href="/sites/{data.site.id}"
-			start-icon="arrow-left"
-			text="Terug naar {data.site.naam}"
-		></nldd-link>
-
-		<nldd-title size="1" heading-level="1" text={data.proposal.title}></nldd-title>
-
 		<nldd-container layout="wrap" gap="12" vertical-alignment="center">
 			<nldd-badge
 				text={STATUS[data.proposal.status].text}
@@ -245,7 +241,7 @@
 			{/if}
 		</section>
 	</nldd-container>
-</nldd-simple-section>
+</Pagina>
 
 <style>
 	pre {
