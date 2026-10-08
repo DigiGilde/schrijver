@@ -196,7 +196,8 @@
 <p class="sr-only" role="status">{status}</p>
 
 {#if mermaidFout}
-	<p role="alert" class="fout" tabindex="-1" bind:this={foutBlok}>{mermaidFout}</p>
+	<nldd-banner variant="critical" text={mermaidFout} tabindex="-1" bind:this={foutBlok}
+	></nldd-banner>
 {/if}
 
 {#if bewaard}
@@ -227,17 +228,22 @@
 {/if}
 
 {#if fout}
-	<div role="alert" class="fout" tabindex="-1" bind:this={foutBlok}>
-		<p>{fout.message}</p>
+	<nldd-banner variant="critical" text={fout.message} tabindex="-1" bind:this={foutBlok}>
 		{#if fout.fields}
-			<ul>
-				{#each Object.entries(fout.fields) as [veld, melding] (veld)}
-					<li>{labels[veld] ?? veld}: {melding}</li>
-				{/each}
-			</ul>
+			<nldd-rich-text>
+				<ul>
+					{#each Object.entries(fout.fields) as [veld, melding] (veld)}
+						<li>{labels[veld] ?? veld}: {melding}</li>
+					{/each}
+				</ul>
+			</nldd-rich-text>
 			{#if oneigenschappen}
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="secondary" text="Eigenschappen aanpassen" onclick={oneigenschappen}
+				<nldd-button
+					slot="actions"
+					appearance="secondary"
+					text="Eigenschappen aanpassen"
+					onclick={oneigenschappen}
 				></nldd-button>
 			{/if}
 		{/if}
@@ -247,7 +253,7 @@
 				<pre>{fout.detail}</pre>
 			</details>
 		{/if}
-	</div>
+	</nldd-banner>
 {/if}
 
 {#if conflict}

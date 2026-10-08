@@ -89,6 +89,7 @@ test('inserts a Mermaid scaffold and blocks saving without a description', async
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	const melding = page.getByRole('alert').filter({ hasText: 'accDescr' });
 	await expect(melding).toContainText('regel 1');
+	await expect(melding).toHaveAttribute('variant', 'critical');
 	await expect(melding).toBeFocused();
 });
 
