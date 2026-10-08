@@ -308,12 +308,12 @@
 
 {#snippet titelKnop()}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-icon-button
-		icon="edit"
-		text="Titel wijzigen"
+	<nldd-button
 		appearance="neutral-transparent"
+		start-icon="edit"
+		text="Titel wijzigen"
 		onclick={wijzigTitel}
-	></nldd-icon-button>
+	></nldd-button>
 {/snippet}
 
 {#snippet bewaarKnop()}

@@ -395,14 +395,14 @@ test('the toolbar counts the empty required properties before a save', async ({ 
 	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
 	const een = page.getByRole('button', { name: 'Eigenschappen, 1 verplicht veld leeg' });
 	await expect(een).toBeVisible();
-	await expect(een).toHaveText('Eigenschappen (1)');
+	await expect(een).toHaveText('Eigenschappen (1 leeg)');
 
 	await een.click();
 	await sheet.getByRole('textbox', { name: 'Titel' }).fill('');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	const twee = page.getByRole('button', { name: 'Eigenschappen, 2 verplichte velden leeg' });
-	await expect(twee).toHaveText('Eigenschappen (2)');
+	await expect(twee).toHaveText('Eigenschappen (2 leeg)');
 
 	await twee.click();
 	await sheet.getByRole('textbox', { name: 'Titel' }).fill('Contact');
@@ -511,6 +511,10 @@ test('the title button opens the properties with the focus in the title field', 
 	await expect(
 		page.locator('#paginatitel > [slot="end"]').getByRole('button', { name: 'Titel wijzigen' })
 	).toHaveCount(1);
+	await expect(
+		knop.getByText('Titel wijzigen', { exact: true }),
+		'the button says what it does'
+	).toBeVisible();
 	await expect(page.getByText('De titel is de eerste kop van de tekst')).toHaveCount(0);
 
 	await knop.click();
