@@ -97,10 +97,19 @@ export class FakeForge implements Forge {
 			.map(([path, b]) => ({ path, sha: b.sha }));
 	}
 
-	async readFile(repo: string, ref: Ref, path: string) {
+	async readFile(
+		repo: string,
+		ref: Ref,
+		path: string,
+		opts?: { maxBytes?: number }
+	): Promise<{ content: Uint8Array; sha: string; tooLarge?: true } | null> {
 		this.maybeFail('readFile');
 		const blob = this.tree(repo, ref).get(path);
-		return blob ? { content: blob.content, sha: blob.sha } : null;
+		if (!blob) return null;
+		if (opts?.maxBytes !== undefined && blob.content.length > opts.maxBytes) {
+			return { content: new Uint8Array(), sha: blob.sha, tooLarge: true };
+		}
+		return { content: blob.content, sha: blob.sha };
 	}
 
 	async createBranch(repo: string, from: Ref, name: string): Promise<void> {

@@ -28,6 +28,15 @@ describe('FakeForge', () => {
 		expect(await forge.readFile(REPO, 'main', 'nope.md')).toBeNull();
 	});
 
+	it('does not hand over a file above maxBytes', async () => {
+		const big = await forge.readFile(REPO, 'main', 'content/a.md', { maxBytes: 3 });
+		expect(big?.tooLarge).toBe(true);
+		expect(big?.content.length).toBe(0);
+		const small = await forge.readFile(REPO, 'main', 'content/a.md', { maxBytes: 5 });
+		expect(small?.tooLarge).toBeUndefined();
+		expect(dec(small!.content)).toBe('alpha');
+	});
+
 	it('createBranch copies the tree of the source', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		expect(forge.branches(REPO).sort()).toEqual(['draft', 'main']);

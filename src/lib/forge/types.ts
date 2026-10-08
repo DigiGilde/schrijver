@@ -48,11 +48,13 @@ export class ForgeError extends Error {
 
 export interface Forge {
 	readTree(repo: string, ref: Ref, dir: string): Promise<FileEntry[]>; // recursive
+	/** With `maxBytes`, a larger file is not downloaded: it comes back empty with `tooLarge`. */
 	readFile(
 		repo: string,
 		ref: Ref,
-		path: string
-	): Promise<{ content: Uint8Array; sha: string } | null>;
+		path: string,
+		opts?: { maxBytes?: number }
+	): Promise<{ content: Uint8Array; sha: string; tooLarge?: true } | null>;
 	createBranch(repo: string, from: Ref, name: string): Promise<void>;
 	commit(
 		repo: string,

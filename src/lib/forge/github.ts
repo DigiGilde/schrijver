@@ -154,8 +154,9 @@ export class GitHubForge implements Forge {
 	async readFile(
 		repo: string,
 		ref: Ref,
-		path: string
-	): Promise<{ content: Uint8Array; sha: string } | null> {
+		path: string,
+		opts?: { maxBytes?: number }
+	): Promise<{ content: Uint8Array; sha: string; tooLarge?: true } | null> {
 		let data: Json;
 		try {
 			data = await this.request(repo, 'GET /repos/{owner}/{repo}/contents/{path}', { path, ref });
@@ -164,6 +165,9 @@ export class GitHubForge implements Forge {
 			throw e;
 		}
 		if (Array.isArray(data) || data.type !== 'file') return null;
+		if (opts?.maxBytes !== undefined && Number(data.size) > opts.maxBytes) {
+			return { content: new Uint8Array(), sha: data.sha, tooLarge: true };
+		}
 		if (data.content) {
 			return { content: new Uint8Array(Buffer.from(data.content, 'base64')), sha: data.sha };
 		}

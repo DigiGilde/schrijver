@@ -11,6 +11,10 @@ import { getConfigStore, getForge } from '$lib/server/services';
 
 const decoder = new TextDecoder();
 const IMAGE = /\.(png|jpe?g|webp|svg|gif|avif)$/i;
+/** Bounds on one page view: how many pages are compared, and how large a page may be to be compared at all. */
+const MAX_DIFF_PAGES = 20;
+const MAX_PAGE_BYTES = 500_000;
+const TE_GROOT = Symbol('te groot');
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const site = getConfigStore().site(params.site);
@@ -27,23 +31,41 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const proposal = toProposal(pr, files, site, identities);
 		const fromFork = !sameRepo(pr.headRepo, site.repo);
 		const text = async (ref: string, path: string) => {
-			const file = await forge.readFile(site.repo, ref, path);
+			const file = await forge.readFile(site.repo, ref, path, { maxBytes: MAX_PAGE_BYTES });
+			if (file?.tooLarge) return TE_GROOT;
 			return file ? decoder.decode(file.content) : null;
 		};
 		// Read the head by commit, so what is shown is exactly what a pinned merge would merge.
 		const head = pr.headSha || pr.headRef;
-		const diffs = fromFork
+		const pages = fromFork
 			? []
-			: await Promise.all(
-					files
-						.filter((f) => proposal.pages.includes(f.path))
-						.sort((a, b) => a.path.localeCompare(b.path))
-						.map(async (f) => {
-							const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
-							const after = f.status === 'removed' ? null : await text(head, f.path);
-							return { path: f.path, before, after, source: sourceDiff(before, after) };
-						})
-				);
+			: files
+					.filter((f) => proposal.pages.includes(f.path))
+					.sort((a, b) => a.path.localeCompare(b.path));
+		const diffs = await Promise.all(
+			pages.slice(0, MAX_DIFF_PAGES).map(async (f) => {
+				const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
+				const after = f.status === 'removed' ? null : await text(head, f.path);
+				if (before === TE_GROOT || after === TE_GROOT) {
+					return {
+						path: f.path,
+						status: f.status,
+						teGroot: true,
+						before: null,
+						after: null,
+						source: []
+					};
+				}
+				return {
+					path: f.path,
+					status: f.status,
+					teGroot: false,
+					before,
+					after,
+					source: sourceDiff(before, after)
+				};
+			})
+		);
 		const changedFiles = files
 			.map((f) => ({
 				path: f.path,
@@ -71,6 +93,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			site: { id: site.id, naam: site.naam },
 			proposal,
 			diffs,
+			nietVergeleken: Math.max(pages.length - MAX_DIFF_PAGES, 0),
 			changedFiles,
 			fromFork,
 			headSha: pr.headSha,

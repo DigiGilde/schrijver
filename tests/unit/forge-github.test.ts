@@ -38,6 +38,22 @@ beforeEach(() => {
 const forge = () => new GitHubForge({ appId: '1', privateKey });
 
 describe('GitHubForge', () => {
+	it('reports a file above maxBytes without downloading its blob', async () => {
+		let blobRequests = 0;
+		server.use(
+			http.get(`${API}/repos/o/r/contents/:path`, () =>
+				HttpResponse.json({ type: 'file', size: 2_000_000, sha: 'big', content: '' })
+			),
+			http.get(`${API}/repos/o/r/git/blobs/big`, () => {
+				blobRequests++;
+				return HttpResponse.json({ content: '' });
+			})
+		);
+		const file = await forge().readFile('o/r', 'main', 'groot.md', { maxBytes: 500_000 });
+		expect(file).toEqual({ content: new Uint8Array(), sha: 'big', tooLarge: true });
+		expect(blobRequests).toBe(0);
+	});
+
 	it('commits without author/committer and updates the ref with the new sha', async () => {
 		server.use(
 			http.get(`${API}/repos/o/r/git/ref/heads/x`, () =>

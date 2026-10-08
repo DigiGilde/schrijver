@@ -54,8 +54,10 @@ export class CachingForge implements Forge {
 		return this.cached(repo, `tree\0${ref}\0${dir}`, () => this.inner.readTree(repo, ref, dir));
 	}
 
-	readFile(repo: string, ref: Ref, path: string) {
-		return this.cached(repo, `file\0${ref}\0${path}`, () => this.inner.readFile(repo, ref, path));
+	readFile(repo: string, ref: Ref, path: string, opts?: { maxBytes?: number }) {
+		return this.cached(repo, `file\0${ref}\0${path}\0${opts?.maxBytes ?? ''}`, () =>
+			this.inner.readFile(repo, ref, path, opts)
+		);
 	}
 
 	createBranch(repo: string, from: Ref, name: string): Promise<void> {

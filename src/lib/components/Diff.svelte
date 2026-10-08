@@ -15,8 +15,20 @@
 		path,
 		before,
 		after,
-		source
-	}: { path: string; before: string | null; after: string | null; source: SourcePart[] } = $props();
+		source,
+		status = 'modified',
+		teGroot: paginaTeGroot = false
+	}: {
+		path: string;
+		before: string | null;
+		after: string | null;
+		source: SourcePart[];
+		status?: 'added' | 'removed' | 'modified';
+		/** The server did not fetch the page: it is above the size a proposal view compares. */
+		teGroot?: boolean;
+	} = $props();
+	const nieuwePagina = $derived(paginaTeGroot ? status === 'added' : before === null);
+	const verwijderd = $derived(paginaTeGroot ? status === 'removed' : after === null);
 
 	type Split = { frontmatter: Record<string, unknown>; body: string };
 	const split = (text: string | null): Split => {
@@ -52,6 +64,10 @@
 	let klaar = $state(false);
 
 	$effect(() => {
+		if (paginaTeGroot) {
+			klaar = true;
+			return;
+		}
 		if (before === null || after === null) {
 			plainHtml = markdownToHtml(before === null ? nieuw.body : old.body);
 		} else {
@@ -97,9 +113,8 @@
 
 <section class="diff" aria-label={path}>
 	<nldd-title size="4" heading-level="3" text={path}>
-		{#if before === null}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"
-			></nldd-badge>{/if}
-		{#if after === null}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
+		{#if nieuwePagina}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"></nldd-badge>{/if}
+		{#if verwijderd}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
 	</nldd-title>
 
 	{#if changes.length > 0}
@@ -123,7 +138,9 @@
 		</table>
 	{/if}
 
-	{#if before === null || after === null}
+	{#if paginaTeGroot}
+		<nldd-text>{TE_GROOT}</nldd-text>
+	{:else if before === null || after === null}
 		{#if plainHtml}
 			<nldd-rich-text class="inhoud">{@html plainHtml}</nldd-rich-text>
 		{:else}

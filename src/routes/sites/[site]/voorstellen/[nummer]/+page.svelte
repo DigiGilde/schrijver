@@ -249,8 +249,22 @@
 				{:else}
 					<nldd-container gap="32">
 						{#each data.diffs as d (d.path)}
-							<Diff path={d.path} before={d.before} after={d.after} source={d.source} />
+							<Diff
+								path={d.path}
+								before={d.before}
+								after={d.after}
+								source={d.source}
+								status={d.status}
+								teGroot={d.teGroot}
+							/>
 						{/each}
+						{#if data.nietVergeleken > 0}
+							<nldd-text>
+								{data.nietVergeleken === 1
+									? 'Nog 1 pagina is hier niet vergeleken.'
+									: `Nog ${data.nietVergeleken} pagina's zijn hier niet vergeleken.`} Bekijk ze op GitHub.
+							</nldd-text>
+						{/if}
 					</nldd-container>
 				{/if}
 			</nldd-container>
