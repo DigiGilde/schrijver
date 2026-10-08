@@ -10,7 +10,7 @@ import {
 	type SaveResult
 } from '../../src/lib/forge/save';
 import { ForgeError } from '../../src/lib/forge/types';
-import type { Identity } from '../../src/lib/forge/trailers';
+import { trailersFromMessage, type Identity } from '../../src/lib/forge/trailers';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const schema = (name: string) =>
@@ -583,10 +583,11 @@ describe('save', () => {
 	describe('deleting images', () => {
 		const KAT = 'docs/afbeeldingen/docs/kat.png';
 		const without = '\n# Home\n\nZonder kat.\n';
-		const refused = (status: number, message: string) => ({
+		const refused = (status: number, message: string, deletionRefused: string) => ({
 			ok: false,
 			status,
-			error: expect.objectContaining({ message })
+			error: expect.objectContaining({ message }),
+			deletionRefused
 		});
 
 		beforeEach(async () => {
@@ -618,6 +619,45 @@ describe('save', () => {
 				path: KAT,
 				status: 'removed'
 			});
+		});
+
+		it('lists each deleted file in the commit body, apart from the identity trailer', async () => {
+			const hond = 'docs/afbeeldingen/docs/hond.png';
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{
+						path: 'docs/index.md',
+						content:
+							'---\ndescription: Oud\n---\n\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png) ![Een hond](afbeeldingen/docs/hond.png)\n'
+					},
+					{ path: hond, content: PNG }
+				],
+				'met hond'
+			);
+			baseSha = (await forge.readFile(digi.repo, 'main', 'docs/index.md'))!.sha;
+			const r = ok(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({ body: without, deletions: [KAT, hond] })
+				)
+			);
+			const [commit] = forge.commitsOf(digi.repo, r.branch);
+			expect(commit.message).toBe(
+				[
+					'Bewerk docs/index.md',
+					'',
+					`Verwijderd: ${KAT}`,
+					`Verwijderd: ${hond}`,
+					'',
+					'Schrijver-Auteur: abc123def456'
+				].join('\n')
+			);
+			expect(trailersFromMessage(commit.message)).toEqual(['Schrijver-Auteur: abc123def456']);
 		});
 
 		it('deletes on the proposal branch an image the proposal added itself', async () => {
@@ -660,7 +700,11 @@ describe('save', () => {
 			for (const path of ['docs/kat.png', 'docs/afbeeldingen/docs/../../index.md', '../kat.png']) {
 				const r = await save(forge, digi, digiSchema, identity, req({ deletions: [path] }));
 				expect(r, path).toMatchObject(
-					refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd')
+					refused(
+						400,
+						'Niet bewaard: dit bestand kan niet worden verwijderd',
+						'outside_image_folder'
+					)
 				);
 			}
 			expect(forge.branches(digi.repo)).toEqual(['main']);
@@ -683,7 +727,7 @@ describe('save', () => {
 				req({ body: without, deletions: [KAT] })
 			);
 			expect(r).toMatchObject({
-				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina'),
+				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina', 'in_use'),
 				error: { detail: `${KAT}: docs/kennis/kat.md` }
 			});
 			expect(forge.branches(digi.repo)).toEqual(['main']);
@@ -724,7 +768,7 @@ describe('save', () => {
 				})
 			);
 			expect(r).toMatchObject({
-				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina'),
+				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina', 'in_use'),
 				error: { detail: `${KAT}: docs/kennis/kat.md` }
 			});
 			expect(await forge.readFile(digi.repo, first.branch, KAT)).not.toBeNull();
@@ -750,7 +794,9 @@ describe('save', () => {
 				identity,
 				req({ body: without, deletions: ['docs/afbeeldingen/docs/weg.png'] })
 			);
-			expect(r).toMatchObject(refused(409, 'Niet bewaard: de afbeelding bestaat niet meer'));
+			expect(r).toMatchObject(
+				refused(409, 'Niet bewaard: de afbeelding bestaat niet meer', 'missing')
+			);
 		});
 
 		it('refuses an image the page did not show before this save', async () => {
@@ -764,7 +810,7 @@ describe('save', () => {
 				req({ body: without, deletions: [KAT, oud] })
 			);
 			expect(r).toMatchObject({
-				...refused(400, 'Niet bewaard: deze afbeelding stond niet op deze pagina'),
+				...refused(400, 'Niet bewaard: deze afbeelding stond niet op deze pagina', 'not_on_page'),
 				error: { detail: oud }
 			});
 			expect(forge.branches(digi.repo)).toEqual(['main']);
@@ -773,7 +819,9 @@ describe('save', () => {
 		it('refuses an image the saved text still shows from the site root', async () => {
 			const body = '\n# Home\n\n![Een kat](/afbeeldingen/docs/kat.png)\n';
 			const r = await save(forge, digi, digiSchema, identity, req({ body, deletions: [KAT] }));
-			expect(r).toMatchObject(refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst'));
+			expect(r).toMatchObject(
+				refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst', 'still_in_text')
+			);
 		});
 
 		it('refuses an image a page under content.uitsluiten shows, which this page never did', async () => {
@@ -836,7 +884,7 @@ describe('save', () => {
 				})
 			);
 			expect(r).toMatchObject({
-				...refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd'),
+				...refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd', 'excluded'),
 				error: { detail: team }
 			});
 			expect(forge.branches(moza.repo)).toEqual(['main']);
@@ -845,7 +893,9 @@ describe('save', () => {
 		it('refuses an image the saved text still shows', async () => {
 			const body = '\n# Home\n\n<img src="afbeeldingen/docs/kat.png" alt="Een kat">\n';
 			const r = await save(forge, digi, digiSchema, identity, req({ body, deletions: [KAT] }));
-			expect(r).toMatchObject(refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst'));
+			expect(r).toMatchObject(
+				refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst', 'still_in_text')
+			);
 		});
 
 		it('refuses an image sent along in the same save', async () => {
@@ -856,7 +906,9 @@ describe('save', () => {
 				identity,
 				req({ images: [{ path: KAT, base64: PNG.toString('base64') }], deletions: [KAT] })
 			);
-			expect(r).toMatchObject({ ok: false, status: 400 });
+			expect(r).toMatchObject(
+				refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd', 'added_in_save')
+			);
 		});
 
 		it('refuses when not every page could be read', async () => {
@@ -876,7 +928,8 @@ describe('save', () => {
 			expect(r).toMatchObject(
 				refused(
 					409,
-					'Niet bewaard: niet na te gaan of de afbeelding nog op een andere pagina staat'
+					'Niet bewaard: niet na te gaan of de afbeelding nog op een andere pagina staat',
+					'incomplete'
 				)
 			);
 		});

@@ -78,7 +78,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	}
 
 	const sub = (user.session as { sub: string }).sub;
+	const actor = actorPseudonym(user.session);
 	if (parsed.deletions?.length && !imageScanLimit.take(sub)) {
+		log.warn('save.deletion_refused', { site: site.id, reason: 'limit', actor });
 		return json(message(IMAGE_SCANS_SPENT), { status: 429 });
 	}
 	if (parsed.branch === null && !newProposalLimit.take(sub)) {
@@ -122,16 +124,21 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			site: site.id,
 			pr: result.prNumber,
 			branch: result.branch,
-			actor: actorPseudonym(user.session)
+			deleted: new Set(parsed.deletions).size,
+			actor
 		});
 		return json(result);
 	}
 	if ('conflict' in result) {
-		log.info('save.conflict', { site: site.id, actor: actorPseudonym(user.session) });
+		log.info('save.conflict', { site: site.id, actor });
 		return json(result, { status: 409 });
 	}
 	const status = result.status ?? 500;
-	log.warn('save.failed', { site: site.id, status, actor: actorPseudonym(user.session) });
-	const { status: _status, ...body } = result;
+	if (result.deletionRefused) {
+		log.warn('save.deletion_refused', { site: site.id, reason: result.deletionRefused, actor });
+	} else {
+		log.warn('save.failed', { site: site.id, status, actor });
+	}
+	const { status: _status, deletionRefused: _reason, ...body } = result;
 	return json(body, { status });
 };

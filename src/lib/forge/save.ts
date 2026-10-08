@@ -49,6 +49,16 @@ export interface SaveRequest {
 	deletions?: string[];
 }
 
+export type DeletionRefusal =
+	| 'outside_image_folder'
+	| 'added_in_save'
+	| 'still_in_text'
+	| 'not_on_page'
+	| 'missing'
+	| 'excluded'
+	| 'in_use'
+	| 'incomplete';
+
 export type SaveResult =
 	| { ok: true; branch: string; prNumber: number; sha: string; url: string; path: string }
 	| { ok: false; conflict: { mine: string; theirs: string; sha: string } }
@@ -56,6 +66,8 @@ export type SaveResult =
 			ok: false;
 			error: { message: string; detail?: string; fields?: Record<string, string> };
 			status?: number;
+			/** Why a deletion was refused: a code for the log, which never names a file. */
+			deletionRefused?: DeletionRefusal;
 	  };
 
 const dec = new TextDecoder();
@@ -66,6 +78,13 @@ const fail = (
 	message: string,
 	extra: { detail?: string; fields?: Record<string, string> } = {}
 ): SaveResult => ({ ok: false, error: { message, ...extra }, status });
+
+const refuseDeletion = (
+	reason: DeletionRefusal,
+	status: number,
+	message: string,
+	detail: string
+): SaveResult => ({ ok: false, error: { message, detail }, status, deletionRefused: reason });
 
 function randomSuffix(): string {
 	return Array.from(randomBytes(4), (b) => BASE32[b % 32]).join('');
@@ -166,28 +185,33 @@ async function refuseDeletions(
 ): Promise<SaveResult | null> {
 	const own = referencedImages(after, page, site.content.pad);
 	const kept = deletions.find((p) => own.has(p));
-	if (kept) return fail(400, 'Niet bewaard: de afbeelding staat nog in de tekst', { detail: kept });
+	if (kept) {
+		const message = 'Niet bewaard: de afbeelding staat nog in de tekst';
+		return refuseDeletion('still_in_text', 400, message, kept);
+	}
 	const shown = referencedImages(before, page, site.content.pad);
 	const foreign = deletions.find((p) => !shown.has(p));
-	if (foreign)
-		return fail(400, 'Niet bewaard: deze afbeelding stond niet op deze pagina', {
-			detail: foreign
-		});
+	if (foreign) {
+		const message = 'Niet bewaard: deze afbeelding stond niet op deze pagina';
+		return refuseDeletion('not_on_page', 400, message, foreign);
+	}
 	const scan = await imageUsage(forge, site, schema, ref, page, deletions);
 	const missing = deletions.find((p) => !scan.images.some((image) => image.path === p));
-	if (missing)
-		return fail(409, 'Niet bewaard: de afbeelding bestaat niet meer', { detail: missing });
+	if (missing) {
+		const message = 'Niet bewaard: de afbeelding bestaat niet meer';
+		return refuseDeletion('missing', 409, message, missing);
+	}
 	const excluded = scan.images.find((image) => image.excluded);
-	if (excluded) return fail(400, NOT_DELETABLE, { detail: excluded.path });
+	if (excluded) return refuseDeletion('excluded', 400, NOT_DELETABLE, excluded.path);
 	const used = scan.images.find((image) => image.usedOn.length > 0);
 	if (used) {
-		return fail(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina', {
-			detail: `${used.path}: ${used.usedOn.map((p) => p.path).join(', ')}`
-		});
+		const message = 'Niet bewaard: de afbeelding staat nog op een andere pagina';
+		const detail = `${used.path}: ${used.usedOn.map((p) => p.path).join(', ')}`;
+		return refuseDeletion('in_use', 409, message, detail);
 	}
 	if (!scan.complete) {
 		const message = 'Niet bewaard: niet na te gaan of de afbeelding nog op een andere pagina staat';
-		return fail(409, message, { detail: deletions.join(', ') });
+		return refuseDeletion('incomplete', 409, message, deletions.join(', '));
 	}
 	return null;
 }
@@ -268,7 +292,10 @@ export async function save(
 	const notDeletable = deletions.find(
 		(p) => !inImageFolder(site, p) || imageChanges.some((image) => image.path === p)
 	);
-	if (notDeletable) return fail(400, NOT_DELETABLE, { detail: notDeletable });
+	if (notDeletable) {
+		const reason = inImageFolder(site, notDeletable) ? 'added_in_save' : 'outside_image_folder';
+		return refuseDeletion(reason, 400, NOT_DELETABLE, notDeletable);
+	}
 
 	if (!isNew && req.baseSha === null) return fail(400, 'Ontbrekende basisversie');
 
@@ -342,6 +369,8 @@ export async function save(
 		if (req.branch === null) await forge.createBranch(site.repo, site.standaardbranch, branch);
 
 		const summary = `${isNew ? 'Nieuw:' : 'Bewerk'} ${singleLine(filePath)}`;
+		// Deleted files get a paragraph of their own: trailers are read from the last paragraph only.
+		const deleted = deletions.map((p) => `Verwijderd: ${singleLine(p)}`).join('\n');
 		await forge.commit(
 			site.repo,
 			branch,
@@ -350,7 +379,7 @@ export async function save(
 				...imageChanges,
 				...deletions.map((p) => ({ path: p, deleted: true as const }))
 			],
-			commitMessage(summary, identity)
+			commitMessage(deleted ? `${summary}\n\n${deleted}` : summary, identity)
 		);
 		const saved = await forge.readFile(site.repo, branch, filePath);
 		const sha = saved?.sha ?? '';

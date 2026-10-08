@@ -67,9 +67,43 @@ describe('POST /api/sites/[site]/opslaan', () => {
 			site: 'digi',
 			pr: 3,
 			branch: 'b',
+			deleted: 0,
 			actor: 'p-jan'
 		});
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
+	});
+
+	it('logs how many files a save deleted', async () => {
+		vi.mocked(log.info).mockClear();
+		const kat = 'docs/afbeeldingen/a/kat.png';
+		const hond = 'docs/afbeeldingen/a/hond.png';
+		await call({ sub: 'jan', body: { ...good, deletions: [kat, hond, kat] } });
+		expect(log.info).toHaveBeenCalledWith('save.ok', expect.objectContaining({ deleted: 2 }));
+		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('kat.png');
+	});
+
+	it('logs a refused deletion with its reason and the actor, never a path', async () => {
+		vi.mocked(log.warn).mockClear();
+		const kat = 'docs/afbeeldingen/a/kat.png';
+		vi.mocked(save).mockResolvedValueOnce({
+			ok: false,
+			error: { message: 'Niet bewaard: de afbeelding staat nog op een andere pagina', detail: kat },
+			status: 409,
+			deletionRefused: 'in_use'
+		});
+		const res = await call({ sub: 'jan', body: { ...good, deletions: [kat] } });
+		expect(res.status).toBe(409);
+		expect(await res.json()).toEqual({
+			ok: false,
+			error: { message: 'Niet bewaard: de afbeelding staat nog op een andere pagina', detail: kat }
+		});
+		expect(log.warn).toHaveBeenCalledWith('save.deletion_refused', {
+			site: 'digi',
+			reason: 'in_use',
+			actor: 'p-jan'
+		});
+		expect(log.warn).not.toHaveBeenCalledWith('save.failed', expect.anything());
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('kat.png');
 	});
 
 	it('refuses images that together exceed 10 MB with a Dutch message', async () => {
@@ -112,6 +146,11 @@ describe('POST /api/sites/[site]/opslaan', () => {
 			'Je hebt het afgelopen uur veel afbeeldingen laten nagaan; probeer het later opnieuw'
 		);
 		expect(save).not.toHaveBeenCalled();
+		expect(log.warn).toHaveBeenCalledWith('save.deletion_refused', {
+			site: 'digi',
+			reason: 'limit',
+			actor: 'p-wisser'
+		});
 		expect((await call({ sub: 'wisser', body: branch })).status).toBe(200);
 	});
 
