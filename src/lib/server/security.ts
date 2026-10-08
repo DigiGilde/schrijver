@@ -162,5 +162,8 @@ export function createWindowCounter(limit: number, windowMs: number, now: () => 
 	};
 }
 
-/** New branches and draft pull requests per user per hour. */
-export const newProposalLimit = createWindowCounter(20, 3600_000);
+/** New branches and draft pull requests per user per hour; the e2e suite raises it, as all its tests share one user. */
+export const newProposalLimit = createWindowCounter(
+	Number(process.env.SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR) || 20,
+	3600_000
+);

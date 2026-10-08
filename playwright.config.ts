@@ -22,6 +22,7 @@ export default defineConfig({
 				NODE_ENV: 'development',
 				PORT: String(port),
 				SCHRIJVER_FAKE_FORGE: '1',
+				SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR: '1000',
 				SCHRIJVER_TEST_SESSION: JSON.stringify({
 					sub: 'test',
 					name: 'Test Gebruiker',
