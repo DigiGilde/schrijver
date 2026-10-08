@@ -193,7 +193,7 @@
 		size="sm"
 		text="Vraag"
 		loading={busy || undefined}
-		disabled={!instruction.trim()}
+		disabled={!instruction.trim() || undefined}
 		onclick={() => run('vrij')}
 	></nldd-button>
 
