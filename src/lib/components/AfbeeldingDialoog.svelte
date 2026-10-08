@@ -168,7 +168,12 @@
 			</nldd-form-field>
 		{/key}
 		{#if file}
-			<p class="bestand">{file.name} ({size})</p>
+			<div>
+				<p class="bestand">{file.name} ({size})</p>
+				<nldd-text size="sm" color="secondary"
+					>Schrijver haalt fotogegevens zoals locatie en camera altijd uit de afbeelding.</nldd-text
+				>
+			</div>
 		{/if}
 		{#if toonBerekenen}
 			<nldd-text size="sm" color="secondary" aria-hidden="true"
@@ -184,9 +189,6 @@
 				></nldd-checkbox-field>
 				<nldd-form-field-help-text
 					>Van {beschrijf(aanbod.from)}, naar {beschrijf(aanbod.to)}. De pagina laadt sneller.</nldd-form-field-help-text
-				>
-				<nldd-form-field-help-text
-					>Ook de fotogegevens, zoals de locatie, gaan eruit.</nldd-form-field-help-text
 				>
 			</nldd-form-field>
 		{/if}

@@ -284,6 +284,44 @@ async function rotatedJpeg(page: Page): Promise<Buffer> {
 	]);
 }
 
+/** 52° 5' 28.29" north as three big-endian rationals. */
+const LATITUDE = Buffer.from('00000034000000010000000500000001' + '00000b0d00000064', 'hex');
+
+/** The rotated photo as a phone stores it: EXIF with the camera and a location, XMP, a comment. */
+async function phonePhoto(page: Page): Promise<Buffer> {
+	const exif = Buffer.from(
+		[
+			'457869660000', // Exif\0\0
+			'4d4d002a00000008', // big-endian TIFF, IFD0 at 8
+			'0003', // three entries
+			'010f000200000004' + '43616d00', // Make "Cam"
+			'0112000300000001' + '00060000', // Orientation 6
+			'8825000400000001' + '00000032', // GPS IFD at 50
+			'00000000',
+			'0002', // two GPS entries
+			'0001000200000002' + '4e000000', // GPSLatitudeRef "N"
+			'0002000500000003' + '00000050', // GPSLatitude at 80
+			'00000000',
+			LATITUDE.toString('hex')
+		].join(''),
+		'hex'
+	);
+	const segment = (marker: number, payload: Buffer) => {
+		const length = Buffer.alloc(2);
+		length.writeUInt16BE(payload.length + 2);
+		return Buffer.concat([Buffer.from([0xff, marker]), length, payload]);
+	};
+	const xmp = 'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>Jan Jansen</x:xmpmeta>';
+	const jpeg = await rotatedJpeg(page);
+	return Buffer.concat([
+		jpeg.subarray(0, 2),
+		segment(0xe1, exif),
+		segment(0xe1, Buffer.from(xmp, 'latin1')),
+		segment(0xfe, Buffer.from('Gemaakt in Utrecht', 'latin1')),
+		jpeg.subarray(2)
+	]);
+}
+
 async function openDialog(page: Page) {
 	await page.goto(url);
 	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
@@ -391,14 +429,9 @@ test('offers to shrink a large image, unticked, with the real numbers', async ({
 			`^Van ${original} MB, 2400 × 1600 pixels, naar \\d+ kB, 2000 × 1333 pixels\\. De pagina laadt sneller\\.\\s*$`
 		)
 	);
-	await expect(
-		dialog.getByText('Ook de fotogegevens, zoals de locatie, gaan eruit.')
-	).toBeVisible();
 	await expect
 		.poll(() => describedBy(page, 'Verklein voor het web'))
-		.toMatch(
-			/^Van .* De pagina laadt sneller\. Ook de fotogegevens, zoals de locatie, gaan eruit\.$/
-		);
+		.toMatch(/^Van .* De pagina laadt sneller\.$/);
 });
 
 test('sends the original when the option stays unticked', async ({ page }) => {
@@ -468,7 +501,7 @@ test('offers nothing for a small image', async ({ page }) => {
 	expect((await imageWork(page)).encoded).toBe(0);
 	await expect(option(dialog)).toHaveCount(0);
 	await expect(computingText(dialog)).toHaveCount(0);
-	await expect(dialog.getByText(/fotogegevens/)).toHaveCount(0);
+	await expect(numbers(dialog)).toHaveCount(0);
 });
 
 test('offers nothing for an SVG', async ({ page }) => {
@@ -497,7 +530,7 @@ test('offers nothing when the smaller version would not be smaller', async ({ pa
 	await expect(computingText(dialog)).toHaveCount(0, { timeout: 15_000 });
 
 	await expect(option(dialog)).toHaveCount(0);
-	await expect(dialog.getByText(/fotogegevens/)).toHaveCount(0);
+	await expect(numbers(dialog)).toHaveCount(0);
 });
 
 test('drops the offer and the choice when another file is chosen', async ({ page }) => {
@@ -637,6 +670,45 @@ test('keeps a rotated photo upright and reports the size as it is shown', async 
 	expect(shown.top[2]).toBeLessThan(80);
 	expect(shown.bottom[2]).toBeGreaterThan(180);
 	expect(shown.bottom[0]).toBeLessThan(80);
+});
+
+test('takes the photo metadata out of the original and keeps it upright', async ({ page }) => {
+	const dialog = await openDialog(page);
+	const photo = await phonePhoto(page);
+	await choose(dialog, 'telefoon.jpg', 'image/jpeg', photo);
+	await expect(
+		dialog.getByText(
+			'Schrijver haalt fotogegevens zoals locatie en camera altijd uit de afbeelding.'
+		)
+	).toBeVisible();
+
+	const sent = await insert(page, dialog, false);
+	expect(sent.type).toBe('image/jpeg');
+	for (const trace of [LATITUDE, Buffer.from('xmpmeta'), Buffer.from('Utrecht')]) {
+		expect(photo.includes(trace)).toBe(true);
+		expect(sent.bytes.includes(trace)).toBe(false);
+	}
+	const imageData = (jpeg: Buffer) => jpeg.subarray(jpeg.indexOf(Buffer.from([0xff, 0xdb])));
+	expect(imageData(sent.bytes).equals(imageData(photo))).toBe(true);
+
+	const shown = await page.evaluate(async (base64) => {
+		const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+		const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const context = canvas.getContext('2d')!;
+		context.drawImage(bitmap, 0, 0);
+		const red = (y: number) => context.getImageData(bitmap.width / 2, y, 1, 1).data[0];
+		return {
+			size: [bitmap.width, bitmap.height],
+			top: red(bitmap.height / 4),
+			bottom: red(bitmap.height * 0.75)
+		};
+	}, sent.data.base64);
+	expect(shown.size).toEqual([1600, 2400]);
+	expect(shown.top).toBeGreaterThan(180);
+	expect(shown.bottom).toBeLessThan(80);
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
