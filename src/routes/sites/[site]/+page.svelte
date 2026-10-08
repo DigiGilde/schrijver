@@ -30,22 +30,12 @@
 
 <Pagina titel={data.site.naam} ondertitel={data.site.repo} terug={{ href: '/', tekst: 'Sites' }}>
 	<nldd-container gap="24">
-		<nldd-toolbar label="Acties voor {data.site.naam}">
-			<nldd-toolbar-item slot="start">
-				<nldd-button
-					appearance="primary"
-					start-icon="plus"
-					text="Nieuwe pagina"
-					href="/sites/{data.site.id}/nieuw"
-				></nldd-button>
-				<nldd-menu-item
-					slot="overflow"
-					icon="plus"
-					text="Nieuwe pagina"
-					href="/sites/{data.site.id}/nieuw"
-				></nldd-menu-item>
-			</nldd-toolbar-item>
-		</nldd-toolbar>
+		<nldd-button
+			appearance="primary"
+			start-icon="plus"
+			text="Nieuwe pagina"
+			href="/sites/{data.site.id}/nieuw"
+		></nldd-button>
 
 		{#if data.teBeoordelen.length > 0}
 			<nldd-container gap="8">

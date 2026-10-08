@@ -99,6 +99,38 @@
 		</nldd-container>
 
 		<nldd-toolbar label="Acties voor dit voorstel">
+			{#if data.canSendIn}
+				<nldd-toolbar-item slot="start" priority="3">
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button
+						appearance="primary"
+						text="Insturen"
+						loading={busy || undefined}
+						onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						text="Insturen"
+						onselect={() => stuur('insturen', 'Het voorstel is ingestuurd')}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/if}
+			{#if data.canMerge}
+				<nldd-toolbar-item slot="start" priority="3">
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button
+						appearance="primary"
+						text="Samenvoegen"
+						loading={busy || undefined}
+						onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						text="Samenvoegen"
+						onselect={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/if}
 			{#each data.verderBewerken as link (link.page)}
 				<nldd-toolbar-item slot="start" priority="2">
 					<nldd-button
@@ -144,38 +176,6 @@
 					onselect={() => openInTab(data.githubUrl)}
 				></nldd-menu-item>
 			</nldd-toolbar-item>
-			{#if data.canSendIn}
-				<nldd-toolbar-item slot="end" priority="3">
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button
-						appearance="primary"
-						text="Insturen"
-						loading={busy || undefined}
-						onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						text="Insturen"
-						onselect={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/if}
-			{#if data.canMerge}
-				<nldd-toolbar-item slot="end" priority="3">
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button
-						appearance="primary"
-						text="Samenvoegen"
-						loading={busy || undefined}
-						onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						text="Samenvoegen"
-						onselect={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/if}
 		</nldd-toolbar>
 
 		<p class="sr-only" role="status">{status}</p>

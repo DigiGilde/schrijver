@@ -157,6 +157,29 @@ test('the proposal page shows what changed before the comment form', async ({ pa
 	).toBe(true);
 });
 
+test('Nieuwe pagina is a plain primary button, not a one-item toolbar', async ({ page }) => {
+	await page.goto('/sites/digi-handboek');
+	const knop = page.locator('nldd-button[text="Nieuwe pagina"]');
+	await expect(knop).toHaveAttribute('appearance', 'primary');
+	await expect(knop).toHaveAttribute('href', '/sites/digi-handboek/nieuw');
+	await expect(page.locator('nldd-toolbar nldd-button[text="Nieuwe pagina"]')).toHaveCount(0);
+});
+
+test('the primary action of a proposal is the first action in its toolbar', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen/1');
+	await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+	const toolbar = page.locator('nldd-toolbar[label="Acties voor dit voorstel"]');
+	const primary = toolbar.locator('nldd-button[appearance="primary"]');
+	await expect(primary).toHaveAttribute('text', 'Insturen');
+	const others = await toolbar.locator('nldd-button:not([appearance="primary"])').all();
+	expect(others.length).toBeGreaterThan(0);
+	for (const other of others) {
+		await expect
+			.poll(async () => (await other.boundingBox())!.x - (await primary.boundingBox())!.x)
+			.toBeGreaterThan(0);
+	}
+});
+
 test('the settings page has a block each for signing, GitHub and logging out', async ({ page }) => {
 	await page.goto('/instellingen');
 	for (const name of ['Ondertekenen', 'GitHub-account', 'Uitloggen']) {
