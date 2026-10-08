@@ -9,13 +9,19 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Sign in with SSO Rijk through Keycloak (OIDC with PKCE), sealed 8-hour sliding session.
 - Onboarding and settings with the commit identity choice: `anoniem`, `gekoppeld` (verified GitHub link) or `op-naam`.
 - Site registry (`sites.yaml`) and per-site page schemas read from a private configuration repository, reloaded on a push webhook.
-- Application shell after the NLDD application pattern: an app bar with the name linking home and an account menu (Instellingen, Help, Uitloggen), one column that lines up with it, and a sticky title bar with the way back on every page below the start page.
+- Application shell after the NLDD application pattern: an app bar in the sticky page header with a wordmark that links home and a plain menu (Sites, Help, Instellingen, Uitloggen), one column that lines up with it, and a sticky title bar with the way back on every page below the start page. The local preview says in a bar above it that nothing reaches GitHub.
+- Start page with a card per site: its description and public address, how many proposals are open for you and, for editorial members, how many wait for review.
 - Page editor on `nldd-text-editor` with an `nldd-toolbar` that overflows into a menu, "Voorbeeld" on demand instead of a second pane, page properties (the schema-driven frontmatter form) in a sheet, the save action in the sticky title bar, Schrijfhulp beside the text, image upload with required alt text and Mermaid blocks with required `accDescr`.
+- The editing screen: "Titel wijzigen" at the end of the title line where the title is a property, a one-time note on the save button (on a wide screen) that a draft becomes public, a toolbar that sticks above the text, Dutch names for properties in forms and errors, and the number of empty required properties on "Eigenschappen".
+- Formatting buttons for a numbered list, indent and outdent, a code block, a table and a horizontal rule.
+- Mermaid diagrams in "Voorbeeld" look as on the MOZa site, with the `nldd:` icons and per-site colours (`mermaid.tokens`).
 - Byte-identical Markdown round-trip, tested on a corpus of both pilot sites.
 - Proposals as GitHub branches and pull requests through a GitHub App, listed live from GitHub, including pull requests made outside Schrijver.
 - Proposal changes in colour: a block diff of the rendered page with word marks, in the views "Wijzigingen", "Hele pagina" and "Brontekst"; a change too large to compare points to GitHub instead of tying up the server.
 - Sites, pages and proposals as NLDD lists; the folders of a site in a sidebar that becomes a sheet on narrow screens.
 - VLAM writing assistant with fixed actions and a free prompt; suggestions only, never direct edits.
+- Schrijfhulp in a panel built from NLDD parts; in the local preview without VLAM it gives answers marked as test answers.
+- "Nieuwe pagina" at reading width with the file name as you type, and "Maak een opzet", which turns a description into a title and an outline; the editor opens with the outline as an unsaved draft and says it comes from Schrijfhulp.
 - Pseudonymous authorship through an HMAC of the SSO subject.
 - "Verder bewerken" on a proposal and in the proposal lists reopens the editor on the proposal's branch, so a later session saves into the same pull request.
 - A site in three tabs: "Pagina's", "Voorstellen" with "Te beoordelen" and a count of what waits for editorial members, and "Over deze site", which explains the flow, the editors, signing, public drafts and the preview to colleagues who do not know GitHub. Old `?tab=` links lead to "Voorstellen".
