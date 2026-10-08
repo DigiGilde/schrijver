@@ -28,7 +28,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Every proposal says where it stands and what comes next: a line in its row, and on the proposal page a step bar (Concept, Ingestuurd, Goedgekeurd, Samengevoegd), the next step and who approves.
 - Images show in the editor's "Voorbeeld", served from the site repository through an authenticated route.
 - "Verklein voor het web": an opt-in offer in the image dialog that scales a large photo to 2000 pixels and re-encodes it, with the real sizes shown first.
-- A save that drops the last reference to an image asks, unticked, whether the file may go too; the server checks again that no other page uses it and deletes it in the same commit as the text. An image other pages still show stays, and the save says on which pages.
+- A save that drops the last reference to an image asks, unticked, whether the file may go too, and deletes it in the same commit as the text. The server checks again: the page showed the image before this save, the image is not in an excluded part of the site, and no text file under the content folder uses it by path or by file name, on the proposal branch or on the default branch. An image other pages still show stays, and the save says on which pages; merging in Schrijver refuses a proposal that removes an image a page still shows.
 - Photo metadata (location, time, camera, names) always goes out of an image, on upload and again on save, without re-encoding; a turned photo keeps only its orientation.
 - Fake forge for local development and end-to-end tests.
 - Project documentation, in-app help page ("Zo werkt Schrijver"), `publiccode.yml` and the EUPL-1.2 licence.
