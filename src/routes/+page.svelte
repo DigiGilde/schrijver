@@ -46,3 +46,12 @@
 		{/if}
 	</nldd-container>
 </Pagina>
+
+<style>
+	/* The card's link is an overlay above the content. Lifted over it, the text has the card behind it for a contrast check, and clicks still go through to the link. */
+	nldd-card > nldd-container {
+		position: relative;
+		z-index: 1;
+		pointer-events: none;
+	}
+</style>
