@@ -11,14 +11,16 @@ type Stop = { key: string; ring: boolean; obscured: boolean };
  */
 async function focusStop(page: Page): Promise<Stop> {
 	return page.evaluate(() => {
+		// Composed parent: a slotted element belongs to its slot, a shadow root to its host.
 		const parentOf = (node: Node): Node | null =>
-			node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode;
+			(node as Element).assignedSlot ??
+			(node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode);
 
 		let leaf = document.activeElement as Element;
 		const path: string[] = [];
 		for (;;) {
 			path.push(
-				`${leaf.tagName.toLowerCase()}#${leaf.id}.${leaf.getAttribute('aria-label') ?? leaf.getAttribute('accessible-label') ?? leaf.getAttribute('text') ?? ''}`
+				`${leaf.tagName.toLowerCase()}#${leaf.id}.${leaf.getAttribute('aria-label') ?? leaf.getAttribute('accessible-label') ?? leaf.getAttribute('text') ?? ''}${leaf.getAttribute('href') ? `@${leaf.getAttribute('href')}` : ''}`
 			);
 			const inner = leaf.shadowRoot?.activeElement;
 			if (!inner) break;
