@@ -6,6 +6,7 @@ Transparency about the writing assistant ("Schrijfhulp") in Schrijver.
 
 - Suggests changes to a selection or a page: a shorter sentence, a B1 rewrite, a fixed action or a free prompt.
 - Shows each suggestion as a word diff. The colleague chooses "Overnemen" or "Verwerpen".
+- "Samenvatting" writes its suggestion only into the page's description field ("Gebruik als samenvatting"), never into the text.
 - Never writes into a page by itself. Nothing reaches the forge unless the colleague takes the suggestion and then saves.
 
 ## What it does not do
@@ -22,7 +23,7 @@ Never sent: name, e-mail address, `sub`, pseudonym or GitHub login. Page text it
 
 ## Model and provider
 
-VLAM, operated by SSC-ICT, over an OpenAI-compatible API (`VLAM_API_URL`, key `VLAM_KEY_PREPAID`, model `VLAM_MODEL`, default `vlam-llm-large-prepaid`). Calls are logged with site, action and token counts only, never content.
+VLAM, operated by SSC-ICT, over an OpenAI-compatible API (`VLAM_API_URL`, key `VLAM_KEY_PREPAID`, model `VLAM_MODEL`, default `vlam-llm-large-prepaid`). Calls are logged with site, action and token counts only, never content. Streaming is off, a deviation from the design (section 8.2): the answer is one JSON object (suggestion plus explanation) that is only usable once complete.
 
 ## Human in the loop
 

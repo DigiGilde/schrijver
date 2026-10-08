@@ -22,7 +22,7 @@ SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_TEST_SESSION='{"sub":"dev","name":"Dev Gebruike
 - `SCHRIJVER_TEST_SESSION` is a JSON session (`sub`, `name`, `email`, `emailVerified`, `organisation`, `exp` in epoch milliseconds) that skips the login.
 - Both are ignored when `NODE_ENV` is `production`.
 
-To run against real services, fill in `.env` (see `.env.example`). Two variables worth knowing: `VLAM_MODEL` (default `vlam-llm-large-prepaid`) selects the VLAM model, and `DATABASE_SERVER_FULL` is the Postgres connection string, provided by the platform on ZAD. A full local stack with Keycloak and Postgres is described in [dev/README.md](dev/README.md) (`podman compose up --build`). The Keycloak check below is for any other realm.
+To run against real services, fill in `.env` (see `.env.example`). The app reads `process.env`, and `npm run dev` does not load `.env` into it: load it into the shell first, for example `set -a; . ./.env; set +a; npm run dev`. Two variables worth knowing: `VLAM_MODEL` (default `vlam-llm-large-prepaid`) selects the VLAM model, and `DATABASE_SERVER_FULL` is the Postgres connection string, provided by the platform on ZAD. A full local stack with Keycloak and Postgres is described in [dev/README.md](dev/README.md) (`podman compose up --build`). The Keycloak check below is for any other realm.
 
 ## Tests
 
@@ -37,7 +37,7 @@ npm run test:e2e    # Playwright against the fake forge
 
 ## Container and deployment
 
-Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/ontwerp.md)).
+Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Run exactly one replica: the cache, the rate limits and the configuration live in memory, and a webhook reaches only one replica. Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/ontwerp.md)).
 
 ## Documentation
 
@@ -60,7 +60,7 @@ Schrijver signs users in through OIDC (code flow with PKCE). To try it locally a
 
 1. In the realm, create a confidential client with the redirect URI `http://localhost:5173/login/callback` and (optionally) the post-logout redirect URI `http://localhost:5173/`. Give the test user a name and e-mail address; mark the e-mail verified to test the "Op naam" option.
 2. In `.env` set `OIDC_DISCOVERY_URL` (`http://localhost:8080/realms/<realm>/.well-known/openid-configuration`), `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET` (any long random string) and `DATABASE_SERVER_FULL` (a reachable Postgres; `db/schema.sql` is applied on the first request). Plain `http` issuers are accepted for local use.
-3. Run `npm run dev` and open `http://localhost:5173/`.
+3. Load `.env` into the shell and start the server (`set -a; . ./.env; set +a; npm run dev`), then open `http://localhost:5173/`.
 
 Expected:
 

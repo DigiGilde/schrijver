@@ -75,4 +75,4 @@ On the App (or on each repository) add a webhook:
 - Secret: the value of `GITHUB_WEBHOOK_SECRET`
 - Events: `push` and `pull_request`
 
-A push to the configuration repository reloads the configuration; events on site repositories refresh the proposal lists.
+A push to the configuration repository reloads the configuration; events on site repositories refresh the proposal lists. A webhook reaches one replica only, so run Schrijver with exactly one replica.
