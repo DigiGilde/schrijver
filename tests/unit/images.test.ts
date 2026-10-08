@@ -65,7 +65,7 @@ describe('imagePath', () => {
 
 describe('validateImage', () => {
 	it('accepts a png', () => {
-		expect(validateImage(PNG, 'image/png')).toEqual({ ok: true, mime: 'image/png' });
+		expect(validateImage(PNG, 'image/png')).toMatchObject({ ok: true, mime: 'image/png' });
 	});
 
 	it('rejects more than 5 MB with 413', () => {

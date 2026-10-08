@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { stripMetadata } from '$lib/content/fotogegevens';
 import {
 	ALLOWED_IMAGE_TYPES,
 	ImageError,
@@ -54,10 +53,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	}
 	if (file.size > MAX_IMAGE_BYTES) return fail(413, 'Afbeelding is groter dan 5 MB');
 
-	let bytes = new Uint8Array(await file.arrayBuffer());
-	const checked = validateImage(bytes, file.type);
+	const checked = validateImage(new Uint8Array(await file.arrayBuffer()), file.type);
 	if (!checked.ok) return fail(checked.status, checked.message);
-	bytes = stripMetadata(bytes, checked.mime);
+	let bytes = checked.bytes;
 	if (checked.mime === 'image/svg+xml') {
 		const clean = sanitizeSvg(new TextDecoder().decode(bytes));
 		if (!isSvgDocument(clean)) {

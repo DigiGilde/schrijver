@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import picomatch from 'picomatch';
 import type { PageSchema, SiteConfig } from '../config/types';
-import { stripMetadata } from '../content/fotogegevens';
 import { parsePage, serializePage } from '../content/frontmatter';
 import { inImageFolder, referencedImages } from '../content/image-refs';
 import {
@@ -235,7 +234,7 @@ export async function save(
 		)?.[0];
 		const checked = validateImage(bytes, mime ?? '');
 		if (!checked.ok) return fail(checked.status, checked.message);
-		bytes = stripMetadata(bytes, checked.mime);
+		bytes = checked.bytes;
 		if (checked.mime === 'image/svg+xml') {
 			const clean = sanitizeSvg(dec.decode(bytes));
 			if (!isSvgDocument(clean))

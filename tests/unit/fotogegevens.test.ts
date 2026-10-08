@@ -1,14 +1,31 @@
 import { readFileSync } from 'node:fs';
 import { crc32, deflateSync } from 'node:zlib';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
-import { canStripMetadata, stripMetadata } from '../../src/lib/content/fotogegevens';
-import { sanitizeSvg, validateImage } from '../../src/lib/content/images';
+import { stripMetadata } from '../../src/lib/content/fotogegevens';
+import { MAX_IMAGE_BYTES, sanitizeSvg, validateImage } from '../../src/lib/content/images';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { save } from '../../src/lib/forge/save';
 import type { Identity } from '../../src/lib/forge/trailers';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { POST } from '../../src/routes/api/sites/[site]/afbeelding/+server';
+
+/** Every function the module exports takes an image apart, so each call is a parse. */
+const parses = vi.hoisted(() => ({ count: 0 }));
+vi.mock('../../src/lib/content/fotogegevens', async (original) => {
+	const exports = await original<Record<string, unknown>>();
+	return Object.fromEntries(
+		Object.entries(exports).map(([name, value]) => [
+			name,
+			typeof value !== 'function'
+				? value
+				: (...args: unknown[]) => {
+						parses.count++;
+						return value(...args);
+					}
+		])
+	);
+});
 
 const UNSUPPORTED = 'Dit bestandstype wordt niet ondersteund (png, jpg, webp, svg)';
 
@@ -24,7 +41,18 @@ const le32 = (n: number) => {
 	bytes.writeUInt32LE(n);
 	return bytes;
 };
-const strip = (bytes: Buffer, mime: string) => Buffer.from(stripMetadata(bytes, mime));
+const strip = (bytes: Buffer, mime: string) => {
+	const stripped = stripMetadata(bytes, mime);
+	if (!stripped) throw new Error(`cannot take the metadata out of this ${mime}`);
+	return Buffer.from(stripped);
+};
+
+/** What validateImage hands on for use: the same bytes stripMetadata gives. */
+const accepted = (bytes: Buffer, mime: string) => {
+	const checked = validateImage(bytes, mime);
+	if (!checked.ok) throw new Error(`refused: ${checked.message}`);
+	return Buffer.from(checked.bytes);
+};
 
 /* EXIF: a big-endian TIFF block, as cameras write it. */
 
@@ -98,8 +126,7 @@ function expectNoMetadata(bytes: Buffer) {
 }
 
 function expectRefused(bytes: Buffer, mime: string) {
-	expect(canStripMetadata(bytes, mime)).toBe(false);
-	expect(() => stripMetadata(bytes, mime)).toThrow();
+	expect(stripMetadata(bytes, mime)).toBeNull();
 	expect(validateImage(bytes, mime)).toEqual({ ok: false, status: 415, message: UNSUPPORTED });
 }
 
@@ -138,6 +165,7 @@ const DHT = Buffer.concat([oneCode(0x00, 0), oneCode(0x10, 0)]);
 const SOS = segment(0xda, Buffer.from([1, 1, 0x00, 0, 63, 0]));
 const DATA = Buffer.from([0x3f]);
 const EOI = Buffer.from([0xff, 0xd9]);
+const RESTART = Buffer.from([0xff, 0xd0]);
 const GREY = Buffer.concat([DQT, SOF, DHT, SOS, DATA, EOI]);
 
 /** A phone photo: EXIF, XMP, IPTC and a comment, and a preview with its own EXIF behind the end. */
@@ -183,7 +211,7 @@ describe('stripMetadata for a JPEG', () => {
 	});
 
 	it('still passes validateImage and has nothing left to strip', () => {
-		expect(validateImage(stripped, 'image/jpeg')).toEqual({ ok: true, mime: 'image/jpeg' });
+		expect(validateImage(stripped, 'image/jpeg')).toMatchObject({ ok: true, mime: 'image/jpeg' });
 		expect(strip(stripped, 'image/jpeg')).toEqual(stripped);
 	});
 
@@ -232,7 +260,9 @@ describe('stripMetadata for a JPEG', () => {
 			Buffer.concat([SOI, segment(0xe1, latin1('Exif'))]).subarray(0, 8)
 		],
 		['has bytes between segments', Buffer.concat([SOI, Buffer.from([0]), GREY])],
-		['uses a reserved marker', Buffer.concat([SOI, segment(0xf0, Buffer.alloc(4)), GREY])]
+		['uses a reserved marker', Buffer.concat([SOI, segment(0xf0, Buffer.alloc(4)), GREY])],
+		['has a restart marker between segments', Buffer.concat([SOI, RESTART, GREY])],
+		['has a TEM marker between segments', Buffer.concat([SOI, Buffer.from([0xff, 0x01]), GREY])]
 	])('refuses a JPEG that %s', (_, bytes) => expectRefused(bytes, 'image/jpeg'));
 });
 
@@ -322,7 +352,7 @@ describe('stripMetadata for a PNG', () => {
 
 	it('has valid CRCs, passes validateImage and has nothing left to strip', () => {
 		expect(chunksOf(stripped).every((c) => c.crcValid)).toBe(true);
-		expect(validateImage(stripped, 'image/png')).toEqual({ ok: true, mime: 'image/png' });
+		expect(validateImage(stripped, 'image/png')).toMatchObject({ ok: true, mime: 'image/png' });
 		expect(strip(stripped, 'image/png')).toEqual(stripped);
 	});
 
@@ -406,7 +436,7 @@ describe('stripMetadata for a WebP', () => {
 
 	it('has a valid RIFF size, passes validateImage and has nothing left to strip', () => {
 		expect(stripped.readUInt32LE(4)).toBe(stripped.length - 8);
-		expect(validateImage(stripped, 'image/webp')).toEqual({ ok: true, mime: 'image/webp' });
+		expect(validateImage(stripped, 'image/webp')).toMatchObject({ ok: true, mime: 'image/webp' });
 		expect(strip(stripped, 'image/webp')).toEqual(stripped);
 	});
 
@@ -431,6 +461,100 @@ describe('stripMetadata on a Node Buffer', () => {
 		const before = Buffer.from(bytes);
 		stripMetadata(bytes, mime);
 		expect(bytes).toEqual(before);
+	});
+});
+
+describe('validateImage', () => {
+	it.each([
+		['image/jpeg', phonePhoto()],
+		['image/png', annotatedPng()],
+		['image/webp', annotatedWebp()]
+	])('hands on the %s without its metadata', (mime, bytes) => {
+		expect(accepted(bytes, mime)).toEqual(strip(bytes, mime));
+	});
+});
+
+describe('the smallest EXIF that holds an orientation', () => {
+	const smallest = Buffer.from(
+		'4d4d002a' + '00000008' + '0001' + '0112' + '0003' + '00000001' + '00060000',
+		'hex'
+	);
+
+	it.each([
+		[
+			'JPEG',
+			'image/jpeg',
+			Buffer.concat([SOI, exifSegment(smallest), GREY]),
+			Buffer.concat([SOI, exifSegment(orientationOnly(6)), GREY])
+		],
+		[
+			'PNG',
+			'image/png',
+			Buffer.concat([SIGNATURE, IHDR, chunk('eXIf', smallest), IDAT, IEND]),
+			Buffer.concat([SIGNATURE, IHDR, chunk('eXIf', orientationOnly(6)), IDAT, IEND])
+		],
+		[
+			'WebP',
+			'image/webp',
+			riff(FRAME, riffChunk('EXIF', smallest)),
+			riff(FRAME, riffChunk('EXIF', orientationOnly(6)))
+		]
+	])('is rebuilt in a %s, a few bytes larger than it was', (_, mime, bytes, rebuilt) => {
+		const stripped = strip(bytes, mime);
+		expect(stripped).toEqual(rebuilt);
+		expect(stripped.length).toBeGreaterThan(bytes.length);
+		expect(stripped.length).toBeLessThanOrEqual(bytes.length + 64);
+	});
+});
+
+/* Files made to cost more than they are: the same few bytes, over and over */
+
+const many = (unit: Buffer) =>
+	Buffer.alloc(Math.floor((MAX_IMAGE_BYTES - 64) / unit.length) * unit.length).fill(unit);
+const repeat = (part: Buffer, count: number) => Array<Buffer>(count).fill(part);
+
+describe('a file of countless tiny parts', () => {
+	const EMPTY_DQT = segment(0xdb, Buffer.alloc(0));
+	const EMPTY_ALPH = riffChunk('ALPH', Buffer.alloc(0));
+	const EMPTY_IDAT = chunk('IDAT', Buffer.alloc(0));
+
+	it.each([
+		['restart markers', 'image/jpeg', Buffer.concat([SOI, many(RESTART), EOI])],
+		['empty DQT segments', 'image/jpeg', Buffer.concat([SOI, many(EMPTY_DQT), EOI])],
+		['empty ALPH chunks', 'image/webp', riff(many(EMPTY_ALPH))],
+		['empty IDAT chunks', 'image/png', Buffer.concat([SIGNATURE, IHDR, many(EMPTY_IDAT), IEND])]
+	])('is refused when it is 5 MB of %s', (_, mime, bytes) => expectRefused(bytes, mime));
+
+	const COMMENT = segment(0xfe, Buffer.alloc(0));
+	const TEXT = chunk('tEXt', Buffer.alloc(0));
+	const PRIVATE = riffChunk('PRIV', Buffer.alloc(0));
+	const GREY_SEGMENTS = 6; // DQT, SOF, two DHT, SOS and EOI
+	const PNG_CHUNKS = 4; // IHDR, two IDAT and IEND
+	const WEBP_CHUNKS = 1; // the frame
+
+	it.each([
+		[
+			'segments in a JPEG',
+			'image/jpeg',
+			(parts: number) => Buffer.concat([SOI, ...repeat(COMMENT, parts - GREY_SEGMENTS), GREY]),
+			Buffer.concat([SOI, GREY])
+		],
+		[
+			'chunks in a PNG',
+			'image/png',
+			(parts: number) =>
+				Buffer.concat([SIGNATURE, IHDR, ...repeat(TEXT, parts - PNG_CHUNKS), IDAT, IEND]),
+			Buffer.concat([SIGNATURE, IHDR, IDAT, IEND])
+		],
+		[
+			'chunks in a WebP',
+			'image/webp',
+			(parts: number) => riff(FRAME, ...repeat(PRIVATE, parts - WEBP_CHUNKS)),
+			riff(FRAME)
+		]
+	])('takes 10,000 %s and refuses one more', (_, mime, build, clean) => {
+		expect(strip(build(10_000), mime)).toEqual(clean);
+		expectRefused(build(10_001), mime);
 	});
 });
 
@@ -495,6 +619,18 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		expect(res.status).toBe(415);
 		expect(await res.json()).toEqual({ message: UNSUPPORTED });
 	});
+
+	it('refuses 5 MB of restart markers', async () => {
+		const res = await upload('vol.jpg', 'image/jpeg', Buffer.concat([SOI, many(RESTART), EOI]));
+		expect(res.status).toBe(415);
+		expect(await res.json()).toEqual({ message: UNSUPPORTED });
+	});
+
+	it('takes the photo apart once', async () => {
+		parses.count = 0;
+		await upload('foto.jpg', 'image/jpeg', phonePhoto());
+		expect(parses.count).toBe(1);
+	});
 });
 
 describe('save', () => {
@@ -534,5 +670,17 @@ describe('save', () => {
 		const { forge, result } = await saveWith(Buffer.concat([SOI, DQT, SOF, DHT, SOS, DATA]));
 		expect(result).toMatchObject({ ok: false, status: 415, error: { message: UNSUPPORTED } });
 		expect(forge.branches(digi.repo)).toEqual(['main']);
+	});
+
+	it('refuses 5 MB of restart markers', async () => {
+		const { forge, result } = await saveWith(Buffer.concat([SOI, many(RESTART), EOI]));
+		expect(result).toMatchObject({ ok: false, status: 415, error: { message: UNSUPPORTED } });
+		expect(forge.branches(digi.repo)).toEqual(['main']);
+	});
+
+	it('takes the photo apart once', async () => {
+		parses.count = 0;
+		await saveWith(phonePhoto());
+		expect(parses.count).toBe(1);
 	});
 });

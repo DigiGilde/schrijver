@@ -2,7 +2,7 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import createDOMPurify from 'dompurify';
 import type { SiteConfig } from '$lib/config/types';
-import { canStripMetadata } from './fotogegevens';
+import { stripMetadata } from './fotogegevens';
 
 export class ImageError extends Error {
 	constructor(message: string) {
@@ -74,10 +74,13 @@ function sniff(bytes: Uint8Array): string | null {
 	return null;
 }
 
+/** On success `bytes` is what to use from here on: the image without its photo metadata. */
 export function validateImage(
 	bytes: Uint8Array,
 	mime: string
-): { ok: true; mime: string } | { ok: false; status: 413 | 415; message: string } {
+):
+	| { ok: true; mime: string; bytes: Uint8Array<ArrayBuffer> }
+	| { ok: false; status: 413 | 415; message: string } {
 	if (bytes.length > MAX_IMAGE_BYTES) {
 		return { ok: false, status: 413, message: 'Afbeelding is groter dan 5 MB' };
 	}
@@ -90,9 +93,10 @@ export function validateImage(
 	if (mime === 'image/svg+xml') {
 		if (bytes.length > MAX_SVG_BYTES)
 			return { ok: false, status: 413, message: 'Een SVG mag niet groter zijn dan 1 MB' };
-		return new TextDecoder().decode(bytes).includes('<svg') ? { ok: true, mime } : unsupported;
-	}
-	return sniff(bytes) === mime && canStripMetadata(bytes, mime) ? { ok: true, mime } : unsupported;
+		if (!new TextDecoder().decode(bytes).includes('<svg')) return unsupported;
+	} else if (sniff(bytes) !== mime) return unsupported;
+	const stripped = stripMetadata(bytes, mime);
+	return stripped ? { ok: true, mime, bytes: stripped } : unsupported;
 }
 
 const purify = createDOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
