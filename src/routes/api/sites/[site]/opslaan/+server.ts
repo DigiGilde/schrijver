@@ -52,7 +52,8 @@ const BodySchema = z.object({
 	newPage: z
 		.object({ soort: z.string().nullable(), folder: z.string(), title: z.string().max(300) })
 		.optional(),
-	overwrite: z.boolean().optional()
+	overwrite: z.boolean().optional(),
+	deletions: z.array(z.string().max(500)).max(20).optional()
 });
 
 const message = (text: string) => ({ ok: false, error: { message: text } });

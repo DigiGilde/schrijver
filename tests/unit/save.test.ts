@@ -577,6 +577,166 @@ describe('save', () => {
 		});
 	});
 
+	describe('deleting images', () => {
+		const KAT = 'docs/afbeeldingen/docs/kat.png';
+		const without = '\n# Home\n\nZonder kat.\n';
+		const refused = (status: number, message: string) => ({
+			ok: false,
+			status,
+			error: expect.objectContaining({ message })
+		});
+
+		beforeEach(async () => {
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{
+						path: 'docs/index.md',
+						content:
+							'---\ndescription: Oud\n---\n\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png)\n'
+					},
+					{ path: KAT, content: PNG }
+				],
+				'met kat'
+			);
+			baseSha = (await forge.readFile(digi.repo, 'main', 'docs/index.md'))!.sha;
+		});
+
+		it('deletes an image no page uses in the same commit as the text', async () => {
+			const r = ok(
+				await save(forge, digi, digiSchema, identity, req({ body: without, deletions: [KAT] }))
+			);
+			expect(await forge.readFile(digi.repo, r.branch, KAT)).toBeNull();
+			expect(forge.fileText(digi.repo, r.branch, 'docs/index.md')).toContain('Zonder kat.');
+			expect(forge.commitsOf(digi.repo, r.branch)).toHaveLength(1);
+			expect(await forge.readFile(digi.repo, 'main', KAT)).not.toBeNull();
+			expect(await forge.prFiles(digi.repo, r.prNumber)).toContainEqual({
+				path: KAT,
+				status: 'removed'
+			});
+		});
+
+		it('deletes on the proposal branch an image the proposal added itself', async () => {
+			const hond = 'docs/afbeeldingen/docs/hond.png';
+			const first = ok(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({
+						body: '\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png) ![Een hond](afbeeldingen/docs/hond.png)\n',
+						images: [{ path: hond, base64: PNG.toString('base64') }]
+					})
+				)
+			);
+			ok(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({
+						body: '\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png)\n\nZonder hond.\n',
+						baseSha: first.sha,
+						branch: first.branch,
+						prNumber: first.prNumber,
+						deletions: [hond]
+					})
+				)
+			);
+			expect(await forge.readFile(digi.repo, first.branch, hond)).toBeNull();
+			expect(await forge.prFiles(digi.repo, first.prNumber)).toEqual([
+				{ path: 'docs/index.md', status: 'modified' }
+			]);
+		});
+
+		it('refuses a file outside the image folder', async () => {
+			await forge.commit(digi.repo, 'main', [{ path: 'docs/kat.png', content: PNG }], 'x');
+			for (const path of ['docs/kat.png', 'docs/afbeeldingen/docs/../../index.md', '../kat.png']) {
+				const r = await save(forge, digi, digiSchema, identity, req({ deletions: [path] }));
+				expect(r, path).toMatchObject(
+					refused(400, 'Niet bewaard: dit bestand kan niet worden verwijderd')
+				);
+			}
+			expect(forge.branches(digi.repo)).toEqual(['main']);
+		});
+
+		it('refuses an image another page still uses', async () => {
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{ path: 'docs/kennis/kat.md', content: '# Kat\n\n![Kat](../afbeeldingen/docs/kat.png)\n' }
+				],
+				'x'
+			);
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: without, deletions: [KAT] })
+			);
+			expect(r).toMatchObject({
+				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina'),
+				error: { detail: `${KAT}: docs/kennis/kat.md` }
+			});
+			expect(forge.branches(digi.repo)).toEqual(['main']);
+		});
+
+		it('refuses an image that is not there', async () => {
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: without, deletions: ['docs/afbeeldingen/docs/weg.png'] })
+			);
+			expect(r).toMatchObject(refused(409, 'Niet bewaard: de afbeelding bestaat niet meer'));
+		});
+
+		it('refuses an image the saved text still shows', async () => {
+			const body = '\n# Home\n\n<img src="afbeeldingen/docs/kat.png" alt="Een kat">\n';
+			const r = await save(forge, digi, digiSchema, identity, req({ body, deletions: [KAT] }));
+			expect(r).toMatchObject(refused(400, 'Niet bewaard: de afbeelding staat nog in de tekst'));
+		});
+
+		it('refuses an image sent along in the same save', async () => {
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ images: [{ path: KAT, base64: PNG.toString('base64') }], deletions: [KAT] })
+			);
+			expect(r).toMatchObject({ ok: false, status: 400 });
+		});
+
+		it('refuses when not every page could be read', async () => {
+			await forge.commit(
+				digi.repo,
+				'main',
+				[{ path: 'docs/groot.md', content: `# Groot\n\n${'x'.repeat(600_000)}\n` }],
+				'x'
+			);
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: without, deletions: [KAT] })
+			);
+			expect(r).toMatchObject(
+				refused(
+					409,
+					'Niet bewaard: niet na te gaan of de afbeelding nog op een andere pagina staat'
+				)
+			);
+		});
+	});
+
 	describe('existing images', () => {
 		const kat = { path: 'docs/afbeeldingen/docs/kat.png', base64: PNG.toString('base64') };
 		const body = '\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png)\n';

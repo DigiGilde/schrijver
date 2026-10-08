@@ -3,6 +3,7 @@ import path from 'node:path';
 import picomatch from 'picomatch';
 import type { PageSchema, SiteConfig } from '../config/types';
 import { parsePage, serializePage } from '../content/frontmatter';
+import { inImageFolder, referencedImages } from '../content/image-refs';
 import {
 	ALLOWED_IMAGE_TYPES,
 	ImageError,
@@ -15,6 +16,7 @@ import {
 import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '../content/mermaid';
 import { slugify } from '../content/slug';
 import { buildForm, newPagePath, titleOf, validateForm } from '../content/schema-form';
+import { imageUsage } from './image-usage';
 import { sameRepo } from './repo';
 import { ForgeError, type FileChange, type Forge } from './types';
 import {
@@ -43,6 +45,8 @@ export interface SaveRequest {
 	newPage?: NewPage;
 	/** Replace an image that already exists on the target branch. */
 	overwrite?: boolean;
+	/** Images to delete in the same commit; each is checked again here. */
+	deletions?: string[];
 }
 
 export type SaveResult =
@@ -138,6 +142,36 @@ function branchSlug(filePath: string): string {
 	return slugify(stem) || 'pagina';
 }
 
+/** Refuses a deletion unless neither the saved text nor any other page still refers to the image. */
+async function refuseDeletions(
+	forge: Forge,
+	site: SiteConfig,
+	schema: PageSchema,
+	ref: string,
+	page: string,
+	text: string,
+	deletions: string[]
+): Promise<SaveResult | null> {
+	const own = referencedImages(text, page);
+	const kept = deletions.find((p) => own.has(p));
+	if (kept) return fail(400, 'Niet bewaard: de afbeelding staat nog in de tekst', { detail: kept });
+	const scan = await imageUsage(forge, site, schema, ref, page, deletions);
+	const missing = deletions.find((p) => !scan.images.some((image) => image.path === p));
+	if (missing)
+		return fail(409, 'Niet bewaard: de afbeelding bestaat niet meer', { detail: missing });
+	const used = scan.images.find((image) => image.usedOn.length > 0);
+	if (used) {
+		return fail(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina', {
+			detail: `${used.path}: ${used.usedOn.map((p) => p.path).join(', ')}`
+		});
+	}
+	if (!scan.complete) {
+		const message = 'Niet bewaard: niet na te gaan of de afbeelding nog op een andere pagina staat';
+		return fail(409, message, { detail: deletions.join(', ') });
+	}
+	return null;
+}
+
 function forgeFailure(e: unknown): SaveResult {
 	if (e instanceof ForgeError) return fail(e.status, e.message, { detail: e.detail });
 	throw e;
@@ -209,6 +243,15 @@ export async function save(
 		if (hasControlCharacters(image.path)) return fail(400, 'Ongeldig pad voor afbeelding');
 		imageChanges.push({ path: image.path, content: bytes });
 	}
+	const deletions = [...new Set(req.deletions ?? [])];
+	const notDeletable = deletions.find(
+		(p) => !inImageFolder(site, p) || imageChanges.some((image) => image.path === p)
+	);
+	if (notDeletable) {
+		return fail(400, 'Niet bewaard: dit bestand kan niet worden verwijderd', {
+			detail: notDeletable
+		});
+	}
 
 	if (!isNew && req.baseSha === null) return fail(400, 'Ontbrekende basisversie');
 
@@ -271,6 +314,11 @@ export async function save(
 			return { ok: false, conflict: { mine: text, theirs: currentText, sha: current.sha } };
 		}
 
+		if (deletions.length > 0) {
+			const refused = await refuseDeletions(forge, site, schema, ref, filePath, text, deletions);
+			if (refused) return refused;
+		}
+
 		const branch = req.branch ?? `${prefix}${branchSlug(filePath)}-${randomSuffix()}`;
 		if (req.branch === null) await forge.createBranch(site.repo, site.standaardbranch, branch);
 
@@ -278,7 +326,11 @@ export async function save(
 		await forge.commit(
 			site.repo,
 			branch,
-			[{ path: filePath, content: text }, ...imageChanges],
+			[
+				{ path: filePath, content: text },
+				...imageChanges,
+				...deletions.map((p) => ({ path: p, deleted: true as const }))
+			],
 			commitMessage(summary, identity)
 		);
 		const saved = await forge.readFile(site.repo, branch, filePath);

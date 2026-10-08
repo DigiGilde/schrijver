@@ -22,6 +22,7 @@ vi.mock('../../src/lib/forge/save', () => ({
 
 import { POST } from '../../src/routes/api/sites/[site]/opslaan/+server';
 import { log } from '../../src/lib/log';
+import { save } from '../../src/lib/forge/save';
 
 const good = {
 	path: 'docs/a.md',
@@ -88,6 +89,15 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		expect(performance.now() - start).toBeLessThan(200);
 		expect(res.status).toBe(400);
 		expect((await res.json()).error.message).toContain('te lang');
+	});
+
+	it('passes deletions on to save, up to 20', async () => {
+		vi.mocked(save).mockClear();
+		const kat = 'docs/afbeeldingen/a/kat.png';
+		expect((await call({ body: { ...good, deletions: [kat] } })).status).toBe(200);
+		expect(vi.mocked(save).mock.calls[0][4]).toMatchObject({ deletions: [kat] });
+		const many = Array.from({ length: 21 }, (_, i) => `docs/afbeeldingen/a/${i}.png`);
+		expect((await call({ body: { ...good, deletions: many } })).status).toBe(400);
 	});
 
 	it('refuses deeply nested frontmatter', async () => {
