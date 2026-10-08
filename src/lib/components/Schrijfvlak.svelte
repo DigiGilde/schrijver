@@ -39,7 +39,20 @@
 	let dialogOpen = $state(false);
 	let dialogFile = $state<File | null>(null);
 	let hulpOpen = $state(false);
+	let hulpPaneel: HTMLElement | undefined = $state();
 	let returnFocus: HTMLElement | null = null;
+
+	/*
+	 * On a narrow screen the panel opens below the text and its toggle sits in the toolbar menu,
+	 * so the panel takes the focus; beside the text on a wide screen the toggle keeps it.
+	 */
+	async function wisselHulp() {
+		hulpOpen = !hulpOpen;
+		if (!hulpOpen || window.matchMedia('(min-width: 1008px)').matches) return;
+		await tick();
+		hulpPaneel?.focus({ preventScroll: true });
+		hulpPaneel?.scrollIntoView({ block: 'start' });
+	}
 
 	/** Puts focus in the editor, switching back from the preview when that is showing. */
 	export async function focus() {
@@ -87,7 +100,7 @@
 	onweergave={(keuze) => (weergave = keuze)}
 	{oneigenschappen}
 	schrijfhulpOpen={hulpOpen}
-	onschrijfhulp={() => (hulpOpen = !hulpOpen)}
+	onschrijfhulp={wisselHulp}
 />
 
 <div class="vlak" class:met-hulp={hulpOpen}>
@@ -116,7 +129,14 @@
 		{/if}
 	</div>
 
-	<aside class="hulp" id="schrijfhulp-paneel" aria-label="Schrijfhulp" hidden={!hulpOpen}>
+	<aside
+		bind:this={hulpPaneel}
+		class="hulp"
+		id="schrijfhulp-paneel"
+		aria-label="Schrijfhulp"
+		tabindex="-1"
+		hidden={!hulpOpen}
+	>
 		{#if hulpOpen}
 			<Assistent
 				{siteId}
@@ -165,6 +185,13 @@
 	@media (min-width: 1008px) {
 		.vlak.met-hulp {
 			grid-template-columns: minmax(0, 1fr) 22rem;
+		}
+		/* Beside a long text the panel stays in view, below the sticky bars the page reports. */
+		.hulp {
+			position: sticky;
+			top: calc(var(--context-inset-top, 0px) + 16px);
+			max-height: calc(100dvh - var(--context-inset-top, 0px) - 32px);
+			overflow-y: auto;
 		}
 	}
 </style>

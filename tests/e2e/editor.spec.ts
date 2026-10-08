@@ -201,3 +201,14 @@ test('the title of a field-titled page follows the field', async ({ page }) => {
 	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeHidden();
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact met het team');
 });
+
+test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', async ({ page }) => {
+	await page.setViewportSize({ width: 400, height: 800 });
+	await page.goto('/sites/digi-handboek/bewerken/index.md');
+	await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+	await page.getByRole('button', { name: 'Meer' }).click();
+	await page.getByRole('menuitemcheckbox', { name: 'Schrijfhulp' }).click();
+	const paneel = page.locator('#schrijfhulp-paneel');
+	await expect(paneel).toBeFocused();
+	await expect(paneel).toBeInViewport();
+});
