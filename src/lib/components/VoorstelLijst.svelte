@@ -45,6 +45,11 @@
 				? teBeoordelen
 				: proposals
 	);
+	const resultaat = $derived(
+		shown.length === 0
+			? EMPTY[huidig]
+			: `${LABEL[huidig]}: ${shown.length} ${shown.length === 1 ? 'voorstel' : 'voorstellen'}`
+	);
 	const regel = (p: Proposal) =>
 		[
 			STATUS[p.status].line,
@@ -101,6 +106,8 @@
 		{/if}
 	</nldd-toggle-button-group>
 
+	<p class="sr-only" role="status">{resultaat}</p>
+
 	<nldd-list accessible-label={LABEL[huidig]}>
 		<nldd-inline-dialog slot="empty" text={EMPTY[huidig]}></nldd-inline-dialog>
 		{#each shown as p (p.number)}
@@ -132,3 +139,14 @@
 		{/each}
 	</nldd-list>
 </nldd-container>
+
+<style>
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

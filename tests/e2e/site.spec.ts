@@ -5,6 +5,26 @@ const tabs = (page: Page) =>
 	page.locator('nldd-tab-bar[accessible-label="Onderdelen van de site"]');
 const list = (page: Page, label: string) => page.locator(`nldd-list[accessible-label="${label}"]`);
 
+const FILTERS = [
+	{
+		radio: /^Alle voorstellen/,
+		label: 'Alle voorstellen',
+		empty: 'Er zijn geen open voorstellen.'
+	},
+	{
+		radio: /^Te beoordelen/,
+		label: 'Te beoordelen',
+		empty: 'Er wachten geen voorstellen op de redactie.'
+	},
+	{
+		radio: /^Mijn voorstellen/,
+		label: 'Mijn voorstellen',
+		empty: 'Je hebt geen open voorstellen.'
+	}
+];
+/** The line under the filter. A status is found by its role: its host is not a descendant of main. */
+const resultLine = (page: Page) => page.getByRole('status').filter({ hasText: /voorstel/ });
+
 /** Saves an edit of a Digi Handboek page as a proposal and sends it in; these pages are this file's own. */
 async function sendIn(page: Page, path: string, text: string): Promise<string> {
 	await page.goto(`/sites/digi-handboek/bewerken/${path}`);
@@ -165,6 +185,51 @@ test('choosing a filter shows it at once and keeps it in the address', async ({ 
 
 	await page.reload();
 	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
+});
+
+test('choosing a filter says in one status line how many proposals it shows', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	const line = resultLine(page);
+	await expect(line).toHaveCount(1);
+	const element = await line.elementHandle();
+	for (const { radio, label, empty } of FILTERS) {
+		await page.getByRole('radio', { name: radio }).click();
+		await expect(list(page, label)).toBeVisible();
+		const rows = await list(page, label).locator('nldd-list-item').count();
+		await expect(line).toHaveText(
+			rows === 0 ? empty : `${label}: ${rows} ${rows === 1 ? 'voorstel' : 'voorstellen'}`
+		);
+	}
+	expect(await element!.evaluate((node) => node.isConnected), 'the line stays in place').toBe(true);
+});
+
+test('a filter without proposals says so in the status line', async ({ page }) => {
+	// A navigation within the app asks for the page data: answer it as if nothing were open.
+	await page.route(/\/voorstellen\/__data\.json/, async (route) => {
+		const response = await route.fetch();
+		const body = await response.json();
+		for (const node of body.nodes) {
+			const root = node.data?.[0];
+			if (root && 'proposals' in root) node.data[root.proposals] = [];
+		}
+		await route.fulfill({
+			status: response.status(),
+			contentType: 'application/json',
+			body: JSON.stringify(body)
+		});
+	});
+	await page.goto('/sites/digi-handboek');
+	await page.evaluate(() => customElements.whenDefined('nldd-tab-bar-item'));
+	await tabs(page)
+		.getByRole('link', { name: /^Voorstellen/ })
+		.click();
+	await expect(page).toHaveURL(/\/voorstellen/);
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	for (const { radio, empty } of FILTERS) {
+		await page.getByRole('radio', { name: radio }).click();
+		await expect(resultLine(page)).toHaveText(empty);
+	}
 });
 
 test('the about page explains the flow and names the redactie', async ({ page }) => {
