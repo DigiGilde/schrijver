@@ -33,7 +33,6 @@
 		onveldfouten,
 		oneigenschappen = null,
 		focusEditor,
-		knop = true,
 		busy = $bindable(false),
 		knoptekst = $bindable()
 	}: {
@@ -57,8 +56,6 @@
 		oneigenschappen?: (() => void) | null;
 		/** Returns focus to the editor; with `false` a showing preview stays and takes it instead. */
 		focusEditor: (wissel?: boolean) => void;
-		/** Without its own button, a parent shows one and calls opslaan(). */
-		knop?: boolean;
 		busy?: boolean;
 		knoptekst?: string;
 	} = $props();
@@ -195,16 +192,6 @@
 		return () => window.removeEventListener('keydown', onkey);
 	});
 </script>
-
-{#if knop}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-button
-		appearance="primary"
-		text={knopTekst}
-		loading={busy || undefined}
-		onclick={() => opslaan()}
-	></nldd-button>
-{/if}
 
 <p class="sr-only" role="status">{status}</p>
 

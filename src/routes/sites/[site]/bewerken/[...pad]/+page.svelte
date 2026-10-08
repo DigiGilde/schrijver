@@ -14,6 +14,7 @@
 		type Draft
 	} from '$lib/client/draft';
 	import { focusTarget, restoreFocus } from '$lib/client/editor-actions';
+	import { pageReady } from '$lib/client/page-ready.svelte';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
 	import {
@@ -178,14 +179,8 @@
 		melding = 'Samenvatting ingevuld bij Eigenschappen';
 	}
 
-	/*
-	 * The design system upgrades elements in definition order, a title bar before its page, and a bar
-	 * with a collapse anchor then finds no scroll target. The sheet is only built once nldd-page is defined.
-	 */
-	let sheetGereed = $state(false);
-	onMount(() => {
-		void customElements.whenDefined('nldd-page').then(() => (sheetGereed = true));
-	});
+	/* The sheet holds a title bar with a collapse anchor. */
+	const sheetPagina = pageReady();
 
 	/** A sheet belongs in the document root, outside the panes of the application shell. */
 	function naarDocument(node: HTMLElement) {
@@ -238,7 +233,6 @@
 					bind:this={opslaan}
 					bind:busy={bezig}
 					bind:knoptekst
-					knop={false}
 					oneigenschappen={fields.length > 0 ? openEigenschappen : null}
 					siteId={data.site.id}
 					repoPath={data.repoPath}
@@ -300,7 +294,7 @@
 	</nldd-container>
 </Pagina>
 
-{#if sheetGereed && !readOnly && fields.length > 0}
+{#if sheetPagina.ready && !readOnly && fields.length > 0}
 	<nldd-sheet
 		placement="right"
 		width="480px"

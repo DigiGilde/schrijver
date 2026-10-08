@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
+	import { pageReady } from '$lib/client/page-ready.svelte';
 
 	type Props = {
 		/** The h1 of the page; the sticky title bar takes it over once it scrolls away. */
@@ -28,19 +29,11 @@
 		kop = $bindable()
 	}: Props = $props();
 
-	/*
-	 * The title bar finds its scroll target on the surrounding nldd-page when it connects. After
-	 * server rendering the design system upgrades the title bar before the page, so the bar is only
-	 * rendered once nldd-page is defined.
-	 */
-	let paginaGereed = $state(false);
-	onMount(() => {
-		void customElements.whenDefined('nldd-page').then(() => (paginaGereed = true));
-	});
+	const pagina = pageReady();
 </script>
 
 <nldd-page sticky-header={terug ? true : undefined}>
-	{#if terug && paginaGereed}
+	{#if terug && pagina.ready}
 		<div slot="header" class="uitgelijnd" bind:this={kop}>
 			<div>
 				<nldd-top-title-bar
