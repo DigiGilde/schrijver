@@ -34,6 +34,13 @@
 	/* One persistent live region: a banner inserted together with its text is not reliably announced. */
 	let status = $state('');
 
+	const verderTekst = (page: string) =>
+		data.verderBewerken.length === 1
+			? 'Verder bewerken'
+			: `Verder bewerken: ${page.slice(page.lastIndexOf('/') + 1)}`;
+	/* A menu item has no target: the overflow twin of a link that opens a new tab opens it itself. */
+	const openInTab = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
+
 	async function stuur(actie: string, gelukt: string, body: unknown = {}) {
 		if (busy) return;
 		busy = true;
@@ -89,12 +96,87 @@
 			></nldd-badge>
 			{#if data.viaGithub}<nldd-tag text="Via GitHub"></nldd-tag>{/if}
 			<nldd-text color="secondary">{CHECKS[data.proposal.checks]}</nldd-text>
-			{#if data.proposal.previewUrl}
-				<nldd-link href={data.proposal.previewUrl} target="_blank" text="Bekijk het voorbeeld"
-				></nldd-link>
-			{/if}
-			<nldd-link href={data.githubUrl} target="_blank" text="Bekijk op GitHub"></nldd-link>
 		</nldd-container>
+
+		<nldd-toolbar label="Acties voor dit voorstel">
+			{#each data.verderBewerken as link (link.page)}
+				<nldd-toolbar-item slot="start" priority="2">
+					<nldd-button
+						appearance="secondary"
+						start-icon="pencil"
+						text={verderTekst(link.page)}
+						href={link.href}
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						icon="pencil"
+						text={verderTekst(link.page)}
+						href={link.href}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/each}
+			{#if data.proposal.previewUrl}
+				{@const voorbeeld = data.proposal.previewUrl}
+				<nldd-toolbar-item slot="end" priority="1">
+					<nldd-button
+						appearance="secondary"
+						text="Bekijk het voorbeeld"
+						href={voorbeeld}
+						target="_blank"
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						text="Bekijk het voorbeeld"
+						onselect={() => openInTab(voorbeeld)}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/if}
+			<nldd-toolbar-item slot="end" priority="1">
+				<nldd-button
+					appearance="secondary"
+					text="Bekijk op GitHub"
+					href={data.githubUrl}
+					target="_blank"
+				></nldd-button>
+				<nldd-menu-item
+					slot="overflow"
+					text="Bekijk op GitHub"
+					onselect={() => openInTab(data.githubUrl)}
+				></nldd-menu-item>
+			</nldd-toolbar-item>
+			{#if data.canSendIn}
+				<nldd-toolbar-item slot="end" priority="3">
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button
+						appearance="primary"
+						text="Insturen"
+						loading={busy || undefined}
+						onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						text="Insturen"
+						onselect={() => stuur('insturen', 'Het voorstel is ingestuurd')}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/if}
+			{#if data.canMerge}
+				<nldd-toolbar-item slot="end" priority="3">
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button
+						appearance="primary"
+						text="Samenvoegen"
+						loading={busy || undefined}
+						onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
+					></nldd-button>
+					<nldd-menu-item
+						slot="overflow"
+						text="Samenvoegen"
+						onselect={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
+					></nldd-menu-item>
+				</nldd-toolbar-item>
+			{/if}
+		</nldd-toolbar>
 
 		<p class="sr-only" role="status">{status}</p>
 
@@ -109,41 +191,6 @@
 					<nldd-text>{melding.detail}</nldd-text>
 				{/if}
 			</nldd-banner>
-		{/if}
-
-		{#if data.canSendIn || data.canMerge || data.verderBewerken.length > 0}
-			<section aria-label="Acties">
-				<nldd-container layout="wrap" gap="12" vertical-alignment="center">
-					{#each data.verderBewerken as link (link.page)}
-						<nldd-link
-							size="md"
-							href={link.href}
-							start-icon="pencil"
-							text={data.verderBewerken.length === 1
-								? 'Verder bewerken'
-								: `Verder bewerken: ${link.page.slice(link.page.lastIndexOf('/') + 1)}`}
-						></nldd-link>
-					{/each}
-					{#if data.canSendIn}
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<nldd-button
-							appearance="primary"
-							text="Insturen"
-							loading={busy || undefined}
-							onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-						></nldd-button>
-					{/if}
-					{#if data.canMerge}
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<nldd-button
-							appearance="primary"
-							text="Samenvoegen"
-							loading={busy || undefined}
-							onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
-						></nldd-button>
-					{/if}
-				</nldd-container>
-			</section>
 		{/if}
 
 		{#if data.notMergeable && !melding}
@@ -164,83 +211,90 @@
 				draft".
 			</nldd-text>
 		{/if}
+	</nldd-container>
+
+	{#snippet vervolg()}
+		<nldd-simple-section>
+			<nldd-title slot="header" size="3" heading-level="2" text="Wijzigingen"></nldd-title>
+			<nldd-container gap="24">
+				{#if data.changedFiles.length > 0}
+					<table class="bestanden">
+						<caption>Alle gewijzigde bestanden</caption>
+						<thead>
+							<tr><th scope="col">Bestand</th><th scope="col">Status</th></tr>
+						</thead>
+						<tbody>
+							{#each data.changedFiles as f (f.path)}
+								<tr>
+									<td>
+										{f.path}
+										{#if f.kind !== 'pagina'}
+											<br /><nldd-link
+												href="{data.githubUrl}/files"
+												target="_blank"
+												text="Bestand gewijzigd, bekijk op GitHub"
+											></nldd-link>
+										{/if}
+									</td>
+									<td>{BESTAND[f.status]}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
+				{#if data.fromFork}
+					<nldd-text>Dit voorstel komt uit een fork. Beoordeel de wijzigingen op GitHub.</nldd-text>
+				{:else if data.diffs.length === 0}
+					<nldd-text>Dit voorstel wijzigt geen pagina's.</nldd-text>
+				{:else}
+					<nldd-container gap="32">
+						{#each data.diffs as d (d.path)}
+							<Diff path={d.path} before={d.before} after={d.after} source={d.source} />
+						{/each}
+					</nldd-container>
+				{/if}
+			</nldd-container>
+		</nldd-simple-section>
 
 		{#if data.canComment}
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
-					if (opmerkingFout) {
-						status = opmerkingFout;
-						return;
-					}
-					void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
-				}}
-			>
-				<nldd-form-field label="Opmerking">
-					<nldd-multi-line-text-field
-						rows="4"
-						maxlength="5000"
-						value={opmerking}
-						invalid={opmerkingFout !== null || undefined}
-						oninput={(e: Event) => {
-							opmerking = (e.currentTarget as HTMLInputElement).value;
-							opmerkingFout = null;
-						}}
-					></nldd-multi-line-text-field>
-					{#if opmerkingFout}
-						<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
-					{/if}
-				</nldd-form-field>
-				<nldd-button
-					appearance="secondary"
-					type="submit"
-					text="Opmerking plaatsen"
-					loading={busy || undefined}
-				></nldd-button>
-			</form>
+			<nldd-simple-section>
+				<nldd-title slot="header" size="3" heading-level="2" text="Opmerking"></nldd-title>
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
+						if (opmerkingFout) {
+							status = opmerkingFout;
+							return;
+						}
+						void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
+					}}
+				>
+					<nldd-form-field label="Opmerking">
+						<nldd-multi-line-text-field
+							rows="4"
+							maxlength="5000"
+							value={opmerking}
+							invalid={opmerkingFout !== null || undefined}
+							oninput={(e: Event) => {
+								opmerking = (e.currentTarget as HTMLInputElement).value;
+								opmerkingFout = null;
+							}}
+						></nldd-multi-line-text-field>
+						{#if opmerkingFout}
+							<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
+						{/if}
+					</nldd-form-field>
+					<nldd-button
+						appearance="secondary"
+						type="submit"
+						text="Opmerking plaatsen"
+						loading={busy || undefined}
+					></nldd-button>
+				</form>
+			</nldd-simple-section>
 		{/if}
-
-		<section aria-label="Wijzigingen">
-			<nldd-title size="3" heading-level="2" text="Wijzigingen"></nldd-title>
-			{#if data.changedFiles.length > 0}
-				<table class="bestanden">
-					<caption>Alle gewijzigde bestanden</caption>
-					<thead>
-						<tr><th scope="col">Bestand</th><th scope="col">Status</th></tr>
-					</thead>
-					<tbody>
-						{#each data.changedFiles as f (f.path)}
-							<tr>
-								<td>
-									{f.path}
-									{#if f.kind !== 'pagina'}
-										<br /><nldd-link
-											href="{data.githubUrl}/files"
-											target="_blank"
-											text="Bestand gewijzigd, bekijk op GitHub"
-										></nldd-link>
-									{/if}
-								</td>
-								<td>{BESTAND[f.status]}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			{/if}
-			{#if data.fromFork}
-				<nldd-text>Dit voorstel komt uit een fork. Beoordeel de wijzigingen op GitHub.</nldd-text>
-			{:else if data.diffs.length === 0}
-				<nldd-text>Dit voorstel wijzigt geen pagina's.</nldd-text>
-			{:else}
-				<nldd-container gap="32">
-					{#each data.diffs as d (d.path)}
-						<Diff path={d.path} before={d.before} after={d.after} source={d.source} />
-					{/each}
-				</nldd-container>
-			{/if}
-		</section>
-	</nldd-container>
+	{/snippet}
 </Pagina>
 
 <style>
@@ -258,7 +312,8 @@
 	}
 	.bestanden {
 		border-collapse: collapse;
-		margin-block: 12px;
+		width: fit-content;
+		max-width: 100%;
 	}
 	.bestanden caption {
 		text-align: start;
