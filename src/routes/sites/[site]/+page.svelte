@@ -1,18 +1,12 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import Pagina from '$lib/components/Pagina.svelte';
-	import VoorstelLijst from '$lib/components/VoorstelLijst.svelte';
+	import SiteKop from '$lib/components/SiteKop.svelte';
 
 	let { data } = $props();
 
 	const mapHref = (map: string) =>
 		`/sites/${data.site.id}${map ? `?map=${encodeURIComponent(map)}` : ''}`;
-	const tabHref = (tab: 'mijn' | 'alle' | 'beoordelen') => {
-		const params = new URLSearchParams();
-		if (data.map) params.set('map', data.map);
-		params.set('tab', tab);
-		return `/sites/${data.site.id}?${params}`;
-	};
 	const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 	const depth = (folder: string) => folder.split('/').length - 1;
 	const label = (folder: string) => folder.slice(folder.lastIndexOf('/') + 1);
@@ -28,35 +22,18 @@
 
 <svelte:head><title>{data.site.naam} · Schrijver</title></svelte:head>
 
-<Pagina titel={data.site.naam} ondertitel={data.site.repo} terug={{ href: '/', tekst: 'Sites' }}>
-	<nldd-container gap="24">
-		<nldd-button
-			appearance="primary"
-			start-icon="plus"
-			text="Nieuwe pagina"
-			href="/sites/{data.site.id}/nieuw"
-		></nldd-button>
-
-		{#if data.teBeoordelen.length > 0}
-			<nldd-container gap="8">
-				<nldd-title size="3" heading-level="2" text="Te beoordelen ({data.teBeoordelen.length})"
-				></nldd-title>
-				<VoorstelLijst
-					siteId={data.site.id}
-					proposals={data.teBeoordelen}
-					tab="beoordelen"
-					{tabHref}
-					editorial
-					tabs={false}
-				/>
-			</nldd-container>
-		{/if}
-	</nldd-container>
+<Pagina
+	titel={data.site.naam}
+	ondertitel={data.site.omschrijving ?? undefined}
+	terug={{ href: '/', tekst: 'Sites' }}
+>
+	<SiteKop site={data.site} huidig="paginas" wachtend={data.wachtend} />
 
 	{#snippet vervolg()}
 		<nldd-sidebar-section
 			bind:this={mappen}
 			sidebar-label="Mappen"
+			padding-top="0"
 			onopen={() => mappenOpen(true)}
 			onclose={() => mappenOpen(false)}
 		>
@@ -66,6 +43,7 @@
 					heading-level="2"
 					text={data.map ? `Pagina's in ${data.map}` : "Pagina's"}
 				></nldd-title>
+				<nldd-spacer size="flexible"></nldd-spacer>
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 				<nldd-button
 					bind:this={mappenKnop}
@@ -75,6 +53,12 @@
 					text="Mappen"
 					popup-type="dialog"
 					onclick={() => mappen?.show()}
+				></nldd-button>
+				<nldd-button
+					appearance="primary"
+					start-icon="plus"
+					text="Nieuwe pagina"
+					href="/sites/{data.site.id}/nieuw"
 				></nldd-button>
 			</nldd-container>
 
@@ -103,20 +87,18 @@
 						<nldd-list-item>
 							<nldd-list-item-segment href={bewerkHref} width="full">
 								<nldd-text-cell text={page.title} supporting-text={page.name}></nldd-text-cell>
-								<nldd-spacer-cell size="8"></nldd-spacer-cell>
-								<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
 							</nldd-list-item-segment>
 							<nldd-list-item-segment
 								href={page.verderBewerken}
 								accessible-label="Verder met je voorstel voor {page.title}"
 							>
 								<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
-								<nldd-spacer-cell size="8" hide-below="360px"></nldd-spacer-cell>
+								<nldd-spacer-cell size="8" hide-below="md"></nldd-spacer-cell>
 								<nldd-text-cell
 									text="Verder met je voorstel"
 									color="accent"
 									width="fit-content"
-									hide-below="360px"
+									hide-below="md"
 								></nldd-text-cell>
 							</nldd-list-item-segment>
 						</nldd-list-item>
@@ -130,21 +112,6 @@
 				{/each}
 			</nldd-list>
 		</nldd-sidebar-section>
-
-		<nldd-simple-section>
-			<nldd-title slot="header" size="3" heading-level="2" text="Voorstellen"></nldd-title>
-			{#if data.proposalsError}
-				<nldd-text color="critical">De voorstellen konden niet worden opgehaald.</nldd-text>
-			{:else}
-				<VoorstelLijst
-					siteId={data.site.id}
-					proposals={data.proposals}
-					tab={data.tab}
-					{tabHref}
-					editorial={data.editorial}
-				/>
-			{/if}
-		</nldd-simple-section>
 	{/snippet}
 </Pagina>
 

@@ -25,7 +25,7 @@ export function isSentIn(pr: Pick<PrSummary, 'draft' | 'body'>): boolean {
 	return !pr.draft || pr.body.split('\n').some((l) => l.trim() === SENT_MARKER);
 }
 
-function statusOf(pr: PrSummary): Proposal['status'] {
+export function statusOf(pr: PrSummary): Proposal['status'] {
 	if (pr.state === 'merged') return 'samengevoegd';
 	if (pr.state === 'closed') return 'gesloten';
 	if (!isSentIn(pr)) return 'concept';

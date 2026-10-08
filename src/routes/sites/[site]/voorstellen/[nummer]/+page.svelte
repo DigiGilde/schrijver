@@ -86,7 +86,7 @@
 
 <Pagina
 	titel={data.proposal.title}
-	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
+	terug={{ href: `/sites/${data.site.id}/voorstellen`, tekst: data.site.naam }}
 >
 	<nldd-container gap="24">
 		<nldd-container layout="wrap" gap="12" vertical-alignment="center">

@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import picomatch from 'picomatch';
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
@@ -6,9 +6,11 @@ import { identitiesFor } from '$lib/auth/identity';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
+import { waitsForReview } from '$lib/forge/status';
 import { ForgeError } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { proposalsAddress, siteHeader } from '$lib/server/site-tabs';
 
 const decoder = new TextDecoder();
 
@@ -16,6 +18,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const store = getConfigStore();
 	const site = store.site(params.site);
 	if (!site) error(404, 'Site niet gevonden');
+	const moved = proposalsAddress(site.id, url.searchParams.get('tab'));
+	if (moved) redirect(308, moved);
 	const forge = getForge();
 
 	const root = site.content.pad.replace(/\/+$/, '');
@@ -72,8 +76,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	const { session, prefs } = locals.user!;
 	const mine = identitiesFor(prefs, session);
-	let proposals: Proposal[] = [];
-	let proposalsError = false;
+	let proposals: Proposal[] | null = null;
 	try {
 		const prs = await forge.listPrs(site.repo, 'open');
 		proposals = await Promise.all(
@@ -82,7 +85,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		proposals.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	} catch (err) {
 		log.warn('proposals.list_failed', { site: site.id, ...errorFields(err) });
-		proposalsError = true;
 	}
 
 	const editorial = await isEditorial(
@@ -90,40 +92,24 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		{ email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
 		forge
 	);
-	const waiting = (p: Proposal) =>
-		p.status === 'ingestuurd' ? 0 : p.status === 'wijzigingen-gevraagd' ? 1 : -1;
-	const teBeoordelen = editorial
-		? proposals.filter((p) => waiting(p) >= 0).sort((a, b) => waiting(a) - waiting(b))
-		: [];
 
 	// The user's own open proposal for a page in this folder, to return to instead of starting anew.
 	const continueByPage = new Map<string, string>();
-	for (const p of proposals) {
+	for (const p of proposals ?? []) {
 		if (!p.mine) continue;
 		for (const link of p.verderBewerken)
 			if (!continueByPage.has(link.page)) continueByPage.set(link.page, link.href);
 	}
 
-	const tabParam = url.searchParams.get('tab');
-	const tab =
-		tabParam === 'alle'
-			? ('alle' as const)
-			: tabParam === 'beoordelen' && editorial
-				? ('beoordelen' as const)
-				: ('mijn' as const);
-
 	return {
-		site: { id: site.id, naam: site.naam, repo: site.repo },
+		site: siteHeader(site),
 		map,
 		folders: [...folders].sort(),
 		pages: pages.map((page) => ({
 			...page,
 			verderBewerken: continueByPage.get(prefix + page.path) ?? null
 		})),
-		proposals,
-		proposalsError,
-		editorial,
-		teBeoordelen,
-		tab
+		wachtend:
+			editorial && proposals ? proposals.filter((p) => waitsForReview(p.status)).length : null
 	};
 };

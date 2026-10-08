@@ -1,91 +1,108 @@
 <script lang="ts">
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import type { Proposal } from '$lib/forge/proposals';
+	import { STATUS, updatedText, waitsForReview } from '$lib/forge/status';
 
-	type Tab = 'mijn' | 'alle' | 'beoordelen';
+	type Filter = 'mijn' | 'alle' | 'beoordelen';
 
 	let {
 		siteId,
 		proposals,
-		tab,
-		tabHref,
-		editorial = false,
-		tabs = true
+		filter,
+		editorial = false
 	}: {
 		siteId: string;
 		proposals: Proposal[];
-		tab: Tab;
-		tabHref: (tab: Tab) => string;
+		/** The filter from the address; choosing another one shows it at once and only rewrites the address. */
+		filter: Filter;
 		editorial?: boolean;
-		tabs?: boolean;
 	} = $props();
 
-	const STATUS: Record<Proposal['status'], { text: string; color: string }> = {
-		concept: { text: 'Concept', color: 'neutral' },
-		ingestuurd: { text: 'Ingestuurd', color: 'accent' },
-		goedgekeurd: { text: 'Goedgekeurd', color: 'success' },
-		'wijzigingen-gevraagd': { text: 'Wijzigingen gevraagd', color: 'warning' },
-		samengevoegd: { text: 'Samengevoegd', color: 'success' },
-		gesloten: { text: 'Gesloten', color: 'neutral' }
-	};
-	const LABEL: Record<Tab, string> = {
+	let gekozen = $state<Filter | null>(null);
+	const huidig = $derived(gekozen ?? filter);
+	afterNavigate(() => (gekozen = null));
+
+	const LABEL: Record<Filter, string> = {
 		mijn: 'Mijn voorstellen',
 		alle: 'Alle voorstellen',
 		beoordelen: 'Te beoordelen'
 	};
-	const EMPTY: Record<Tab, string> = {
+	const EMPTY: Record<Filter, string> = {
 		mijn: 'Je hebt geen open voorstellen.',
 		alle: 'Er zijn geen open voorstellen.',
 		beoordelen: 'Er wachten geen voorstellen op de redactie.'
 	};
 
+	const teBeoordelen = $derived(
+		proposals
+			.filter((p) => waitsForReview(p.status))
+			.sort((a, b) => Number(a.status !== 'ingestuurd') - Number(b.status !== 'ingestuurd'))
+	);
 	const shown = $derived(
-		tab === 'mijn'
+		huidig === 'mijn'
 			? proposals.filter((p) => p.mine)
-			: tab === 'beoordelen'
-				? proposals.filter((p) => p.status === 'ingestuurd' || p.status === 'wijzigingen-gevraagd')
+			: huidig === 'beoordelen'
+				? teBeoordelen
 				: proposals
 	);
-	const date = (iso: string) => new Date(iso).toLocaleDateString('nl-NL');
+	const regel = (p: Proposal) =>
+		[
+			STATUS[p.status].line,
+			updatedText(p.updatedAt),
+			...(p.viaSchrijver ? [] : ['Via GitHub'])
+		].join(' · ');
+
+	function kies(e: Event) {
+		const { selected, value } =
+			(e as CustomEvent<{ selected?: boolean; value?: string }>).detail ?? {};
+		if (!selected || !value || !Object.hasOwn(LABEL, value)) return;
+		gekozen = value as Filter;
+		const url = new URL(location.href);
+		url.searchParams.set('filter', value);
+		replaceState(url, {});
+	}
 </script>
 
 {#snippet cellen(p: Proposal)}
-	<nldd-text-cell
-		text={p.title}
-		supporting-text="{date(p.updatedAt)}{p.viaSchrijver ? '' : ' · Via GitHub'}"
-	></nldd-text-cell>
-	<nldd-spacer-cell size="8"></nldd-spacer-cell>
-	<nldd-cell>
-		<nldd-badge text={STATUS[p.status].text} color={STATUS[p.status].color}></nldd-badge>
+	{@const status = STATUS[p.status]}
+	<nldd-text-cell hide-below="md" text={p.title} supporting-text={regel(p)}></nldd-text-cell>
+	<nldd-text-cell hide-above="sm" supporting-text={regel(p)}>
+		{p.title}
+		<nldd-badge size="sm" color={status.color} text={status.label}></nldd-badge>
+	</nldd-text-cell>
+	<nldd-spacer-cell size="8" hide-below="md"></nldd-spacer-cell>
+	<nldd-cell hide-below="md">
+		<nldd-badge color={status.color} decorative></nldd-badge>
 	</nldd-cell>
-	<nldd-spacer-cell size="8"></nldd-spacer-cell>
-	<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
+	<nldd-spacer-cell size="8" hide-below="md"></nldd-spacer-cell>
+	<nldd-text-cell hide-below="md" width="fit-content" text={status.label}></nldd-text-cell>
 {/snippet}
 
 <nldd-container gap="16">
-	{#if tabs}
-		<nldd-tab-bar navigation accessible-label="Voorstellen">
-			<nldd-tab-bar-item
-				text="Mijn voorstellen"
-				href={tabHref('mijn')}
-				current={tab === 'mijn' || undefined}
-			></nldd-tab-bar-item>
-			<nldd-tab-bar-item
-				text="Alle voorstellen"
-				href={tabHref('alle')}
-				current={tab === 'alle' || undefined}
-			></nldd-tab-bar-item>
-			{#if editorial}
-				<nldd-tab-bar-item
-					text="Te beoordelen"
-					href={tabHref('beoordelen')}
-					current={tab === 'beoordelen' || undefined}
-				></nldd-tab-bar-item>
-			{/if}
-		</nldd-tab-bar>
-	{/if}
+	<nldd-toggle-button-group
+		type="radio"
+		appearance="neutral-transparent"
+		size="sm"
+		accessible-label="Welke voorstellen"
+		onchange={kies}
+	>
+		<nldd-toggle-button value="mijn" text={LABEL.mijn} selected={huidig === 'mijn' || undefined}
+		></nldd-toggle-button>
+		<nldd-toggle-button value="alle" text={LABEL.alle} selected={huidig === 'alle' || undefined}
+		></nldd-toggle-button>
+		{#if editorial}
+			<nldd-toggle-button
+				value="beoordelen"
+				text={teBeoordelen.length > 0
+					? `${LABEL.beoordelen} (${teBeoordelen.length})`
+					: LABEL.beoordelen}
+				selected={huidig === 'beoordelen' || undefined}
+			></nldd-toggle-button>
+		{/if}
+	</nldd-toggle-button-group>
 
-	<nldd-list accessible-label={LABEL[tab]}>
-		<nldd-inline-dialog slot="empty" text={EMPTY[tab]}></nldd-inline-dialog>
+	<nldd-list accessible-label={LABEL[huidig]}>
+		<nldd-inline-dialog slot="empty" text={EMPTY[huidig]}></nldd-inline-dialog>
 		{#each shown as p (p.number)}
 			{@const verder =
 				(p.mine || editorial) && p.verderBewerken.length === 1 ? p.verderBewerken[0] : null}
@@ -96,18 +113,20 @@
 					</nldd-list-item-segment>
 					<nldd-list-item-segment href={verder.href} accessible-label="Verder bewerken: {p.title}">
 						<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
-						<nldd-spacer-cell size="8" hide-below="360px"></nldd-spacer-cell>
+						<nldd-spacer-cell size="8" hide-below="md"></nldd-spacer-cell>
 						<nldd-text-cell
 							text="Verder bewerken"
 							color="accent"
 							width="fit-content"
-							hide-below="360px"
+							hide-below="md"
 						></nldd-text-cell>
 					</nldd-list-item-segment>
 				</nldd-list-item>
 			{:else}
 				<nldd-list-item href="/sites/{siteId}/voorstellen/{p.number}">
 					{@render cellen(p)}
+					<nldd-spacer-cell size="8"></nldd-spacer-cell>
+					<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
 				</nldd-list-item>
 			{/if}
 		{/each}

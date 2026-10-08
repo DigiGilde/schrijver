@@ -117,18 +117,20 @@ test('the folder column stays below the sticky bars while the page scrolls', asy
 		.toBeGreaterThanOrEqual(titleBar.y + titleBar.height);
 });
 
-test('the proposals list shows the seeded draft', async ({ page }) => {
-	await page.goto('/sites/digi-handboek?tab=alle');
-	await expect(page.getByText('Concept').first()).toBeVisible();
-	await expect(page.getByRole('link', { name: /Voorbeeldvoorstel Digi Handboek/ })).toHaveAttribute(
+test('the proposals tab lists the seeded draft', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=alle');
+	const rows = list(page, 'Alle voorstellen');
+	await expect(rows.getByRole('link', { name: /Voorbeeldvoorstel Digi Handboek/ })).toHaveAttribute(
 		'href',
 		/\/sites\/digi-handboek\/voorstellen\/\d+/
 	);
-	await expect(page.getByText('Voorbeeldvoorstel Digi Handboek')).toBeVisible();
+	await expect(rows.locator('nldd-text-cell[text="Concept"]').first()).toBeVisible();
 });
 
-test('a proposal row ends with the chevron of a row that opens something', async ({ page }) => {
-	await page.goto('/sites/digi-handboek?tab=alle');
+test('a proposal row without a shortcut ends with the chevron of a row that opens something', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=alle');
 	const rows = list(page, 'Alle voorstellen').locator('nldd-list-item[href]');
 	await expect(rows.first()).toBeVisible();
 	for (const row of await rows.all()) {
@@ -139,19 +141,18 @@ test('a proposal row ends with the chevron of a row that opens something', async
 	}
 });
 
-test('the Te beoordelen block is there only while a proposal waits for the editors', async ({
+test('Te beoordelen is a filter of the proposals tab, for editorial members only', async ({
 	page
 }) => {
-	// The block and the tab list come from one load, so a single visit tells which state this is.
-	await page.goto('/sites/digi-handboek?tab=beoordelen');
-	const lists = page.locator('nldd-list[accessible-label="Te beoordelen"]');
-	await expect(lists.last()).toBeVisible();
-	const waiting = await lists.last().locator('nldd-list-item').count();
-	await expect(page.getByRole('heading', { name: /^Te beoordelen \(/, level: 2 })).toHaveCount(
-		waiting > 0 ? 1 : 0
-	);
-	await expect(lists).toHaveCount(waiting > 0 ? 2 : 1);
-	await expect(page.getByRole('link', { name: 'Te beoordelen' })).toBeVisible();
+	await page.goto('/sites/digi-handboek');
+	await expect(page.getByRole('heading', { name: /^Te beoordelen/ })).toHaveCount(0);
+	await expect(page.locator('nldd-list[accessible-label="Te beoordelen"]')).toHaveCount(0);
+
+	await page.goto('/sites/digi-handboek/voorstellen');
+	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toBeVisible();
+	await page.goto('/sites/moza-site/voorstellen');
+	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeVisible();
+	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toHaveCount(0);
 });
 
 test('the proposal page shows what changed before the comment form', async ({ page }) => {
