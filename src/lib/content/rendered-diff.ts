@@ -1,4 +1,4 @@
-import { diffArrays, diffWordsWithSpace } from 'diff';
+import { diffArrays, diffWordsWithSpace, wordsWithSpaceDiff } from 'diff';
 import type { RootContent } from 'mdast';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
@@ -14,6 +14,14 @@ export type DiffBlock =
 type Block = { type: string; source: string };
 type Body = { blocks: Block[]; definitions: string };
 type Span = [start: number, end: number];
+type Pair = [old: number, nieuw: number];
+type Part = {
+	type: string;
+	html: string;
+	text: string;
+	words: Map<string, number>;
+	chars: number;
+};
 type Render = (markdown: string) => string;
 
 const ATOMIC = new Set(['code', 'html', 'thematicBreak']);
@@ -21,8 +29,10 @@ const ATOMIC = new Set(['code', 'html', 'thematicBreak']);
 const INLINE = new Set(['a', 'code', 'del', 'em', 'ins', 'strong', 'sup']);
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
-/** The word diff of long, very different blocks is expensive and shows little: those blocks stay unmarked. */
+/** A word diff with more edits than this is expensive and says little: those blocks are not paired. */
 const MAX_WORD_EDITS = 1000;
+/** An old and a new block are paired when the word diff keeps this share of the longer text. */
+const SIMILAR = 0.5;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
@@ -128,24 +138,72 @@ function markWords(oldHtml: string, newHtml: string, doc: Document) {
 	return { was: oldTemplate.innerHTML, wordt: newTemplate.innerHTML };
 }
 
-function pair(
-	old: Body,
-	nieuw: Body,
-	a: Block,
-	b: Block,
-	render: Render,
-	doc: Document
-): DiffBlock[] {
-	const was = renderBlock(old, a, render);
-	const wordt = renderBlock(nieuw, b, render);
-	if (a.type !== b.type || ATOMIC.has(a.type)) {
-		return [
-			{ kind: 'verwijderd', html: was },
-			{ kind: 'toegevoegd', html: wordt }
-		];
+const withoutSpace = (text: string) => text.replace(/\s/g, '');
+
+function prepare(body: Body, block: Block, render: Render, doc: Document): Part {
+	const html = renderBlock(body, block, render);
+	const text = textNodes(parseHtml(html, doc).content)
+		.map((node) => node.data)
+		.join('');
+	const words = new Map<string, number>();
+	for (const token of wordsWithSpaceDiff.tokenize(text)) {
+		if (/\S/.test(token)) words.set(token, (words.get(token) ?? 0) + 1);
 	}
-	return [{ kind: 'gewijzigd', ...markWords(was, wordt, doc) }];
+	return { type: block.type, html, text, words, chars: withoutSpace(text).length };
 }
+
+/**
+ * The share of the longer text that the word diff keeps, or 0 below `SIMILAR`. Whitespace does not count:
+ * the markup of lists and tables is full of it, and it would make unrelated lists look alike.
+ */
+function similarity(a: Part, b: Part): number {
+	const longer = Math.max(a.chars, b.chars);
+	if (a.type !== b.type || ATOMIC.has(a.type) || longer === 0) return 0;
+	// Tokens in common bound what the word diff can keep, and cost far less than the diff.
+	let shared = 0;
+	for (const [word, count] of a.words) {
+		shared += Math.min(count, b.words.get(word) ?? 0) * word.length;
+	}
+	if (shared < longer * SIMILAR) return 0;
+	const changes = diffWordsWithSpace(a.text, b.text, { maxEditLength: MAX_WORD_EDITS });
+	if (!changes) return 0;
+	const kept = changes
+		.filter((change) => !change.added && !change.removed)
+		.reduce((sum, change) => sum + withoutSpace(change.value).length, 0);
+	return kept >= longer * SIMILAR ? kept / longer : 0;
+}
+
+/** The pairs, in order on both sides, with the highest summed similarity. */
+function align(gone: Part[], come: Part[]): Pair[] {
+	const score = gone.map((a) => come.map((b) => similarity(a, b)));
+	const best = Array.from({ length: gone.length + 1 }, () =>
+		new Array<number>(come.length + 1).fill(0)
+	);
+	for (let i = 1; i <= gone.length; i++) {
+		for (let j = 1; j <= come.length; j++) {
+			best[i][j] = Math.max(
+				best[i - 1][j],
+				best[i][j - 1],
+				best[i - 1][j - 1] + score[i - 1][j - 1]
+			);
+		}
+	}
+	const pairs: Pair[] = [];
+	let i = gone.length;
+	let j = come.length;
+	while (i > 0 && j > 0) {
+		if (score[i - 1][j - 1] > 0 && best[i][j] === best[i - 1][j - 1] + score[i - 1][j - 1]) {
+			pairs.push([--i, --j]);
+		} else if (best[i][j] === best[i - 1][j]) i--;
+		else j--;
+	}
+	return pairs.reverse();
+}
+
+const unpaired = (gone: Part[], come: Part[]): DiffBlock[] => [
+	...gone.map((part): DiffBlock => ({ kind: 'verwijderd', html: part.html })),
+	...come.map((part): DiffBlock => ({ kind: 'toegevoegd', html: part.html }))
+];
 
 export function renderedDiff(
 	before: string,
@@ -180,20 +238,23 @@ export function renderedDiff(
 			if (changes[i].removed) removed += changes[i].count;
 			else added += changes[i].count;
 		}
-		const gone = old.blocks.slice(oldIndex, oldIndex + removed);
-		const come = nieuw.blocks.slice(newIndex, newIndex + added);
+		const gone = old.blocks
+			.slice(oldIndex, oldIndex + removed)
+			.map((block) => prepare(old, block, render, doc));
+		const come = nieuw.blocks
+			.slice(newIndex, newIndex + added)
+			.map((block) => prepare(nieuw, block, render, doc));
 		oldIndex += removed;
 		newIndex += added;
-		const paired = Math.min(gone.length, come.length);
-		for (let k = 0; k < paired; k++) {
-			blocks.push(...pair(old, nieuw, gone[k], come[k], render, doc));
+		let goneFrom = 0;
+		let comeFrom = 0;
+		for (const [g, c] of align(gone, come)) {
+			blocks.push(...unpaired(gone.slice(goneFrom, g), come.slice(comeFrom, c)));
+			blocks.push({ kind: 'gewijzigd', ...markWords(gone[g].html, come[c].html, doc) });
+			goneFrom = g + 1;
+			comeFrom = c + 1;
 		}
-		for (const block of gone.slice(paired)) {
-			blocks.push({ kind: 'verwijderd', html: renderBlock(old, block, render) });
-		}
-		for (const block of come.slice(paired)) {
-			blocks.push({ kind: 'toegevoegd', html: renderBlock(nieuw, block, render) });
-		}
+		blocks.push(...unpaired(gone.slice(goneFrom), come.slice(comeFrom)));
 	}
 	return blocks;
 }

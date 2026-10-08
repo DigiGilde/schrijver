@@ -144,11 +144,93 @@ describe('renderedDiff', () => {
 		expect(parse(wordt).querySelector('a')?.innerHTML).toBe('het <ins>nieuwe </ins>formulier');
 	});
 
-	it('pairs changed blocks one by one and leaves the rest of the longer side alone', () => {
-		const blocks = compare('Een.\n\nTwee.\n\nDrie.\n', 'Vier.\n');
-		expect(kinds(blocks)).toEqual(['gewijzigd', 'verwijderd', 'verwijderd']);
-		const more = compare('Een.\n', 'Vier.\n\nVijf.\n\nZes.\n');
+	it('pairs similar blocks in order and leaves the rest of the longer side alone', () => {
+		const fewer = compare(
+			'Het team werkt open.\n\nEen.\n\nTwee.\n',
+			'Het team werkt open en eerlijk.\n'
+		);
+		expect(kinds(fewer)).toEqual(['gewijzigd', 'verwijderd', 'verwijderd']);
+		const more = compare(
+			'Het team werkt open.\n',
+			'Het team werkt open en eerlijk.\n\nEen.\n\nTwee.\n'
+		);
 		expect(kinds(more)).toEqual(['gewijzigd', 'toegevoegd', 'toegevoegd']);
+	});
+
+	it('keeps a removed paragraph removed when the next paragraph is edited', () => {
+		const blocks = compare(
+			'Intro\n\nDeze alinea gaat eruit.\n\nWe werken open en delen code.\n\nSlot.\n',
+			'Intro\n\nWe werken altijd open en delen code.\n\nSlot.\n'
+		);
+		expect(kinds(blocks)).toEqual(['gelijk', 'verwijderd', 'gewijzigd', 'gelijk']);
+		expect(blocks[1]).toEqual({ kind: 'verwijderd', html: '<p>Deze alinea gaat eruit.</p>' });
+		expect(blocks[2]).toEqual({
+			kind: 'gewijzigd',
+			was: '<p>We werken open en delen code.</p>',
+			wordt: '<p>We werken <ins>altijd </ins>open en delen code.</p>'
+		});
+	});
+
+	it('keeps an inserted paragraph added when the next paragraph is edited', () => {
+		const blocks = compare(
+			'Intro\n\nHet team werkt open.\n\nSlot.\n',
+			'Intro\n\nHier staat iets compleet nieuws.\n\nHet team werkt altijd open.\n\nSlot.\n'
+		);
+		expect(kinds(blocks)).toEqual(['gelijk', 'toegevoegd', 'gewijzigd', 'gelijk']);
+		expect(blocks[1]).toEqual({
+			kind: 'toegevoegd',
+			html: '<p>Hier staat iets compleet nieuws.</p>'
+		});
+		expect(changed(blocks[2]).wordt).toBe('<p>Het team werkt <ins>altijd </ins>open.</p>');
+	});
+
+	it('keeps an edited paragraph paired when a removed paragraph follows it', () => {
+		const blocks = compare(
+			'Intro\n\nHet team werkt open.\n\nDeze alinea gaat eruit.\n\nSlot.\n',
+			'Intro\n\nHet team werkt open en eerlijk.\n\nSlot.\n'
+		);
+		expect(kinds(blocks)).toEqual(['gelijk', 'gewijzigd', 'verwijderd', 'gelijk']);
+		expect(blocks[2]).toEqual({ kind: 'verwijderd', html: '<p>Deze alinea gaat eruit.</p>' });
+	});
+
+	it('pairs nothing when no new block resembles an old one', () => {
+		const blocks = compare(
+			'Voor.\n\nKoffie en thee staan klaar.\n\nDe planning volgt later.\n\nNa.\n',
+			'Voor.\n\nHier komt een andere zin.\n\nDaar nog eentje erbij.\n\nNa.\n'
+		);
+		expect(kinds(blocks)).toEqual([
+			'gelijk',
+			'verwijderd',
+			'verwijderd',
+			'toegevoegd',
+			'toegevoegd',
+			'gelijk'
+		]);
+		expect(blocks.slice(1, 5).map((b) => (b as { html: string }).html)).toEqual([
+			'<p>Koffie en thee staan klaar.</p>',
+			'<p>De planning volgt later.</p>',
+			'<p>Hier komt een andere zin.</p>',
+			'<p>Daar nog eentje erbij.</p>'
+		]);
+	});
+
+	it('pairs a block with the most similar of two candidates, not the first acceptable one', () => {
+		const blocks = compare(
+			'Wij bouwen open software voor de overheid.\n',
+			'Wij bouwen open software.\n\nWij bouwen open software voor de overheid en delen die.\n'
+		);
+		expect(kinds(blocks)).toEqual(['toegevoegd', 'gewijzigd']);
+		expect(blocks[0]).toEqual({ kind: 'toegevoegd', html: '<p>Wij bouwen open software.</p>' });
+	});
+
+	it('pairs blocks that keep half of their characters and not blocks that keep less', () => {
+		expect(kinds(compare('abcd efgh\n', 'abcd wxyz\n'))).toEqual(['gewijzigd']);
+		expect(kinds(compare('abcd efgh\n', 'abcd wxyz.\n'))).toEqual(['verwijderd', 'toegevoegd']);
+	});
+
+	it('does not count the whitespace between list items as shared text', () => {
+		const blocks = compare('- a\n- b\n- c\n', '- x\n- y\n- z\n');
+		expect(kinds(blocks)).toEqual(['verwijderd', 'toegevoegd']);
 	});
 
 	it('keeps tables, links and emphasis intact while marking words', () => {
@@ -214,13 +296,10 @@ describe('renderedDiff', () => {
 		expect(compare('', '')).toEqual([]);
 	});
 
-	it('keeps the old and new text unmarked when the blocks are too different for a word diff', () => {
+	it('does not pair blocks whose word diff is too large to compute', () => {
 		const long = (prefix: string) =>
-			Array.from({ length: 1500 }, (_, i) => `${prefix}${i}`).join(' ') + '\n';
-		const [only] = compare(long('a'), long('b'));
-		const { was, wordt } = changed(only);
-		expect(was).not.toMatch(/<(ins|del)>/);
-		expect(wordt).not.toMatch(/<(ins|del)>/);
+			Array.from({ length: 600 }, (_, i) => `gemeenschappelijk ${prefix}${i}`).join(' ') + '\n';
+		expect(kinds(compare(long('a'), long('b')))).toEqual(['verwijderd', 'toegevoegd']);
 	});
 
 	it('keeps text that renders escaped escaped after marking', () => {
@@ -323,7 +402,10 @@ describe('toHtml', () => {
 
 	it('keeps every top-level element a direct child, with no wrapper', () => {
 		const html = toHtml(
-			compare('# Kop\n\nOud.\n\n- a\n- b\n', '# Kop\n\nNieuw.\n\n- a\n- b\n\n- c\n'),
+			compare(
+				'# Kop\n\nEen oude alinea.\n\n- a\n- b\n',
+				'# Kop\n\nEen nieuwe alinea.\n\n- a\n- b\n\n- c\n'
+			),
 			doc
 		);
 		const top = [...parse(html).children];
