@@ -18,11 +18,12 @@
 				<li>Open een bestaande pagina, of kies "Nieuwe pagina" en het soort pagina.</li>
 				<li>
 					Bewerk de tekst met de werkbalk: vet, cursief, koppen, lijsten, links, afbeeldingen en
-					diagrammen. Vul bovenaan de velden in, zoals de samenvatting.
+					diagrammen. Velden zoals de samenvatting vul je in bij "Eigenschappen" in de werkbalk.
 				</li>
 				<li>
-					Bekijk het voorbeeld naast de editor. Het voorbeeld lijkt op de site, maar is niet precies
-					hetzelfde.
+					Kies "Voorbeeld" in de werkbalk om de pagina te zien met afbeeldingen en diagrammen. Het
+					voorbeeld lijkt op de site, maar is niet precies hetzelfde. Met "Schrijven" ga je verder
+					met de tekst.
 				</li>
 				<li>
 					Kies "Concept bewaren" om je werk op te slaan. Dat maakt een voorstel op GitHub. Bij sites
