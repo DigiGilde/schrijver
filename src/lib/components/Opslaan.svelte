@@ -31,7 +31,11 @@
 		onovernemen,
 		onbasis,
 		onveldfouten,
-		focusEditor
+		oneigenschappen = null,
+		focusEditor,
+		knop = true,
+		busy = $bindable(false),
+		knoptekst = $bindable()
 	}: {
 		siteId: string;
 		repoPath: string;
@@ -49,7 +53,13 @@
 		onbasis: (sha: string) => void;
 		/** Field errors from the server, so the form can mark the fields. */
 		onveldfouten: (fields: Record<string, string>) => void;
+		/** Opens the page properties; offered with field errors. */
+		oneigenschappen?: (() => void) | null;
 		focusEditor: () => void;
+		/** Without its own button, a parent shows one and calls opslaan(). */
+		knop?: boolean;
+		busy?: boolean;
+		knoptekst?: string;
 	} = $props();
 
 	/* The props are the initial values of the editing session; later saves update them locally. */
@@ -61,7 +71,6 @@
 	let huidigPr = $state(prNumber);
 	// svelte-ignore state_referenced_locally
 	let nieuwePagina = $state(nieuw);
-	let busy = $state(false);
 	let bewaard = $state<{ nummer: number; url: string } | null>(null);
 	let fout = $state<Fout | null>(null);
 	let conflict = $state<Conflict | null>(null);
@@ -71,12 +80,17 @@
 	let foutBlok: HTMLElement | undefined = $state();
 	let conflictKop: HTMLElement | undefined = $state();
 
+	const knopTekst = $derived(huidigPr ? 'Opslaan' : 'Concept bewaren');
+	$effect.pre(() => {
+		knoptekst = knopTekst;
+	});
+
 	async function toon(element: () => HTMLElement | undefined) {
 		await tick();
 		element()?.focus();
 	}
 
-	async function opslaan(overrideSha?: string) {
+	export async function opslaan(overrideSha?: string) {
 		if (busy) return;
 		const { body, frontmatter, changedKeys } = snapshot();
 		const zonder = missingDescriptions(body);
@@ -181,13 +195,15 @@
 	});
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<nldd-button
-	appearance="primary"
-	text={huidigPr ? 'Opslaan' : 'Concept bewaren'}
-	loading={busy || undefined}
-	onclick={() => opslaan()}
-></nldd-button>
+{#if knop}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<nldd-button
+		appearance="primary"
+		text={knopTekst}
+		loading={busy || undefined}
+		onclick={() => opslaan()}
+	></nldd-button>
+{/if}
 
 <p class="sr-only" role="status">{status}</p>
 
@@ -229,6 +245,11 @@
 					<li>{labels[veld] ?? veld}: {melding}</li>
 				{/each}
 			</ul>
+			{#if oneigenschappen}
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button appearance="secondary" text="Eigenschappen aanpassen" onclick={oneigenschappen}
+				></nldd-button>
+			{/if}
 		{/if}
 		{#if fout.detail}
 			<details>
