@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import picomatch from 'picomatch';
 import type { PageServerLoad } from './$types';
+import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
@@ -71,13 +72,45 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		proposalsError = true;
 	}
 
+	const editorial = await isEditorial(
+		site,
+		{ email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
+		forge
+	);
+	const waiting = (p: Proposal) =>
+		p.status === 'ingestuurd' ? 0 : p.status === 'wijzigingen-gevraagd' ? 1 : -1;
+	const teBeoordelen = editorial
+		? proposals.filter((p) => waiting(p) >= 0).sort((a, b) => waiting(a) - waiting(b))
+		: [];
+
+	// The user's own open proposal for a page in this folder, to return to instead of starting anew.
+	const continueByPage = new Map<string, string>();
+	for (const p of proposals) {
+		if (!p.mine) continue;
+		for (const link of p.verderBewerken)
+			if (!continueByPage.has(link.page)) continueByPage.set(link.page, link.href);
+	}
+
+	const tabParam = url.searchParams.get('tab');
+	const tab =
+		tabParam === 'alle'
+			? ('alle' as const)
+			: tabParam === 'beoordelen' && editorial
+				? ('beoordelen' as const)
+				: ('mijn' as const);
+
 	return {
 		site: { id: site.id, naam: site.naam },
 		map,
 		folders: [...folders].sort(),
-		pages,
+		pages: pages.map((page) => ({
+			...page,
+			verderBewerken: continueByPage.get(prefix + page.path) ?? null
+		})),
 		proposals,
 		proposalsError,
-		tab: url.searchParams.get('tab') === 'alle' ? ('alle' as const) : ('mijn' as const)
+		editorial,
+		teBeoordelen,
+		tab
 	};
 };

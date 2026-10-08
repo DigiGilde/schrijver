@@ -1,16 +1,22 @@
 <script lang="ts">
 	import type { Proposal } from '$lib/forge/proposals';
 
+	type Tab = 'mijn' | 'alle' | 'beoordelen';
+
 	let {
 		siteId,
 		proposals,
 		tab,
-		tabHref
+		tabHref,
+		editorial = false,
+		tabs = true
 	}: {
 		siteId: string;
 		proposals: Proposal[];
-		tab: 'mijn' | 'alle';
-		tabHref: (tab: 'mijn' | 'alle') => string;
+		tab: Tab;
+		tabHref: (tab: Tab) => string;
+		editorial?: boolean;
+		tabs?: boolean;
 	} = $props();
 
 	const STATUS: Record<Proposal['status'], { text: string; color: string }> = {
@@ -21,31 +27,48 @@
 		samengevoegd: { text: 'Samengevoegd', color: 'success' },
 		gesloten: { text: 'Gesloten', color: 'neutral' }
 	};
+	const EMPTY: Record<Tab, string> = {
+		mijn: 'Je hebt geen open voorstellen.',
+		alle: 'Er zijn geen open voorstellen.',
+		beoordelen: 'Er wachten geen voorstellen op de redactie.'
+	};
 
-	const shown = $derived(tab === 'mijn' ? proposals.filter((p) => p.mine) : proposals);
+	const shown = $derived(
+		tab === 'mijn'
+			? proposals.filter((p) => p.mine)
+			: tab === 'beoordelen'
+				? proposals.filter((p) => p.status === 'ingestuurd' || p.status === 'wijzigingen-gevraagd')
+				: proposals
+	);
 	const date = (iso: string) => new Date(iso).toLocaleDateString('nl-NL');
+	const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 </script>
 
 <nldd-container gap="16">
-	<nldd-tab-bar navigation accessible-label="Voorstellen">
-		<nldd-tab-bar-item
-			text="Mijn voorstellen"
-			href={tabHref('mijn')}
-			current={tab === 'mijn' || undefined}
-		></nldd-tab-bar-item>
-		<nldd-tab-bar-item
-			text="Alle voorstellen"
-			href={tabHref('alle')}
-			current={tab === 'alle' || undefined}
-		></nldd-tab-bar-item>
-	</nldd-tab-bar>
+	{#if tabs}
+		<nldd-tab-bar navigation accessible-label="Voorstellen">
+			<nldd-tab-bar-item
+				text="Mijn voorstellen"
+				href={tabHref('mijn')}
+				current={tab === 'mijn' || undefined}
+			></nldd-tab-bar-item>
+			<nldd-tab-bar-item
+				text="Alle voorstellen"
+				href={tabHref('alle')}
+				current={tab === 'alle' || undefined}
+			></nldd-tab-bar-item>
+			{#if editorial}
+				<nldd-tab-bar-item
+					text="Te beoordelen"
+					href={tabHref('beoordelen')}
+					current={tab === 'beoordelen' || undefined}
+				></nldd-tab-bar-item>
+			{/if}
+		</nldd-tab-bar>
+	{/if}
 
 	{#if shown.length === 0}
-		<nldd-text
-			>{tab === 'mijn'
-				? 'Je hebt geen open voorstellen.'
-				: 'Er zijn geen open voorstellen.'}</nldd-text
-		>
+		<nldd-text>{EMPTY[tab]}</nldd-text>
 	{:else}
 		<ul class="voorstellen">
 			{#each shown as p (p.number)}
@@ -72,6 +95,18 @@
 							text="Bekijken"
 							accessible-label="Bekijken {p.title}"
 						></nldd-link>
+						{#if p.mine || editorial}
+							{#each p.verderBewerken as link (link.page)}
+								<nldd-link
+									size="sm"
+									href={link.href}
+									text={p.verderBewerken.length === 1
+										? 'Verder bewerken'
+										: `Verder bewerken: ${fileName(link.page)}`}
+									accessible-label="Verder bewerken {p.title}, {fileName(link.page)}"
+								></nldd-link>
+							{/each}
+						{/if}
 					</nldd-container>
 				</li>
 			{/each}

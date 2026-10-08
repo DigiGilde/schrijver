@@ -138,3 +138,45 @@ describe('previewUrl', () => {
 		expect(previewUrl(site, pr())).toBeNull();
 	});
 });
+
+describe('verderBewerken', () => {
+	const own = (over: Partial<PrSummary> = {}) =>
+		pr({ headRef: 'schrijver/digi-handboek/a-bcde', headRepo: digi.repo, ...over });
+
+	it('links every page of an open Schrijver proposal into the editor on its branch', () => {
+		const links = toProposal(own(), files, digi, MINE).verderBewerken;
+		expect(links).toEqual([
+			{
+				page: 'docs/a.md',
+				href: '/sites/digi-handboek/bewerken/a.md?branch=schrijver%2Fdigi-handboek%2Fa-bcde&pr=7'
+			},
+			{
+				page: 'docs/b.md',
+				href: '/sites/digi-handboek/bewerken/b.md?branch=schrijver%2Fdigi-handboek%2Fa-bcde&pr=7'
+			}
+		]);
+	});
+
+	it('accepts a head repository that differs only in casing', () => {
+		const links = toProposal(own({ headRepo: digi.repo.toUpperCase() }), files, digi, MINE);
+		expect(links.verderBewerken).toHaveLength(2);
+	});
+
+	it('skips removed pages', () => {
+		const removed: PrFile[] = [{ path: 'docs/weg.md', status: 'removed' }];
+		expect(toProposal(own(), removed, digi, MINE).verderBewerken).toEqual([]);
+	});
+
+	it('offers nothing for closed, foreign-branch, fork or other-base proposals', () => {
+		for (const over of [
+			{ state: 'closed' as const },
+			{ state: 'merged' as const },
+			{ headRef: 'feature/x' },
+			{ headRef: 'schrijver/moza-site/a-bcde' },
+			{ headRepo: 'fork/handboek' },
+			{ baseRef: 'dev' }
+		]) {
+			expect(toProposal(own(over), files, digi, MINE).verderBewerken).toEqual([]);
+		}
+	});
+});

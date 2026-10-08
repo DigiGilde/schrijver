@@ -115,9 +115,19 @@
 			</nldd-banner>
 		{/if}
 
-		{#if data.canSendIn || data.canMerge}
+		{#if data.canSendIn || data.canMerge || data.verderBewerken.length > 0}
 			<section aria-label="Acties">
-				<nldd-container layout="wrap" gap="12">
+				<nldd-container layout="wrap" gap="12" vertical-alignment="center">
+					{#each data.verderBewerken as link (link.page)}
+						<nldd-link
+							size="md"
+							href={link.href}
+							start-icon="pencil"
+							text={data.verderBewerken.length === 1
+								? 'Verder bewerken'
+								: `Verder bewerken: ${link.page.slice(link.page.lastIndexOf('/') + 1)}`}
+						></nldd-link>
+					{/each}
 					{#if data.canSendIn}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<nldd-button

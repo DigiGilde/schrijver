@@ -77,6 +77,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			viaGithub: identityFromPrBody(pr.body) === null,
 			githubUrl: pr.url,
 			notMergeable: pr.state === 'open' && pr.mergeable === false,
+			verderBewerken: acts.owner || acts.editorial ? proposal.verderBewerken : [],
 			canSendIn: pr.state === 'open' && !isSentIn(pr) && (acts.owner || acts.editorial),
 			canComment: pr.state === 'open' && acts.editorial,
 			canMerge:

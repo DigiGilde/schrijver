@@ -1,4 +1,5 @@
 import type { SiteConfig } from '../config/types';
+import { sameRepo } from './repo';
 import type { PrFile, PrSummary } from './types';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 
@@ -14,6 +15,8 @@ export interface Proposal {
 	previewUrl: string | null;
 	checks: PrSummary['checks'];
 	updatedAt: string;
+	/** Editor links back into the proposal's branch, one per page; empty when Schrijver cannot edit it. */
+	verderBewerken: { page: string; href: string }[];
 }
 
 export const SENT_MARKER = 'Schrijver-Status: ingestuurd';
@@ -38,6 +41,29 @@ export function previewUrl(site: SiteConfig, pr: PrSummary): string | null {
 	return url.replaceAll('{nummer}', String(pr.number));
 }
 
+const encodePath = (p: string) => p.split('/').map(encodeURIComponent).join('/');
+
+/** Only open, same-repository proposals on a Schrijver branch of this site can be edited further. */
+export function continueLinks(
+	site: SiteConfig,
+	pr: PrSummary,
+	pages: string[]
+): Proposal['verderBewerken'] {
+	if (
+		pr.state !== 'open' ||
+		!pr.headRef.startsWith(`schrijver/${site.id}/`) ||
+		!sameRepo(pr.headRepo, site.repo) ||
+		pr.baseRef !== site.standaardbranch
+	)
+		return [];
+	const prefix = site.content.pad + '/';
+	const query = new URLSearchParams({ branch: pr.headRef, pr: String(pr.number) });
+	return pages.map((page) => ({
+		page,
+		href: `/sites/${site.id}/bewerken/${encodePath(page.slice(prefix.length))}?${query}`
+	}));
+}
+
 export function toProposal(
 	pr: PrSummary,
 	files: PrFile[],
@@ -46,6 +72,11 @@ export function toProposal(
 ): Proposal {
 	const identity = identityFromPrBody(pr.body);
 	const prefix = site.content.pad + '/';
+	const pages = files
+		.filter((f) => f.status !== 'removed')
+		.map((f) => f.path)
+		.filter((p) => p.endsWith('.md') && p.startsWith(prefix))
+		.sort();
 	return {
 		number: pr.number,
 		title: pr.title,
@@ -59,6 +90,7 @@ export function toProposal(
 			.sort(),
 		previewUrl: previewUrl(site, pr),
 		checks: pr.checks,
-		updatedAt: pr.updatedAt
+		updatedAt: pr.updatedAt,
+		verderBewerken: continueLinks(site, pr, pages)
 	};
 }

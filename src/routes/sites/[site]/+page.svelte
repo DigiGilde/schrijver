@@ -5,7 +5,7 @@
 
 	const mapHref = (map: string) =>
 		`/sites/${data.site.id}${map ? `?map=${encodeURIComponent(map)}` : ''}`;
-	const tabHref = (tab: 'mijn' | 'alle') => {
+	const tabHref = (tab: 'mijn' | 'alle' | 'beoordelen') => {
 		const params = new URLSearchParams();
 		if (data.map) params.set('map', data.map);
 		params.set('tab', tab);
@@ -28,6 +28,21 @@
 				text="Nieuwe pagina"
 			></nldd-link>
 		</nldd-title>
+
+		{#if data.editorial}
+			<section aria-label="Te beoordelen">
+				<nldd-title size="3" heading-level="2" text="Te beoordelen ({data.teBeoordelen.length})"
+				></nldd-title>
+				<VoorstelLijst
+					siteId={data.site.id}
+					proposals={data.teBeoordelen}
+					tab="beoordelen"
+					{tabHref}
+					editorial
+					tabs={false}
+				/>
+			</section>
+		{/if}
 
 		<nldd-container layout="wrap" gap="32">
 			<nav aria-label="Mappen">
@@ -69,6 +84,14 @@
 										text="Bewerken"
 										accessible-label="Bewerken {page.title}"
 									></nldd-link>
+									{#if page.verderBewerken}
+										<nldd-link
+											size="sm"
+											href={page.verderBewerken}
+											text="Verder met je voorstel"
+											accessible-label="Verder met je voorstel voor {page.title}"
+										></nldd-link>
+									{/if}
 								</nldd-container>
 							</li>
 						{/each}
@@ -82,7 +105,13 @@
 			{#if data.proposalsError}
 				<nldd-text color="critical">De voorstellen konden niet worden opgehaald.</nldd-text>
 			{:else}
-				<VoorstelLijst siteId={data.site.id} proposals={data.proposals} tab={data.tab} {tabHref} />
+				<VoorstelLijst
+					siteId={data.site.id}
+					proposals={data.proposals}
+					tab={data.tab}
+					{tabHref}
+					editorial={data.editorial}
+				/>
 			{/if}
 		</section>
 	</nldd-container>
