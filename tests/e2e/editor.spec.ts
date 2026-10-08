@@ -15,7 +15,10 @@ test('opens a file, follows edits and offers to restore a draft', async ({ page 
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await expect(editor).toContainText('Het Digi Handboek');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Het Digi Handboek');
-	await expect(page.getByText('docs/index.md · Openbaar concept').first()).toBeVisible();
+	await expect(
+		page.getByText('docs/index.md · Openbaar concept · De titel is de eerste kop van de tekst')
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Titel wijzigen' })).toHaveCount(0);
 	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
 
 	await editor.click();
@@ -417,6 +420,30 @@ test('the title of a field-titled page follows the field', async ({ page }) => {
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeHidden();
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact met het team');
+});
+
+test('the title button opens the properties with the focus in the title field', async ({
+	page
+}) => {
+	await page.goto('/sites/moza-site/bewerken/over-moza.md');
+	const knop = page.getByRole('button', { name: 'Titel wijzigen' });
+	await expect(page.locator('#paginatitel > nldd-icon-button[slot="end"]')).toHaveCount(1);
+	await expect(page.getByText('De titel is de eerste kop van de tekst')).toHaveCount(0);
+
+	await knop.click();
+	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
+	await expect(dialog).toBeVisible();
+	const veld = page.locator('nldd-sheet').getByRole('textbox', { name: 'Titel' });
+	await expect(veld).toBeFocused();
+	await veld.fill('Over MOZa');
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Over MOZa');
+	await expect(knop).toBeFocused();
+
+	await page.getByRole('button', { name: 'Eigenschappen' }).click();
+	await expect(dialog).toBeVisible();
+	await expect(veld).not.toBeFocused();
 });
 
 test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', async ({ page }) => {

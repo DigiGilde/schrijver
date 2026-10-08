@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { fieldLabel, type FormField } from '$lib/content/schema-form';
 
-	type Props = { fields: FormField[]; onchange: (fields: FormField[]) => void; disabled?: boolean };
-	let { fields, onchange, disabled = false }: Props = $props();
+	type Props = {
+		fields: FormField[];
+		onchange: (fields: FormField[]) => void;
+		disabled?: boolean;
+		/** The key of the field that takes the focus when the sheet around the form opens. */
+		focus?: string | null;
+	};
+	let { fields, onchange, disabled = false, focus = null }: Props = $props();
 
 	function set(index: number, value: unknown) {
 		onchange(fields.map((field, i) => (i === index ? { ...field, value, error: null } : field)));
@@ -20,6 +26,11 @@
 			.split(',')
 			.map((part) => part.trim())
 			.filter(Boolean);
+
+	/* nldd-sheet focuses an [autofocus] element on opening; Svelte's own autofocus only acts on mount. */
+	const autofocus = (key: string) => (node: Element) => {
+		node.toggleAttribute('autofocus', key === focus);
+	};
 </script>
 
 {#if fields.length > 0}
@@ -29,6 +40,7 @@
 				{#if field.def.type === 'ja-nee'}
 					<nldd-form-field>
 						<nldd-checkbox-field
+							{@attach autofocus(field.key)}
 							label={fieldLabel(field)}
 							checked={field.value === true || undefined}
 							invalid={field.error !== null || undefined}
@@ -56,6 +68,7 @@
 					>
 						{#if field.def.type === 'getal'}
 							<nldd-number-field
+								{@attach autofocus(field.key)}
 								value={field.value === '' ? undefined : Number(field.value)}
 								invalid={field.error !== null || undefined}
 								disabled={disabled || undefined}
@@ -63,6 +76,7 @@
 							></nldd-number-field>
 						{:else if field.def.type === 'datum'}
 							<nldd-date-field
+								{@attach autofocus(field.key)}
 								value={asDate(field.value)}
 								invalid={field.error !== null || undefined}
 								disabled={disabled || undefined}
@@ -70,6 +84,7 @@
 							></nldd-date-field>
 						{:else}
 							<nldd-text-field
+								{@attach autofocus(field.key)}
 								value={asText(field.value)}
 								invalid={field.error !== null || undefined}
 								disabled={disabled || undefined}

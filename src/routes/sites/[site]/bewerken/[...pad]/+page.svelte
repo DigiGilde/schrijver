@@ -48,10 +48,26 @@
 	let ready = $state(false);
 	let images = $state<PendingImage[]>([]);
 	let imagesLost = $state(false);
+	let focusVeld = $state<string | null>(null);
 
 	const readOnly = $derived(data.readOnly);
 	const samenvattingVeld = $derived(summaryField(fields));
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
+	const titelVeld = $derived(
+		data.titel.startsWith('veld:') ? data.titel.slice('veld:'.length) : null
+	);
+	const titelWijzigbaar = $derived(
+		!readOnly && titelVeld !== null && fields.some((field) => field.key === titelVeld)
+	);
+	const ondertitel = $derived(
+		[
+			data.repoPath,
+			openbaarConcept && 'Openbaar concept',
+			data.titel === 'uit-h1' && !readOnly && 'De titel is de eerste kop van de tekst'
+		]
+			.filter(Boolean)
+			.join(' · ')
+	);
 	const titel = $derived(
 		pageTitle(
 			{ titel: data.titel },
@@ -168,8 +184,14 @@
 		eigenschappenOpen = true;
 	}
 
+	function wijzigTitel() {
+		focusVeld = titelVeld;
+		openEigenschappen();
+	}
+
 	function sluitEigenschappen(event: Event) {
 		eigenschappenOpen = false;
+		focusVeld = null;
 		restoreFocus(
 			event.currentTarget as Element,
 			eigenschappenTerug,
@@ -194,6 +216,14 @@
 		document.body.append(node);
 		return () => node.remove();
 	}
+
+	/** Pagina renders the h1; the button joins the end slot of its title line. */
+	function naarTitel(node: HTMLElement) {
+		const paginatitel = document.getElementById('paginatitel');
+		if (!paginatitel) return;
+		paginatitel.append(node);
+		return () => node.remove();
+	}
 </script>
 
 <svelte:head><title>{titel} bewerken · {data.site.naam} · Schrijver</title></svelte:head>
@@ -210,12 +240,24 @@
 
 <Pagina
 	{titel}
-	ondertitel={openbaarConcept ? `${data.repoPath} · Openbaar concept` : data.repoPath}
+	{ondertitel}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
 	balk={readOnly || conflictOpen ? undefined : bewaarKnop}
 	bind:kop
 >
 	<nldd-container gap="16">
+		{#if ready && titelWijzigbaar}
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				slot="end"
+				icon="edit"
+				text="Titel wijzigen"
+				appearance="neutral-transparent"
+				onclick={wijzigTitel}
+				{@attach naarTitel}
+			></nldd-icon-button>
+		{/if}
+
 		{#if readOnly}
 			<LeesAlleenBanner {readOnly} />
 		{/if}
@@ -327,7 +369,7 @@
 					text="Eigenschappen"
 					supporting-text="Deze waarden worden met de pagina bewaard."
 				></nldd-title>
-				<FrontmatterFormulier {fields} onchange={(next) => (fields = next)} />
+				<FrontmatterFormulier {fields} focus={focusVeld} onchange={(next) => (fields = next)} />
 			</nldd-simple-section>
 		</nldd-page>
 	</nldd-sheet>
