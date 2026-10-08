@@ -46,6 +46,7 @@
 	let bezig = $state(false);
 	let knoptekst = $state('');
 	let conflictOpen = $state(false);
+	let vraagOpen = $state(false);
 	let eigenschappenOpen = $state(false);
 	let kop: HTMLElement | undefined = $state();
 	let restorable = $state<Draft | null>(null);
@@ -302,7 +303,7 @@
 	{titel}
 	{ondertitel}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
-	balk={readOnly || conflictOpen ? undefined : bewaarKnop}
+	balk={readOnly || conflictOpen || vraagOpen ? undefined : bewaarKnop}
 	bind:kop
 >
 	<nldd-container gap="16">
@@ -343,6 +344,7 @@
 					bind:busy={bezig}
 					bind:knoptekst
 					bind:conflictOpen
+					bind:vraagOpen
 					oneigenschappen={fields.length > 0 ? openEigenschappen : null}
 					siteId={data.site.id}
 					repoPath={data.repoPath}
@@ -369,6 +371,7 @@
 					onveldfouten={(fouten) =>
 						(fields = fields.map((f) => ({ ...f, error: fouten[f.key] ?? null })))}
 					focusEditor={(wissel) => void schrijfvlak?.focus(wissel)}
+					conventie={data.site}
 				/>
 				{#if images.length}
 					<nldd-text color="secondary" size="sm"

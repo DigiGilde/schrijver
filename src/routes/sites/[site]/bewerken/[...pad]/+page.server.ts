@@ -50,7 +50,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				id: site.id,
 				naam: site.naam,
 				concepten: site.concepten,
-				afbeeldingen: site.content.afbeeldingen != null
+				afbeeldingen: site.content.afbeeldingen != null,
+				content: { pad: site.content.pad, afbeeldingen: site.content.afbeeldingen }
 			},
 			path: pad,
 			repoPath,
@@ -103,7 +104,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			id: site.id,
 			naam: site.naam,
 			concepten: site.concepten,
-			afbeeldingen: site.content.afbeeldingen != null
+			afbeeldingen: site.content.afbeeldingen != null,
+			content: { pad: site.content.pad, afbeeldingen: site.content.afbeeldingen }
 		},
 		path: pad,
 		repoPath,
