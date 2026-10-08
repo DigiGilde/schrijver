@@ -243,7 +243,7 @@
 											<br /><nldd-link
 												href="{data.githubUrl}/files"
 												target="_blank"
-												text="Bestand gewijzigd, bekijk op GitHub"
+												text="Bestand {BESTAND[f.status]}, bekijk op GitHub"
 											></nldd-link>
 										{/if}
 									</td>

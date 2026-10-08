@@ -92,9 +92,9 @@ test('asks before deleting an image no other page shows, and deletes it with the
 
 	await page.goto(`/sites/digi-handboek/voorstellen/${new URL(page.url()).searchParams.get('pr')}`);
 	const bestanden = page.getByRole('table', { name: 'Alle gewijzigde bestanden' });
-	await expect(bestanden.getByRole('row').filter({ hasText: MELDING_PAD })).toContainText(
-		'verwijderd'
-	);
+	const rij = bestanden.getByRole('row').filter({ hasText: MELDING_PAD });
+	await expect(rij).toContainText('verwijderd');
+	await expect(rij.getByRole('link')).toHaveAccessibleName(/^Bestand verwijderd, bekijk op GitHub/);
 	await expect(
 		bestanden.getByRole('row').filter({ hasText: 'docs/over/kwetsbaarheid.md' })
 	).toContainText('gewijzigd');
