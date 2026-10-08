@@ -51,6 +51,26 @@ export function startFrontmatter(schema: PageSchema, title: string): Record<stri
 	return schema.titel.startsWith('veld:') ? { [schema.titel.slice('veld:'.length)]: title } : {};
 }
 
+/**
+ * The title field and the status line after "Maak een opzet": the suggested title fills an empty
+ * field, and a title the writer already has stays, with the suggestion named in the status line.
+ */
+export function titleAfterOutline(
+	typed: string,
+	suggested: string
+): { title: string; status: string } {
+	if (typed.trim() === '') {
+		return {
+			title: suggested,
+			status: 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.'
+		};
+	}
+	return {
+		title: typed,
+		status: `De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "${suggested}". Controleer de opzet voordat je de pagina maakt.`
+	};
+}
+
 /** Where the editor keeps the unsaved draft of a page that is not on a proposal branch yet. */
 export function draftKey(siteId: string, path: string): string {
 	return `schrijver:${siteId}:new:${path}`;

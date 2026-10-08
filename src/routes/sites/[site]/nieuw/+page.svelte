@@ -4,7 +4,14 @@
 	import Pagina from '$lib/components/Pagina.svelte';
 	import { AI_NOTICE, OUTLINE_DESCRIPTION_MAX } from '$lib/assistant/shared';
 	import { readDraft, writeDraft } from '$lib/client/draft';
-	import { draftKey, filePreview, startFrontmatter, startText, templateFor } from './new-page';
+	import {
+		draftKey,
+		filePreview,
+		startFrontmatter,
+		startText,
+		templateFor,
+		titleAfterOutline
+	} from './new-page';
 
 	let { data, form } = $props();
 
@@ -57,10 +64,11 @@
 			});
 			const result = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(result.message ?? 'De schrijfhulp is niet beschikbaar');
-			titel = result.title;
+			const klaar = titleAfterOutline(titel, result.title);
+			titel = klaar.title;
 			opzet = result.outline;
 			uitleg = result.explanation;
-			melding = 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.';
+			melding = klaar.status;
 		} catch (e) {
 			mislukt = true;
 			melding = e instanceof Error ? e.message : 'De schrijfhulp is niet beschikbaar';

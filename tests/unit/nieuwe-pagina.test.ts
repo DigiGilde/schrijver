@@ -7,7 +7,8 @@ import {
 	isoDate,
 	startFrontmatter,
 	startText,
-	templateFor
+	templateFor,
+	titleAfterOutline
 } from '../../src/routes/sites/[site]/nieuw/new-page';
 
 vi.mock('../../src/lib/log', async (original) => ({
@@ -54,6 +55,21 @@ describe('filePreview', () => {
 		expect(filePreview(handboek, null, 'kennis', 'woord '.repeat(40), today)).toBe(
 			`kennis/${'woord-'.repeat(12)}woord.md`
 		);
+	});
+});
+
+describe('the title after "Maak een opzet"', () => {
+	it('fills an empty title with the suggestion', () => {
+		const klaar = 'Titel en opzet staan klaar. Controleer ze voordat je de pagina maakt.';
+		expect(titleAfterOutline('', 'Koffie')).toEqual({ title: 'Koffie', status: klaar });
+		expect(titleAfterOutline(' \t', 'Koffie')).toEqual({ title: 'Koffie', status: klaar });
+	});
+	it('keeps a title the writer typed and names the suggestion in the status line', () => {
+		expect(titleAfterOutline('Mijn eigen titel', 'Koffie')).toEqual({
+			title: 'Mijn eigen titel',
+			status:
+				'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Koffie". Controleer de opzet voordat je de pagina maakt.'
+		});
 	});
 });
 

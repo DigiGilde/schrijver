@@ -73,6 +73,22 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	await expect(editor).toContainText('Op de vierde verdieping.');
 });
 
+test('Maak een opzet keeps a title the writer typed and names the suggestion', async ({ page }) => {
+	await open(page, 'digi-handboek');
+	await page.getByLabel('Titel').fill('Mijn eigen titel');
+	await page
+		.getByLabel('Of beschrijf wat je wilt schrijven')
+		.fill('Een pagina over de koffieautomaat. Waar staat hij en hoe werkt hij?');
+	await page.getByRole('button', { name: 'Maak een opzet' }).click();
+
+	await expect(page.getByLabel('Opzet', { exact: true })).toHaveValue(/^## Waar gaat het over/);
+	await expect(page.locator('form').getByRole('status')).toHaveText(
+		'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Een pagina over de koffieautomaat". Controleer de opzet voordat je de pagina maakt.'
+	);
+	await expect(page.getByLabel('Titel')).toHaveValue('Mijn eigen titel');
+	await expect(page.getByText('Bestand: kennis/mijn-eigen-titel.md')).toBeVisible();
+});
+
 test('Maak een opzet without a description says what is missing and asks nothing', async ({
 	page
 }) => {
