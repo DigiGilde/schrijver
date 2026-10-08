@@ -1,5 +1,7 @@
 - id: digi-handboek
   naam: Digi Handboek
+  omschrijving: De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.
+  adres: https://digihandboek.rijks.app/
   forge: github
   repo: DigiGilde/handboek
   standaardbranch: main
@@ -23,7 +25,9 @@
   schrijfwijzer: digi-handboek.md
 
 - id: moza-site
-  naam: MOZa-site
+  naam: MijnOverheid Zakelijk
+  omschrijving: Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.
+  adres: https://mijnoverheidzakelijk.nl/
   forge: github
   repo: MinBZK/moza-site
   standaardbranch: main

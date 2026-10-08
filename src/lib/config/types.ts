@@ -57,6 +57,8 @@ export const SiteConfigSchema = z
 	.strictObject({
 		id: z.string(),
 		naam: z.string(),
+		omschrijving: z.string().optional(),
+		adres: z.string().url().optional(),
 		forge: z.literal('github'),
 		repo: z.string(),
 		standaardbranch: z.string(),

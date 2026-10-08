@@ -29,7 +29,7 @@ test('the home page lists both sites', async ({ page }) => {
 		'href',
 		'/sites/digi-handboek'
 	);
-	await expect(sites.getByRole('link', { name: /MOZa-site/ })).toHaveAttribute(
+	await expect(sites.getByRole('link', { name: /MijnOverheid Zakelijk/ })).toHaveAttribute(
 		'href',
 		'/sites/moza-site'
 	);
