@@ -50,6 +50,7 @@
 			? EMPTY[huidig]
 			: `${LABEL[huidig]}: ${shown.length} ${shown.length === 1 ? 'voorstel' : 'voorstellen'}`
 	);
+	const adres = (p: Proposal) => `/sites/${siteId}/voorstellen/${p.number}?filter=${huidig}`;
 	const regel = (p: Proposal) =>
 		[
 			STATUS[p.status].line,
@@ -115,7 +116,7 @@
 				(p.mine || editorial) && p.verderBewerken.length === 1 ? p.verderBewerken[0] : null}
 			{#if verder}
 				<nldd-list-item>
-					<nldd-list-item-segment href="/sites/{siteId}/voorstellen/{p.number}" width="full">
+					<nldd-list-item-segment href={adres(p)} width="full">
 						{@render cellen(p)}
 					</nldd-list-item-segment>
 					<nldd-list-item-segment href={verder.href} accessible-label="Verder bewerken: {p.title}">
@@ -130,7 +131,7 @@
 					</nldd-list-item-segment>
 				</nldd-list-item>
 			{:else}
-				<nldd-list-item href="/sites/{siteId}/voorstellen/{p.number}">
+				<nldd-list-item href={adres(p)}>
 					{@render cellen(p)}
 					<nldd-spacer-cell size="8"></nldd-spacer-cell>
 					<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>

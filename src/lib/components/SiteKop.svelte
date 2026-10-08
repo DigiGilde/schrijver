@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { addressText } from '$lib/config/site-address';
-	import { proposalsTab } from '$lib/forge/status';
+	import { proposalsTab, proposalsTabAddress } from '$lib/forge/status';
 
 	type Tab = 'paginas' | 'voorstellen' | 'over';
 	let {
@@ -49,7 +49,7 @@
 		></nldd-tab-bar-item>
 		<nldd-tab-bar-item
 			text={voorstellen.text}
-			href="/sites/{site.id}/voorstellen{wachtend ? '?filter=beoordelen' : ''}"
+			href={proposalsTabAddress(site.id, wachtend)}
 			current={huidig === 'voorstellen' || undefined}
 			use:toegankelijkeNaam={voorstellen.label}
 		></nldd-tab-bar-item>

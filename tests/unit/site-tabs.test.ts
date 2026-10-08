@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseSitesYaml } from '../../src/lib/config/types';
-import { filterOf, proposalsAddress, siteHeader } from '../../src/lib/server/site-tabs';
+import {
+	carriedFilter,
+	filterOf,
+	proposalsAddress,
+	siteHeader
+} from '../../src/lib/server/site-tabs';
 
 describe('proposalsAddress', () => {
 	it('leaves a site page without ?tab= where it is', () => {
@@ -36,6 +41,20 @@ describe('filterOf', () => {
 	it('offers Te beoordelen to editorial members only', () => {
 		expect(filterOf('beoordelen', true)).toBe('beoordelen');
 		expect(filterOf('beoordelen', false)).toBe('mijn');
+	});
+});
+
+describe('carriedFilter', () => {
+	it('keeps the filter that a proposal was opened from', () => {
+		expect(carriedFilter('mijn')).toBe('mijn');
+		expect(carriedFilter('alle')).toBe('alle');
+		expect(carriedFilter('beoordelen')).toBe('beoordelen');
+	});
+
+	it('has none when the address carries none, or one that does not exist', () => {
+		expect(carriedFilter(null)).toBeNull();
+		expect(carriedFilter('')).toBeNull();
+		expect(carriedFilter('iets')).toBeNull();
 	});
 });
 

@@ -8,6 +8,7 @@ import { sameRepo } from '$lib/forge/repo';
 import { identityFromPrBody } from '$lib/forge/trailers';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { backToProposals } from '$lib/server/site-tabs';
 
 const decoder = new TextDecoder();
 const IMAGE = /\.(png|jpe?g|webp|svg|gif|avif)$/i;
@@ -16,7 +17,7 @@ const MAX_DIFF_PAGES = 20;
 const MAX_PAGE_BYTES = 500_000;
 const TE_GROOT = Symbol('te groot');
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const site = getConfigStore().site(params.site);
 	const nummer = Number(params.nummer);
 	if (!site || !Number.isInteger(nummer) || nummer <= 0) error(404, 'Voorstel niet gevonden');
@@ -91,6 +92,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		);
 		return {
 			site: { id: site.id, naam: site.naam },
+			terug: await backToProposals(site, forge, url, locals.user!),
 			redactie: site.review.redactie,
 			proposal,
 			diffs,

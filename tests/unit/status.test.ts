@@ -5,6 +5,7 @@ import {
 	listing,
 	nextStep,
 	proposalsTab,
+	proposalsTabAddress,
 	stepOf,
 	updatedText,
 	waitsForReview,
@@ -55,6 +56,16 @@ describe('proposalsTab', () => {
 			text: 'Voorstellen (2)',
 			label: 'Voorstellen, 2 wachten op beoordeling'
 		});
+	});
+});
+
+describe('proposalsTabAddress', () => {
+	it('opens the list as it is, unless something waits for the editors', () => {
+		expect(proposalsTabAddress('digi-handboek', null)).toBe('/sites/digi-handboek/voorstellen');
+		expect(proposalsTabAddress('digi-handboek', 0)).toBe('/sites/digi-handboek/voorstellen');
+		expect(proposalsTabAddress('digi-handboek', 3)).toBe(
+			'/sites/digi-handboek/voorstellen?filter=beoordelen'
+		);
 	});
 });
 

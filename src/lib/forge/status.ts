@@ -52,6 +52,11 @@ export function proposalsTab(waiting: number | null): { text: string; label: str
 	};
 }
 
+/** Where the Voorstellen tab of a site leads: editorial members land on what waits for them. */
+export function proposalsTabAddress(siteId: string, waiting: number | null): string {
+	return `/sites/${encodeURIComponent(siteId)}/voorstellen${waiting ? '?filter=beoordelen' : ''}`;
+}
+
 /* Dates read as on the wall in the Netherlands, so the server and the browser render the same words. */
 const zone = 'Europe/Amsterdam';
 const dayMonth = new Intl.DateTimeFormat('nl-NL', {

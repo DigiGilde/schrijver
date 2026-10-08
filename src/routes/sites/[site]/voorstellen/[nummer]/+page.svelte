@@ -81,10 +81,7 @@
 
 <svelte:head><title>{data.proposal.title} · {data.site.naam} · Schrijver</title></svelte:head>
 
-<Pagina
-	titel={data.proposal.title}
-	terug={{ href: `/sites/${data.site.id}/voorstellen`, tekst: data.site.naam }}
->
+<Pagina titel={data.proposal.title} terug={{ href: data.terug, tekst: data.site.naam }}>
 	<nldd-container gap="24">
 		<nldd-container layout="wrap" gap="12" vertical-alignment="center">
 			<nldd-badge text={stand.label} color={stand.color}></nldd-badge>

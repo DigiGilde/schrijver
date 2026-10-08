@@ -157,7 +157,7 @@ test('a proposal row says where it stands and what comes next', async ({ page })
 	await expect(seeded).toHaveAccessibleName(
 		/^Voorbeeldvoorstel Digi Handboek Nog niet ingestuurd, alleen zichtbaar als voorstel · Bijgewerkt \d{1,2} [a-z]+( \d{4})? Concept$/
 	);
-	const sent = rows.locator(`a[href="/sites/digi-handboek/voorstellen/${nummer}"]`);
+	const sent = rows.locator(`a[href="/sites/digi-handboek/voorstellen/${nummer}?filter=alle"]`);
 	await expect(sent).toHaveAccessibleName(
 		/ Wacht op beoordeling door de redactie · Bijgewerkt \d{1,2} [a-z]+( \d{4})? Ingestuurd$/
 	);
@@ -230,6 +230,44 @@ test('a filter without proposals says so in the status line', async ({ page }) =
 		await page.getByRole('radio', { name: radio }).click();
 		await expect(resultLine(page)).toHaveText(empty);
 	}
+});
+
+test('a proposal row carries its filter, and back from the proposal returns to it', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	await page.getByRole('radio', { name: 'Alle voorstellen' }).click();
+	const row = list(page, 'Alle voorstellen').getByRole('link', {
+		name: /^Voorbeeldvoorstel Digi Handboek/
+	});
+	await expect(row).toHaveAttribute('href', /\/voorstellen\/\d+\?filter=alle$/);
+	await row.click();
+	await expect(page).toHaveURL(/\/voorstellen\/\d+\?filter=alle$/);
+
+	await page.getByRole('link', { name: 'Digi Handboek', exact: true }).click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
+});
+
+test('back from a proposal opened without a filter goes where the Voorstellen tab goes', async ({
+	page
+}) => {
+	const nummer = await sendIn(page, 'kennis/reservation-bot.md', 'Terug naar de lijst');
+	await page.getByRole('link', { name: 'Digi Handboek', exact: true }).click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=beoordelen$/);
+	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toBeChecked();
+
+	// A filter that was chosen beats that default, though something still waits.
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	await page.getByRole('radio', { name: /^Mijn voorstellen/ }).click();
+	await list(page, 'Mijn voorstellen')
+		.locator(`a[href^="/sites/digi-handboek/voorstellen/${nummer}?"]`)
+		.click();
+	await expect(page).toHaveURL(new RegExp(`/voorstellen/${nummer}\\?filter=mijn$`));
+	await page.getByRole('link', { name: 'Digi Handboek', exact: true }).click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=mijn$/);
+	await expect(page.getByRole('radio', { name: /^Mijn voorstellen/ })).toBeChecked();
 });
 
 test('the about page explains the flow and names the redactie', async ({ page }) => {

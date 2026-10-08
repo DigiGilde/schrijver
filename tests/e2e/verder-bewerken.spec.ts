@@ -92,7 +92,7 @@ test('the shortcut of a segmented row reads as a link and gives up its label fir
 		{
 			url: '/sites/moza-site/voorstellen?filter=mijn',
 			list: 'Mijn voorstellen',
-			opens: `/sites/moza-site/voorstellen/${nummer}`
+			opens: `/sites/moza-site/voorstellen/${nummer}?filter=mijn`
 		}
 	];
 	for (const { url, list, opens } of rows) {

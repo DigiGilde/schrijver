@@ -3,6 +3,7 @@ import type { Session } from '../../src/lib/auth/session';
 import type { UserPrefs } from '../../src/lib/auth/users';
 import { identityTrailer } from '../../src/lib/forge/trailers';
 import type { FakeForge } from '../../src/lib/forge/fake';
+import { ForgeError } from '../../src/lib/forge/types';
 
 vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
@@ -42,6 +43,7 @@ interface Diff {
 interface Data {
 	diffs: Diff[];
 	nietVergeleken: number;
+	terug: string;
 }
 
 async function proposal(slug: string, files: Record<string, string>): Promise<number> {
@@ -63,10 +65,14 @@ async function proposal(slug: string, files: Record<string, string>): Promise<nu
 	return pr.number;
 }
 
-async function visit(nummer: number): Promise<Data> {
+// Editorial on digi-handboek only: the fake services add this address to its redactie.
+const EDITOR = 'test@example.org';
+
+async function visit(nummer: number, { query = '', email = session.email } = {}): Promise<Data> {
 	return (await load({
 		params: { site: 'digi-handboek', nummer: String(nummer) },
-		locals: { user: { session, prefs } }
+		url: new URL(`http://x/sites/digi-handboek/voorstellen/${nummer}${query}`),
+		locals: { user: { session: { ...session, email }, prefs } }
 	} as never)) as Data;
 }
 
@@ -96,5 +102,51 @@ describe('proposal page load', () => {
 			expect.objectContaining({ path: 'docs/groot.md', teGroot: true, before: null, after: null })
 		]);
 		expect(data.nietVergeleken).toBe(0);
+	});
+});
+
+describe('the way back from a proposal', () => {
+	const LIST = '/sites/digi-handboek/voorstellen';
+	let nummer: number;
+
+	beforeAll(async () => {
+		nummer = await proposal('terug-cccc', { 'docs/terug.md': '# Terug\n' });
+	});
+
+	it('returns to the list in the filter that the proposal was opened from', async () => {
+		expect((await visit(nummer, { query: '?filter=alle' })).terug).toBe(`${LIST}?filter=alle`);
+		expect((await visit(nummer, { query: '?filter=mijn' })).terug).toBe(`${LIST}?filter=mijn`);
+		expect((await visit(nummer, { query: '?filter=beoordelen', email: EDITOR })).terug).toBe(
+			`${LIST}?filter=beoordelen`
+		);
+	});
+
+	it('leaves it to the list to refuse a filter, and drops one that does not exist', async () => {
+		expect((await visit(nummer, { query: '?filter=beoordelen' })).terug).toBe(
+			`${LIST}?filter=beoordelen`
+		);
+		expect((await visit(nummer, { query: '?filter=iets' })).terug).toBe(LIST);
+	});
+
+	it('goes as the Voorstellen tab goes without a filter: to what waits, for editors only', async () => {
+		expect((await visit(nummer, { email: EDITOR })).terug, 'nothing waits yet').toBe(LIST);
+		await forge.markReady(REPO, nummer);
+		expect((await visit(nummer, { email: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
+		expect((await visit(nummer)).terug).toBe(LIST);
+	});
+
+	it('does the same for a proposal from a fork, which editors review as well', async () => {
+		const fork = await proposal('fork-dddd', { 'docs/fork.md': '# Fork\n' });
+		await forge.markReady(REPO, fork);
+		forge.prs.get(fork)!.headRepo = 'iemand/handboek';
+		expect((await visit(fork, { query: '?filter=beoordelen', email: EDITOR })).terug).toBe(
+			`${LIST}?filter=beoordelen`
+		);
+		expect((await visit(fork, { email: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
+	});
+
+	it('still opens the plain list when the forge cannot tell what waits', async () => {
+		forge.failNext('listPrs', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		expect((await visit(nummer, { email: EDITOR })).terug).toBe(LIST);
 	});
 });
