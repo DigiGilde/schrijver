@@ -155,8 +155,9 @@
 					{#if view === 'bron'}
 						Toegevoegde regels zijn groen met een plus, verwijderde regels rood met een min.
 					{:else}
-						Nieuwe tekst is groen, verwijderde tekst rood en doorgestreept; gewijzigde woorden zijn
-						extra gemarkeerd.
+						Nieuwe tekst is groen met een doorgetrokken lijn links, oude tekst rood met een
+						onderbroken lijn links. Gewijzigde woorden zijn extra gemarkeerd: nieuwe onderstreept,
+						oude doorgestreept.
 					{/if}
 				{/if}
 			</nldd-text>
@@ -247,15 +248,33 @@
 		color: var(--semantics-categories-critical-filled-content-color);
 	}
 
+	/*
+	 * The bar is the border of a pseudo-element. A shadow cannot be dashed, a border on the block itself would
+	 * replace the border of quotes and tables, and axe cannot measure text over a background image.
+	 */
+	.inhoud :global([data-diff]) {
+		position: relative;
+	}
+	.inhoud :global([data-diff])::before {
+		content: '';
+		position: absolute;
+		inset-block: 0;
+		inset-inline-start: 0;
+		border-inline-start: 4px solid var(--bar);
+	}
 	.inhoud :global([data-diff='toegevoegd']),
 	.inhoud :global([data-diff='wordt']) {
+		--bar: var(--semantics-categories-success-filled-background-color);
 		background-color: var(--semantics-categories-success-tinted-background-color);
-		box-shadow: inset 4px 0 0 var(--semantics-categories-success-filled-background-color);
 	}
 	.inhoud :global([data-diff='verwijderd']),
 	.inhoud :global([data-diff='was']) {
+		--bar: var(--semantics-categories-critical-filled-background-color);
 		background-color: var(--semantics-categories-critical-tinted-background-color);
-		box-shadow: inset 4px 0 0 var(--semantics-categories-critical-filled-background-color);
+	}
+	.inhoud :global([data-diff='verwijderd'])::before,
+	.inhoud :global([data-diff='was'])::before {
+		border-inline-start-style: dashed;
 	}
 	.inhoud :global([data-diff='verwijderd']) {
 		text-decoration: line-through;
@@ -287,17 +306,6 @@
 	.inhoud :global(.diff-overgeslagen) {
 		color: var(--semantics-content-secondary-color);
 		font-style: italic;
-	}
-	/* Forced colours drop the tint and the shadow; a bar of its own keeps added and removed blocks apart. */
-	@media (forced-colors: active) {
-		.inhoud :global([data-diff='toegevoegd']),
-		.inhoud :global([data-diff='wordt']) {
-			border-inline-start: 4px solid;
-		}
-		.inhoud :global([data-diff='verwijderd']),
-		.inhoud :global([data-diff='was']) {
-			border-inline-start: 4px dashed;
-		}
 	}
 
 	.sr-only,
