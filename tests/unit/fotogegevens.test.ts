@@ -1,9 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { crc32, deflateSync } from 'node:zlib';
+import { JSDOM } from 'jsdom';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
 import { stripMetadata } from '../../src/lib/content/fotogegevens';
-import { MAX_IMAGE_BYTES, sanitizeSvg, validateImage } from '../../src/lib/content/images';
+import {
+	MAX_IMAGE_BYTES,
+	isSvgDocument,
+	sanitizeSvg,
+	validateImage
+} from '../../src/lib/content/images';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { save } from '../../src/lib/forge/save';
 import type { Identity } from '../../src/lib/forge/trailers';
@@ -560,6 +566,66 @@ describe('a file of countless tiny parts', () => {
 
 /* SVG */
 
+/** An Illustrator "Save As" file: entity DOCTYPE, entity references in attributes, a private copy. */
+const ILLUSTRATOR = `<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+	<!ENTITY ns_extend "http://ns.adobe.com/Extensibility/1.0/">
+	<!ENTITY ns_ai "http://ns.adobe.com/AdobeIllustrator/10.0/">
+	<!ENTITY ns_graphs "http://ns.adobe.com/Graphs/1.0/">
+	<!ENTITY ns_vars "http://ns.adobe.com/Variables/1.0/">
+	<!ENTITY ns_imrep "http://ns.adobe.com/ImageReplacement/1.0/">
+	<!ENTITY ns_sfw "http://ns.adobe.com/SaveForWeb/1.0/">
+	<!ENTITY ns_custom "http://ns.adobe.com/GenericCustomNamespace/1.0/">
+	<!ENTITY ns_adobe_xpath "http://ns.adobe.com/XPath/1.0/">
+]>
+<svg version="1.1" id="Layer_1" xmlns:x="&ns_extend;" xmlns:i="&ns_ai;" xmlns:graph="&ns_graphs;"
+	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="226.777px"
+	 height="226.777px" viewBox="0 0 226.777 226.777" enable-background="new 0 0 226.777 226.777" xml:space="preserve">
+<metadata>
+	<variableSets  xmlns="&ns_vars;">
+		<variableSet  varSetName="binding1" locked="none">
+			<variables></variables>
+			<v:sampleDataSets  xmlns:v="&ns_vars;" xmlns="&ns_custom;"></v:sampleDataSets>
+		</variableSet>
+	</variableSets>
+	<sfw  xmlns="&ns_sfw;">
+		<slices></slices>
+		<sliceSourceBounds  y="-0.223" x="0" width="226.777" height="226.777" bottomLeftOrigin="true"></sliceSourceBounds>
+	</sfw>
+</metadata>
+<switch>
+	<foreignObject requiredExtensions="&ns_ai;" x="0" y="0" width="1" height="1">
+		<i:pgfRef  xlink:href="#adobe_illustrator_pgf">
+		</i:pgfRef>
+	</foreignObject>
+	<g i:extraneous="self">
+		<circle fill="#E17000" cx="113.389" cy="113.389" r="113.389"/>
+		<text transform="matrix(1 0 0 1 60 120)" font-family="'ArialMT'" font-size="24">Hallo</text>
+	</g>
+</switch>
+<i:pgf  id="adobe_illustrator_pgf">
+	<![CDATA[
+	eJzsvWuT27jRBvxXVXXSSaRAJAiHqnl4WCxxSAqjCkqa7nqqvfv7cc56d3Xz9PQjwEyPmaJOxhTA
+	${XMP}
+	]]>
+</i:pgf>
+</svg>
+`;
+
+/** The file comes out as a plain svg: nothing of its DOCTYPE, entities or private copy is left. */
+function expectCleanIllustrator(svg: string) {
+	expect(isSvgDocument(svg)).toBe(true);
+	expect(svg.startsWith('<svg ')).toBe(true);
+	const gone = ['DOCTYPE', 'ENTITY', 'ns_', 'adobe', 'Illustrator', '&', ']>', 'pgf', 'CDATA'];
+	for (const text of [...gone, 'eJzsvWuT', 'Jan Jansen']) expect(svg, text).not.toContain(text);
+	const { document } = new JSDOM(svg, { contentType: 'image/svg+xml' }).window;
+	expect(document.documentElement.namespaceURI).toBe('http://www.w3.org/2000/svg');
+	expect(document.documentElement.localName).toBe('svg');
+	expect(document.querySelector('circle')).not.toBeNull();
+	expect(document.querySelector('text')?.textContent).toBe('Hallo');
+}
+
 describe('SVG metadata', () => {
 	const svg =
 		'<svg xmlns="http://www.w3.org/2000/svg"><metadata><rdf:RDF><dc:creator>Jan Jansen' +
@@ -621,6 +687,11 @@ describe('SVG metadata', () => {
 			'</textPath></text></g></svg>';
 		expect(sanitizeSvg(diagram)).toBe(diagram);
 	});
+
+	it('accepts an Illustrator file with an entity DOCTYPE and keeps nothing of it', () => {
+		expect(validateImage(Buffer.from(ILLUSTRATOR), 'image/svg+xml')).toMatchObject({ ok: true });
+		expectCleanIllustrator(sanitizeSvg(ILLUSTRATOR));
+	});
 });
 
 /* Where images come in: the upload, and the save that commits them */
@@ -677,6 +748,14 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 		await upload('foto.jpg', 'image/jpeg', phonePhoto());
 		expect(parses.count).toBe(1);
 	});
+
+	it('accepts an Illustrator SVG with an entity DOCTYPE and returns it clean', async () => {
+		const res = await upload('logo.svg', 'image/svg+xml', Buffer.from(ILLUSTRATOR));
+		expect(res.status).toBe(200);
+		const { base64, mime } = await res.json();
+		expect(mime).toBe('image/svg+xml');
+		expectCleanIllustrator(Buffer.from(base64, 'base64').toString());
+	});
 });
 
 describe('save', () => {
@@ -686,7 +765,7 @@ describe('save', () => {
 	const identity: Identity = { kind: 'anoniem', pseudoniem: 'abc123def456' };
 	const foto = 'docs/afbeeldingen/docs/foto.jpg';
 
-	async function saveWith(bytes: Buffer) {
+	async function saveWith(bytes: Buffer, path = foto) {
 		const forge = new FakeForge();
 		forge.seedRepo(digi.repo, 'main', {
 			'docs/index.md': '---\ndescription: Oud\n---\n\n# Home\n'
@@ -700,7 +779,7 @@ describe('save', () => {
 			baseSha,
 			branch: null,
 			prNumber: null,
-			images: [{ path: foto, base64: bytes.toString('base64') }]
+			images: [{ path, base64: bytes.toString('base64') }]
 		});
 		return { forge, result };
 	}
@@ -728,5 +807,13 @@ describe('save', () => {
 		parses.count = 0;
 		await saveWith(phonePhoto());
 		expect(parses.count).toBe(1);
+	});
+
+	it('commits an Illustrator SVG with an entity DOCTYPE clean', async () => {
+		const logo = 'docs/afbeeldingen/docs/logo.svg';
+		const { forge, result } = await saveWith(Buffer.from(ILLUSTRATOR), logo);
+		if (!result.ok) throw new Error(JSON.stringify(result));
+		const stored = await forge.readFile(digi.repo, result.branch, logo);
+		expectCleanIllustrator(Buffer.from(stored!.content).toString());
 	});
 });
