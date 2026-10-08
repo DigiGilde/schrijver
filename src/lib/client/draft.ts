@@ -8,6 +8,8 @@ export type Draft = {
 	at: number;
 	sha?: string | null;
 	images?: PendingImage[];
+	/** An outline "Nieuwe pagina" hands to the editor, which takes it over without asking, once. */
+	outline?: boolean;
 };
 
 const MAX_IMAGE_BASE64 = Math.ceil((5 * 1024 * 1024 * 4) / 3);

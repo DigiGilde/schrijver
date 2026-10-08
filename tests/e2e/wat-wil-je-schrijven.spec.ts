@@ -74,52 +74,78 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	await expect(editor).toContainText('Op de vierde verdieping.');
 
 	// Once taken over, the outline is the writer's draft: a reload asks about it like any other.
-	await expect.poll(() => page.url(), 'the address drops opzet').not.toContain('opzet=');
+	expect(page.url(), 'the outline travels in the draft').not.toContain('opzet');
+	const sleutel = 'schrijver:digi-handboek:new:kennis/een-pagina-over-de-koffieautomaat.md';
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nMijn eigen zin.');
 	await expect
-		.poll(() =>
-			page.evaluate(() =>
-				localStorage.getItem(
-					'schrijver:digi-handboek:new:kennis/een-pagina-over-de-koffieautomaat.md'
-				)
-			)
-		)
+		.poll(() => page.evaluate((k) => localStorage.getItem(k), sleutel))
 		.toContain('Mijn eigen zin.');
 	await page.reload();
 	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
 	await expect(herkomst).toHaveCount(0);
 });
 
-test('an outline that arrives with a page load leaves the address as well', async ({ page }) => {
+test('Back into an outline the writer worked on asks about the draft, without the banner', async ({
+	page
+}) => {
+	await open(page, 'digi-handboek');
+	await page.getByLabel('Of beschrijf wat je wilt schrijven').fill('Een pagina over de lift.');
+	await page.getByRole('button', { name: 'Maak een opzet' }).click();
+	await expect(page.getByLabel('Opzet', { exact: true })).not.toHaveValue('');
+	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	const herkomst = page.getByText(
+		'Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.'
+	);
+	await expect(herkomst).toBeVisible();
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nMijn eigen zin.');
+
+	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
+	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
+	await page.goBack();
+	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(herkomst).toHaveCount(0);
+});
+
+test('a marked outline is taken over once, also with a page load', async ({ page }) => {
 	const pad = 'kennis/een-opzet-bij-het-laden.md';
+	const sleutel = `schrijver:digi-handboek:new:${pad}`;
 	await open(page, 'digi-handboek');
 	await page.evaluate(
-		(path) =>
+		([k, path]) =>
 			localStorage.setItem(
-				`schrijver:digi-handboek:new:${path}`,
+				k,
 				JSON.stringify({
 					path,
 					body: '# Een opzet bij het laden\n\n## Eerst\n',
 					frontmatter: {},
 					at: Date.now(),
 					sha: null,
-					images: []
+					images: [],
+					outline: true
 				})
 			),
-		pad
+		[sleutel, pad]
 	);
-	const fouten: string[] = [];
-	page.on('pageerror', (fout) => fouten.push(fout.message));
 	await page.goto(
-		`/sites/digi-handboek/bewerken/${pad}?nieuw=1&map=kennis&titel=Een+opzet+bij+het+laden&opzet=1`
+		`/sites/digi-handboek/bewerken/${pad}?nieuw=1&map=kennis&titel=Een+opzet+bij+het+laden`
 	);
-	await expect(
-		page.getByText('Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.')
-	).toBeVisible();
-	await expect.poll(() => page.url(), 'the address drops opzet').not.toContain('opzet=');
-	expect(fouten).toEqual([]);
+	const herkomst = page.getByText(
+		'Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.'
+	);
+	await expect(herkomst).toBeVisible();
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('## Eerst');
+	expect(
+		await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}').outline, sleutel),
+		'the mark goes with the first restore'
+	).toBeUndefined();
+
+	await page.reload();
+	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(herkomst).toHaveCount(0);
 });
 
 test('Maak een opzet keeps a title the writer typed and names the suggestion', async ({ page }) => {

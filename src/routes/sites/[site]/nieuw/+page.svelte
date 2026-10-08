@@ -96,7 +96,8 @@
 			frontmatter: startFrontmatter(data.schema, title),
 			at: Date.now(),
 			sha: null,
-			images: []
+			images: [],
+			outline: true
 		});
 		return readDraft(key)
 			? null
@@ -211,9 +212,6 @@
 						></nldd-multi-line-text-field>
 						<nldd-form-field-help-text>{uitleg}</nldd-form-field-help-text>
 					</nldd-form-field>
-				{/if}
-				{#if opzet?.trim()}
-					<input type="hidden" name="opzet" value="1" />
 				{/if}
 				<nldd-form-actions>
 					<nldd-button-group>

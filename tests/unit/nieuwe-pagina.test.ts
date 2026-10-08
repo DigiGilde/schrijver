@@ -137,17 +137,13 @@ describe('the new-page form on the server', () => {
 		}
 	}
 
-	it('opens the editor and passes on that an outline comes along', async () => {
+	it('opens the editor; an outline travels in the draft, not in the address', async () => {
 		const met = (await submit('digi-handboek', { map: 'kennis', titel: 'Koffie', opzet: '1' })) as {
 			location: string;
 		};
 		expect(met.location).toBe(
-			'/sites/digi-handboek/bewerken/kennis/koffie.md?nieuw=1&map=kennis&titel=Koffie&opzet=1'
+			'/sites/digi-handboek/bewerken/kennis/koffie.md?nieuw=1&map=kennis&titel=Koffie'
 		);
-		const zonder = (await submit('digi-handboek', { map: 'kennis', titel: 'Koffie' })) as {
-			location: string;
-		};
-		expect(zonder.location).not.toContain('opzet');
 	});
 
 	it('refuses a title above 300 characters, keeping what was typed', async () => {
