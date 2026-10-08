@@ -75,6 +75,13 @@ export const SiteConfigSchema = z
 				message: 'concepten: privé wordt nog niet ondersteund'
 			});
 		}
+		if (site.review.model === 'direct') {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['review', 'model'],
+				message: 'review.model: direct wordt nog niet ondersteund'
+			});
+		}
 	});
 
 export const SitesFileSchema = z.array(SiteConfigSchema);

@@ -28,7 +28,7 @@ In the configuration repository add an entry to `sites.yaml` and a file `schemas
 
 ## 4. Choose the review model and the editorial list
 
-- `review.model: goedkeuring` for sites where someone reviews every change; `direct` only where "Insturen" may merge at once.
+- `review.model: goedkeuring`. `direct` (merge at once on "Insturen") is not supported in version one and makes the site fail to load.
 - `review.redactie`: the e-mail addresses of the editorial team. Users with a verified GitHub link and push permission on the repository are editorial as well.
 - GitHub stays the last judge: branch protection and required reviews apply, and Schrijver shows a refusal verbatim.
 - `identiteit.toegestaan`: on a public repository leave out `op-naam` unless you want real names visible.

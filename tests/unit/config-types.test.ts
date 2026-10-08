@@ -21,7 +21,7 @@ describe('parseSitesYaml', () => {
   repo: o/r
   standaardbranch: main
   content: { pad: docs, patroon: "**/*.md", schema: x }
-  review: { model: direct }
+  review: { model: goedkeuring }
   preview: { soort: geen }
 `);
 		expect(site.concepten).toBe('openbaar');
@@ -36,6 +36,11 @@ describe('parseSitesYaml', () => {
 			'- concepten: privé\n  id: moza-site'
 		);
 		expect(() => parseSitesYaml(text)).toThrow('concepten: privé wordt nog niet ondersteund');
+	});
+
+	it('refuses review.model: direct with a Dutch message', () => {
+		const text = fixture('sites.yaml').replace('model: goedkeuring', 'model: direct');
+		expect(() => parseSitesYaml(text)).toThrow('review.model: direct wordt nog niet ondersteund');
 	});
 
 	it('requires label for bij-label and {nummer} in url', () => {

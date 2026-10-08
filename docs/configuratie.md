@@ -30,7 +30,7 @@ A list of sites. Keys are in Dutch.
 | `content.uitsluiten` | list of globs | none | Pages that are not offered for editing, for example `documenten/**`. |
 | `content.afbeeldingen.pad` | string | none | Where uploaded images are stored. Placeholders: `{paginaslug}` (file name of the page without extension) and `{paginamap}` (folder of the page). Without this block the site refuses images ("Deze site accepteert geen afbeeldingen"). |
 | `content.afbeeldingen.verwijzing` | `relatief` | required in the block | How images are referenced from the page. Only `relatief`. |
-| `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct`: "Insturen" merges at once when GitHub allows it; the pull request still exists for history. |
+| `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct` (merge at once on "Insturen") is refused in version one: the site fails to load with "review.model: direct wordt nog niet ondersteund". |
 | `review.mergen-vanuit-schrijver` | boolean | `true` | Whether editorial users may merge (squash) from Schrijver. |
 | `review.redactie` | list of e-mail addresses | `[]` | Editorial list. Editorial is the union of this list and users who linked a GitHub account that has push permission on the repository. |
 | `identiteit.toegestaan` | list of `anoniem`, `gekoppeld`, `op-naam` | all three | Identity choices offered on this site. See [identiteit-en-privacy.md](identiteit-en-privacy.md). |
