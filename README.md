@@ -50,6 +50,7 @@ Build the container with `podman build -f Containerfile -t schrijver .` (the app
 - [docs/ai-en-vlam.md](docs/ai-en-vlam.md): the writing assistant, AI Act and algoritmeregister.
 - [docs/privacy.md](docs/privacy.md): processing inventory, register draft and DPIA advice.
 - [docs/beveiliging.md](docs/beveiliging.md): BIO checklist and platform questions.
+- [docs/smoke-test.md](docs/smoke-test.md): the manual run against real GitHub before the pilot.
 - [docs/review/README.md](docs/review/README.md): index of the compliance reviews.
 - [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [NOTICE](NOTICE), [LICENSE](LICENSE) (EUPL-1.2), [publiccode.yml](publiccode.yml) (a draft until the repository is published).
 - In the app: the help page `/help` ("Zo werkt Schrijver").
