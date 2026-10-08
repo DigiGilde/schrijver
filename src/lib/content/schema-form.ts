@@ -14,7 +14,7 @@ const DEFAULT_LABELS: Record<string, string> = {
 	weight: 'Volgorde',
 	tags: 'Tags',
 	categories: 'Categorieën',
-	draft: 'Concept',
+	draft: 'Niet publiceren',
 	aliases: 'Andere adressen',
 	slug: 'Adres',
 	image: 'Afbeelding',
