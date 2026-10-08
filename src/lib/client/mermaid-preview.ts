@@ -30,13 +30,21 @@ export function watchColourScheme(onchange: (scheme: ColourScheme) => void): () 
 }
 
 let mermaid: Promise<Mermaid> | undefined;
+let iconPack: Promise<IconPack> | undefined;
+
+/** Mermaid calls the loader on every icon lookup until one has resolved, so the pack is fetched once. */
+function loadIconPack(): Promise<IconPack> {
+	iconPack ??= getJson<IconPack>('/api/iconen').catch((error) => {
+		iconPack = undefined;
+		throw error;
+	});
+	return iconPack;
+}
 
 /** Mermaid with the NLDD icons, which load with the first diagram that shows one. */
 export function loadMermaid(): Promise<Mermaid> {
 	mermaid ??= import('mermaid').then(({ default: instance }) => {
-		instance.registerIconPacks([
-			{ name: ICON_PREFIX, loader: () => getJson<IconPack>('/api/iconen') }
-		]);
+		instance.registerIconPacks([{ name: ICON_PREFIX, loader: loadIconPack }]);
 		return instance;
 	});
 	return mermaid;
