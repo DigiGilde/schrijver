@@ -2,6 +2,7 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import createDOMPurify from 'dompurify';
 import type { SiteConfig } from '$lib/config/types';
+import { canStripMetadata } from './fotogegevens';
 
 export class ImageError extends Error {
 	constructor(message: string) {
@@ -91,7 +92,7 @@ export function validateImage(
 			return { ok: false, status: 413, message: 'Een SVG mag niet groter zijn dan 1 MB' };
 		return new TextDecoder().decode(bytes).includes('<svg') ? { ok: true, mime } : unsupported;
 	}
-	return sniff(bytes) === mime ? { ok: true, mime } : unsupported;
+	return sniff(bytes) === mime && canStripMetadata(bytes, mime) ? { ok: true, mime } : unsupported;
 }
 
 const purify = createDOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);

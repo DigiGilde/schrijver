@@ -18,7 +18,10 @@ const schema = (name: string) =>
 const digiSchema = schema('digi-handboek');
 const mozaSchema = schema('moza-site');
 const identity: Identity = { kind: 'anoniem', pseudoniem: 'abc123def456' };
-const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const PNG = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+	'base64'
+);
 const ORIGINAL = '---\ndescription: Oud\n---\n\n# Home\n\nTekst.\n';
 const MOZA_FILE = '---\ntitle: Contact\ndescription: Bel ons\n---\n\nTekst.\n';
 
