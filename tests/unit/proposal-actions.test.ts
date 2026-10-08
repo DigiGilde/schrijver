@@ -192,6 +192,101 @@ describe('approve, comment, merge', () => {
 	});
 });
 
+describe('merge and removed images', () => {
+	const X = 'content/images/x.png';
+	const red = (message: string) => ({ status: 422, message });
+	let p: Awaited<ReturnType<typeof forge.openDraftPr>>;
+
+	beforeEach(async () => {
+		forge.seedRepo('o/moza', 'main', {
+			'content/a.md': '# A\n\n![X](images/x.png)\n',
+			[X]: 'png'
+		});
+		await forge.createBranch('o/moza', 'main', 'p');
+		await forge.commit(
+			'o/moza',
+			'p',
+			[
+				{ path: 'content/a.md', content: '# A\n' },
+				{ path: X, deleted: true }
+			],
+			`Bewerk\n\n${trailer}`
+		);
+		p = await forge.openDraftPr('o/moza', 'p', 'main', 'P', `Voorgesteld.\n\n${trailer}`);
+	});
+
+	it('merges a proposal whose removed image no page shows any more', async () => {
+		await mergeProposal(forge, site(), p, [trailer]);
+		expect(forge.fileText('o/moza', 'main', X)).toBeNull();
+		expect(forge.fileText('o/moza', 'main', 'content/a.md')).toBe('# A\n');
+	});
+
+	it('refuses while a page merged into the base since shows the image, and names it', async () => {
+		await forge.createBranch('o/moza', 'main', 'q');
+		await forge.commit(
+			'o/moza',
+			'q',
+			[{ path: 'content/b.md', content: '![X](images/x.png)\n' }],
+			'q'
+		);
+		const q = await forge.openDraftPr('o/moza', 'q', 'main', 'Q', '');
+		await mergeProposal(forge, site(), q, []);
+		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: dit voorstel verwijdert x.png, maar die afbeelding staat nog op content/b.md.'
+			)
+		);
+		expect(forge.fileText('o/moza', 'main', X)).toBe('png');
+		expect((await forge.getPr('o/moza', p.number)).state).toBe('open');
+	});
+
+	it('refuses while a page the proposal changes still shows the image', async () => {
+		await forge.commit(
+			'o/moza',
+			'p',
+			[{ path: 'content/a.md', content: '![X](images/x.png)\n' }],
+			'weer'
+		);
+		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: dit voorstel verwijdert x.png, maar die afbeelding staat nog op content/a.md.'
+			)
+		);
+	});
+
+	it('counts the old path of a renamed image as removed', async () => {
+		await forge.commit('o/moza', 'main', [{ path: 'content/c.md', content: 'Zie x.png.\n' }], 'c');
+		vi.spyOn(forge, 'prFiles').mockResolvedValue([
+			{ path: 'content/a.md', status: 'modified' },
+			{ path: 'content/images/y.png', status: 'modified', previous: X }
+		]);
+		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: dit voorstel verwijdert x.png, maar die afbeelding staat nog op content/c.md.'
+			)
+		);
+	});
+
+	it('refuses when it cannot see every file the proposal changes or every page', async () => {
+		const unchecked =
+			'Niet samengevoegd: Schrijver kan niet nagaan of een afbeelding die dit voorstel verwijdert nog op een pagina staat. Voeg samen op GitHub.';
+		const prFiles = vi.spyOn(forge, 'prFiles').mockResolvedValueOnce(
+			Array.from({ length: 100 }, (_, i) => ({
+				path: `content/${i}.md`,
+				status: 'added' as const
+			}))
+		);
+		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(red(unchecked));
+		prFiles.mockRestore();
+		const readTree = forge.readTree.bind(forge);
+		vi.spyOn(forge, 'readTree').mockImplementation(async (...args) =>
+			Object.assign(await readTree(...args), { truncated: true as const })
+		);
+		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(red(unchecked));
+		expect(forge.fileText('o/moza', 'main', X)).toBe('png');
+	});
+});
+
 describe('pickReviewers', () => {
 	it('checks at most five logins, excludes the actor and keeps writers', async () => {
 		for (const l of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) forge.permissionByLogin.set(l, 'write');

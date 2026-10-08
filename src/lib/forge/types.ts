@@ -35,7 +35,12 @@ export interface PrSummary {
 export interface PrFile {
 	path: string;
 	status: 'added' | 'modified' | 'removed';
+	/** The path a renamed file had: the pull request removes it. */
+	previous?: string;
 }
+
+/** `prFiles` lists at most this many files: a list this long may leave files out. */
+export const MAX_PR_FILES = 100;
 
 export class ForgeError extends Error {
 	constructor(

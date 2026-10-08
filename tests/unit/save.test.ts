@@ -689,6 +689,47 @@ describe('save', () => {
 			expect(forge.branches(digi.repo)).toEqual(['main']);
 		});
 
+		it('refuses an image a page merged into the default branch since uses', async () => {
+			const first = ok(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({ body: '\n# Home\n\n![Een kat](afbeeldingen/docs/kat.png)\n\nEerst dit.\n' })
+				)
+			);
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{
+						path: 'docs/kennis/kat.md',
+						content: '# Kat\n\n![Kat](../afbeeldingen/docs/kat.png)\n'
+					}
+				],
+				'een ander voorstel, samengevoegd'
+			);
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({
+					body: without,
+					baseSha: first.sha,
+					branch: first.branch,
+					prNumber: first.prNumber,
+					deletions: [KAT]
+				})
+			);
+			expect(r).toMatchObject({
+				...refused(409, 'Niet bewaard: de afbeelding staat nog op een andere pagina'),
+				error: { detail: `${KAT}: docs/kennis/kat.md` }
+			});
+			expect(await forge.readFile(digi.repo, first.branch, KAT)).not.toBeNull();
+		});
+
 		it('refuses an image that is not there', async () => {
 			await forge.commit(
 				digi.repo,

@@ -4,6 +4,7 @@ import { RequestError } from '@octokit/request-error';
 import { log } from '../log';
 import {
 	ForgeError,
+	MAX_PR_FILES,
 	type FileChange,
 	type FileTree,
 	type Forge,
@@ -337,12 +338,15 @@ export class GitHubForge implements Forge {
 			'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
 			{
 				pull_number: number,
-				per_page: 100
+				per_page: MAX_PR_FILES
 			}
 		);
 		return files.map((f) => ({
 			path: f.filename as string,
-			status: f.status === 'added' || f.status === 'removed' ? f.status : 'modified'
+			status: f.status === 'added' || f.status === 'removed' ? f.status : 'modified',
+			...(f.status === 'renamed' && f.previous_filename
+				? { previous: f.previous_filename as string }
+				: {})
 		}));
 	}
 

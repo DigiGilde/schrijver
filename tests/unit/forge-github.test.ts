@@ -60,6 +60,27 @@ describe('GitHubForge', () => {
 		expect(cut.truncated).toBe(true);
 	});
 
+	it('lists the files of a pull request, with the old path of a renamed one', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/7/files`, ({ request }) => {
+				record('perPage', new URL(request.url).searchParams.get('per_page'));
+				return HttpResponse.json([
+					{ filename: 'docs/a.md', status: 'modified' },
+					{ filename: 'docs/b.png', status: 'renamed', previous_filename: 'docs/oud.png' },
+					{ filename: 'docs/c.png', status: 'removed' },
+					{ filename: 'docs/d.md', status: 'added' }
+				]);
+			})
+		);
+		expect(await forge().prFiles('o/r', 7)).toEqual([
+			{ path: 'docs/a.md', status: 'modified' },
+			{ path: 'docs/b.png', status: 'modified', previous: 'docs/oud.png' },
+			{ path: 'docs/c.png', status: 'removed' },
+			{ path: 'docs/d.md', status: 'added' }
+		]);
+		expect(bodies.perPage).toEqual(['100']);
+	});
+
 	it('reports a file above maxBytes without downloading its blob', async () => {
 		let blobRequests = 0;
 		server.use(

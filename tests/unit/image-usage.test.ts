@@ -67,21 +67,49 @@ describe('imageUsage', () => {
 		});
 	});
 
-	it('reads the pages on the proposal branch', async () => {
+	it('reads the proposal branch and the default branch: a use on either keeps the image', async () => {
 		await forge.createBranch(digi.repo, 'main', BRANCH);
 		await forge.commit(
 			digi.repo,
 			BRANCH,
 			[
 				{ path: 'docs/kennis/index.md', content: '# Kennis\n' },
-				{ path: 'docs/over/kat.md', content: '# Kat\n' }
+				{ path: 'docs/over/kat.md', content: '# Kat\n' },
+				{
+					path: 'docs/over/hond.md',
+					content: '# Hond\n\n![Hond](../afbeeldingen/privacy/hond.png)\n'
+				}
 			],
 			'x'
 		);
-		expect((await scan('docs/kennis/privacy.md', [KAT], BRANCH)).images).toEqual([
-			{ path: KAT, usedOn: [], excluded: false }
+		expect((await scan('docs/kennis/privacy.md', [KAT, HOND], BRANCH)).images).toEqual([
+			{
+				path: KAT,
+				usedOn: [
+					{ path: 'docs/kennis/index.md', title: 'Kennis' },
+					{ path: 'docs/over/kat.md', title: 'over/kat.md' }
+				],
+				excluded: false
+			},
+			{ path: HOND, usedOn: [{ path: 'docs/over/hond.md', title: 'Hond' }], excluded: false }
 		]);
-		expect((await scan('docs/kennis/privacy.md', [KAT])).images[0].usedOn).toHaveLength(2);
+	});
+
+	it('takes the images from the proposal branch, also one the proposal added', async () => {
+		const nieuw = 'docs/afbeeldingen/privacy/nieuw.png';
+		await forge.createBranch(digi.repo, 'main', BRANCH);
+		await forge.commit(
+			digi.repo,
+			BRANCH,
+			[
+				{ path: nieuw, content: PNG },
+				{ path: HOND, deleted: true }
+			],
+			'x'
+		);
+		expect((await scan('docs/kennis/privacy.md', [nieuw, HOND], BRANCH)).images).toEqual([
+			{ path: nieuw, usedOn: [], excluded: false }
+		]);
 	});
 
 	it('resolves MOZa references from an _index.md, a subfolder and a bundle frontmatter', async () => {

@@ -3,6 +3,8 @@ import type { SiteConfig } from '$lib/config/types';
 const IMAGE = /\.(?:png|jpe?g|gif|webp|avif|svg)$/i;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
 
+export const isImageFile = (path: string) => IMAGE.test(path);
+
 /** Runs of text that may hold a path: split at white space, brackets, quotes and Markdown emphasis. */
 const TOKEN = /[^\s"'<>()[\]{}|`=,;*]+/g;
 /** Between angle brackets or quotes a path may hold spaces: `<mijn plaatje.png>`, `src="mijn plaatje.png"`. */

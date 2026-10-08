@@ -1,10 +1,11 @@
 import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
+import { usageAfterMerge } from './image-usage';
 import { SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
-import { ForgeError, type Forge, type PrSummary } from './types';
+import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
 
 export const MAX_COMMENT_LENGTH = 5000;
 const MAX_REVIEWERS = 5;
@@ -122,6 +123,28 @@ export async function commentProposal(
 	await forge.comment(site.repo, number, COMMENT_PREFIX + clean);
 }
 
+const UNCHECKED =
+	'Niet samengevoegd: Schrijver kan niet nagaan of een afbeelding die dit voorstel verwijdert nog op een pagina staat. Voeg samen op GitHub.';
+
+/** Refuses the merge while a page would still show an image the pull request removes. */
+async function refuseRemovedImagesInUse(forge: Forge, site: SiteConfig, pr: PrSummary) {
+	const files = await forge.prFiles(site.repo, pr.number);
+	if (files.length >= MAX_PR_FILES) throw new ForgeError(422, UNCHECKED);
+	const scan = await usageAfterMerge(forge, site, pr, files);
+	const used = scan.images.find((image) => image.usedOn.length > 0);
+	if (used) {
+		const name = used.path.slice(used.path.lastIndexOf('/') + 1);
+		const pages = new Intl.ListFormat('nl', { type: 'conjunction' }).format(
+			used.usedOn.map((page) => page.path)
+		);
+		throw new ForgeError(
+			422,
+			`Niet samengevoegd: dit voorstel verwijdert ${name}, maar die afbeelding staat nog op ${pages}.`
+		);
+	}
+	if (!scan.complete) throw new ForgeError(422, UNCHECKED);
+}
+
 export async function mergeProposal(
 	forge: Forge,
 	site: SiteConfig,
@@ -129,6 +152,7 @@ export async function mergeProposal(
 	commitsTrailers: string[],
 	sha?: string
 ): Promise<void> {
+	await refuseRemovedImagesInUse(forge, site, pr);
 	const trailers = [...new Set(commitsTrailers)];
 	const message = `${pr.title} (#${pr.number})${trailers.length > 0 ? `\n\n${trailers.join('\n')}` : ''}`;
 	await forge.merge(site.repo, pr.number, message, sha);

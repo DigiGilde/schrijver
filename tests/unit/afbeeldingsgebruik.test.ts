@@ -84,9 +84,23 @@ describe('POST /api/sites/[site]/afbeeldingsgebruik', () => {
 		});
 	});
 
-	it('reads the proposal branch when there is one', async () => {
-		const res = await post({ ...good, branch: BRANCH, images: [HOND] });
-		expect((await res.json()).images).toEqual([{ path: HOND, usedOn: [], deletable: true }]);
+	it('reads the proposal branch and the default branch: a use on either keeps the image', async () => {
+		await forge.commit(
+			digi.repo,
+			BRANCH,
+			[
+				{
+					path: 'docs/kennis/nieuw.md',
+					content: '# Nieuw\n\n![Kat](../afbeeldingen/privacy/kat.png)\n'
+				}
+			],
+			'nieuw'
+		);
+		const res = await post({ ...good, branch: BRANCH });
+		expect((await res.json()).images).toEqual([
+			{ path: KAT, usedOn: [{ path: 'docs/kennis/nieuw.md', title: 'Nieuw' }], deletable: false },
+			{ path: HOND, usedOn: [{ path: 'docs/kennis/index.md', title: 'Kennis' }], deletable: false }
+		]);
 	});
 
 	it('never offers an image in the image folder of a page under content.uitsluiten', async () => {
