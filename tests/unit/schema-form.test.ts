@@ -5,8 +5,10 @@ import {
 	applyForm,
 	buildForm,
 	newPagePath,
+	summaryField,
 	titleOf,
-	validateForm
+	validateForm,
+	withValue
 } from '../../src/lib/content/schema-form';
 
 const load = (n: string) =>
@@ -113,5 +115,26 @@ describe('newPagePath', () => {
 		expect(newPagePath(handboek, null, 'kennis', 'Nieuwe pagina', now)).toBe(
 			'kennis/nieuwe-pagina.md'
 		);
+	});
+});
+
+describe('summary field', () => {
+	const field = (key: string, type: 'tekst' | 'getal') => ({
+		key,
+		def: { type, verplicht: false, verborgen: false },
+		value: '',
+		error: 'oud'
+	});
+
+	it('finds a description text field and fills only that one', () => {
+		const fields = [field('title', 'tekst'), field('description', 'tekst')];
+		expect(summaryField(fields)).toBe('description');
+		const next = withValue(fields, 'description', 'Kort.');
+		expect(next[1]).toMatchObject({ value: 'Kort.', error: null });
+		expect(next[0]).toBe(fields[0]);
+	});
+
+	it('has none when the page has no description text field', () => {
+		expect(summaryField([field('title', 'tekst'), field('description', 'getal')])).toBeNull();
 	});
 });

@@ -159,3 +159,12 @@ function checkFolder(allowed: string[], folder: string): string {
 	}
 	return folder;
 }
+
+/** The text field a "Samenvatting" suggestion is written into, or null when the page has none. */
+export function summaryField(fields: FormField[]): string | null {
+	return fields.find((f) => f.key === 'description' && f.def.type === 'tekst')?.key ?? null;
+}
+
+export function withValue(fields: FormField[], key: string, value: unknown): FormField[] {
+	return fields.map((f) => (f.key === key ? { ...f, value, error: null } : f));
+}

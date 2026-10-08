@@ -15,7 +15,7 @@
 	} from '$lib/client/draft';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import { parsePage } from '$lib/content/frontmatter';
-	import { applyForm, type FormField } from '$lib/content/schema-form';
+	import { applyForm, summaryField, withValue, type FormField } from '$lib/content/schema-form';
 
 	let { data }: { data: PageData } = $props();
 
@@ -34,6 +34,7 @@
 	let imagesLost = $state(false);
 
 	const readOnly = $derived(data.readOnly);
+	const samenvattingVeld = $derived(summaryField(fields));
 	const openbaarConcept = $derived(data.site.concepten === 'openbaar' && data.isPublic);
 	// svelte-ignore state_referenced_locally
 	let baseSha = $state(data.sha);
@@ -168,6 +169,9 @@
 			pagina={data.repoPath}
 			branch={activeBranch}
 			afbeeldingen={data.site.afbeeldingen}
+			onsamenvatting={samenvattingVeld
+				? (text) => (fields = withValue(fields, samenvattingVeld, text))
+				: null}
 		/>
 
 		<div class="opslaan">

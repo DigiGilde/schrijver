@@ -16,6 +16,8 @@
 		pagina: string;
 		branch: string | null;
 		afbeeldingen: boolean;
+		/** Fills the description field with a summary; null when the page has none. */
+		onsamenvatting?: ((text: string) => void) | null;
 	};
 	let {
 		editor = $bindable(),
@@ -24,7 +26,8 @@
 		siteId,
 		pagina,
 		branch,
-		afbeeldingen
+		afbeeldingen,
+		onsamenvatting = null
 	}: Props = $props();
 
 	let editorState = $state<TextEditorState | null>(null);
@@ -110,6 +113,7 @@
 			onMark={(from, to) => actions.markRange(editor, body, from, to)}
 			onUnmark={() => editor?.setAnnotations([])}
 			onDone={() => editor?.focus()}
+			onSummary={onsamenvatting}
 		/>
 	{/if}
 </aside>

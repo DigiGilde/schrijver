@@ -12,8 +12,19 @@
 		onUnmark: () => void;
 		/** Called once a suggestion is taken or dropped: its buttons are gone, so focus has to go somewhere. */
 		onDone: () => void;
+		/** Writes a summary into the page's description field; null when the page has none. */
+		onSummary?: ((text: string) => void) | null;
 	};
-	let { siteId, getSelection, getAll, onApply, onMark, onUnmark, onDone }: Props = $props();
+	let {
+		siteId,
+		getSelection,
+		getAll,
+		onApply,
+		onMark,
+		onUnmark,
+		onDone,
+		onSummary = null
+	}: Props = $props();
 
 	const actions: { action: Exclude<Action, 'vrij'>; label: string }[] = [
 		{ action: 'korter', label: 'Korter' },
@@ -23,7 +34,13 @@
 		{ action: 'samenvatting', label: 'Samenvatting' }
 	];
 
-	type Pending = { from: number; to: number; original: string; suggestion: Suggestion };
+	type Pending = {
+		action: Action;
+		from: number;
+		to: number;
+		original: string;
+		suggestion: Suggestion;
+	};
 
 	let instruction = $state('');
 	let busy = $state(false);
@@ -45,7 +62,11 @@
 							: 'Op de hele tekst'
 	);
 
-	let parts = $derived(pending ? diffWords(pending.original, pending.suggestion.replacement) : []);
+	let parts = $derived(
+		pending && pending.action !== 'samenvatting'
+			? diffWords(pending.original, pending.suggestion.replacement)
+			: []
+	);
 
 	function refreshScope() {
 		scope = getSelection() ? 'selectie' : 'tekst';
@@ -65,7 +86,8 @@
 		outcome = null;
 		busy = true;
 		error = null;
-		onMark(target.from, target.to);
+		// A summary never replaces the text, so nothing in the editor is marked for it.
+		if (action !== 'samenvatting') onMark(target.from, target.to);
 		try {
 			const res = await fetch('/api/assistent', {
 				method: 'POST',
@@ -79,7 +101,13 @@
 			});
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(data.message ?? 'De schrijfhulp is niet beschikbaar');
-			pending = { from: target.from, to: target.to, original: target.text, suggestion: data };
+			pending = {
+				action,
+				from: target.from,
+				to: target.to,
+				original: target.text,
+				suggestion: data
+			};
 			outcome = 'voorstel';
 		} catch (e) {
 			onUnmark();
@@ -90,7 +118,7 @@
 	}
 
 	function clearPending() {
-		if (pending) onUnmark();
+		if (pending && pending.action !== 'samenvatting') onUnmark();
 		pending = null;
 	}
 
@@ -100,8 +128,16 @@
 		onDone();
 	}
 
+	function useSummary() {
+		if (!pending || !onSummary) return;
+		onSummary(pending.suggestion.replacement.trim());
+		pending = null;
+		outcome = 'overgenomen';
+		onDone();
+	}
+
 	function accept() {
-		if (!pending) return;
+		if (!pending || pending.action === 'samenvatting') return;
 		const { from, to, suggestion, original } = pending;
 		pending = null;
 		onUnmark();
@@ -166,7 +202,33 @@
 		></nldd-notification>
 	{/if}
 
-	{#if pending}
+	{#if pending && pending.action === 'samenvatting'}
+		<div class="voorstel">
+			<p id="voorstel-kop">Voorgestelde samenvatting</p>
+			<blockquote aria-labelledby="voorstel-kop">{pending.suggestion.replacement}</blockquote>
+			{#if !onSummary}
+				<p>
+					<small
+						>Deze pagina heeft geen samenvattingsveld; kopieer de tekst als je hem wilt gebruiken.</small
+					>
+				</p>
+			{/if}
+			<div class="acties">
+				{#if onSummary}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-button
+						appearance="primary"
+						size="sm"
+						text="Gebruik als samenvatting"
+						onclick={useSummary}
+					></nldd-button>
+				{/if}
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button appearance="secondary" size="sm" text="Verwerpen" onclick={dismiss}
+				></nldd-button>
+			</div>
+		</div>
+	{:else if pending}
 		<div class="voorstel">
 			<p>{pending.suggestion.explanation}</p>
 			<p id="voorstel-kop">Voorgestelde wijziging</p>

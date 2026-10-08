@@ -107,6 +107,27 @@ test('applies an assistant suggestion to the selection', async ({ page }) => {
 	await expect(editor).toBeFocused();
 });
 
+test('writes a summary into the description field and leaves the text alone', async ({ page }) => {
+	await page.route('**/api/assistent', (route) =>
+		route.fulfill({
+			json: { replacement: 'Een korte samenvatting.', explanation: 'Samengevat.' }
+		})
+	);
+	await page.goto(url);
+	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	const editor = page.locator('nldd-text-editor .cm-content');
+	await page.getByRole('button', { name: 'Schrijfhulp' }).click();
+	await page.getByRole('button', { name: 'Samenvatting', exact: true }).click();
+	await expect(page.getByText('Een korte samenvatting.')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Overnemen' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Gebruik als samenvatting' }).click();
+	await expect(page.getByRole('textbox', { name: 'Samenvatting' })).toHaveValue(
+		'Een korte samenvatting.'
+	);
+	await expect(page.locator('nldd-rich-text h1')).toHaveText('Het Digi Handboek');
+	await expect(editor).not.toContainText('Een korte samenvatting.');
+});
+
 const pickPng = async (page: import('@playwright/test').Page, alt: string) => {
 	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
 	const dialog = page.locator('nldd-modal-dialog');
