@@ -3,8 +3,10 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 vi.mock('../../src/lib/assistant/vlam', () => ({
 	AssistantUnavailable: class AssistantUnavailable extends Error {},
 	DEFAULT_MODEL: 'm',
+	OUTLINE_DESCRIPTION_MAX: 2000,
 	vlamClientFromEnv: vi.fn(() => ({})),
-	suggest: vi.fn(async () => ({ replacement: 'r', explanation: 'e' }))
+	suggest: vi.fn(async () => ({ replacement: 'r', explanation: 'e' })),
+	outline: vi.fn(async () => ({ title: 't', outline: '## o', explanation: 'e' }))
 }));
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({
@@ -37,6 +39,7 @@ function call(opts: { user?: boolean; header?: boolean; body?: unknown }) {
 afterEach(() => {
 	vi.unstubAllEnvs();
 	vi.mocked(vlam.suggest).mockClear();
+	vi.mocked(vlam.outline).mockClear();
 });
 
 describe('POST /api/assistent', () => {
@@ -70,6 +73,26 @@ describe('POST /api/assistent', () => {
 	});
 });
 
+describe('POST /api/assistent with action opzet', () => {
+	const opzet = { siteId: 'moza', action: 'opzet', text: 'Een pagina over koffie.' };
+
+	it('returns a title and an outline', async () => {
+		const res = await call({ body: opzet });
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ title: 't', outline: '## o', explanation: 'e' });
+		expect(vlam.outline).toHaveBeenCalledWith({}, 'm', 'sw', opzet);
+		expect(vlam.suggest).not.toHaveBeenCalled();
+	});
+	it('400 on a missing, empty or overlong description', async () => {
+		expect((await call({ body: { ...opzet, text: '   ' } })).status).toBe(400);
+		expect((await call({ body: { ...opzet, text: 'a'.repeat(2001) } })).status).toBe(400);
+		expect(
+			(await call({ body: { siteId: 'moza', action: 'opzet', instruction: 'x' } })).status
+		).toBe(400);
+		expect(vlam.outline).not.toHaveBeenCalled();
+	});
+});
+
 describe('POST /api/assistent in the local preview', () => {
 	it('answers with a marked test suggestion when no VLAM address is configured', async () => {
 		vi.stubEnv('NODE_ENV', 'development');
@@ -81,7 +104,10 @@ describe('POST /api/assistent in the local preview', () => {
 			replacement: 'Eerste zin.',
 			explanation: 'Testantwoord, geen AI: alleen de eerste zin blijft staan.'
 		});
+		const outline = await (await call({ body: { ...body, action: 'opzet' } })).json();
+		expect(outline.explanation).toMatch(/^Testantwoord, geen AI: /);
 		expect(vlam.suggest).not.toHaveBeenCalled();
+		expect(vlam.outline).not.toHaveBeenCalled();
 	});
 	it('still checks the site', async () => {
 		vi.stubEnv('NODE_ENV', 'development');

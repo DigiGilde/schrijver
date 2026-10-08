@@ -1,22 +1,32 @@
 import { json } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
-import { fakeAssistantActive, fakeSuggestion } from '$lib/assistant/fake';
+import { fakeAssistantActive, fakeOutline, fakeSuggestion } from '$lib/assistant/fake';
 import {
 	AssistantUnavailable,
 	DEFAULT_MODEL,
+	OUTLINE_DESCRIPTION_MAX,
+	outline,
 	suggest,
 	vlamClientFromEnv
 } from '$lib/assistant/vlam';
 import { UnknownSiteError } from '$lib/config/load';
 import { getConfigStore } from '$lib/server/services';
 
-const Body = z.object({
-	siteId: z.string().min(1).max(100),
-	action: z.enum(['korter', 'b1', 'actiever', 'kopjes', 'samenvatting', 'vrij']),
-	text: z.string().min(1).max(20000),
-	instruction: z.string().max(1000).optional()
-});
+const SiteId = z.string().min(1).max(100);
+const Body = z.discriminatedUnion('action', [
+	z.object({
+		siteId: SiteId,
+		action: z.enum(['korter', 'b1', 'actiever', 'kopjes', 'samenvatting', 'vrij']),
+		text: z.string().min(1).max(20000),
+		instruction: z.string().max(1000).optional()
+	}),
+	z.object({
+		siteId: SiteId,
+		action: z.literal('opzet'),
+		text: z.string().min(1).max(OUTLINE_DESCRIPTION_MAX)
+	})
+]);
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) return json({ message: 'Niet ingelogd' }, { status: 401 });
@@ -30,7 +40,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ message: 'Ongeldig verzoek' }, { status: 400 });
 	}
 	const parsed = Body.safeParse(raw);
-	if (!parsed.success || (parsed.data.action === 'vrij' && !parsed.data.instruction?.trim())) {
+	if (
+		!parsed.success ||
+		(parsed.data.action === 'vrij' && !parsed.data.instruction?.trim()) ||
+		(parsed.data.action === 'opzet' && !parsed.data.text.trim())
+	) {
 		return json({ message: 'Ongeldig verzoek' }, { status: 400 });
 	}
 	const req = parsed.data;
@@ -42,9 +56,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ message: 'Onbekende site' }, { status: 404 });
 		throw err;
 	}
-	if (fakeAssistantActive()) return json(fakeSuggestion(req));
+	if (fakeAssistantActive()) {
+		return json(req.action === 'opzet' ? fakeOutline(req) : fakeSuggestion(req));
+	}
 	try {
-		return json(await suggest(vlamClientFromEnv(), DEFAULT_MODEL, schrijfwijzer, req));
+		const client = vlamClientFromEnv();
+		return json(
+			req.action === 'opzet'
+				? await outline(client, DEFAULT_MODEL, schrijfwijzer, req)
+				: await suggest(client, DEFAULT_MODEL, schrijfwijzer, req)
+		);
 	} catch (err) {
 		if (err instanceof AssistantUnavailable) return json({ message: err.message }, { status: 503 });
 		throw err;

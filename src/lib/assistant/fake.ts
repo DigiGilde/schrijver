@@ -1,5 +1,5 @@
 import { devBypassesAllowed } from '$lib/server/security';
-import type { SuggestRequest, Suggestion } from './vlam';
+import type { Outline, OutlineRequest, SuggestRequest, Suggestion } from './vlam';
 
 type Env = Record<string, string | undefined>;
 
@@ -51,4 +51,25 @@ export function fakeSuggestion(req: SuggestRequest): Suggestion {
 	return changed === null
 		? { replacement: req.text, explanation: `${MARK} er is geen woord om te veranderen.` }
 		: { replacement: changed, explanation: `${MARK} één woord staat nu in hoofdletters.` };
+}
+
+export function fakeOutline(req: OutlineRequest): Outline {
+	const beschrijving = req.text.replace(/\s+/g, ' ').trim();
+	const zin = firstSentence(beschrijving)
+		.replace(/[.!?]$/, '')
+		.split(' ')
+		.slice(0, 8)
+		.join(' ');
+	return {
+		title: zin.charAt(0).toLocaleUpperCase('nl') + zin.slice(1),
+		outline: [
+			'## Waar gaat het over',
+			beschrijving,
+			'## Wat verandert er',
+			'Testopzet: schrijf hier wat er verandert.',
+			'## Meer weten',
+			'Testopzet: schrijf hier waar de lezer meer vindt.'
+		].join('\n\n'),
+		explanation: `${MARK} de titel is het begin van je beschrijving, de opzet is een vast voorbeeld.`
+	};
 }

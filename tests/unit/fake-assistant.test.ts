@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fakeAssistantActive, fakeSuggestion } from '../../src/lib/assistant/fake';
+import { fakeAssistantActive, fakeOutline, fakeSuggestion } from '../../src/lib/assistant/fake';
 
 const preview = { NODE_ENV: 'development', SCHRIJVER_FAKE_FORGE: '1' };
 const text = '# Over ons\n\nWij maken websites. Dat doen we samen.\n';
@@ -44,5 +44,24 @@ describe('fakeSuggestion', () => {
 	it('is deterministic and leaves a text without a word to change as it is', () => {
 		expect(ask('actiever')).toEqual(ask('actiever'));
 		expect(ask('kopjes', 'API 123').replacement).toBe('API 123');
+	});
+});
+
+describe('fakeOutline', () => {
+	const description = 'een pagina over de koffieautomaat. Waar staat hij en hoe werkt hij?';
+
+	it('takes the title from the start of the description', () => {
+		expect(fakeOutline({ siteId: 's', text: description }).title).toBe(
+			'Een pagina over de koffieautomaat'
+		);
+		expect(
+			fakeOutline({ siteId: 's', text: 'een twee drie vier vijf zes zeven acht negen tien' }).title
+		).toBe('Een twee drie vier vijf zes zeven acht');
+	});
+	it('returns a Markdown outline without a title heading, marked as a test', () => {
+		const result = fakeOutline({ siteId: 's', text: description });
+		expect(result.outline).toMatch(/^## Waar gaat het over\n\neen pagina over de koffieautomaat\./);
+		expect(result.outline).not.toMatch(/^# /m);
+		expect(result.explanation).toMatch(/^Testantwoord, geen AI: /);
 	});
 });
