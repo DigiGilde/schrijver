@@ -161,6 +161,81 @@ test('Annuleer saves nothing; Bewaar without the tick keeps the file and asks no
 	expect(checks).toEqual([]);
 });
 
+/* Only this test edits these two pages: it merges into main, which every spec shares. */
+const BOT = '/sites/digi-handboek/bewerken/kennis/reservation-bot.md';
+const SSO = '/sites/digi-handboek/bewerken/kennis/sso-rijk-keycloak.md';
+const PIXEL = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+	'base64'
+);
+
+async function bewaarNieuw(page: Page): Promise<string> {
+	const bewaard = page.getByText(/Concept bewaard als voorstel #\d+/).first();
+	await expect(bewaard).toBeVisible();
+	return (await bewaard.textContent())!.match(/#(\d+)/)![1];
+}
+
+async function stuurIn(page: Page, nummer: string) {
+	await page.goto(`/sites/digi-handboek/voorstellen/${nummer}`);
+	await page.getByRole('button', { name: 'Insturen' }).click();
+	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+}
+
+async function voegSamen(page: Page, nummer: string) {
+	await stuurIn(page, nummer);
+	await page.getByRole('button', { name: 'Samenvoegen' }).click();
+	await expect(page.locator('nldd-badge[text="Samengevoegd"]')).toBeVisible();
+}
+
+test('refuses to merge a deletion while a page merged since shows the image', async ({ page }) => {
+	await page.goto(BOT);
+	await expect(editor(page)).toContainText('Reservation Bot');
+	await editor(page).click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
+	const dialog = page.locator('nldd-modal-dialog');
+	await dialog
+		.locator('input[type=file]')
+		.setInputFiles({ name: 'bot.png', mimeType: 'image/png', buffer: PIXEL });
+	await dialog.getByLabel('Alt-tekst').fill('De bot');
+	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await expect(editor(page)).toContainText('![De bot](');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await voegSamen(page, await bewaarNieuw(page));
+
+	const fragment = '![De bot](../afbeeldingen/reservation-bot/bot.png)';
+	await openZonder(page, BOT, 'Reservation Bot', fragment);
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await vraag(page).getByRole('checkbox', { name: 'Verwijder ook dit bestand' }).check();
+	await vraag(page).getByRole('button', { name: 'Bewaar' }).click();
+	const weg = await bewaarNieuw(page);
+	await stuurIn(page, weg);
+
+	await page.goto(SSO);
+	await expect(editor(page)).toContainText('SSO-Rijk');
+	await page.evaluate((text) => {
+		const element = document.querySelector('nldd-text-editor') as unknown as {
+			value: string;
+			replaceRange(from: number, to: number, text: string): void;
+		};
+		element.replaceRange(element.value.length, element.value.length, text);
+	}, `\n\n${fragment}\n`);
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await voegSamen(page, await bewaarNieuw(page));
+
+	await page.goto(`/sites/digi-handboek/voorstellen/${weg}`);
+	await page.getByRole('button', { name: 'Samenvoegen' }).click();
+	await expect(page.locator('nldd-banner[variant="critical"]')).toHaveAttribute(
+		'text',
+		'Niet samengevoegd: dit voorstel verwijdert bot.png, maar die afbeelding staat nog op docs/kennis/sso-rijk-keycloak.md.'
+	);
+	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	const bestand = await page.request.get(
+		`/api/sites/digi-handboek/bestand?${new URLSearchParams({ pad: 'docs/afbeeldingen/reservation-bot/bot.png' })}`
+	);
+	expect(bestand.status()).toBe(200);
+});
+
 test.describe('the question at 320 px', () => {
 	test.use({ viewport: { width: 320, height: 800 } });
 
