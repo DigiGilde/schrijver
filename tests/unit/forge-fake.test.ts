@@ -76,6 +76,51 @@ describe('FakeForge', () => {
 		expect(forge.commitsOf(REPO, 'draft').at(-1)).toEqual({ sha, message: 'edit a' });
 	});
 
+	it('commit deletes a file, which the pull request lists as removed', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		await forge.commit(
+			REPO,
+			'draft',
+			[
+				{ path: 'content/a.md', content: 'zonder b' },
+				{ path: 'content/sub/b.md', deleted: true }
+			],
+			'weg'
+		);
+		expect(await forge.readFile(REPO, 'draft', 'content/sub/b.md')).toBeNull();
+		expect(forge.fileText(REPO, 'main', 'content/sub/b.md')).toBe('bravo');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		const files = await forge.prFiles(REPO, pr.number);
+		expect(files.sort((x, y) => x.path.localeCompare(y.path))).toEqual([
+			{ path: 'content/a.md', status: 'modified' },
+			{ path: 'content/sub/b.md', status: 'removed' }
+		]);
+	});
+
+	it('commit refuses to delete a file that is not there, and changes nothing', async () => {
+		await expect(
+			forge.commit(
+				REPO,
+				'main',
+				[
+					{ path: 'content/a.md', content: 'anders' },
+					{ path: 'content/weg.md', deleted: true }
+				],
+				'x'
+			)
+		).rejects.toMatchObject({ status: 422 });
+		expect(forge.fileText(REPO, 'main', 'content/a.md')).toBe('alpha');
+		expect(forge.commitsOf(REPO, 'main')).toHaveLength(0);
+	});
+
+	it('leaves a file the branch added and deleted again out of the pull request', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		await forge.commit(REPO, 'draft', [{ path: 'content/kat.png', content: 'png' }], 'erbij');
+		await forge.commit(REPO, 'draft', [{ path: 'content/kat.png', deleted: true }], 'eraf');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		expect(await forge.prFiles(REPO, pr.number)).toEqual([]);
+	});
+
 	it('commit throws 404 for an unknown branch', async () => {
 		await expect(forge.commit(REPO, 'ghost', [], 'x')).rejects.toMatchObject({ status: 404 });
 	});

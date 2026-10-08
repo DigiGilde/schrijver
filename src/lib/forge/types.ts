@@ -5,10 +5,9 @@ export interface FileEntry {
 	sha: string;
 }
 
-export interface FileChange {
-	path: string;
-	content: Uint8Array | string; // string = utf8 text
-}
+export type FileChange =
+	| { path: string; content: Uint8Array | string } // string = utf8 text
+	| { path: string; deleted: true };
 
 export interface PrSummary {
 	number: number;

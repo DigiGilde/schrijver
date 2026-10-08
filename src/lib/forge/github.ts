@@ -210,6 +210,11 @@ export class GitHubForge implements Forge {
 		);
 		const tree: Json[] = [];
 		for (const change of changes) {
+			if ('deleted' in change) {
+				// A null sha removes the path from the base tree.
+				tree.push({ path: change.path, mode: '100644', type: 'blob', sha: null });
+				continue;
+			}
 			const binary = typeof change.content !== 'string';
 			const blob = await this.request(repo, 'POST /repos/{owner}/{repo}/git/blobs', {
 				content: binary

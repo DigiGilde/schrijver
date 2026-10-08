@@ -129,7 +129,15 @@ export class FakeForge implements Forge {
 	async commit(repo: string, branch: string, changes: FileChange[], message: string) {
 		this.maybeFail('commit');
 		const tree = this.tree(repo, branch);
+		const missing = changes.find((change) => 'deleted' in change && !tree.has(change.path));
+		if (missing) {
+			throw new ForgeError(422, 'GitHub weigerde de wijziging', `${missing.path} does not exist`);
+		}
 		for (const change of changes) {
+			if ('deleted' in change) {
+				tree.delete(change.path);
+				continue;
+			}
 			const bytes = toBytes(change.content);
 			tree.set(change.path, { content: bytes, sha: sha1(bytes) });
 		}

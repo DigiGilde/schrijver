@@ -105,6 +105,46 @@ describe('GitHubForge', () => {
 		expect((bodies.ref[0] as { sha: string }).sha).toBe('commit1');
 	});
 
+	it('deletes a file through a tree entry with a null sha, without a blob', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/git/ref/heads/x`, () =>
+				HttpResponse.json({ object: { sha: 'head1' } })
+			),
+			http.get(`${API}/repos/o/r/git/commits/head1`, () =>
+				HttpResponse.json({ sha: 'head1', tree: { sha: 'tree0' } })
+			),
+			http.post(`${API}/repos/o/r/git/blobs`, async ({ request }) => {
+				record('blob', await request.json());
+				return HttpResponse.json({ sha: 'blob1' }, { status: 201 });
+			}),
+			http.post(`${API}/repos/o/r/git/trees`, async ({ request }) => {
+				record('tree', await request.json());
+				return HttpResponse.json({ sha: 'tree1' }, { status: 201 });
+			}),
+			http.post(`${API}/repos/o/r/git/commits`, () =>
+				HttpResponse.json({ sha: 'commit1', verification: { verified: true } }, { status: 201 })
+			),
+			http.patch(`${API}/repos/o/r/git/refs/heads/x`, () => HttpResponse.json({}))
+		);
+		await forge().commit(
+			'o/r',
+			'x',
+			[
+				{ path: 'docs/a.md', content: 'Zonder kat' },
+				{ path: 'docs/afbeeldingen/a/kat.png', deleted: true }
+			],
+			'msg'
+		);
+		expect(bodies.blob).toHaveLength(1);
+		expect(bodies.tree[0]).toEqual({
+			base_tree: 'tree0',
+			tree: [
+				{ path: 'docs/a.md', mode: '100644', type: 'blob', sha: 'blob1' },
+				{ path: 'docs/afbeeldingen/a/kat.png', mode: '100644', type: 'blob', sha: null }
+			]
+		});
+	});
+
 	it('maps a 422 from merge to ForgeError with GitHub detail', async () => {
 		server.use(
 			http.put(`${API}/repos/o/r/pulls/3/merge`, async ({ request }) => {

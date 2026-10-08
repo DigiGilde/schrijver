@@ -85,6 +85,15 @@ describe('CachingForge', () => {
 		expect(readFile).toHaveBeenCalledTimes(3);
 	});
 
+	it('reads a deleted file as gone once the commit is through', async () => {
+		const { cache } = setup();
+		expect(await cache.readFile('o/site', 'main', 'docs/b.md')).not.toBeNull();
+		expect(await cache.readTree('o/site', 'main', '')).toHaveLength(2);
+		await cache.commit('o/site', 'main', [{ path: 'docs/b.md', deleted: true }], 'weg');
+		expect(await cache.readFile('o/site', 'main', 'docs/b.md')).toBeNull();
+		expect((await cache.readTree('o/site', 'main', '')).map((e) => e.path)).toEqual(['a.md']);
+	});
+
 	it('keeps other repos cached on invalidate', async () => {
 		const { fake, cache, readFile } = setup();
 		fake.seedRepo('o/other', 'main', { 'x.md': 'x' });
