@@ -186,7 +186,8 @@ describe('the new-page form on the server', () => {
 			if (soort) query.set('soort', soort);
 			const data = (await editorLoad({
 				params: { site, pad },
-				url: new URL(`http://x/sites/${site}/bewerken/${pad}?${query}`)
+				url: new URL(`http://x/sites/${site}/bewerken/${pad}?${query}`),
+				untrack: <T>(fn: () => T) => fn()
 			} as never)) as { body: string; frontmatter: Record<string, unknown> };
 			const s = site === 'moza-site' ? moza : handboek;
 			expect(templateFor(s, soort).replaceAll('{titel}', title)).toBe(data.body);

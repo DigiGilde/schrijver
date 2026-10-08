@@ -9,7 +9,10 @@ import { startFrontmatter, templateFor } from '../../nieuw/new-page';
 
 const decoder = new TextDecoder();
 
-export const load: PageServerLoad = async ({ params, url }) => {
+export const load: PageServerLoad = async ({ params, url, untrack }) => {
+	// Untracked: within the editor only the first save changes the query, and the session goes on
+	// without loading the page again.
+	const query = untrack(() => new URLSearchParams(url.search));
 	const store = getConfigStore();
 	const site = store.site(params.site);
 	if (!site) error(404, 'Site niet gevonden');
@@ -23,11 +26,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const repoPath = root === '' ? pad : `${root}/${pad}`;
 	const forge = getForge();
 
-	if (url.searchParams.get('nieuw') === '1') {
+	if (query.get('nieuw') === '1') {
 		const schema = store.schema(site.id);
-		const soort = url.searchParams.get('soort');
-		const folder = url.searchParams.get('map') ?? '';
-		const title = url.searchParams.get('titel') ?? '';
+		const soort = query.get('soort');
+		const folder = query.get('map') ?? '';
+		const title = query.get('titel') ?? '';
 		let expected: string;
 		try {
 			expected = newPagePath(schema, soort, folder, title, new Date());
@@ -69,9 +72,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	let ref = site.standaardbranch;
 	let branch: string | null = null;
 	let prNumber: number | null = null;
-	const wanted = url.searchParams.get('branch');
+	const wanted = query.get('branch');
 	if (wanted) {
-		const n = Number(url.searchParams.get('pr'));
+		const n = Number(query.get('pr'));
 		if (!wanted.startsWith(`schrijver/${site.id}/`) || !Number.isInteger(n) || n <= 0) {
 			error(400, 'Ongeldig voorstel');
 		}

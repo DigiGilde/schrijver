@@ -173,6 +173,55 @@ test('moving client-side to another page starts a session for that page', async 
 	expect(sent.body).not.toContain('Alleen voor contact');
 });
 
+test('after the first save Back from another page opens the proposal, and the session stays', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/bewerken/werkwijze/principes.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nBewaard voor de terugknop.');
+	// A mark on the editor element: a remount would replace the element and lose it.
+	await page.evaluate(
+		() => ((document.querySelector('nldd-text-editor') as unknown as { sessie: number }).sessie = 1)
+	);
+	const geladen: string[] = [];
+	page.on('request', (request) => {
+		if (request.url().includes('__data.json')) geladen.push(request.url());
+	});
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+	await expect(page).toHaveURL(/\?branch=schrijver%2Fdigi-handboek%2F[^&]+&pr=\d+$/);
+	const sessie = await page.evaluate(
+		() => (document.querySelector('nldd-text-editor') as unknown as { sessie?: number }).sessie
+	);
+	expect(sessie, 'the editor was not mounted again').toBe(1);
+	expect(geladen, 'the save loads no page data').toEqual([]);
+
+	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
+	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
+	await page.goBack();
+	await expect(page.getByRole('button', { name: 'Opslaan', exact: true })).toBeVisible();
+	await expect.poll(() => editorValue(page)).toContain('Bewaard voor de terugknop.');
+});
+
+test('Back to a new page after its first save opens the proposal', async ({ page }) => {
+	await page.goto(
+		'/sites/digi-handboek/bewerken/kennis/terug-na-bewaren.md?nieuw=1&map=kennis&titel=Terug+na+bewaren'
+	);
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nDe eerste versie.');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+	await expect(page).toHaveURL(/\/bewerken\/kennis\/terug-na-bewaren\.md\?branch=/);
+
+	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
+	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
+	await page.goBack();
+	await expect(page.getByRole('button', { name: 'Opslaan', exact: true })).toBeVisible();
+	await expect.poll(() => editorValue(page)).toContain('De eerste versie.');
+});
+
 test('rejects path traversal and unknown files', async ({ request }) => {
 	expect((await request.get('/sites/digi-handboek/bewerken/..%2f..%2fx.md')).status()).toBe(400);
 	expect((await request.get('/sites/digi-handboek/bewerken/bestaat-niet.md')).status()).toBe(404);

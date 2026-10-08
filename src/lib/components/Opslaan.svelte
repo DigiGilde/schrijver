@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
 	import {
 		IMAGES_TOO_LARGE,
@@ -135,6 +136,14 @@
 		return `/api/sites/${encodeURIComponent(siteId)}/bestand?${query}`;
 	}
 
+	/** The editor's address for the saved file on its proposal branch. */
+	function voorstelAdres(pad: string, branch: string, pr: number): string {
+		const root = conventie.content.pad.replace(/\/+$/, '');
+		const binnen = root === '' ? pad : pad.slice(root.length + 1);
+		const query = new URLSearchParams({ branch, pr: String(pr) });
+		return `/sites/${siteId}/bewerken/${binnen.split('/').map(encodeURIComponent).join('/')}?${query}`;
+	}
+
 	/** Images this save drops that the repository holds, in a folder the site keeps images in. */
 	function weggehaald(huidig: Snapshot): string[] {
 		const nieuw = images().map((image) => image.path);
@@ -235,8 +244,10 @@
 				const verwijderd = verwijderen.map(naamVan);
 				bewaard = { nummer: result.prNumber, url: result.url, verwijderd };
 				elders = blijven;
-				const params = new URLSearchParams({ branch: result.branch, pr: String(result.prNumber) });
-				replaceState(`?${params}`, {});
+				const adres = voorstelAdres(result.path, result.branch, result.prNumber);
+				// Not a shallow replaceState: SvelteKit would then still open the old address on Back.
+				if (adres !== `${page.url.pathname}${page.url.search}`)
+					void goto(adres, { replaceState: true, noScroll: true, keepFocus: true });
 				onverstuurd(sent);
 				onbewaard({ sha: result.sha, branch: result.branch });
 				status = [
