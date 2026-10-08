@@ -99,13 +99,27 @@ export function applyForm(
 	return { frontmatter: next, changedKeys };
 }
 
-export function titleOf(schema: PageSchema, frontmatter: Frontmatter, body: string): string {
+export function titleOf(
+	schema: Pick<PageSchema, 'titel'>,
+	frontmatter: Frontmatter,
+	body: string
+): string {
 	if (schema.titel === 'uit-h1') {
 		const match = /^#\s+(.+)$/m.exec(body);
 		return match ? match[1].trim() : '';
 	}
 	const key = schema.titel.slice('veld:'.length);
 	return String(frontmatter[key] ?? '');
+}
+
+/** The title to show for a page: its own title, or its file name when it has none. */
+export function pageTitle(
+	schema: Pick<PageSchema, 'titel'>,
+	frontmatter: Frontmatter,
+	body: string,
+	path: string
+): string {
+	return titleOf(schema, frontmatter, body).trim() || path.slice(path.lastIndexOf('/') + 1);
 }
 
 function pad(n: number, width: number): string {

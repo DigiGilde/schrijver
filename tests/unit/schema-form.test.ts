@@ -5,6 +5,7 @@ import {
 	applyForm,
 	buildForm,
 	newPagePath,
+	pageTitle,
 	summaryField,
 	titleOf,
 	validateForm,
@@ -93,6 +94,21 @@ describe('titleOf', () => {
 	it('reads a frontmatter field', () => {
 		expect(titleOf(moza, { title: 'Hoi' }, '')).toBe('Hoi');
 		expect(titleOf(moza, {}, '')).toBe('');
+	});
+});
+
+describe('pageTitle', () => {
+	it('takes the title the schema points at', () => {
+		expect(pageTitle(handboek, {}, '# Het Digi Handboek\n\ntext', 'docs/index.md')).toBe(
+			'Het Digi Handboek'
+		);
+		expect(pageTitle(moza, { title: ' Contact ' }, '# Kop', 'content/contact.md')).toBe('Contact');
+		expect(pageTitle({ titel: 'veld:title' }, { title: 'Los' }, '', 'a.md')).toBe('Los');
+	});
+	it('falls back to the file name', () => {
+		expect(pageTitle(handboek, {}, 'geen kop', 'docs/kennis/privacy.md')).toBe('privacy.md');
+		expect(pageTitle(moza, { title: '   ' }, '', 'content/contact.md')).toBe('contact.md');
+		expect(pageTitle(moza, {}, '', 'index.md')).toBe('index.md');
 	});
 });
 
