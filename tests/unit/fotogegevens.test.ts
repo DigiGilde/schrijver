@@ -3,7 +3,7 @@ import { crc32, deflateSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
 import { canStripMetadata, stripMetadata } from '../../src/lib/content/fotogegevens';
-import { validateImage } from '../../src/lib/content/images';
+import { sanitizeSvg, validateImage } from '../../src/lib/content/images';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { save } from '../../src/lib/forge/save';
 import type { Identity } from '../../src/lib/forge/trailers';
@@ -443,6 +443,13 @@ describe('SVG metadata', () => {
 
 	it('passes through unchanged, for sanitizeSvg to handle', () => {
 		expect(strip(latin1(svg), 'image/svg+xml')).toEqual(latin1(svg));
+	});
+
+	it('goes in sanitizeSvg, with everything the metadata element holds', () => {
+		const clean = sanitizeSvg(svg);
+		expect(clean).not.toMatch(/metadata|Jan Jansen/);
+		expect(clean).toContain('<title>Kaart</title>');
+		expect(clean).toContain('<circle r="1"></circle>');
 	});
 });
 

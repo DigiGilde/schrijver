@@ -114,6 +114,8 @@ export function isSvgDocument(text: string): boolean {
 export function sanitizeSvg(text: string): string {
 	return purify.sanitize(text, {
 		USE_PROFILES: { svg: true, svgFilters: true },
-		FORBID_TAGS: ['script', 'foreignObject', 'style', 'use']
+		FORBID_TAGS: ['script', 'foreignObject', 'style', 'use', 'metadata'],
+		// Without this the text inside metadata, such as a creator's name, would stay behind.
+		ADD_FORBID_CONTENTS: ['metadata']
 	});
 }
