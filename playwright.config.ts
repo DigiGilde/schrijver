@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const port = 4391;
-const issuerPort = 4392;
+const port = Number(process.env.E2E_PORT ?? 4391);
+const issuerPort = port + 1;
 
 export default defineConfig({
 	testDir: 'tests/e2e',
