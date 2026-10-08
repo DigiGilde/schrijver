@@ -21,6 +21,7 @@
 		applyForm,
 		pageTitle,
 		summaryField,
+		validateForm,
 		withValue,
 		type FormField
 	} from '$lib/content/schema-form';
@@ -41,7 +42,6 @@
 	let knoptekst = $state('');
 	let eigenschappenOpen = $state(false);
 	let kop: HTMLElement | undefined = $state();
-	let melding = $state('');
 	let restorable = $state<Draft | null>(null);
 	let ready = $state(false);
 	let images = $state<PendingImage[]>([]);
@@ -176,15 +176,16 @@
 		eigenschappenTerug = null;
 	}
 
-	async function vulSamenvatting(veld: string, text: string) {
-		fields = withValue(fields, veld, text);
-		melding = '';
-		await tick();
-		melding = 'Samenvatting ingevuld bij Eigenschappen';
-	}
-
 	/* The sheet holds a title bar with a collapse anchor. */
 	const sheetPagina = pageReady();
+
+	/* A new page whose properties would fail the first save shows them once, on arrival. */
+	$effect(() => {
+		if (!sheetPagina.ready) return;
+		untrack(() => {
+			if (data.nieuw && !validateForm(fields).ok) void tick().then(openEigenschappen);
+		});
+	});
 
 	/** A sheet belongs in the document root, outside the panes of the application shell. */
 	function naarDocument(node: HTMLElement) {
@@ -280,7 +281,6 @@
 					</nldd-text>
 				{/if}
 			</div>
-			<p class="sr-only" role="status">{melding}</p>
 
 			<Schrijfvlak
 				bind:this={schrijfvlak}
@@ -290,7 +290,9 @@
 				pagina={data.repoPath}
 				branch={activeBranch}
 				afbeeldingen={data.site.afbeeldingen}
-				onsamenvatting={samenvattingVeld ? (text) => vulSamenvatting(samenvattingVeld, text) : null}
+				onsamenvatting={samenvattingVeld
+					? (text) => (fields = withValue(fields, samenvattingVeld, text))
+					: null}
 				oneigenschappen={fields.length > 0 ? openEigenschappen : null}
 				{kop}
 			/>
@@ -334,13 +336,5 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
-	}
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
 	}
 </style>

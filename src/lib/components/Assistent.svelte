@@ -47,7 +47,7 @@
 	let error = $state<string | null>(null);
 	let pending = $state<Pending | null>(null);
 	let scope = $state<'selectie' | 'tekst'>('tekst');
-	let outcome = $state<'voorstel' | 'overgenomen' | 'verworpen' | null>(null);
+	let outcome = $state<'voorstel' | 'overgenomen' | 'samenvatting' | 'verworpen' | null>(null);
 	let status = $derived(
 		busy
 			? 'Bezig...'
@@ -55,11 +55,13 @@
 				? 'Voorstel beschikbaar'
 				: outcome === 'overgenomen'
 					? 'Overgenomen'
-					: outcome === 'verworpen'
-						? 'Verworpen'
-						: scope === 'selectie'
-							? 'Op de selectie'
-							: 'Op de hele tekst'
+					: outcome === 'samenvatting'
+						? 'Samenvatting ingevuld bij Eigenschappen'
+						: outcome === 'verworpen'
+							? 'Verworpen'
+							: scope === 'selectie'
+								? 'Op de selectie'
+								: 'Op de hele tekst'
 	);
 
 	let parts = $derived(
@@ -132,7 +134,7 @@
 		if (!pending || !onSummary) return;
 		onSummary(pending.suggestion.replacement.trim());
 		pending = null;
-		outcome = 'overgenomen';
+		outcome = 'samenvatting';
 		onDone();
 	}
 

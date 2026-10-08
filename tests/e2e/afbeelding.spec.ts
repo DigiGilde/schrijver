@@ -135,7 +135,7 @@ test('writes a summary into the description field and leaves the text alone', as
 	await page.getByRole('button', { name: 'Gebruik als samenvatting' }).click();
 	await expect(
 		page.getByRole('status').filter({ hasText: 'Samenvatting ingevuld bij Eigenschappen' })
-	).toHaveCount(1);
+	).toBeVisible();
 	await expect(editor).toContainText('Het Digi Handboek');
 	await expect(editor).not.toContainText('Een korte samenvatting.');
 

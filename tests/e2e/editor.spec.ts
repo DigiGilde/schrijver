@@ -298,6 +298,43 @@ test('a save with a missing required field offers to open the properties', async
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 });
 
+test('a new page shows its properties once when a required one is still empty', async ({
+	page
+}) => {
+	await page.goto(
+		'/sites/moza-site/bewerken/onderwerpen/nieuw-onderwerp.md?nieuw=1&soort=Onderwerp&map=onderwerpen&titel=Nieuw+onderwerp'
+	);
+	const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
+	await expect(dialog).toBeVisible();
+	const sheet = page.locator('nldd-sheet');
+	await expect(sheet.getByRole('textbox', { name: 'title' })).toHaveValue('Nieuw onderwerp');
+	await sheet.getByRole('textbox', { name: 'description' }).fill('Een onderwerp uit e2e.');
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+
+	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	expect(JSON.parse((await request).postData() ?? '{}').frontmatter).toEqual({
+		title: 'Nieuw onderwerp',
+		description: 'Een onderwerp uit e2e.'
+	});
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+	await expect(dialog).toBeHidden();
+});
+
+test('a new page without required properties opens on the text', async ({ page }) => {
+	await page.goto(
+		'/sites/digi-handboek/bewerken/kennis/nieuwe-kennis.md?nieuw=1&map=kennis&titel=Nieuwe+kennis'
+	);
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Nieuwe kennis');
+	await expect(page.locator('nldd-sheet')).toHaveCount(1);
+	await page.evaluate(
+		() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+	);
+	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeHidden();
+});
+
 test('the title of a field-titled page follows the field', async ({ page }) => {
 	await page.goto('/sites/moza-site/bewerken/contact.md');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');
