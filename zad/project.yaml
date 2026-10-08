@@ -6,16 +6,14 @@ components:
     type: deployment
     ports:
       inbound: [8080]
-    path: /
     publish-on-web: true
     sso-rijk: true
     uses-services: [publish-on-web, keycloak, vlam, postgresql-database]
-    # Set the values in the ZAD portal; keep them out of this file.
-    # DATABASE_SERVER_FULL is provided by the postgresql-database service.
+    # Empty placeholders: set the values as secrets in the ZAD portal, never in this file.
+    # OIDC_DISCOVERY_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET come from the keycloak service and
+    # DATABASE_SERVER_FULL from postgresql-database; do not list them here, or the empty value
+    # could override the injected one.
     user-env-vars:
-      OIDC_DISCOVERY_URL: ''
-      OIDC_CLIENT_ID: ''
-      OIDC_CLIENT_SECRET: ''
       SESSION_SECRET: ''
       GITHUB_APP_ID: ''
       GITHUB_APP_PRIVATE_KEY: ''
