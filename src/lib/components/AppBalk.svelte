@@ -44,7 +44,10 @@
 {/if}
 <div class="uitgelijnd appbalk">
 	<nldd-toolbar label="Schrijver">
-		<!-- The wordmark carries the name, so the title has no `text`: with both, the S is read twice. -->
+		<!--
+			The wordmark carries the name, so the title has no `text`: with both, the S is read twice. The
+			minimum width is the wordmark's: the default of 200px would send the menu to the overflow sooner.
+		-->
 		<nldd-toolbar-title slot="start" href="/" min-width="8rem">
 			<span slot="media" class="merk" role="img" aria-label="Schrijver">
 				<span class="blok" aria-hidden="true">S</span>
