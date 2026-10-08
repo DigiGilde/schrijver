@@ -21,6 +21,12 @@ npm run test:e2e    # Playwright against the fake forge
 
 Keep test output free of warnings.
 
+`npm run test:a11y` builds the app and runs pa11y-ci on a fixed port (4393). `npm run test:e2e` uses port 4391 and the fake identity provider on the next port; set `E2E_PORT` to run a second copy of the suite at the same time.
+
+### Working in parallel
+
+Parallel tasks, by people or by coding agents, each get their own git worktree (`git worktree add ../schrijver-<task> -b <type>/<task>`); never two tasks in one checkout, where one commit can sweep up another task's half-finished files. In a fresh worktree, copy or install `node_modules` and run `npx svelte-kit sync`. Give each worktree its own `E2E_PORT`, keep the tasks to separate files where possible, and run the full suite, pa11y included, once the branches are merged.
+
 ## Conventions
 
 - Language: the UI is Dutch; code, comments, documentation, commits, branches and pull requests are English. Route paths mirror the Dutch UI (`/instellingen`, `/sites`) and stay Dutch, also when English prose quotes them.
