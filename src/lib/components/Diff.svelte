@@ -282,6 +282,10 @@
 	.inhoud :global([data-diff]:not(ul, ol, blockquote)) {
 		padding-inline: 12px;
 	}
+	/* A thematic break has no height of its own, so its tint and bar would not show. */
+	.inhoud :global(hr[data-diff]) {
+		padding-block: 0.75rem;
+	}
 	/* A heading's text is taller than its line box; without this the tint does not cover all of it. */
 	.inhoud :global(:is(h1, h2, h3, h4, h5, h6)[data-diff]) {
 		padding-block: 0.1em;
