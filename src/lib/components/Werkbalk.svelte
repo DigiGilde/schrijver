@@ -1,11 +1,22 @@
 <script module lang="ts">
-	export type Actie = 'bold' | 'italic' | 'bullet' | 'quote' | 'link' | 'code';
+	export type Actie =
+		| 'bold'
+		| 'italic'
+		| 'bullet'
+		| 'ordered'
+		| 'indent'
+		| 'outdent'
+		| 'quote'
+		| 'link'
+		| 'code'
+		| 'codeBlock'
+		| 'table'
+		| 'rule';
 	export type Weergave = 'schrijven' | 'voorbeeld';
 </script>
 
 <script lang="ts">
 	import type { TextEditorState } from '@nldd/design-system/text-editor';
-	import * as actions from '$lib/client/editor-actions';
 
 	type Props = {
 		state: TextEditorState | null;
@@ -53,9 +64,6 @@
 		return { update: (next: boolean) => (element.expanded = next) };
 	}
 
-	let balk: HTMLElement | undefined;
-	const editor = () => actions.editorBeside(balk);
-
 	type Opmaak = {
 		icon: string;
 		label: string;
@@ -79,25 +87,25 @@
 			icon: 'bullet-list',
 			label: 'Lijst met opsommingstekens',
 			aan: () => active?.bulletList,
-			doe: () => actions.toggleList(editor(), 'bullet', !!active?.bulletList)
+			doe: () => onactie('bullet')
 		},
 		{
 			icon: 'numbered-list',
 			label: 'Genummerde lijst',
 			aan: () => active?.orderedList,
-			doe: () => actions.toggleList(editor(), 'ordered', !!active?.orderedList)
+			doe: () => onactie('ordered')
 		},
 		{
 			icon: 'indent-increase',
 			label: 'Inspringen',
 			kan: () => state?.canIndent,
-			doe: () => editor()?.indent()
+			doe: () => onactie('indent')
 		},
 		{
 			icon: 'indent-decrease',
 			label: 'Uitspringen',
 			kan: () => state?.canOutdent,
-			doe: () => editor()?.outdent()
+			doe: () => onactie('outdent')
 		},
 		{ icon: 'text-quote', label: 'Citaat', aan: () => active?.quote, doe: () => onactie('quote') },
 		{ icon: 'link', label: 'Link', aan: () => active?.link, doe: () => onactie('link') },
@@ -111,7 +119,7 @@
 			icon: 'chevron-left-forward-slash-chevron-right-rectangle',
 			label: 'Codeblok',
 			aan: () => active?.codeBlock,
-			doe: () => actions.toggleCodeBlock(editor())
+			doe: () => onactie('codeBlock')
 		}
 	];
 
@@ -152,7 +160,7 @@
 </script>
 
 <!-- Every item carries its own twin in slot="overflow": the toolbar shows those in its menu once the item no longer fits. -->
-<nldd-toolbar bind:this={balk} label="Opmaak" size="sm">
+<nldd-toolbar label="Opmaak" size="sm">
 	{#if weergave === 'schrijven'}
 		{#each opmaak as knop, index (knop.label)}
 			{@const aan = knop.aan}
@@ -206,14 +214,14 @@
 				accessible-label="Tabel invoegen"
 				appearance="neutral-transparent"
 				disabled={disabled || undefined}
-				onclick={() => actions.insertBlock(editor(), actions.TABLE_TEMPLATE)}
+				onclick={() => onactie('table')}
 			></nldd-icon-button>
 			<nldd-menu-item
 				slot="overflow"
 				icon="rectangle-split-2x3"
 				text="Tabel invoegen"
 				disabled={disabled || undefined}
-				onselect={() => actions.insertBlock(editor(), actions.TABLE_TEMPLATE)}
+				onselect={() => onactie('table')}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
 		<!-- No icon in the design system says "horizontal line", so this one carries a text. -->
@@ -224,13 +232,13 @@
 				accessible-label="Horizontale lijn invoegen"
 				appearance="neutral-transparent"
 				disabled={disabled || undefined}
-				onclick={() => actions.insertBlock(editor(), actions.RULE)}
+				onclick={() => onactie('rule')}
 			></nldd-button>
 			<nldd-menu-item
 				slot="overflow"
 				text="Horizontale lijn invoegen"
 				disabled={disabled || undefined}
-				onselect={() => actions.insertBlock(editor(), actions.RULE)}
+				onselect={() => onactie('rule')}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
 		<nldd-toolbar-item slot="start" priority={PRIORITEIT.afbeelding}>

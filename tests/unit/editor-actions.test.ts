@@ -1,9 +1,7 @@
-import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import {
 	RULE,
 	TABLE_TEMPLATE,
-	editorBeside,
 	insertBlock,
 	toggleCodeBlock,
 	toggleList,
@@ -34,8 +32,6 @@ function fakeEditor(initial: string, start = initial.length, end = start) {
 			start = end = from + insert.length;
 		},
 		setList: (type) => calls.push(`setList:${type}`),
-		indent: () => calls.push('indent'),
-		outdent: () => calls.push('outdent'),
 		toggleCodeBlock() {
 			const from = text.lastIndexOf('\n', start - 1) + 1;
 			const next = text.indexOf('\n', start);
@@ -97,16 +93,5 @@ describe('toggleList', () => {
 		toggleList(editor, 'ordered', true);
 		toggleList(editor, 'bullet', false);
 		expect(editor.calls).toEqual(['setList:ordered', 'setList:none', 'setList:bullet']);
-	});
-});
-
-describe('editorBeside', () => {
-	it('finds the editor rendered next to the toolbar', () => {
-		const { document } = new JSDOM(
-			'<main><nldd-toolbar></nldd-toolbar><div><nldd-text-editor></nldd-text-editor></div></main>'
-		).window;
-		const toolbar = document.querySelector('nldd-toolbar')!;
-		expect(editorBeside(toolbar)).toBe(document.querySelector('nldd-text-editor'));
-		expect(editorBeside(undefined)).toBeNull();
 	});
 });

@@ -67,24 +67,14 @@ export function insertImage(
 	return { path: result.repoPath, base64: result.base64 };
 }
 
-/** The commands of nldd-text-editor the toolbar uses beyond those the Editor component passes on. */
+/** The parts of nldd-text-editor the formatting helpers below use. */
 export interface FormattingEditor {
 	readonly value: string;
 	setList(type: 'none' | 'bullet' | 'ordered'): void;
 	toggleCodeBlock(): void;
-	indent(): void;
-	outdent(): void;
 	insertAtCursor(text: string): void;
 	replaceRange(from: number, to: number, text: string): void;
 	getSelection(): { start: number; end: number };
-}
-
-/** The editor a toolbar drives: Schrijfvlak renders the two under one parent. */
-export function editorBeside(toolbar: Element | undefined): FormattingEditor | null {
-	return (
-		toolbar?.parentElement?.querySelector<HTMLElement & FormattingEditor>('nldd-text-editor') ??
-		null
-	);
 }
 
 /** Sets or clears a list type; toggleBulletList would put `- ` in front of `1. ` instead. */

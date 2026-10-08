@@ -76,13 +76,20 @@
 	}
 
 	function onActie(actie: Actie) {
+		const active = editorState?.active;
 		const commands = {
 			bold: () => editor?.toggleBold(),
 			italic: () => editor?.toggleItalic(),
-			bullet: () => editor?.toggleBulletList(),
+			bullet: () => editor?.toggleList('bullet', !!active?.bulletList),
+			ordered: () => editor?.toggleList('ordered', !!active?.orderedList),
+			indent: () => editor?.indent(),
+			outdent: () => editor?.outdent(),
 			quote: () => editor?.toggleQuote(),
 			link: () => editor?.toggleLink(),
-			code: () => editor?.toggleInlineCode()
+			code: () => editor?.toggleInlineCode(),
+			codeBlock: () => editor?.toggleCodeBlock(),
+			table: () => editor?.insertBlock(actions.TABLE_TEMPLATE),
+			rule: () => editor?.insertBlock(actions.RULE)
 		};
 		commands[actie]();
 	}

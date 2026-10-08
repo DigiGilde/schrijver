@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { NLDDTextEditor, TextEditorState } from '@nldd/design-system/text-editor';
 	import { keepCaretBelow } from '$lib/client/caret';
+	import * as actions from '$lib/client/editor-actions';
 
 	type Props = {
 		value: string;
@@ -48,10 +49,15 @@
 	export const toggleBold = () => element?.toggleBold();
 	export const toggleItalic = () => element?.toggleItalic();
 	export const toggleHeading = (level: 2 | 3 | 4) => element?.toggleHeading(level);
-	export const toggleBulletList = () => element?.toggleBulletList();
+	export const toggleList = (type: 'bullet' | 'ordered', active: boolean) =>
+		actions.toggleList(element ?? null, type, active);
+	export const indent = () => element?.indent();
+	export const outdent = () => element?.outdent();
 	export const toggleQuote = () => element?.toggleQuote();
 	export const toggleLink = (href?: string) => element?.toggleLink(href);
 	export const toggleInlineCode = () => element?.toggleInlineCode();
+	export const toggleCodeBlock = () => actions.toggleCodeBlock(element ?? null);
+	export const insertBlock = (block: string) => actions.insertBlock(element ?? null, block);
 	export const insertAtCursor = (text: string) => element?.insertAtCursor(text);
 	export const replaceRange = (from: number, to: number, text: string) =>
 		element?.replaceRange(from, to, text);
