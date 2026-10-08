@@ -13,7 +13,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Page editor on `nldd-text-editor` with an `nldd-toolbar` that overflows into a menu, "Voorbeeld" on demand instead of a second pane, page properties (the schema-driven frontmatter form) in a sheet, the save action in the sticky title bar, Schrijfhulp beside the text, image upload with required alt text and Mermaid blocks with required `accDescr`.
 - Byte-identical Markdown round-trip, tested on a corpus of both pilot sites.
 - Proposals as GitHub branches and pull requests through a GitHub App, listed live from GitHub, including pull requests made outside Schrijver.
-- Proposal changes in colour: a block diff of the rendered page with word marks, in the views "Wijzigingen", "Hele pagina" and "Brontekst".
+- Proposal changes in colour: a block diff of the rendered page with word marks, in the views "Wijzigingen", "Hele pagina" and "Brontekst"; a change too large to compare points to GitHub instead of tying up the server.
 - Sites, pages and proposals as NLDD lists; the folders of a site in a sidebar that becomes a sheet on narrow screens.
 - VLAM writing assistant with fixed actions and a free prompt; suggestions only, never direct edits.
 - Pseudonymous authorship through an HMAC of the SSO subject.
