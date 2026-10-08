@@ -27,7 +27,7 @@ Budget: about 30 minutes.
 - [ ] Sign in, finish onboarding with "Anoniem", open the site and `index.md`.
 - [ ] Edit the text, add an image with alt text, click "Concept bewaren". Expect "Concept bewaard als voorstel #N"; "Voorbeeld" in the editor toolbar shows the image.
 - [ ] Close the tab. Open the site page again: the page row shows "Verder met je voorstel" and the proposal list shows "Verder bewerken". Follow it, edit again and click "Opslaan". Expect the same number #N.
-- [ ] Open the proposal from the list. Status "Concept"; under "Wijzigingen" both saves show in colour.
+- [ ] Open the proposal (its row in the proposal list). Status "Concept"; under "Wijzigingen" both saves show in colour.
 - [ ] Click "Insturen". Expect status "Ingestuurd", and the proposal under "Te beoordelen" on the site page.
 - [ ] Optionally approve on GitHub with another account, then click "Samenvoegen" in Schrijver. Expect status "Samengevoegd".
 
