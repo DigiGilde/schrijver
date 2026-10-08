@@ -3,23 +3,12 @@
 	import favicon from '@nldd/design-system/favicon.svg';
 	import touchIcon from '@nldd/design-system/touch-icon.png';
 	import { onMount } from 'svelte';
-	import { clearAllDrafts } from '$lib/client/draft';
 
 	let { children, data } = $props();
 
 	onMount(() => {
 		import('@nldd/design-system');
 	});
-
-	/* A form built on demand: the logout route only takes a POST, and a menu item cannot submit a form of its own. */
-	function uitloggen() {
-		clearAllDrafts();
-		const formulier = document.createElement('form');
-		formulier.method = 'post';
-		formulier.action = '/uitloggen';
-		document.body.append(formulier);
-		formulier.submit();
-	}
 </script>
 
 <svelte:head>
@@ -42,7 +31,7 @@
 										></nldd-menu-item>
 										<nldd-menu-item icon="help" text="Help" href="/help"></nldd-menu-item>
 										<nldd-menu-divider></nldd-menu-divider>
-										<nldd-menu-item icon="logout" text="Uitloggen" onselect={uitloggen}
+										<nldd-menu-item icon="logout" text="Uitloggen" href="/instellingen#uitloggen"
 										></nldd-menu-item>
 									</nldd-menu>
 								</nldd-icon-button>
@@ -50,7 +39,7 @@
 									<nldd-menu-item icon="settings" text="Instellingen" href="/instellingen"
 									></nldd-menu-item>
 									<nldd-menu-item icon="help" text="Help" href="/help"></nldd-menu-item>
-									<nldd-menu-item icon="logout" text="Uitloggen" onselect={uitloggen}
+									<nldd-menu-item icon="logout" text="Uitloggen" href="/instellingen#uitloggen"
 									></nldd-menu-item>
 								</nldd-menu-group>
 							</nldd-toolbar-item>

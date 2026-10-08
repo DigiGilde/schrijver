@@ -42,11 +42,24 @@ test('the start page offers a link to GitHub without JavaScript', async ({ brows
 	await context.close();
 });
 
+test('the account menu leads to the logout block and keeps the drafts', async ({ page }) => {
+	await page.goto('/help');
+	await page.evaluate(() => localStorage.setItem('schrijver:x:new:a.md', '{}'));
+	await page.evaluate(() => customElements.whenDefined('nldd-menu-item'));
+	await page.getByRole('button', { name: /^Account van/ }).click();
+	await page.getByRole('menuitem', { name: 'Uitloggen' }).click();
+	await expect(page).toHaveURL(/\/instellingen#uitloggen$/);
+	const block = page.locator('#uitloggen');
+	await expect(block).toContainText('wist ook de niet-bewaarde concepten');
+	await expect(block.getByRole('button', { name: 'Log uit' })).toBeVisible();
+	expect(await page.evaluate(() => localStorage.getItem('schrijver:x:new:a.md'))).toBe('{}');
+});
+
 test('logging out also signs out at the SSO and clears drafts', async ({ page }) => {
 	await page.goto('/instellingen');
 	await page.evaluate(() => localStorage.setItem('schrijver:x:new:a.md', '{}'));
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
-	await page.getByRole('button', { name: 'Uitloggen' }).click();
+	await page.getByRole('button', { name: 'Log uit' }).click();
 	await page.waitForURL((url) => url.href.startsWith(`${issuer}/logout?`));
 	const url = new URL(page.url());
 	expect(url.searchParams.get('post_logout_redirect_uri')).toBe(`${app}/`);
