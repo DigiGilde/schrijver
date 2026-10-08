@@ -53,6 +53,18 @@ const PreviewSchema = z
 		}
 	});
 
+// Hex only: a colour goes into a Mermaid `classDef`, where a comma would end the declaration.
+const KleurSchema = z
+	.string()
+	.regex(/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i, 'must be a hex colour such as #f0f7ff');
+
+const MermaidSchema = z.strictObject({
+	tokens: z.record(
+		z.string().regex(/^--[\w-]+$/, 'must be a custom property name such as --color-text'),
+		z.strictObject({ licht: KleurSchema, donker: KleurSchema })
+	)
+});
+
 export const SiteConfigSchema = z
 	.strictObject({
 		id: z.string(),
@@ -67,7 +79,8 @@ export const SiteConfigSchema = z
 		review: ReviewSchema,
 		identiteit: IdentiteitSchema.default({ toegestaan: ['anoniem', 'gekoppeld', 'op-naam'] }),
 		preview: PreviewSchema,
-		schrijfwijzer: z.string().optional()
+		schrijfwijzer: z.string().optional(),
+		mermaid: MermaidSchema.optional()
 	})
 	.superRefine((site, ctx) => {
 		if (site.concepten === 'privé') {

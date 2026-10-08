@@ -54,6 +54,28 @@ describe('parseSitesYaml', () => {
 		expect(() => parseSitesYaml(base.replace('pr-{nummer}', 'pr-1'))).toThrow(ZodError);
 	});
 
+	it('reads the Mermaid token colours of a site', () => {
+		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
+		expect(digi.mermaid).toBeUndefined();
+		expect(moza.mermaid?.tokens['--color-bg-light']).toEqual({
+			licht: '#f0f7ff',
+			donker: '#172538'
+		});
+	});
+
+	it('accepts only hex colours and custom property names as Mermaid tokens', () => {
+		const base = fixture('sites.yaml');
+		expect(() => parseSitesYaml(base.replace("licht: '#e17000'", 'licht: oranje'))).toThrow(
+			'must be a hex colour'
+		);
+		expect(() => parseSitesYaml(base.replace('--color-text:', 'color-text:'))).toThrow(
+			'must be a custom property name'
+		);
+		expect(() =>
+			parseSitesYaml(base.replace("donker: '#ebeef2' }", "donker: '#ebeef2', hoog: '#fff' }"))
+		).toThrow(ZodError);
+	});
+
 	it('rejects unknown keys', () => {
 		expect(() =>
 			parseSitesYaml(fixture('sites.yaml').replace('forge: github', 'forge: github\n  extra: 1'))
