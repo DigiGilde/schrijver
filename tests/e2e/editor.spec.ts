@@ -9,6 +9,15 @@ const editorValue = (page: Page) =>
 		() => (document.querySelector('nldd-text-editor') as unknown as { value: string }).value
 	);
 
+/** Below 1008 px the public-draft explanation is a banner instead of the coach mark. */
+const uitlegBanner = (page: Page) =>
+	page.getByRole('status').filter({ hasText: 'Je concept wordt openbaar' });
+const uitgelegd = (page: Page, site: string) =>
+	page.evaluate((id) => localStorage.getItem(`schrijver:${id}:openbaar-uitgelegd`), site);
+/** A new MOZa page whose required description is still empty, so its properties open on arrival. */
+const nieuwOnderwerp = (titel: string) =>
+	`/sites/moza-site/bewerken/onderwerpen/${titel.toLowerCase().replaceAll(' ', '-')}.md?nieuw=1&soort=Onderwerp&map=onderwerpen&titel=${encodeURIComponent(titel)}`;
+
 /* A first visit shows the public-draft coach mark; the tests tagged @uitleg are about it, the others start past it. */
 test.beforeEach(async ({ page }, testInfo) => {
 	if (testInfo.tags.includes('@uitleg')) return;
@@ -540,7 +549,7 @@ test(
 );
 
 test(
-	'on a narrow screen the public-draft coach mark leaves the toolbar free',
+	'on a narrow screen the public-draft explanation leaves the toolbar free',
 	{ tag: '@uitleg' },
 	async ({ page }) => {
 		await page.setViewportSize({ width: 400, height: 800 });
@@ -551,8 +560,98 @@ test(
 			() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
 		);
 		await expect(page.locator('nldd-just-in-time-education')).not.toHaveAttribute('active');
+		await expect(uitlegBanner(page)).toBeVisible();
 		await page.getByRole('button', { name: 'Meer' }).click();
 		await expect(page.getByRole('menuitemcheckbox', { name: 'Vet' })).toBeVisible();
+	}
+);
+
+test(
+	'below 1008 px a banner above the toolbar explains a public draft, until a dismissal',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 800 });
+		await page.goto('/sites/moza-site/bewerken/onderwerpen/actualiteitenservice.md');
+		const banner = uitlegBanner(page);
+		await expect(banner).toContainText(
+			'Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt.'
+		);
+		await expect(page.locator('nldd-just-in-time-education')).not.toHaveAttribute('active');
+		const box = (await banner.boundingBox())!;
+		const toolbar = (await page.locator('nldd-toolbar[label="Opmaak"]').boundingBox())!;
+		expect(box.y + box.height, 'the banner sits above the toolbar').toBeLessThanOrEqual(toolbar.y);
+
+		await banner.getByRole('button', { name: 'Verberg' }).click();
+		await expect(banner).toHaveCount(0);
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
+		expect(await uitgelegd(page, 'moza-site')).toBe('1');
+
+		await page.reload();
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
+		await page.evaluate(
+			() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+		);
+		await expect(banner).toHaveCount(0);
+	}
+);
+
+test(
+	'below 1008 px a save after the banner counts as seen',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 800 });
+		await page.goto('/sites/moza-site/bewerken/onderwerpen/open-werken.md');
+		await expect(uitlegBanner(page)).toBeVisible();
+		await page.getByRole('button', { name: 'Concept bewaren' }).click();
+		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+		await expect(uitlegBanner(page)).toHaveCount(0);
+		expect(await uitgelegd(page, 'moza-site')).toBe('1');
+	}
+);
+
+for (const { width, uitleg } of [
+	{
+		width: 1280,
+		uitleg: (page: Page) => page.getByRole('dialog', { name: 'Je concept wordt openbaar' })
+	},
+	{ width: 900, uitleg: uitlegBanner }
+]) {
+	test(
+		`on a new page at ${width} px the public-draft explanation follows the properties`,
+		{ tag: '@uitleg' },
+		async ({ page }) => {
+			await page.setViewportSize({ width, height: 800 });
+			await page.goto(nieuwOnderwerp('Openbaar uitgelegd'));
+			const dialog = page.getByRole('dialog', { name: 'Eigenschappen' });
+			await expect(dialog).toBeVisible();
+			await expect(uitleg(page)).toHaveCount(0);
+			await page
+				.locator('nldd-sheet')
+				.getByRole('textbox', { name: 'Beschrijving' })
+				.fill('Een onderwerp uit e2e.');
+			await page.keyboard.press('Escape');
+			await expect(dialog).toBeHidden();
+			await expect(uitleg(page)).toBeVisible();
+		}
+	);
+}
+
+test(
+	'a save before the public-draft explanation has shown does not count as seen',
+	{ tag: '@uitleg' },
+	async ({ page }) => {
+		await page.goto(nieuwOnderwerp('Bewaard voor de uitleg'));
+		await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeVisible();
+		await page
+			.locator('nldd-sheet')
+			.getByRole('textbox', { name: 'Beschrijving' })
+			.fill('Bewaard terwijl de eigenschappen open staan.');
+		await page.keyboard.press('ControlOrMeta+s');
+		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+		expect(await uitgelegd(page, 'moza-site')).toBeNull();
+
+		await page.goto('/sites/moza-site/bewerken/onderwerpen/actualiteitenservice.md');
+		await expect(page.getByRole('dialog', { name: 'Je concept wordt openbaar' })).toBeVisible();
 	}
 );
 

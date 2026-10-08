@@ -18,6 +18,7 @@
 	import { pageReady } from '$lib/client/page-ready.svelte';
 	import { withoutSent, type PendingImage } from '$lib/client/pending-images';
 	import {
+		PUBLIC_DRAFT_NOTICE,
 		publicDraftExplained,
 		rememberPublicDraftExplained
 	} from '$lib/client/public-draft-notice';
@@ -56,8 +57,13 @@
 	let images = $state<PendingImage[]>([]);
 	let imagesLost = $state(false);
 	let uitlegTonen = $state(false);
+	/* A new page that opens its properties on arrival explains once they have closed. */
+	let uitlegWacht = $state(false);
+	/* Only an explanation that was on screen counts as seen with a save. */
+	let uitlegGezien = false;
 	let bewaarKnopZichtbaar = $state(false);
-	let breed = $state(false);
+	/* Null until measured, so neither form of the explanation shows before the right one is known. */
+	let breed = $state<boolean | null>(null);
 	let focusVeld = $state<string | null>(null);
 
 	const readOnly = $derived(data.readOnly);
@@ -124,12 +130,16 @@
 			}
 		}
 		uitlegTonen =
-			openbaarConcept &&
-			!readOnly &&
-			!activeBranch &&
-			!eigenschappenBijAankomst() &&
-			!publicDraftExplained(data.site.id);
+			openbaarConcept && !readOnly && !activeBranch && !publicDraftExplained(data.site.id);
+		uitlegWacht = eigenschappenBijAankomst();
 		ready = true;
+	});
+
+	const uitlegNu = $derived(uitlegTonen && !uitlegWacht);
+	const uitlegKaart = $derived(uitlegNu && breed === true && bewaarKnopZichtbaar);
+	const uitlegBanner = $derived(uitlegNu && breed === false);
+	$effect(() => {
+		if (uitlegKaart || uitlegBanner) uitlegGezien = true;
 	});
 
 	/* Shown on arrival until the first save on this site or a dismissal; clicking past it does not count. */
@@ -137,6 +147,12 @@
 		uitlegTonen = false;
 		const { reason } = (event as CustomEvent<{ reason: string }>).detail;
 		if (reason !== 'ignored') rememberPublicDraftExplained(data.site.id);
+	}
+
+	function verbergUitleg(event: Event) {
+		uitlegTonen = false;
+		rememberPublicDraftExplained(data.site.id);
+		restoreFocus(event.currentTarget as Element, null, () => void schrijfvlak?.focus(false));
 	}
 
 	/*
@@ -161,7 +177,8 @@
 
 	/*
 	 * Beside the button the coach mark covers no controls. A narrow screen has no room there, and below
-	 * the button the card would cover the toolbar, which sticks right under the header.
+	 * the button the card would cover the toolbar, which sticks right under the header: there a banner
+	 * above the toolbar says the same.
 	 */
 	onMount(() => {
 		const query = window.matchMedia('(min-width: 1008px)');
@@ -252,6 +269,7 @@
 	function sluitEigenschappen(event: Event) {
 		eigenschappenOpen = false;
 		focusVeld = null;
+		uitlegWacht = false;
 		restoreFocus(
 			event.currentTarget as Element,
 			eigenschappenTerug,
@@ -293,11 +311,11 @@
 
 {#snippet bewaarKnop()}
 	<nldd-just-in-time-education
-		text="Je concept wordt openbaar"
-		supporting-text="Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt."
+		text={PUBLIC_DRAFT_NOTICE.text}
+		supporting-text={PUBLIC_DRAFT_NOTICE.supportingText}
 		dismissable
 		placement="left"
-		active={(uitlegTonen && bewaarKnopZichtbaar && breed) || undefined}
+		active={uitlegKaart || undefined}
 		onnldd-close={sluitUitleg}
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -345,6 +363,17 @@
 			/>
 		{/if}
 
+		{#if uitlegBanner}
+			<nldd-banner
+				variant="accent"
+				size="sm"
+				text={PUBLIC_DRAFT_NOTICE.text}
+				supporting-text={PUBLIC_DRAFT_NOTICE.supportingText}
+				dismissible
+				ondismiss={verbergUitleg}
+			></nldd-banner>
+		{/if}
+
 		{#if !readOnly}
 			<div class="meldingen">
 				<Opslaan
@@ -368,7 +397,7 @@
 						activeBranch = saved.branch;
 						flushPending = null;
 						writeDraft(null);
-						if (openbaarConcept) rememberPublicDraftExplained(data.site.id);
+						if (uitlegGezien) rememberPublicDraftExplained(data.site.id);
 						uitlegTonen = false;
 						opzet = false;
 					}}
