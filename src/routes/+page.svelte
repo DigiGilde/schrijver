@@ -15,17 +15,20 @@
 				supporting-text="Schrijver probeert het elke minuut opnieuw. Blijft dit zo, meld het dan bij de beheerders."
 			></nldd-banner>
 		{/if}
-		<nldd-container layout="grid" gap="16">
+		<nldd-list accessible-label="Sites">
+			<nldd-inline-dialog
+				slot="empty"
+				text="Nog geen sites"
+				supporting-text="Vraag de beheerders om je site aan te sluiten."
+			></nldd-inline-dialog>
 			{#each data.sites as site (site.id)}
-				<nldd-card>
-					<nldd-container gap="8" padding="16">
-						<nldd-title size="4" heading-level="2" text={site.naam}></nldd-title>
-						<nldd-text color="secondary">{site.repo}</nldd-text>
-						<nldd-text>{site.model}</nldd-text>
-						<nldd-link size="md" href="/sites/{site.id}" text="Open {site.naam}"></nldd-link>
-					</nldd-container>
-				</nldd-card>
+				<nldd-list-item href="/sites/{site.id}">
+					<nldd-text-cell text={site.naam} supporting-text="{site.repo} · {site.model}"
+					></nldd-text-cell>
+					<nldd-spacer-cell size="8"></nldd-spacer-cell>
+					<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
+				</nldd-list-item>
 			{/each}
-		</nldd-container>
+		</nldd-list>
 	</nldd-container>
 </Pagina>
