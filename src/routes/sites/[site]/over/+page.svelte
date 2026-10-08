@@ -126,8 +126,8 @@
 						</ul>
 						<p>
 							Je keuze stel je in bij <a href="/instellingen">Instellingen</a>. Staat deze site jouw
-							keuze niet toe, dan ondertekent Schrijver hier met een keuze die niet meer van je laat
-							zien.
+							keuze niet toe, dan ondertekent Schrijver hier met minder gegevens van jou,
+							bijvoorbeeld anoniem.
 						</p>
 					</nldd-rich-text>
 				</nldd-container>

@@ -184,6 +184,11 @@ test('the about page explains the flow and names the redactie', async ({ page })
 		tekst.getByText('iedereen met schrijfrechten op de repository op GitHub.')
 	).toBeVisible();
 	await expect(tekst.getByText('Op naam', { exact: true })).toBeVisible();
+	await expect(
+		tekst.getByText(
+			'dan ondertekent Schrijver hier met minder gegevens van jou, bijvoorbeeld anoniem.'
+		)
+	).toBeVisible();
 	await expect(tekst.getByRole('link', { name: 'Instellingen' })).toHaveAttribute(
 		'href',
 		'/instellingen'
