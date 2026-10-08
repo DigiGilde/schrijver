@@ -34,7 +34,8 @@
 		oneigenschappen = null,
 		focusEditor,
 		busy = $bindable(false),
-		knoptekst = $bindable()
+		knoptekst = $bindable(),
+		conflictOpen = $bindable(false)
 	}: {
 		siteId: string;
 		repoPath: string;
@@ -58,6 +59,8 @@
 		focusEditor: (wissel?: boolean) => void;
 		busy?: boolean;
 		knoptekst?: string;
+		/** True while a conflict waits for a choice; another save would only meet it again. */
+		conflictOpen?: boolean;
 	} = $props();
 
 	/* The props are the initial values of the editing session; later saves update them locally. */
@@ -81,6 +84,9 @@
 	const knopTekst = $derived(huidigPr ? 'Opslaan' : 'Concept bewaren');
 	$effect.pre(() => {
 		knoptekst = knopTekst;
+	});
+	$effect.pre(() => {
+		conflictOpen = conflict !== null;
 	});
 
 	async function toon(element: () => HTMLElement | undefined) {

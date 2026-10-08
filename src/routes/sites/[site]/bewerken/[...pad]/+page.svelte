@@ -40,6 +40,7 @@
 	let opslaan: ReturnType<typeof Opslaan> | undefined = $state();
 	let bezig = $state(false);
 	let knoptekst = $state('');
+	let conflictOpen = $state(false);
 	let eigenschappenOpen = $state(false);
 	let kop: HTMLElement | undefined = $state();
 	let restorable = $state<Draft | null>(null);
@@ -210,7 +211,7 @@
 	{titel}
 	ondertitel={openbaarConcept ? `${data.repoPath} · Openbaar concept` : data.repoPath}
 	terug={{ href: `/sites/${data.site.id}`, tekst: data.site.naam }}
-	balk={readOnly ? undefined : bewaarKnop}
+	balk={readOnly || conflictOpen ? undefined : bewaarKnop}
 	bind:kop
 >
 	<nldd-container gap="16">
@@ -238,6 +239,7 @@
 					bind:this={opslaan}
 					bind:busy={bezig}
 					bind:knoptekst
+					bind:conflictOpen
 					oneigenschappen={fields.length > 0 ? openEigenschappen : null}
 					siteId={data.site.id}
 					repoPath={data.repoPath}

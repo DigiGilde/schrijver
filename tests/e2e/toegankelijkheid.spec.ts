@@ -215,9 +215,12 @@ test('a save conflict takes focus, and choosing a version returns it to the edit
 	await expect(editor).toBeVisible();
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await expect(page.getByRole('alert').filter({ hasText: 'intussen' })).toBeFocused();
+	// The conflict choices are the only primary actions: saving again would meet the same conflict.
+	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Hun versie overnemen' }).click();
 	await expect(editor).toBeFocused();
 	await expect(editor).toContainText('Hun');
+	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeVisible();
 });
 
 test('field errors from a save mark the field and take focus', async ({ page }) => {
