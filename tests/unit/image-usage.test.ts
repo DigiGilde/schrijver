@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
-import { imageUsage } from '../../src/lib/forge/image-usage';
+import { CachingForge } from '../../src/lib/forge/cache';
+import { imageUsage, mentionsByBlob } from '../../src/lib/forge/image-usage';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -13,6 +14,7 @@ const BRANCH = 'schrijver/digi-handboek/privacy-abcd';
 let forge: FakeForge;
 
 beforeEach(() => {
+	mentionsByBlob.clear();
 	forge = new FakeForge();
 	forge.seedRepo(digi.repo, 'main', {
 		[KAT]: PNG,
@@ -286,6 +288,38 @@ describe('imageUsage', () => {
 		});
 		expect(readFile).toHaveBeenCalledTimes(2);
 		expect(result.complete).toBe(false);
+	});
+
+	it('reads a file once, then knows it by its blob on every branch and after a write', async () => {
+		const readFile = vi.spyOn(forge, 'readFile');
+		const cached = new CachingForge(forge);
+		const run = (ref = 'main') =>
+			imageUsage(cached, digi, { titel: 'uit-h1' }, ref, 'docs/kennis/privacy.md', [KAT]);
+		const first = await run();
+		expect(readFile).toHaveBeenCalledTimes(3);
+		readFile.mockClear();
+		expect(await run()).toEqual(first);
+		expect(readFile).not.toHaveBeenCalled();
+
+		await cached.createBranch(digi.repo, 'main', BRANCH);
+		await cached.commit(digi.repo, BRANCH, [{ path: 'docs/over/kat.md', content: '# Kat\n' }], 'x');
+		const onBranch = await run(BRANCH);
+		expect(readFile.mock.calls.map((call) => [call[1], call[2]])).toEqual([
+			[BRANCH, 'docs/over/kat.md']
+		]);
+		expect(onBranch.images[0].usedOn.map((page) => page.path)).toEqual([
+			'docs/kennis/index.md',
+			'docs/over/kat.md'
+		]);
+	});
+
+	it('leaves no page text in the forge cache', async () => {
+		const readFile = vi.spyOn(forge, 'readFile');
+		const cached = new CachingForge(forge);
+		await imageUsage(cached, digi, { titel: 'uit-h1' }, 'main', 'docs/kennis/privacy.md', [KAT]);
+		readFile.mockClear();
+		await cached.readFile(digi.repo, 'main', 'docs/kennis/index.md', { maxBytes: 500_000 });
+		expect(readFile).toHaveBeenCalledTimes(1);
 	});
 
 	it('reads no page when none of the images exists', async () => {

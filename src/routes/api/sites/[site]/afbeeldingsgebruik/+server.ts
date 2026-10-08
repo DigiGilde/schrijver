@@ -7,6 +7,7 @@ import { imageUsage } from '$lib/forge/image-usage';
 import { validPagePath } from '$lib/forge/save';
 import { ForgeError } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
+import { IMAGE_SCANS_SPENT, imageScanLimit } from '$lib/server/security';
 import { getConfigStore, getForge } from '$lib/server/services';
 
 const BodySchema = z.object({
@@ -55,6 +56,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	) {
 		log.warn('image_usage.refused', { site: site.id, actor });
 		return fail(400, INVALID);
+	}
+	if (!imageScanLimit.take(locals.user.session.sub)) {
+		log.warn('image_usage.limited', { site: site.id, actor });
+		return fail(429, IMAGE_SCANS_SPENT);
 	}
 
 	try {

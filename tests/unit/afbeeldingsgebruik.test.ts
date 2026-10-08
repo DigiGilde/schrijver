@@ -53,14 +53,15 @@ beforeEach(async () => {
 
 function post(
 	body: unknown,
-	opts: { site?: string; user?: boolean; header?: string | null } = {}
+	opts: { site?: string; user?: boolean; header?: string | null; sub?: string } = {}
 ): Promise<Response> {
 	const headers: Record<string, string> = {};
 	if (opts.header !== null) headers['X-Requested-With'] = opts.header ?? 'Schrijver';
+	const session = { sub: opts.sub ?? 'jan' };
 	return POST({
 		request: new Request('http://x', { method: 'POST', headers, body: JSON.stringify(body) }),
 		params: { site: opts.site ?? 'digi-handboek' },
-		locals: { user: opts.user === false ? null : { session: { sub: 'jan' }, prefs: {} } }
+		locals: { user: opts.user === false ? null : { session, prefs: {} } }
 	} as never) as Promise<Response>;
 }
 
@@ -206,6 +207,26 @@ describe('POST /api/sites/[site]/afbeeldingsgebruik', () => {
 		const logged = JSON.stringify(vi.mocked(log.warn).mock.calls);
 		expect(logged).not.toContain('interne details');
 		expect(logged).not.toContain(GEHEIM);
+	});
+
+	it('answers 429 once a user spent the hourly budget of scans, and scans no more', async () => {
+		for (let i = 0; i < 60; i++) expect((await post(good, { sub: 'zoeker' })).status).toBe(200);
+		const readTree = vi.spyOn(forge, 'readTree');
+		const spent = await post(good, { sub: 'zoeker' });
+		expect(spent.status).toBe(429);
+		expect(await spent.json()).toEqual({
+			ok: false,
+			error: {
+				message:
+					'Je hebt het afgelopen uur veel afbeeldingen laten nagaan; probeer het later opnieuw'
+			}
+		});
+		expect(readTree).not.toHaveBeenCalled();
+		expect(vi.mocked(log.warn)).toHaveBeenCalledWith('image_usage.limited', {
+			site: 'digi-handboek',
+			actor: expect.any(String)
+		});
+		expect((await post(good, { sub: 'ander' })).status).toBe(200);
 	});
 
 	it('never puts page text in the answer or the log', async () => {

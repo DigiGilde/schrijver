@@ -55,12 +55,15 @@ export class ForgeError extends Error {
 
 export interface Forge {
 	readTree(repo: string, ref: Ref, dir: string): Promise<FileTree>; // recursive
-	/** With `maxBytes`, a larger file is not downloaded: it comes back empty with `tooLarge`. */
+	/**
+	 * With `maxBytes`, a larger file is not downloaded: it comes back empty with `tooLarge`. With
+	 * `uncached`, a caching forge neither serves nor keeps the content.
+	 */
 	readFile(
 		repo: string,
 		ref: Ref,
 		path: string,
-		opts?: { maxBytes?: number }
+		opts?: { maxBytes?: number; uncached?: true }
 	): Promise<{ content: Uint8Array; sha: string; tooLarge?: true } | null>;
 	createBranch(repo: string, from: Ref, name: string): Promise<void>;
 	commit(

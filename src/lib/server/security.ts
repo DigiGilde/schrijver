@@ -173,3 +173,9 @@ export function newProposalsPerHour(env: Env = process.env): number {
 }
 
 export const newProposalLimit = createWindowCounter(newProposalsPerHour(), 3600_000);
+
+/** Image usage scans per user per hour: the check before a save that drops an image, and that save. */
+export const IMAGE_SCANS_PER_HOUR = 60;
+export const imageScanLimit = createWindowCounter(IMAGE_SCANS_PER_HOUR, 3600_000);
+export const IMAGE_SCANS_SPENT =
+	'Je hebt het afgelopen uur veel afbeeldingen laten nagaan; probeer het later opnieuw';

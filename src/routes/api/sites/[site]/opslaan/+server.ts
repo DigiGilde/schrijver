@@ -10,7 +10,7 @@ import {
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
-import { newProposalLimit } from '$lib/server/security';
+import { IMAGE_SCANS_SPENT, imageScanLimit, newProposalLimit } from '$lib/server/security';
 import { getConfigStore, getForge } from '$lib/server/services';
 
 const MAX_BODY_CHARS = 500_000;
@@ -77,7 +77,11 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		});
 	}
 
-	if (parsed.branch === null && !newProposalLimit.take((user.session as { sub: string }).sub)) {
+	const sub = (user.session as { sub: string }).sub;
+	if (parsed.deletions?.length && !imageScanLimit.take(sub)) {
+		return json(message(IMAGE_SCANS_SPENT), { status: 429 });
+	}
+	if (parsed.branch === null && !newProposalLimit.take(sub)) {
 		return json(
 			message(
 				'Je hebt het afgelopen uur veel nieuwe voorstellen gemaakt; probeer het later opnieuw'

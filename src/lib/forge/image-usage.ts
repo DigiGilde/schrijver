@@ -10,6 +10,7 @@ import {
 	resolveImageRefs
 } from '../content/image-refs';
 import { titleOf } from '../content/schema-form';
+import { LruMap } from './cache';
 import type { FileEntry, FileTree, Forge, PrFile, PrSummary } from './types';
 
 /** Bounds on one scan: how many files are read per branch, and how large a file may be to be read at all. */
@@ -21,6 +22,7 @@ const TEXT_FILE = /\.(?:md|markdown|mdx|html?|ya?ml|json|toml|css)$/i;
 const PAGE_FILE = /\.(?:md|markdown|mdx|html?)$/i;
 /** More distinct mentions than this in one file and it counts as using every image. */
 const MAX_MENTIONS = 5_000;
+const MAX_TITLE = 200;
 
 const decoder = new TextDecoder();
 
@@ -56,11 +58,25 @@ function mentionsOf(text: string, schema: Pick<PageSchema, 'titel'> | null): Men
 	const refs = [...new Set(imageRefs(text))];
 	const tails = imageNameTails(text);
 	const parsed = parsePage(text);
-	const title = schema && parsed.ok ? titleOf(schema, parsed.frontmatter, parsed.body).trim() : '';
+	const title =
+		schema && parsed.ok
+			? titleOf(schema, parsed.frontmatter, parsed.body).trim().slice(0, MAX_TITLE)
+			: '';
 	if (refs.length > MAX_MENTIONS || tails.length > MAX_MENTIONS)
 		return { refs: [], tails: [], all: true, title };
 	return { refs, tails, all: false, title };
 }
+
+const length = (texts: string[]) => texts.reduce((sum, text) => sum + text.length, 0);
+
+/**
+ * What each blob mentions, by its sha and the site's title rule. A blob never changes, so an entry holds
+ * for every branch and outlives the forge cache, and a scan reads only the files that changed since.
+ */
+export const mentionsByBlob = new LruMap<Mentions>(
+	4_000_000,
+	(m) => length(m.refs) + length(m.tails) + m.title.length
+);
 
 /** The image folder that the site's convention gives a page, as `imagePath` places it. */
 function imageFolderOf(convention: string, page: string): string {
@@ -137,15 +153,23 @@ function textFiles(scan: Scan, tree: FileTree): FileEntry[] {
  */
 async function readFiles(scan: Scan, ref: string, files: FileEntry[], generous: boolean) {
 	const { forge, site, limits, prefix } = scan;
+	const rule = scan.schema?.titel ?? '';
 	if (files.length > limits.pages) scan.complete = false;
-	await each(files.slice(0, limits.pages), async ({ path }) => {
-		const file = await forge.readFile(site.repo, ref, path, { maxBytes: limits.bytes });
-		if (!file) return;
-		if (file.tooLarge) {
-			scan.complete = false;
-			return;
+	await each(files.slice(0, limits.pages), async ({ path, sha }) => {
+		let mentions = mentionsByBlob.get(`${rule}\0${sha}`);
+		if (!mentions) {
+			const file = await forge.readFile(site.repo, ref, path, {
+				maxBytes: limits.bytes,
+				uncached: true
+			});
+			if (!file) return;
+			if (file.tooLarge) {
+				scan.complete = false;
+				return;
+			}
+			mentions = mentionsOf(decoder.decode(file.content), scan.schema);
+			mentionsByBlob.set(`${rule}\0${file.sha}`, mentions);
 		}
-		const mentions = mentionsOf(decoder.decode(file.content), scan.schema);
 		const refs = resolveImageRefs(mentions.refs, path, site.content.pad);
 		const title = (PAGE_FILE.test(path) && mentions.title) || path.slice(prefix.length);
 		for (const image of scan.images) {

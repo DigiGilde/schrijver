@@ -100,6 +100,21 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		expect((await call({ body: { ...good, deletions: many } })).status).toBe(400);
 	});
 
+	it('refuses a save that deletes once the hourly budget of image scans is spent', async () => {
+		const deletions = ['docs/afbeeldingen/a/kat.png'];
+		const branch = { ...good, branch: 'schrijver/x', prNumber: 1 };
+		for (let i = 0; i < 60; i++)
+			expect((await call({ sub: 'wisser', body: { ...branch, deletions } })).status).toBe(200);
+		vi.mocked(save).mockClear();
+		const spent = await call({ sub: 'wisser', body: { ...branch, deletions } });
+		expect(spent.status).toBe(429);
+		expect((await spent.json()).error.message).toBe(
+			'Je hebt het afgelopen uur veel afbeeldingen laten nagaan; probeer het later opnieuw'
+		);
+		expect(save).not.toHaveBeenCalled();
+		expect((await call({ sub: 'wisser', body: branch })).status).toBe(200);
+	});
+
 	it('refuses deeply nested frontmatter', async () => {
 		let deep: unknown = 'x';
 		for (let i = 0; i < 50; i++) deep = { a: deep };

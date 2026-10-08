@@ -6,6 +6,50 @@ interface Entry {
 	expires: number;
 }
 
+/** A map that drops its least recently used entries once their summed weight passes `budget`. */
+export class LruMap<V> {
+	private entries = new Map<string, { value: V; weight: number }>();
+	private total = 0;
+
+	constructor(
+		private budget: number,
+		private weigh: (value: V) => number
+	) {}
+
+	get(key: string): V | undefined {
+		const entry = this.entries.get(key);
+		if (!entry) return undefined;
+		this.entries.delete(key);
+		this.entries.set(key, entry);
+		return entry.value;
+	}
+
+	set(key: string, value: V): void {
+		this.delete(key);
+		const weight = key.length + this.weigh(value);
+		if (weight > this.budget) return;
+		this.entries.set(key, { value, weight });
+		this.total += weight;
+		for (const [oldest, entry] of this.entries) {
+			if (this.total <= this.budget) break;
+			this.entries.delete(oldest);
+			this.total -= entry.weight;
+		}
+	}
+
+	delete(key: string): void {
+		const entry = this.entries.get(key);
+		if (!entry) return;
+		this.entries.delete(key);
+		this.total -= entry.weight;
+	}
+
+	clear(): void {
+		this.entries.clear();
+		this.total = 0;
+	}
+}
+
 export class CachingForge implements Forge {
 	private entries = new Map<string, Map<string, Entry>>();
 
@@ -54,7 +98,8 @@ export class CachingForge implements Forge {
 		return this.cached(repo, `tree\0${ref}\0${dir}`, () => this.inner.readTree(repo, ref, dir));
 	}
 
-	readFile(repo: string, ref: Ref, path: string, opts?: { maxBytes?: number }) {
+	readFile(repo: string, ref: Ref, path: string, opts?: { maxBytes?: number; uncached?: true }) {
+		if (opts?.uncached) return this.inner.readFile(repo, ref, path, opts);
 		return this.cached(repo, `file\0${ref}\0${path}\0${opts?.maxBytes ?? ''}`, () =>
 			this.inner.readFile(repo, ref, path, opts)
 		);

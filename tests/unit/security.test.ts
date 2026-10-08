@@ -6,6 +6,7 @@ import {
 	assertSafeEnvironment,
 	createRateLimit,
 	devBypassesAllowed,
+	imageScanLimit,
 	newProposalsPerHour,
 	securityHeaders
 } from '../../src/lib/server/security';
@@ -218,5 +219,13 @@ describe('newProposalsPerHour', () => {
 				value
 			).toBe(20);
 		expect(newProposalsPerHour({ NODE_ENV: 'development' })).toBe(20);
+	});
+});
+
+describe('imageScanLimit', () => {
+	it('allows 60 image usage scans per user per hour', () => {
+		for (let i = 0; i < 60; i++) expect(imageScanLimit.take('sub:scanner')).toBe(true);
+		expect(imageScanLimit.take('sub:scanner')).toBe(false);
+		expect(imageScanLimit.take('sub:ander')).toBe(true);
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CachingForge } from '$lib/forge/cache';
+import { CachingForge, LruMap } from '$lib/forge/cache';
 import { FakeForge } from '$lib/forge/fake';
 
 function setup() {
@@ -134,5 +134,42 @@ describe('CachingForge', () => {
 		const merge = vi.spyOn(fake, 'merge').mockResolvedValue();
 		await cache.merge('o/site', 1, 'm', 'abc1234');
 		expect(merge).toHaveBeenCalledWith('o/site', 1, 'm', 'abc1234');
+	});
+});
+
+describe('LruMap', () => {
+	const lru = () => new LruMap<string>(10, (value) => value.length);
+
+	it('drops the least recently used entries once the weight passes the budget', () => {
+		const map = lru();
+		map.set('a', 'xx');
+		map.set('b', 'xx');
+		expect(map.get('a')).toBe('xx');
+		map.set('c', 'xxxx');
+		expect(map.get('b')).toBeUndefined();
+		expect(map.get('a')).toBe('xx');
+		expect(map.get('c')).toBe('xxxx');
+	});
+
+	it('keeps nothing heavier than the whole budget, and replaces a key', () => {
+		const map = lru();
+		map.set('a', 'x'.repeat(10));
+		expect(map.get('a')).toBeUndefined();
+		map.set('a', 'xx');
+		map.set('a', 'yyy');
+		expect(map.get('a')).toBe('yyy');
+		map.clear();
+		expect(map.get('a')).toBeUndefined();
+	});
+});
+
+describe('CachingForge reading past the cache', () => {
+	it('neither serves nor keeps an uncached read', async () => {
+		const { cache, readFile } = setup();
+		await cache.readFile('o/site', 'main', 'a.md');
+		await cache.readFile('o/site', 'main', 'a.md', { uncached: true });
+		await cache.readFile('o/site', 'main', 'docs/b.md', { uncached: true });
+		await cache.readFile('o/site', 'main', 'docs/b.md');
+		expect(readFile).toHaveBeenCalledTimes(4);
 	});
 });
