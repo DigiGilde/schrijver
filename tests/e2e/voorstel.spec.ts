@@ -13,6 +13,14 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	await expect(page.locator('nldd-badge[text="Concept"]')).toBeVisible();
+	const stap = page.locator('nldd-step-bar[accessible-label="Voortgang van dit voorstel"]');
+	await expect(stap.locator('nldd-step-bar-item[status="current"]')).toHaveAttribute(
+		'text',
+		'Concept'
+	);
+	await expect(
+		page.getByText(/^Volgende stap: stuur het voorstel in met Insturen als het klaar is/)
+	).toBeVisible();
 	await expect(
 		page.locator('[data-diff="toegevoegd"]').filter({ hasText: 'Voorstel door e2e' })
 	).toBeVisible();
@@ -40,6 +48,27 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 
 	await page.getByRole('button', { name: 'Insturen' }).click();
 	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	await expect(stap.locator('nldd-step-bar-item[aria-current="step"]')).toHaveAttribute(
+		'text',
+		'Ingestuurd'
+	);
+	await expect(stap.locator('nldd-step-bar-item[text="Concept"]')).not.toHaveAttribute(
+		'aria-current',
+		'step'
+	);
+	await expect(
+		page.getByText(
+			'Volgende stap: de redactie beoordeelt het voorstel en keurt het goed of vraagt om aanpassingen.'
+		)
+	).toBeVisible();
+	await expect(
+		page.getByText(
+			'Goedkeuren kan de redactie (naam@rijksoverheid.nl en test@example.org) of iemand met schrijfrechten op de repository op GitHub.'
+		)
+	).toBeVisible();
+	await expect(
+		page.getByRole('link', { name: 'Zo komt een wijziging op de site' })
+	).toHaveAttribute('href', '/sites/digi-handboek/over');
 	await expect(page.getByRole('link', { name: 'Beoordelen op GitHub' })).toBeVisible();
 
 	await page.getByRole('textbox', { name: 'Opmerking' }).fill('Ziet er goed uit');
@@ -48,4 +77,12 @@ test('sends in, comments and merges a draft proposal', async ({ page }) => {
 
 	await page.getByRole('button', { name: 'Samenvoegen' }).click();
 	await expect(page.locator('nldd-badge[text="Samengevoegd"]')).toBeVisible();
+	await expect(stap.locator('nldd-step-bar-item[aria-current="step"]')).toHaveAttribute(
+		'text',
+		'Samengevoegd'
+	);
+	await expect(
+		page.getByText('Klaar: de wijziging staat op de site na de volgende publicatie.')
+	).toBeVisible();
+	await expect(page.getByText(/^Goedkeuren kan/)).toHaveCount(0);
 });

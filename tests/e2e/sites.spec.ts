@@ -162,11 +162,12 @@ test('the proposal page shows what changed before the comment form', async ({ pa
 	expect(
 		await inDocumentOrder(page, [
 			'nldd-badge',
+			'nldd-step-bar',
 			'nldd-toolbar[label="Acties voor dit voorstel"]',
 			'nldd-title[text="Wijzigingen"]',
 			'nldd-title[text="Opmerking"]'
 		]),
-		'status, actions, changes, comment'
+		'status, flow, actions, changes, comment'
 	).toBe(true);
 });
 

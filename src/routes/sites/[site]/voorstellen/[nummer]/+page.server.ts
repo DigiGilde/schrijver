@@ -91,6 +91,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		);
 		return {
 			site: { id: site.id, naam: site.naam },
+			redactie: site.review.redactie,
 			proposal,
 			diffs,
 			nietVergeleken: Math.max(pages.length - MAX_DIFF_PAGES, 0),

@@ -2,19 +2,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import Diff from '$lib/components/Diff.svelte';
 	import Pagina from '$lib/components/Pagina.svelte';
+	import { STATUS, STEPS, nextStep, stepOf, whoDecides } from '$lib/forge/status';
 
 	let { data } = $props();
 
 	type Melding = { variant: 'success' | 'warning' | 'critical'; text: string; detail?: string };
 
-	const STATUS: Record<string, { text: string; color: string }> = {
-		concept: { text: 'Concept', color: 'neutral' },
-		ingestuurd: { text: 'Ingestuurd', color: 'accent' },
-		goedgekeurd: { text: 'Goedgekeurd', color: 'success' },
-		'wijzigingen-gevraagd': { text: 'Wijzigingen gevraagd', color: 'warning' },
-		samengevoegd: { text: 'Samengevoegd', color: 'success' },
-		gesloten: { text: 'Gesloten', color: 'neutral' }
-	};
 	const BESTAND: Record<string, string> = {
 		added: 'toegevoegd',
 		modified: 'gewijzigd',
@@ -26,6 +19,10 @@
 		success: 'Het voorbeeld is gebouwd',
 		failure: 'Het bouwen van het voorbeeld is mislukt'
 	};
+
+	const stand = $derived(STATUS[data.proposal.status]);
+	const stap = $derived(stepOf(data.proposal.status));
+	const wie = $derived(whoDecides(data.proposal.status, data.redactie));
 
 	let busy = $state(false);
 	let melding = $state<Melding | null>(null);
@@ -90,12 +87,26 @@
 >
 	<nldd-container gap="24">
 		<nldd-container layout="wrap" gap="12" vertical-alignment="center">
-			<nldd-badge
-				text={STATUS[data.proposal.status].text}
-				color={STATUS[data.proposal.status].color}
-			></nldd-badge>
+			<nldd-badge text={stand.label} color={stand.color}></nldd-badge>
 			{#if data.viaGithub}<nldd-tag text="Via GitHub"></nldd-tag>{/if}
 			<nldd-text color="secondary">{CHECKS[data.proposal.checks]}</nldd-text>
+		</nldd-container>
+
+		<nldd-container gap="12">
+			{#if stap}
+				<nldd-step-bar accessible-label="Voortgang van dit voorstel">
+					{#each STEPS as naam (naam)}
+						<nldd-step-bar-item text={naam} status={naam === stap ? 'current' : undefined}
+						></nldd-step-bar-item>
+					{/each}
+				</nldd-step-bar>
+			{/if}
+			<nldd-text>{nextStep(data.proposal.status, data.proposal.mine)}</nldd-text>
+			{#if wie}
+				<nldd-text color="secondary">{wie}</nldd-text>
+			{/if}
+			<nldd-link href="/sites/{data.site.id}/over" text="Zo komt een wijziging op de site"
+			></nldd-link>
 		</nldd-container>
 
 		<nldd-toolbar label="Acties voor dit voorstel">
