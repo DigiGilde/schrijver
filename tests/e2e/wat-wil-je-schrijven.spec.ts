@@ -56,8 +56,11 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
 		'Een pagina over de koffieautomaat'
 	);
-	// The editor offers the outline as an unsaved draft; nothing reaches the forge before "Concept bewaren".
-	await page.getByRole('button', { name: 'Herstellen' }).click();
+	// The outline arrives as an unsaved draft; nothing reaches the forge before "Concept bewaren".
+	await expect(
+		page.getByText('Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.')
+	).toBeVisible();
+	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await expect(editor).toContainText('# Een pagina over de koffieautomaat');
 	await expect(editor).toContainText('## Waar staat hij');

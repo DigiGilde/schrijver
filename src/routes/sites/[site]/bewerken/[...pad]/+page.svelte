@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { page } from '$app/state';
 	import type { PageData } from './$types';
 	import ConceptBanner from '$lib/components/ConceptBanner.svelte';
 	import FrontmatterFormulier from '$lib/components/FrontmatterFormulier.svelte';
@@ -50,6 +51,7 @@
 	let eigenschappenOpen = $state(false);
 	let kop: HTMLElement | undefined = $state();
 	let restorable = $state<Draft | null>(null);
+	let opzet = $state(false);
 	let ready = $state(false);
 	let images = $state<PendingImage[]>([]);
 	let imagesLost = $state(false);
@@ -115,6 +117,11 @@
 			const draft = readDraft(storageKey);
 			if (draft && !sameAsServer(draft)) restorable = draft;
 			else if (draft) writeDraft(null);
+			// "Nieuwe pagina" hands over the outline from Schrijfhulp as this draft.
+			if (restorable && data.nieuw && page.url.searchParams.get('opzet') === '1') {
+				restore();
+				opzet = true;
+			}
 		}
 		uitlegTonen =
 			openbaarConcept &&
@@ -326,6 +333,13 @@
 			<LeesAlleenBanner {readOnly} />
 		{/if}
 
+		{#if opzet}
+			<nldd-banner
+				variant="accent"
+				text="Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart."
+			></nldd-banner>
+		{/if}
+
 		{#if restorable}
 			<ConceptBanner
 				verouderd={restorable.sha !== baseSha}
@@ -365,6 +379,7 @@
 						writeDraft(null);
 						if (openbaarConcept) rememberPublicDraftExplained(data.site.id);
 						uitlegTonen = false;
+						opzet = false;
 					}}
 					onovernemen={neemOver}
 					onbasis={(sha) => (baseSha = sha)}
