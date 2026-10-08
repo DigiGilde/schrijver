@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
+import { addressText } from '$lib/config/site-address';
 import type { SiteConfig } from '$lib/config/types';
 import { toProposal } from '$lib/forge/proposals';
 import { waitsForReview } from '$lib/forge/status';
@@ -77,7 +78,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			id: s.id,
 			naam: s.naam,
 			omschrijving: s.omschrijving,
-			adres: s.adres?.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+			adres: s.adres ? addressText(s.adres) : undefined,
 			status: status[i]
 		}))
 	};

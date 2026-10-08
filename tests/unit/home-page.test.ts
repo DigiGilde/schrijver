@@ -125,6 +125,26 @@ describe('home page', () => {
 		expect((await visit()).sites.map((s) => s.id)).toEqual(['digi-handboek']);
 	});
 
+	it('writes an address with a path, a query and a fragment as the site header does', async () => {
+		const fixture = (path: string) => readFileSync(`tests/fixtures/config/${path}`, 'utf8');
+		const files: Record<string, string> = {
+			'sites.yaml': fixture('sites.yaml')
+				.split('\n- ')[0]
+				.replace(
+					'https://digihandboek.rijks.app/',
+					'https://digihandboek.rijks.app/team/?utm=1#top'
+				),
+			'schemas/digi-handboek.yaml': fixture('schemas/digi-handboek.yaml')
+		};
+		const single = new ConfigStore({
+			readFile: async (path) => files[path] ?? null,
+			listFiles: async () => []
+		});
+		await single.load();
+		setConfigStore(single);
+		expect((await visit()).sites.map((s) => s.adres)).toEqual(['digihandboek.rijks.app/team']);
+	});
+
 	it('describes each site by its name, description and address without the scheme', async () => {
 		const { sites } = await visit();
 		expect(

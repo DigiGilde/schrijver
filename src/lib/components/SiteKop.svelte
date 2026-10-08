@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { addressText } from '$lib/config/site-address';
 	import { proposalsTab } from '$lib/forge/status';
 
 	type Tab = 'paginas' | 'voorstellen' | 'over';
@@ -17,14 +18,6 @@
 	let breedte = $state(0);
 	/* The tab bar truncates rather than wraps: below this width the last tab takes its short name. */
 	const kort = $derived(breedte > 0 && breedte < 360);
-	const adresTekst = (adres: string) => {
-		try {
-			const url = new URL(adres);
-			return (url.host + url.pathname).replace(/\/$/, '');
-		} catch {
-			return adres;
-		}
-	};
 
 	/* nldd-tab-bar-item has no accessible-label, so the name goes on the link it renders. */
 	function toegankelijkeNaam(item: HTMLElement, naam: string | null) {
@@ -71,7 +64,7 @@
 			href={site.adres}
 			target="_blank"
 			end-icon="external-link"
-			text={adresTekst(site.adres)}
+			text={addressText(site.adres)}
 		></nldd-link>
 	{/if}
 </div>
