@@ -435,8 +435,14 @@ test.describe('app bar', () => {
 			'Uitloggen'
 		]);
 		await expect(page.getByRole('group', { name: 'Account' })).toBeVisible();
-		await expect(page.getByText('Test Gebruiker').filter({ visible: true })).toBeVisible();
-		await expect(page.getByText('test@example.org').filter({ visible: true })).toBeVisible();
+
+		const identity = page.locator('nldd-menu > [slot="header"] nldd-identity');
+		await expect(identity).toBeVisible();
+		await expect(identity).toHaveAttribute('text', 'Test Gebruiker');
+		await expect(identity).toHaveAttribute('supporting-text', 'test@example.org');
+		const tree = await page.getByRole('banner').ariaSnapshot();
+		expect(tree, 'the identity is in the accessibility tree').toContain('Test Gebruiker');
+		expect(tree).toContain('test@example.org');
 
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('menuitem').first()).toBeHidden();
@@ -485,7 +491,7 @@ test.describe('app bar', () => {
 				'Instellingen',
 				'Uitloggen'
 			]);
-			await expect(page.getByText('test@example.org').filter({ visible: true })).toBeVisible();
+			await expect(page.getByRole('group', { name: 'Account, Test Gebruiker' })).toBeVisible();
 		});
 	});
 });

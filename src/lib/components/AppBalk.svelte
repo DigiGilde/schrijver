@@ -29,13 +29,6 @@
 	}
 </script>
 
-{#snippet identity()}
-	<!-- An identity is not a menu item, and the children of a menu have to be. -->
-	<nldd-container aria-hidden="true" padding="12">
-		<nldd-identity text={name} supporting-text={address}></nldd-identity>
-	</nldd-container>
-{/snippet}
-
 {#if testEnvironment}
 	<nldd-status-bar
 		variant="warning"
@@ -65,12 +58,14 @@
 				>
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<nldd-menu slot="popup" placement="bottom-end" onkeydown={followOnSpace}>
+						<nldd-container slot="header" padding="12">
+							<nldd-identity text={name} supporting-text={address}></nldd-identity>
+						</nldd-container>
 						{#each navigation as choice (choice.href)}
 							<nldd-menu-item text={choice.text} icon={choice.icon} href={choice.href}
 							></nldd-menu-item>
 						{/each}
 						<nldd-menu-group text="Account">
-							{@render identity()}
 							{#each account as choice (choice.href)}
 								<nldd-menu-item text={choice.text} icon={choice.icon} href={choice.href}
 								></nldd-menu-item>
@@ -83,8 +78,8 @@
 					<nldd-menu-item slot="overflow" text={choice.text} icon={choice.icon} href={choice.href}
 					></nldd-menu-item>
 				{/each}
-				<nldd-menu-group slot="overflow" text="Account">
-					{@render identity()}
+				<!-- The overflow menu has no header slot: the group's name says whose account it is. -->
+				<nldd-menu-group slot="overflow" text="Account, {name}">
 					{#each account as choice (choice.href)}
 						<nldd-menu-item text={choice.text} icon={choice.icon} href={choice.href}
 						></nldd-menu-item>
