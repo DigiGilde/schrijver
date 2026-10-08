@@ -308,7 +308,16 @@
 
 {#snippet titelKnop()}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<nldd-icon-button
+		class="titelknop-smal"
+		icon="edit"
+		text="Titel wijzigen"
+		appearance="neutral-transparent"
+		onclick={wijzigTitel}
+	></nldd-icon-button>
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-button
+		class="titelknop-breed"
 		appearance="neutral-transparent"
 		start-icon="edit"
 		text="Titel wijzigen"
@@ -485,5 +494,16 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
+	}
+	/* Below the design system's md breakpoint the text would take the title's room on the h1 line. */
+	@media (width < 641px) {
+		.titelknop-breed {
+			display: none;
+		}
+	}
+	@media (width >= 641px) {
+		.titelknop-smal {
+			display: none;
+		}
 	}
 </style>

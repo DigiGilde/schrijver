@@ -533,6 +533,28 @@ test('the title button opens the properties with the focus in the title field', 
 	await expect(veld).not.toBeFocused();
 });
 
+test('below 641 px the title button is an icon, so a long title keeps its words whole', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 400, height: 800 });
+	await page.goto('/sites/moza-site/bewerken/onderwerpen/actualiteitenservice.md');
+	const knop = page.getByRole('button', { name: 'Titel wijzigen' });
+	await expect(knop).toBeVisible();
+	await expect(knop.getByText('Titel wijzigen', { exact: true })).toBeHidden();
+	const regels = await page.evaluate(() => {
+		const kop = document.querySelector('#paginatitel')!.shadowRoot!.querySelector('h1')!;
+		const tekst = document.createRange();
+		tekst.selectNodeContents(kop);
+		return new Set([...tekst.getClientRects()].map((regel) => Math.round(regel.top))).size;
+	});
+	expect(regels, '"Actualiteitenservice" on one line').toBe(1);
+
+	await knop.click();
+	await expect(page.getByRole('dialog', { name: 'Eigenschappen' })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(knop).toBeFocused();
+});
+
 test('the properties and the help page say that a new title keeps the file name', async ({
 	page
 }) => {
