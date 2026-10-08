@@ -127,6 +127,18 @@ test('the proposals list shows the seeded draft', async ({ page }) => {
 	await expect(page.getByText('Voorbeeldvoorstel Digi Handboek')).toBeVisible();
 });
 
+test('a proposal row ends with the chevron of a row that opens something', async ({ page }) => {
+	await page.goto('/sites/digi-handboek?tab=alle');
+	const rows = list(page, 'Alle voorstellen').locator('nldd-list-item[href]');
+	await expect(rows.first()).toBeVisible();
+	for (const row of await rows.all()) {
+		await expect(row.locator('> nldd-icon-cell:last-child')).toHaveAttribute(
+			'icon',
+			'chevron-right'
+		);
+	}
+});
+
 test('the Te beoordelen block is there only while a proposal waits for the editors', async ({
 	page
 }) => {

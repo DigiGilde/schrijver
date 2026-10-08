@@ -64,3 +64,37 @@ test('the page row and the proposal row both lead back into the open proposal', 
 	await expect(page).toHaveURL(new RegExp(`pr=${nummer}`));
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
 });
+
+test('segmented rows keep their chevron and show the shortcut as a link', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/bewerken/offboarding.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nVoorstel voor de affordance');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	const saved = page.getByText(/Concept bewaard als voorstel #\d+/).first();
+	await expect(saved).toBeVisible();
+	const nummer = (await saved.textContent())!.match(/#(\d+)/)![1];
+
+	await page.goto('/sites/digi-handboek');
+	const rows = [
+		{
+			list: page.locator('nldd-list[accessible-label="Pagina\'s"]'),
+			opens: '/sites/digi-handboek/bewerken/offboarding.md'
+		},
+		{
+			list: page.locator('nldd-list[accessible-label="Mijn voorstellen"]'),
+			opens: `/sites/digi-handboek/voorstellen/${nummer}`
+		}
+	];
+	for (const { list, opens } of rows) {
+		await expect(
+			list.locator(`nldd-list-item-segment[href="${opens}"] > nldd-icon-cell:last-child`)
+		).toHaveAttribute('icon', 'chevron-right');
+		const shortcut = list.locator(`nldd-list-item-segment[href$="&pr=${nummer}"]`);
+		await expect(shortcut.locator('> nldd-icon-cell:first-child')).toHaveAttribute(
+			'icon',
+			'pencil'
+		);
+		await expect(shortcut.locator('nldd-text-cell')).toHaveAttribute('color', 'accent');
+	}
+});

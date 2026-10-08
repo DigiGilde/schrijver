@@ -57,6 +57,8 @@
 	<nldd-cell>
 		<nldd-badge text={STATUS[p.status].text} color={STATUS[p.status].color}></nldd-badge>
 	</nldd-cell>
+	<nldd-spacer-cell size="8"></nldd-spacer-cell>
+	<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
 {/snippet}
 
 <nldd-container gap="16">
@@ -93,7 +95,10 @@
 						{@render cellen(p)}
 					</nldd-list-item-segment>
 					<nldd-list-item-segment href={verder.href} accessible-label="Verder bewerken: {p.title}">
-						<nldd-text-cell text="Verder bewerken" width="fit-content"></nldd-text-cell>
+						<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
+						<nldd-spacer-cell size="8"></nldd-spacer-cell>
+						<nldd-text-cell text="Verder bewerken" color="accent" width="fit-content"
+						></nldd-text-cell>
 					</nldd-list-item-segment>
 				</nldd-list-item>
 			{:else}

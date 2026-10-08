@@ -103,12 +103,17 @@
 						<nldd-list-item>
 							<nldd-list-item-segment href={bewerkHref} width="full">
 								<nldd-text-cell text={page.title} supporting-text={page.name}></nldd-text-cell>
+								<nldd-spacer-cell size="8"></nldd-spacer-cell>
+								<nldd-icon-cell size="20" color="secondary" icon="chevron-right"></nldd-icon-cell>
 							</nldd-list-item-segment>
 							<nldd-list-item-segment
 								href={page.verderBewerken}
 								accessible-label="Verder met je voorstel voor {page.title}"
 							>
-								<nldd-text-cell text="Verder met je voorstel" width="fit-content"></nldd-text-cell>
+								<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
+								<nldd-spacer-cell size="8"></nldd-spacer-cell>
+								<nldd-text-cell text="Verder met je voorstel" color="accent" width="fit-content"
+								></nldd-text-cell>
 							</nldd-list-item-segment>
 						</nldd-list-item>
 					{:else}
