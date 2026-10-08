@@ -18,7 +18,7 @@ cp .env.example .env
 SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_TEST_SESSION='{"sub":"dev","name":"Dev Gebruiker","email":"dev@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}' npm run dev
 ```
 
-- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub and the configuration repository with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each. No GitHub App, Keycloak or database is needed.
+- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub and the configuration repository with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each. No GitHub App, Keycloak or database is needed. A "Testomgeving" bar above the app bar says so, and without `VLAM_API_URL` Schrijfhulp gives marked test answers (see [testing Schrijfhulp locally](docs/ai-en-vlam.md#testing-schrijfhulp-locally)).
 - `SCHRIJVER_TEST_SESSION` is a JSON session (`sub`, `name`, `email`, `emailVerified`, `organisation`, `exp` in epoch milliseconds) that skips the login.
 - Both are ignored when `NODE_ENV` is `production`.
 
@@ -66,6 +66,6 @@ Schrijver signs users in through OIDC (code flow with PKCE). To try it locally a
 Expected:
 
 - You are redirected to `/login`, then to Keycloak. After signing in you land on `/onboarding` (first time) or `/`.
-- Your name appears in the header and links to `/instellingen`. The session cookie `schrijver_sessie` is `httpOnly` and lasts 8 hours.
+- Your name appears in the "Account" group of "Menu" in the app bar, above Instellingen and Uitloggen. The session cookie `schrijver_sessie` is `httpOnly` and lasts 8 hours.
 - `/uitloggen` clears the cookie and, when the realm advertises an end-session endpoint, ends the Keycloak session too.
 - A failed or replayed callback shows "Inloggen is niet gelukt" (status 400) and logs `auth.callback_failed` as JSON on stdout, without tokens.
