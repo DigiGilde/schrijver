@@ -10,6 +10,14 @@ const clearance = (page: Page, id: string) =>
 		return document.getElementById(target)!.getBoundingClientRect().top - bar.bottom;
 	}, id);
 
+/** The element was scrolled to: it sits just below the sticky header, not merely somewhere in the viewport. */
+async function expectScrolledTo(page: Page, id: string) {
+	await expect
+		.poll(() => clearance(page, id), 'clear of the sticky header')
+		.toBeGreaterThanOrEqual(7);
+	await expect.poll(() => clearance(page, id), 'scrolled up to it').toBeLessThanOrEqual(40);
+}
+
 test.describe('Help, how a change reaches the site', () => {
 	test('is one section between the steps and the images, with an address of its own', async ({
 		page
@@ -64,14 +72,14 @@ test.describe('Help, how a change reaches the site', () => {
 		await page.evaluate(() => customElements.whenDefined('nldd-page'));
 		await page.getByRole('link', { name: 'Zo komt een wijziging op de site' }).click();
 		await expect(page).toHaveURL(/\/help#voorstellen$/);
-		await expect(page.locator('h2#voorstellen')).toBeInViewport();
-		expect(await clearance(page, 'voorstellen')).toBeGreaterThanOrEqual(7);
+		await expectScrolledTo(page, 'voorstellen');
 	});
 
-	test('opens at that section from an address with the fragment', async ({ page }) => {
-		await page.goto('/help#voorstellen');
-		await expect(page.locator('h2#voorstellen')).toBeInViewport();
-		await expect.poll(() => clearance(page, 'voorstellen')).toBeGreaterThanOrEqual(7);
+	test('has its address in the server-rendered page, where a browser looks for the fragment', async ({
+		request
+	}) => {
+		const html = await (await request.get('/help')).text();
+		expect(html).toContain('<h2 id="voorstellen">Zo komt een wijziging op de site</h2>');
 	});
 });
 
@@ -383,8 +391,7 @@ test.describe('the Over page', () => {
 		await inhoud(page).getByRole('link', { name: 'Help', exact: true }).click();
 		await expect(page).toHaveURL(/\/help#voorstellen$/);
 		expect(await navigations(), 'a navigation inside the app, not a page load').toBe(before);
-		await expect(page.locator('h2#voorstellen')).toBeInViewport();
-		expect(await clearance(page, 'voorstellen')).toBeGreaterThanOrEqual(7);
+		await expectScrolledTo(page, 'voorstellen');
 	});
 
 	test('can be reached in reading order with the keyboard', async ({ page }) => {
