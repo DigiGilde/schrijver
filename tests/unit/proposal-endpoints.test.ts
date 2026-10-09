@@ -37,12 +37,16 @@ import { POST as opnieuwInsturen } from '../../src/routes/api/sites/[site]/voors
 import { statusOf } from '../../src/lib/forge/proposals';
 
 let forge: FakeForge;
-const site = (mergeFromSchrijver = true) => ({
+const site = (mergeFromSchrijver = true, fourEyes = false) => ({
 	id: 'moza',
 	repo: 'o/moza',
 	standaardbranch: 'main',
 	content: { pad: 'content' },
-	review: { 'mergen-vanuit-schrijver': mergeFromSchrijver, redactie: ['red@example.org'] },
+	review: {
+		'mergen-vanuit-schrijver': mergeFromSchrijver,
+		'vier-ogen': fourEyes,
+		redactie: ['red@example.org']
+	},
 	preview: { soort: 'geen' }
 });
 
@@ -124,6 +128,87 @@ describe('proposal endpoints', () => {
 		const res = await call(mergen, { email: 'red@example.org' });
 		expect(res.status).toBe(403);
 		expect((await res.json()).message).toContain('GitHub');
+	});
+
+	it('keeps the writer from merging their own proposal with four eyes, unless a site admin', async () => {
+		state.site = site(true, true);
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const zelf = await call(mergen, { email: 'red@example.org', who: 'auteur', body: { sha } });
+		expect(zelf.status).toBe(403);
+		expect((await zelf.json()).message).toBe(
+			'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.'
+		);
+		forge.permissionByLogin.set('beheerder', 'admin');
+		const admin = await call(mergen, {
+			email: 'red@example.org',
+			who: 'auteur',
+			gekoppeld: 'beheerder',
+			body: { sha }
+		});
+		expect(admin.status).toBe(200);
+		expect((await forge.getPr('o/moza', 1)).state).toBe('merged');
+	});
+
+	it('counts whoever wrote along in Schrijver as a writer for four eyes', async () => {
+		state.site = site(true, true);
+		await call(insturen, { who: 'auteur' });
+		await forge.commit(
+			'o/moza',
+			'b',
+			[{ path: 'content/a.md', content: 'bijgewerkt' }],
+			'Bewerk\n\nSchrijver-Auteur: redacteur'
+		);
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const red = { email: 'red@example.org', body: { sha } };
+		const mee = await call(mergen, { ...red, who: 'redacteur' });
+		expect(mee.status).toBe(403);
+		expect((await mee.json()).message).toBe(
+			'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.'
+		);
+		expect((await call(mergen, { ...red, who: 'derde' })).status).toBe(200);
+	});
+
+	it('lets another member of the redactie merge with four eyes, and the writer without', async () => {
+		state.site = site(true, true);
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		state.site = site(true, false);
+		const red = { email: 'red@example.org', body: { sha } };
+		forge.failNext('merge', new ForgeError(500, 'Kapot'));
+		expect((await call(mergen, { ...red, who: 'auteur' })).status).toBe(500);
+		state.site = site(true, true);
+		expect((await call(mergen, { ...red, who: 'redacteur' })).status).toBe(200);
+	});
+
+	it('waits for the approval on GitHub that the site requires, before trying to merge', async () => {
+		await call(insturen, { who: 'auteur' });
+		forge.requireReview('o/moza');
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const merge = vi.spyOn(forge, 'merge');
+		const red = { email: 'red@example.org', who: 'redacteur', body: { sha } };
+		const wacht = await call(mergen, red);
+		expect(wacht.status).toBe(409);
+		expect((await wacht.json()).message).toBe(
+			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		);
+		expect(merge).not.toHaveBeenCalled();
+
+		forge.failNext('reviewDecision', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		const geweigerd = await call(mergen, red);
+		expect(geweigerd.status).toBe(405);
+		expect(await geweigerd.json()).toMatchObject({
+			detail: 'At least 1 approving review is required by reviewers with write access.'
+		});
+		expect(log.warn).toHaveBeenCalledWith('proposal.review_decision_failed', {
+			site: 'moza',
+			pr: 1,
+			error: 'ForgeError',
+			status: 502
+		});
+
+		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'approved', '');
+		expect((await call(mergen, red)).status).toBe(200);
 	});
 
 	it('refuses merging a draft', async () => {

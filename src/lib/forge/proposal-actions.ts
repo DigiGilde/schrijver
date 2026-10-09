@@ -5,7 +5,7 @@ import { commentBody, type CommentAuthor } from './conversation';
 import { missingAfterMerge, usageAfterMerge } from './image-usage';
 import { ADJUSTMENT_LABEL, SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
-import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
+import { identityFromPrBody, isOwnTrailer, trailersFromMessage, type Identity } from './trailers';
 import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
 
 export const MAX_COMMENT_LENGTH = 5000;
@@ -37,6 +37,13 @@ export async function canAct(
 		owner: isOwnTrailer(identityFromPrBody(pr.body), user.identities),
 		editorial: await isEditorial(site, user, forge)
 	};
+}
+
+/** Whether one of the commits Schrijver made carries one of the user's identities. */
+export function wroteAlong(commits: { message: string }[], identities: Identity[]): boolean {
+	return commits.some((c) =>
+		trailersFromMessage(c.message).some((t) => isOwnTrailer(t, identities))
+	);
 }
 
 export async function pickReviewers(
