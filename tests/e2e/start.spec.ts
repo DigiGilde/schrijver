@@ -25,6 +25,18 @@ test('each site is one card that says what the site is', async ({ page }) => {
 	await expect(page.getByText('Met goedkeuring')).toHaveCount(0);
 });
 
+test('the description stays on the card and is not repeated under the site name', async ({
+	page
+}) => {
+	const description = 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.';
+	await page.goto('/');
+	await expect(siteCard(page, 'Digi Handboek')).toContainText(description);
+	await page.getByRole('link', { name: 'Digi Handboek' }).click();
+	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
+	await expect(page.getByRole('heading', { name: 'Digi Handboek', level: 1 })).toBeVisible();
+	await expect(page.getByText(description)).toHaveCount(0);
+});
+
 test('a site is one Tab stop and the start page has no rows with a chevron', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('link', { name: 'Digi Handboek' })).toBeVisible();

@@ -65,23 +65,21 @@ test('a site has two tabs, each at its own address, and none for Over', async ({
 	await expect(list(page, "Pagina's")).toBeVisible();
 });
 
-test('under the site name are its description and public address, not the repository', async ({
+test('under the site name are its public address and no description or repository', async ({
 	page
 }) => {
-	await page.goto('/sites/moza-site');
-	await expect(
-		page.getByRole('heading', { name: 'MijnOverheid Zakelijk', level: 1 })
-	).toBeVisible();
-	await expect(
-		page.getByText(
-			'Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.'
-		)
-	).toBeVisible();
-	await expect(page.getByRole('link', { name: /^mijnoverheidzakelijk\.nl/ })).toHaveAttribute(
-		'href',
-		'https://mijnoverheidzakelijk.nl/'
-	);
-	await expect(page.getByText('MinBZK/moza-site')).toHaveCount(0);
+	for (const url of ['/sites/moza-site', '/sites/moza-site/voorstellen']) {
+		await page.goto(url);
+		await expect(
+			page.getByRole('heading', { name: 'MijnOverheid Zakelijk', level: 1 })
+		).toBeVisible();
+		await expect(page.getByText('Een overheidsbrede samenwerking')).toHaveCount(0);
+		await expect(page.getByRole('link', { name: /^mijnoverheidzakelijk\.nl/ })).toHaveAttribute(
+			'href',
+			'https://mijnoverheidzakelijk.nl/'
+		);
+		await expect(page.getByText('MinBZK/moza-site')).toHaveCount(0);
+	}
 });
 
 test('Nieuwe pagina and the page list are one block, one section padding below the tabs', async ({

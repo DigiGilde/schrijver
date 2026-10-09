@@ -8,11 +8,7 @@
 
 <svelte:head><title>Voorstellen · {data.site.naam} · Schrijver</title></svelte:head>
 
-<Pagina
-	titel={data.site.naam}
-	ondertitel={data.site.omschrijving ?? undefined}
-	terug={{ href: '/', tekst: 'Sites' }}
->
+<Pagina titel={data.site.naam} terug={{ href: '/', tekst: 'Sites' }}>
 	<SiteKop site={data.site} huidig="voorstellen" wachtend={data.wachtend} />
 
 	{#snippet vervolg()}
