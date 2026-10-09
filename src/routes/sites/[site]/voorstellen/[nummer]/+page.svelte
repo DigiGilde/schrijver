@@ -213,7 +213,7 @@
 			></nldd-link>
 		{/if}
 
-		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'wijzigingen-gevraagd'}
+		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'aanpassing-gevraagd'}
 			<nldd-text color="secondary">
 				Terug naar concept zetten kan niet vanuit Schrijver. Doe dat op GitHub via "Convert to
 				draft".

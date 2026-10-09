@@ -22,10 +22,10 @@ export const STATUS: Record<
 		color: 'success',
 		line: 'Kan worden samengevoegd door de redactie'
 	},
-	'wijzigingen-gevraagd': {
-		label: 'Wijzigingen gevraagd',
+	'aanpassing-gevraagd': {
+		label: 'Aanpassing gevraagd',
 		color: 'warning',
-		line: 'Wacht op aanpassing, daarna beoordeelt de redactie opnieuw'
+		line: 'Wacht op een aanpassing door de schrijver'
 	},
 	samengevoegd: {
 		label: 'Samengevoegd',
@@ -41,7 +41,7 @@ export const STATUS: Record<
 
 /** Proposals the editors still have to act on: the ones in "Te beoordelen". */
 export const waitsForReview = (status: Status): boolean =>
-	status === 'ingestuurd' || status === 'wijzigingen-gevraagd';
+	status === 'ingestuurd' || status === 'goedgekeurd';
 
 /** The text and accessible name of the Voorstellen tab; the count is only there for editorial members. */
 export function proposalsTab(waiting: number | null): { text: string; label: string | null } {
@@ -80,7 +80,7 @@ export function updatedText(iso: string, now: Date = new Date()): string {
 	return `Bijgewerkt ${format.format(date)}`;
 }
 
-export const STEPS = ['Concept', 'Ingestuurd', 'Goedgekeurd', 'Samengevoegd'] as const;
+export const STEPS = ['Concept', 'Ingestuurd', 'Samengevoegd'] as const;
 
 /** The step a proposal is on, or null for a closed proposal, which left the flow. */
 export function stepOf(status: Status): (typeof STEPS)[number] | null {
@@ -88,10 +88,9 @@ export function stepOf(status: Status): (typeof STEPS)[number] | null {
 		case 'concept':
 			return 'Concept';
 		case 'ingestuurd':
-		case 'wijzigingen-gevraagd':
-			return 'Ingestuurd';
 		case 'goedgekeurd':
-			return 'Goedgekeurd';
+		case 'aanpassing-gevraagd':
+			return 'Ingestuurd';
 		case 'samengevoegd':
 			return 'Samengevoegd';
 		case 'gesloten':
@@ -108,7 +107,7 @@ export function nextStep(status: Status, mine: boolean): string {
 				: 'Volgende stap: de schrijver stuurt het voorstel in, daarna beoordeelt de redactie het.';
 		case 'ingestuurd':
 			return 'Volgende stap: de redactie beoordeelt het voorstel en keurt het goed of vraagt om aanpassingen.';
-		case 'wijzigingen-gevraagd':
+		case 'aanpassing-gevraagd':
 			return mine
 				? 'Volgende stap: pas het voorstel aan met Verder bewerken, daarna beoordeelt de redactie het opnieuw.'
 				: 'Volgende stap: de schrijver past het voorstel aan, daarna beoordeelt de redactie het opnieuw.';

@@ -8,7 +8,7 @@ export interface Proposal {
 	title: string;
 	url: string;
 	status:
-		'concept' | 'ingestuurd' | 'goedgekeurd' | 'wijzigingen-gevraagd' | 'samengevoegd' | 'gesloten';
+		'concept' | 'ingestuurd' | 'goedgekeurd' | 'aanpassing-gevraagd' | 'samengevoegd' | 'gesloten';
 	mine: boolean;
 	viaSchrijver: boolean;
 	pages: string[];
@@ -21,6 +21,9 @@ export interface Proposal {
 
 export const SENT_MARKER = 'Schrijver-Status: ingestuurd';
 
+/** The label Schrijver sets when the editors ask for an adjustment: the App cannot review as a person. */
+export const ADJUSTMENT_LABEL = 'aanpassing gevraagd';
+
 export function isSentIn(pr: Pick<PrSummary, 'draft' | 'body'>): boolean {
 	return !pr.draft || pr.body.split('\n').some((l) => l.trim() === SENT_MARKER);
 }
@@ -29,8 +32,9 @@ export function statusOf(pr: PrSummary): Proposal['status'] {
 	if (pr.state === 'merged') return 'samengevoegd';
 	if (pr.state === 'closed') return 'gesloten';
 	if (!isSentIn(pr)) return 'concept';
+	if (pr.reviewState === 'changes_requested' || pr.labels.includes(ADJUSTMENT_LABEL))
+		return 'aanpassing-gevraagd';
 	if (pr.reviewState === 'approved') return 'goedgekeurd';
-	if (pr.reviewState === 'changes_requested') return 'wijzigingen-gevraagd';
 	return 'ingestuurd';
 }
 

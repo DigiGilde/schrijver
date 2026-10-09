@@ -18,7 +18,7 @@ const ALL: Status[] = [
 	'concept',
 	'ingestuurd',
 	'goedgekeurd',
-	'wijzigingen-gevraagd',
+	'aanpassing-gevraagd',
 	'samengevoegd',
 	'gesloten'
 ];
@@ -34,10 +34,15 @@ describe('status texts', () => {
 		expect(STATUS.concept.line).toBe('Nog niet ingestuurd, alleen zichtbaar als voorstel');
 		expect(STATUS.goedgekeurd.line).toBe('Kan worden samengevoegd door de redactie');
 		expect(STATUS.samengevoegd.line).toBe('Staat op de site na de volgende publicatie');
+		expect(STATUS['aanpassing-gevraagd']).toEqual({
+			label: 'Aanpassing gevraagd',
+			color: 'warning',
+			line: 'Wacht op een aanpassing door de schrijver'
+		});
 	});
 
-	it('counts sent-in proposals and those with changes requested as waiting for the editors', () => {
-		expect(ALL.filter(waitsForReview)).toEqual(['ingestuurd', 'wijzigingen-gevraagd']);
+	it('counts what lies with the editors as waiting: sent in or approved, not an adjustment', () => {
+		expect(ALL.filter(waitsForReview)).toEqual(['ingestuurd', 'goedgekeurd']);
 	});
 });
 
@@ -88,12 +93,12 @@ describe('updatedText', () => {
 });
 
 describe('the flow of a proposal', () => {
-	it('puts every open status on one of the four steps', () => {
-		expect(STEPS).toEqual(['Concept', 'Ingestuurd', 'Goedgekeurd', 'Samengevoegd']);
+	it('puts every open status on one of the three steps', () => {
+		expect(STEPS).toEqual(['Concept', 'Ingestuurd', 'Samengevoegd']);
 		expect(stepOf('concept')).toBe('Concept');
 		expect(stepOf('ingestuurd')).toBe('Ingestuurd');
-		expect(stepOf('wijzigingen-gevraagd')).toBe('Ingestuurd');
-		expect(stepOf('goedgekeurd')).toBe('Goedgekeurd');
+		expect(stepOf('aanpassing-gevraagd')).toBe('Ingestuurd');
+		expect(stepOf('goedgekeurd')).toBe('Ingestuurd');
 		expect(stepOf('samengevoegd')).toBe('Samengevoegd');
 		expect(stepOf('gesloten')).toBeNull();
 	});
@@ -102,7 +107,7 @@ describe('the flow of a proposal', () => {
 		expect(nextStep('concept', true)).toMatch(/^Volgende stap: stuur het voorstel in met Insturen/);
 		expect(nextStep('concept', false)).toMatch(/^Volgende stap: de schrijver stuurt/);
 		expect(nextStep('ingestuurd', true)).toMatch(/de redactie beoordeelt het voorstel/);
-		expect(nextStep('wijzigingen-gevraagd', true)).toMatch(/Verder bewerken/);
+		expect(nextStep('aanpassing-gevraagd', true)).toMatch(/Verder bewerken/);
 		expect(nextStep('goedgekeurd', false)).toMatch(/de redactie voegt het voorstel samen/);
 		expect(nextStep('samengevoegd', false)).toMatch(/^Klaar/);
 	});
@@ -122,7 +127,7 @@ describe('the flow of a proposal', () => {
 		const sentence =
 			'Goedkeuren gebeurt op GitHub: door de redactie (a@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.';
 		expect(whoApproves(['a@x'])).toBe(sentence);
-		for (const status of ['concept', 'ingestuurd', 'wijzigingen-gevraagd'] as const) {
+		for (const status of ['concept', 'ingestuurd', 'aanpassing-gevraagd'] as const) {
 			expect(whoDecides(status, ['a@x'], true)).toBe(sentence);
 		}
 		expect(whoApproves([])).toBe(

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseSitesYaml } from '../../src/lib/config/types';
-import { toProposal, previewUrl } from '../../src/lib/forge/proposals';
+import { ADJUSTMENT_LABEL, toProposal, previewUrl } from '../../src/lib/forge/proposals';
 import type { PrSummary, PrFile } from '../../src/lib/forge/types';
 import type { Identity } from '../../src/lib/forge/trailers';
 
@@ -55,9 +55,20 @@ describe('toProposal', () => {
 
 	it('maps changes_requested and plain ready', () => {
 		expect(toProposal(pr({ reviewState: 'changes_requested' }), files, digi, MINE).status).toBe(
-			'wijzigingen-gevraagd'
+			'aanpassing-gevraagd'
 		);
 		expect(toProposal(pr(), files, digi, MINE).status).toBe('ingestuurd');
+	});
+
+	it('reads the label that Schrijver sets as a request for an adjustment, over an approval', () => {
+		expect(ADJUSTMENT_LABEL).toBe('aanpassing gevraagd');
+		for (const reviewState of ['none', 'approved'] as const) {
+			const labelled = pr({ reviewState, labels: ['preview', ADJUSTMENT_LABEL] });
+			expect(toProposal(labelled, files, digi, MINE).status).toBe('aanpassing-gevraagd');
+		}
+		const concept = pr({ draft: true, labels: [ADJUSTMENT_LABEL] });
+		expect(toProposal(concept, files, digi, MINE).status).toBe('concept');
+		expect(toProposal(pr({ labels: ['preview'] }), files, digi, MINE).status).toBe('ingestuurd');
 	});
 
 	it('maps merged and closed', () => {
