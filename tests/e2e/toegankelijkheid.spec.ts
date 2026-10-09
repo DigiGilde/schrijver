@@ -391,6 +391,85 @@ test.describe('app bar', () => {
 		await expect(page.getByRole('img', { name: 'Schrijver', exact: true })).toHaveCount(1);
 	});
 
+	test('the logo is the file-text-pencil icon in the accent block, before the whole word', async ({
+		page
+	}) => {
+		await page.goto('/help');
+		await page.evaluate(() => customElements.whenDefined('nldd-icon'));
+		const block = page.locator('.merk .blok');
+		const icon = block.locator('nldd-icon[icon="file-text-pencil"]');
+		await expect(icon).toBeVisible();
+		await expect(page.locator('.merk .woord')).toHaveText('Schrijver');
+		// The design system draws the glyph: a missing icon name would leave the block empty.
+		expect(await icon.evaluate((el) => !!el.shadowRoot?.querySelector('svg path'))).toBe(true);
+		const [blockBox, iconBox] = [await block.boundingBox(), await icon.boundingBox()];
+		expect(blockBox!.width).toBe(40);
+		expect(iconBox!.width).toBeGreaterThanOrEqual(16);
+		expect(iconBox!.x).toBeGreaterThanOrEqual(blockBox!.x);
+		expect(iconBox!.x + iconBox!.width).toBeLessThanOrEqual(blockBox!.x + blockBox!.width);
+		expect(iconBox!.y).toBeGreaterThanOrEqual(blockBox!.y);
+		expect(iconBox!.y + iconBox!.height).toBeLessThanOrEqual(blockBox!.y + blockBox!.height);
+	});
+
+	for (const colorScheme of ['light', 'dark'] as const) {
+		test.describe(`${colorScheme} mode`, () => {
+			test.use({ colorScheme });
+
+			test('the icon of the logo stands out from its block', async ({ page }) => {
+				await page.goto('/help');
+				await page.evaluate(() => customElements.whenDefined('nldd-icon'));
+				const ratio = await page.evaluate(() => {
+					// A canvas parses any CSS colour into sRGB, whatever syntax the design system's tokens use.
+					const rgb = (css: string) => {
+						const context = document.createElement('canvas').getContext('2d')!;
+						context.fillStyle = css;
+						context.fillRect(0, 0, 1, 1);
+						return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+					};
+					const luminance = (channels: number[]) => {
+						const [r, g, b] = channels.map((value) => {
+							const c = value / 255;
+							return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+						});
+						return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+					};
+					const block = document.querySelector('.merk .blok')!;
+					const glyph = block.querySelector('nldd-icon')!;
+					const [light, dark] = [
+						luminance(rgb(getComputedStyle(block).backgroundColor)),
+						luminance(rgb(getComputedStyle(glyph).color))
+					].sort((a, b) => b - a);
+					return (light + 0.05) / (dark + 0.05);
+				});
+				expect(ratio, 'contrast of the glyph against its block').toBeGreaterThanOrEqual(4.5);
+			});
+		});
+	}
+
+	test.describe('at 400% zoom', () => {
+		test.use({ viewport: { width: 320, height: 256 } });
+
+		test('the logo, the word and the menu button are all in view', async ({ page }) => {
+			await page.goto('/help');
+			await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+			const icon = page.locator('.merk .blok nldd-icon');
+			await expect(icon).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
+			for (const part of [
+				icon,
+				page.locator('.merk .woord'),
+				page.getByRole('button', { name: 'Menu' })
+			]) {
+				const box = (await part.boundingBox())!;
+				expect(box.x).toBeGreaterThanOrEqual(0);
+				expect(box.x + box.width).toBeLessThanOrEqual(320);
+			}
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+				320
+			);
+		});
+	});
+
 	test('the Tab order runs from the skip link over the wordmark to the menu', async ({ page }) => {
 		await page.goto('/help');
 		await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));

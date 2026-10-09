@@ -38,13 +38,15 @@
 <div class="uitgelijnd appbalk">
 	<nldd-toolbar label="Schrijver">
 		<!--
-			The wordmark carries the name, so the title has no `text`: with both, the S is read twice. The
+			The wordmark carries the name, so the title has no `text`: with both, the name is read twice. The
 			minimum width is the wordmark's: the default of 200px would send the menu to the overflow sooner.
 		-->
-		<nldd-toolbar-title slot="start" href="/" min-width="8rem">
+		<nldd-toolbar-title slot="start" href="/" min-width="9rem">
 			<span slot="media" class="merk" role="img" aria-label="Schrijver">
-				<span class="blok" aria-hidden="true">S</span>
-				<span class="woord" aria-hidden="true">chrijver</span>
+				<span class="blok" aria-hidden="true"
+					><nldd-icon icon="file-text-pencil" size="24"></nldd-icon></span
+				>
+				<span class="woord" aria-hidden="true">Schrijver</span>
 			</span>
 		</nldd-toolbar-title>
 		{#if userName !== null}
@@ -109,8 +111,5 @@
 		border-radius: var(--primitives-corner-radius-sm);
 		background: var(--semantics-categories-accent-filled-background-color);
 		color: var(--semantics-categories-accent-filled-content-color);
-		font-size: var(--primitives-font-size-300);
-		font-weight: var(--primitives-font-weight-display-bold);
-		line-height: 1;
 	}
 </style>
