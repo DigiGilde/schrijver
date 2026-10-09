@@ -327,29 +327,37 @@ export function countChanges(blocks: DiffBlock[]): number {
 	).length;
 }
 
-function annotate(html: string, state: string, label: string, doc: Document): string {
+/** Marks the block, and puts the visible word and the prefix for screen readers where its text starts. */
+function annotate(html: string, state: string, word: string, label: string, doc: Document): string {
 	const template = parseHtml(html, doc);
 	const content = template.content;
 	const elements = [...content.children];
 	if (elements.length === 0) return html;
 	for (const element of elements) element.setAttribute('data-diff', state);
+	const visible = doc.createElement('span');
+	visible.className = 'diff-woord';
+	visible.setAttribute('data-woord', state);
+	visible.setAttribute('aria-hidden', 'true');
+	visible.textContent = word;
 	const prefix = doc.createElement('span');
 	prefix.className = 'sr-only';
 	prefix.textContent = label;
 	let anchor: Node | undefined = textNodes(content).find((node) => /\S/.test(node.data));
 	if (!anchor) {
 		content.insertBefore(prefix, elements[0]);
+		content.insertBefore(visible, prefix);
 		return template.innerHTML;
 	}
 	while (anchor.parentElement && INLINE.has(anchor.parentElement.localName)) {
 		anchor = anchor.parentElement;
 	}
 	anchor.parentNode!.insertBefore(prefix, anchor);
+	anchor.parentNode!.insertBefore(visible, prefix);
 	return template.innerHTML;
 }
 
 const skipped = (aantal: number) =>
-	aantal === 1 ? '1 ongewijzigde alinea' : `${aantal} ongewijzigde alinea's`;
+	aantal === 1 ? '1 alinea ongewijzigd' : `${aantal} alinea's ongewijzigd`;
 
 export const TE_GROOT = 'Deze wijziging is te groot om hier te tonen. Bekijk haar op GitHub.';
 
@@ -361,13 +369,13 @@ export function toHtml(blocks: DiffBlock[], doc: Document): string {
 				case 'gelijk':
 					return block.html;
 				case 'toegevoegd':
-					return annotate(block.html, 'toegevoegd', 'Toegevoegd: ', doc);
+					return annotate(block.html, 'toegevoegd', 'Nieuw', 'Toegevoegd: ', doc);
 				case 'verwijderd':
-					return annotate(block.html, 'verwijderd', 'Verwijderd: ', doc);
+					return annotate(block.html, 'verwijderd', 'Verwijderd', 'Verwijderd: ', doc);
 				case 'gewijzigd':
 					return [
-						annotate(block.was, 'was', 'Oude tekst: ', doc),
-						annotate(block.wordt, 'wordt', 'Nieuwe tekst: ', doc)
+						annotate(block.was, 'was', 'Was', 'Oude tekst: ', doc),
+						annotate(block.wordt, 'wordt', 'Wordt', 'Nieuwe tekst: ', doc)
 					].join('\n');
 				case 'overgeslagen':
 					return `<p class="diff-overgeslagen">${skipped(block.aantal)}</p>`;

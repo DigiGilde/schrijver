@@ -430,33 +430,42 @@ describe('withContext', () => {
 });
 
 describe('toHtml', () => {
-	it('marks each kind of block and names it for screen readers', () => {
+	const STATE: Record<string, string> = {
+		Nieuw: 'toegevoegd',
+		Verwijderd: 'verwijderd',
+		Was: 'was',
+		Wordt: 'wordt'
+	};
+	const word = (text: string) =>
+		`<span class="diff-woord" data-woord="${STATE[text]}" aria-hidden="true">${text}</span>`;
+
+	it('says in a word what each block is, and names it for screen readers', () => {
 		const html = toHtml(
 			[
 				{ kind: 'gelijk', html: '<p>Zelfde</p>' },
-				{ kind: 'toegevoegd', html: '<p>Nieuw</p>' },
+				{ kind: 'toegevoegd', html: '<p>Erbij</p>' },
 				{ kind: 'verwijderd', html: '<p>Oud</p>' },
 				{ kind: 'gewijzigd', was: '<p>Voor <del>x</del></p>', wordt: '<p>Na <ins>y</ins></p>' },
 				{ kind: 'overgeslagen', aantal: 1 },
-				{ kind: 'overgeslagen', aantal: 3 }
+				{ kind: 'overgeslagen', aantal: 14 }
 			],
 			doc
 		);
 		expect(html).toContain('<p>Zelfde</p>');
 		expect(html).toContain(
-			'<p data-diff="toegevoegd"><span class="sr-only">Toegevoegd: </span>Nieuw</p>'
+			`<p data-diff="toegevoegd">${word('Nieuw')}<span class="sr-only">Toegevoegd: </span>Erbij</p>`
 		);
 		expect(html).toContain(
-			'<p data-diff="verwijderd"><span class="sr-only">Verwijderd: </span>Oud</p>'
+			`<p data-diff="verwijderd">${word('Verwijderd')}<span class="sr-only">Verwijderd: </span>Oud</p>`
 		);
 		expect(html).toContain(
-			'<p data-diff="was"><span class="sr-only">Oude tekst: </span>Voor <del>x</del></p>'
+			`<p data-diff="was">${word('Was')}<span class="sr-only">Oude tekst: </span>Voor <del>x</del></p>`
 		);
 		expect(html).toContain(
-			'<p data-diff="wordt"><span class="sr-only">Nieuwe tekst: </span>Na <ins>y</ins></p>'
+			`<p data-diff="wordt">${word('Wordt')}<span class="sr-only">Nieuwe tekst: </span>Na <ins>y</ins></p>`
 		);
-		expect(html).toContain('<p class="diff-overgeslagen">1 ongewijzigde alinea</p>');
-		expect(html).toContain('<p class="diff-overgeslagen">3 ongewijzigde alinea\'s</p>');
+		expect(html).toContain('<p class="diff-overgeslagen">1 alinea ongewijzigd</p>');
+		expect(html).toContain('<p class="diff-overgeslagen">14 alinea\'s ongewijzigd</p>');
 	});
 
 	it('keeps every top-level element a direct child, with no wrapper', () => {
@@ -485,7 +494,9 @@ describe('toHtml', () => {
 		);
 		const list = parse(html).querySelector('ul')!;
 		expect([...list.children].every((child) => child.localName === 'li')).toBe(true);
-		expect(list.children[0].innerHTML).toBe('<span class="sr-only">Toegevoegd: </span>een');
+		expect(list.children[0].innerHTML).toBe(
+			`${word('Nieuw')}<span class="sr-only">Toegevoegd: </span>een`
+		);
 		expect(list.children[1].innerHTML).toBe('twee');
 	});
 
@@ -495,7 +506,7 @@ describe('toHtml', () => {
 			doc
 		);
 		expect(link).toContain(
-			'<p data-diff="toegevoegd"><span class="sr-only">Toegevoegd: </span><a href'
+			`<p data-diff="toegevoegd">${word('Nieuw')}<span class="sr-only">Toegevoegd: </span><a href`
 		);
 		const mark = toHtml(
 			[
@@ -515,7 +526,7 @@ describe('toHtml', () => {
 		const code = '<nldd-code-viewer language="bash">ls</nldd-code-viewer>';
 		const html = toHtml([{ kind: 'verwijderd', html: code }], doc);
 		expect(html).toBe(
-			'<span class="sr-only">Verwijderd: </span><nldd-code-viewer language="bash" data-diff="verwijderd">ls</nldd-code-viewer>'
+			`${word('Verwijderd')}<span class="sr-only">Verwijderd: </span><nldd-code-viewer language="bash" data-diff="verwijderd">ls</nldd-code-viewer>`
 		);
 	});
 
@@ -537,7 +548,7 @@ describe('toHtml', () => {
 			)
 		);
 		expect(html).toContain('data-diff="toegevoegd"');
-		expect(html).toContain('<span class="sr-only">Toegevoegd: </span>Nieuw');
+		expect(html).toContain(`${word('Nieuw')}<span class="sr-only">Toegevoegd: </span>Nieuw`);
 		expect(html).toContain('<nldd-code-viewer');
 		expect(html).toContain('class="diff-overgeslagen"');
 	});

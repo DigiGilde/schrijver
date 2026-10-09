@@ -17,7 +17,9 @@
 		after,
 		source,
 		status = 'modified',
-		teGroot: paginaTeGroot = false
+		teGroot: paginaTeGroot = false,
+		titel,
+		githubUrl
 	}: {
 		path: string;
 		before: string | null;
@@ -26,6 +28,10 @@
 		status?: 'added' | 'removed' | 'modified';
 		/** The server did not fetch the page: it is above the size a proposal view compares. */
 		teGroot?: boolean;
+		/** The page title: the heading, with the path under it. */
+		titel?: string;
+		/** Where GitHub shows a change too large to show here. */
+		githubUrl?: string;
 	} = $props();
 	const nieuwePagina = $derived(paginaTeGroot ? status === 'added' : before === null);
 	const verwijderd = $derived(paginaTeGroot ? status === 'removed' : after === null);
@@ -82,8 +88,20 @@
 		klaar = true;
 	});
 
+	const vergeleken = $derived(!paginaTeGroot && before !== null && after !== null);
 	const bronTeGroot = $derived(source.some((part) => part.kind === 'te-groot'));
 	const teGroot = $derived(view === 'bron' ? bronTeGroot : aantal === null);
+	const telling = $derived(
+		!vergeleken || !klaar || aantal === null
+			? null
+			: aantal === 0
+				? 'geen wijzigingen in de tekst'
+				: `${aantal} ${aantal === 1 ? 'wijziging' : 'wijzigingen'}`
+	);
+	const onderkop = $derived.by(() => {
+		if (titel) return [path, telling].filter(Boolean).join(' · ');
+		return telling ? telling[0].toUpperCase() + telling.slice(1) : undefined;
+	});
 
 	type Lines = Extract<SourcePart, { text: string }>;
 	const GUTTER = { added: '+', removed: '-', same: '' };
@@ -111,8 +129,19 @@
 	{/each}
 {/snippet}
 
-<section class="diff" aria-label={path}>
-	<nldd-title size="4" heading-level="3" text={path}>
+{#snippet teGrootMelding()}
+	{#if githubUrl}
+		<nldd-text>
+			Deze wijziging is te groot om hier te tonen.
+			<nldd-link href={githubUrl} target="_blank" text="Bekijk haar op GitHub"></nldd-link>
+		</nldd-text>
+	{:else}
+		<nldd-text>{TE_GROOT}</nldd-text>
+	{/if}
+{/snippet}
+
+<section class="diff" aria-label={titel ?? path}>
+	<nldd-title size="4" heading-level="3" text={titel ?? path} supporting-text={onderkop}>
 		{#if nieuwePagina}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"></nldd-badge>{/if}
 		{#if verwijderd}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
 	</nldd-title>
@@ -139,7 +168,7 @@
 	{/if}
 
 	{#if paginaTeGroot}
-		<nldd-text>{TE_GROOT}</nldd-text>
+		{@render teGrootMelding()}
 	{:else if before === null || after === null}
 		{#if plainHtml}
 			<nldd-rich-text class="inhoud">{@html plainHtml}</nldd-rich-text>
@@ -150,37 +179,25 @@
 		<nldd-segmented-control
 			class="weergave"
 			size="sm"
-			accessible-label="Weergave van de wijzigingen in {path}"
+			accessible-label="Weergave van de wijzigingen in {titel ?? path}"
 			value={view}
 			onchange={onWeergave}
 		>
 			<nldd-segmented-control-item value="wijzigingen" text="Wijzigingen"
 			></nldd-segmented-control-item>
 			<nldd-segmented-control-item value="pagina" text="Hele pagina"></nldd-segmented-control-item>
-			<nldd-segmented-control-item value="bron" text="Brontekst"></nldd-segmented-control-item>
+			<nldd-segmented-control-item value="bron" text="Markdown"></nldd-segmented-control-item>
 		</nldd-segmented-control>
 
-		{#if klaar && !teGroot}
+		{#if view === 'bron'}
 			<nldd-text size="sm" color="secondary">
-				{#if aantal === 0}
-					Geen wijzigingen in de tekst.
-				{:else}
-					{#if aantal !== null}
-						{aantal}
-						{aantal === 1 ? 'wijziging' : 'wijzigingen'}.
-					{/if}
-					{#if view === 'bron'}
-						Toegevoegde regels zijn groen met een plus, verwijderde regels rood met een min.
-					{:else}
-						Nieuwe tekst is groen met een doorgetrokken lijn links, oude tekst rood met een
-						onderbroken lijn links. Gewijzigde woorden zijn extra gemarkeerd: nieuwe onderstreept,
-						oude doorgestreept.
-					{/if}
-				{/if}
+				De tekst met de opmaakcodes, zoals hij in het bestand staat.
 			</nldd-text>
 		{/if}
 
-		{#if view === 'bron'}
+		{#if klaar && teGroot}
+			{@render teGrootMelding()}
+		{:else if view === 'bron'}
 			<pre class="bron">{#each source as part, i (i)}{#if part.kind === 'skip'}<span
 							class="overgeslagen"
 							>... {part.lines} {part.lines === 1 ? 'regel' : 'regels'} ongewijzigd ...</span
@@ -191,7 +208,7 @@
 							><span class="sr-only">verwijderd: </span>{@render rows(part)}</del
 						>{:else}{@render rows(part)}{/if}{/each}</pre>
 		{:else if klaar}
-			<nldd-rich-text class="inhoud"
+			<nldd-rich-text class="inhoud" class:context={view === 'wijzigingen'}
 				>{@html view === 'pagina' ? diffHtml.pagina : diffHtml.wijzigingen}</nldd-rich-text
 			>
 		{/if}
@@ -327,6 +344,29 @@
 	.inhoud :global(.diff-overgeslagen) {
 		color: var(--semantics-content-secondary-color);
 		font-style: italic;
+	}
+	/* Inline-block, so the strike-through of a removed block does not run through its word. */
+	.inhoud :global(.diff-woord) {
+		display: inline-block;
+		margin-inline-end: 0.5em;
+		padding-inline: 0.4em;
+		border-radius: 2px;
+		font-size: 0.875em;
+		font-style: normal;
+		font-weight: 600;
+		line-height: 1.4;
+		text-decoration: none;
+	}
+	.inhoud :global(.diff-woord:is([data-woord='toegevoegd'], [data-woord='wordt'])) {
+		background-color: var(--semantics-categories-success-filled-background-color);
+		color: var(--semantics-categories-success-filled-content-color);
+	}
+	.inhoud :global(.diff-woord:is([data-woord='verwijderd'], [data-woord='was'])) {
+		background-color: var(--semantics-categories-critical-filled-background-color);
+		color: var(--semantics-categories-critical-filled-content-color);
+	}
+	.context > :global(:not([data-diff], .diff-woord, .sr-only, .diff-overgeslagen)) {
+		color: var(--semantics-content-secondary-color);
 	}
 
 	.sr-only,
