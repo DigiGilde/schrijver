@@ -261,6 +261,18 @@ describe('FakeForge', () => {
 		]);
 	});
 
+	it('prFiles lists at most 3,000 files, as GitHub does', async () => {
+		await forge.createBranch(REPO, 'main', 'groot');
+		await forge.commit(
+			REPO,
+			'groot',
+			Array.from({ length: 3001 }, (_, i) => ({ path: `content/${i}.md`, content: `${i}` })),
+			'groot'
+		);
+		const pr = await forge.openDraftPr(REPO, 'groot', 'main', 'T', 'B');
+		expect(await forge.prFiles(REPO, pr.number)).toHaveLength(3000);
+	});
+
 	it('collaboratorPermission defaults to none and reads the map', async () => {
 		expect(await forge.collaboratorPermission(REPO, 'bob')).toBe('none');
 		forge.permissionByLogin.set('bob', 'write');

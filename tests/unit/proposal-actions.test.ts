@@ -282,11 +282,41 @@ describe('merge and removed images', () => {
 		expect(forge.fileText('o/moza', 'main', 'content/b/images/x.png')).toBe('eigen png');
 	});
 
+	it('merges a proposal of more files than GitHub lists on one page', async () => {
+		await forge.createBranch('o/moza', 'main', 'groot');
+		await forge.commit(
+			'o/moza',
+			'groot',
+			Array.from({ length: 150 }, (_, i) => ({ path: `content/${i}.md`, content: `# ${i}\n` })),
+			'groot'
+		);
+		const groot = await forge.openDraftPr('o/moza', 'groot', 'main', 'Groot', '');
+		await mergeProposal(forge, site(), groot, []);
+		expect(forge.fileText('o/moza', 'main', 'content/149.md')).toBe('# 149\n');
+	});
+
+	it('refuses a proposal of more files than GitHub lists at all', async () => {
+		await forge.createBranch('o/moza', 'main', 'enorm');
+		await forge.commit(
+			'o/moza',
+			'enorm',
+			Array.from({ length: 3001 }, (_, i) => ({ path: `content/${i}.md`, content: `# ${i}\n` })),
+			'enorm'
+		);
+		const enorm = await forge.openDraftPr('o/moza', 'enorm', 'main', 'Enorm', '');
+		await expect(mergeProposal(forge, site(), enorm, [])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: Schrijver kan niet nagaan of een afbeelding die dit voorstel verwijdert nog op een pagina staat. Voeg samen op GitHub.'
+			)
+		);
+		expect(forge.fileText('o/moza', 'main', 'content/0.md')).toBeNull();
+	});
+
 	it('refuses when it cannot see every file the proposal changes or every page', async () => {
 		const unchecked =
 			'Niet samengevoegd: Schrijver kan niet nagaan of een afbeelding die dit voorstel verwijdert nog op een pagina staat. Voeg samen op GitHub.';
 		const prFiles = vi.spyOn(forge, 'prFiles').mockResolvedValueOnce(
-			Array.from({ length: 100 }, (_, i) => ({
+			Array.from({ length: 3000 }, (_, i) => ({
 				path: `content/${i}.md`,
 				status: 'added' as const
 			}))

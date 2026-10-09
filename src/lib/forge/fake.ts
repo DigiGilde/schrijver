@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
 	ForgeError,
+	MAX_PR_FILES,
 	type FileChange,
 	type FileEntry,
 	type Forge,
@@ -226,7 +227,7 @@ export class FakeForge implements Forge {
 			else if (b.sha !== blob.sha) files.push({ path, status: 'modified' });
 		}
 		for (const path of base.keys()) if (!head.has(path)) files.push({ path, status: 'removed' });
-		return files;
+		return files.slice(0, MAX_PR_FILES);
 	}
 
 	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {

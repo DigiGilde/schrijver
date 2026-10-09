@@ -333,15 +333,18 @@ export class GitHubForge implements Forge {
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
-		const files: Json[] = await this.request(
-			repo,
-			'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
-			{
-				pull_number: number,
-				per_page: MAX_PR_FILES
-			}
-		);
-		return files.map((f) => ({
+		const perPage = 100;
+		const files: Json[] = [];
+		for (let page = 1; files.length < MAX_PR_FILES; page++) {
+			const batch: Json[] = await this.request(
+				repo,
+				'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
+				{ pull_number: number, per_page: perPage, page }
+			);
+			files.push(...batch);
+			if (batch.length < perPage) break;
+		}
+		return files.slice(0, MAX_PR_FILES).map((f) => ({
 			path: f.filename as string,
 			status: f.status === 'added' || f.status === 'removed' ? f.status : 'modified',
 			...(f.status === 'renamed' && f.previous_filename

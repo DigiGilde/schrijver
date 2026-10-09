@@ -81,6 +81,37 @@ describe('GitHubForge', () => {
 		expect(bodies.perPage).toEqual(['100']);
 	});
 
+	it('pages through the files of a pull request, up to the 3,000 GitHub lists', async () => {
+		let total = 250;
+		const pages: number[] = [];
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/8/files`, ({ request }) => {
+				const query = new URL(request.url).searchParams;
+				const page = Number(query.get('page'));
+				const perPage = Number(query.get('per_page'));
+				pages.push(page);
+				const start = (page - 1) * perPage;
+				const count = Math.max(0, Math.min(perPage, total - start));
+				return HttpResponse.json(
+					Array.from({ length: count }, (_, i) => ({
+						filename: `docs/${start + i}.md`,
+						status: 'added'
+					}))
+				);
+			})
+		);
+		const files = await forge().prFiles('o/r', 8);
+		expect(files).toHaveLength(250);
+		expect(files.at(-1)).toEqual({ path: 'docs/249.md', status: 'added' });
+		expect(pages).toEqual([1, 2, 3]);
+
+		total = 5000;
+		pages.length = 0;
+		const capped = await forge().prFiles('o/r', 8);
+		expect(capped).toHaveLength(3000);
+		expect(pages).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
+	});
+
 	it('reports a file above maxBytes without downloading its blob', async () => {
 		let blobRequests = 0;
 		server.use(

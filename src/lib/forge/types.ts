@@ -39,8 +39,8 @@ export interface PrFile {
 	previous?: string;
 }
 
-/** `prFiles` lists at most this many files: a list this long may leave files out. */
-export const MAX_PR_FILES = 100;
+/** GitHub lists at most this many files of a pull request: a list this long may leave files out. */
+export const MAX_PR_FILES = 3000;
 
 export class ForgeError extends Error {
 	constructor(
