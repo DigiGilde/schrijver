@@ -1,9 +1,10 @@
 import { forgeConfigReader } from '$lib/config/forge-reader';
 import { ConfigStore } from '$lib/config/load';
+import type { SiteConfig } from '$lib/config/types';
 import { CachingForge } from '$lib/forge/cache';
 import { githubForgeFromEnv } from '$lib/forge/github';
 import type { Forge } from '$lib/forge/types';
-import { log } from '$lib/log';
+import { errorFields, log } from '$lib/log';
 
 const RETRY_MS = 60000;
 
@@ -15,6 +16,7 @@ let stopped = false;
 let initPromise: Promise<void> | null = null;
 let initialised: Promise<void> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let afterLoad: ((sites: SiteConfig[]) => Promise<void>) | null = null;
 
 export function getConfigStore(): ConfigStore {
 	if (!configStore) throw new Error('config store not initialised');
@@ -45,6 +47,11 @@ export function configRepoName(): string {
 	return parseConfigRepo().repo;
 }
 
+/** Runs after every successful load; a failure is logged and the load retried. */
+export function whenConfigLoaded(listener: ((sites: SiteConfig[]) => Promise<void>) | null): void {
+	afterLoad = listener;
+}
+
 function loadOnce(): Promise<void> {
 	if (inFlight) {
 		dirty = true;
@@ -72,6 +79,12 @@ function loadOnce(): Promise<void> {
 			scheduleRetry();
 		} else {
 			log.info('config.loaded');
+			try {
+				await afterLoad?.(store.sites());
+			} catch (err) {
+				log.error('config.after_load_failed', errorFields(err));
+				scheduleRetry();
+			}
 		}
 	})();
 	return inFlight;

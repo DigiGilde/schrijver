@@ -13,15 +13,16 @@ import {
 	sealSession,
 	sessionSecret
 } from '$lib/auth/session';
+import { ACT_AS_COOKIE, actingAs, sessionAs } from '$lib/auth/dev-switch';
 import {
-	applySchema,
-	getPrefs,
-	MemoryUsersStore,
-	savePrefs,
-	useUsersStore,
-	type UserPrefs
-} from '$lib/auth/users';
-import { initServices } from '$lib/server/services';
+	recordLogin,
+	seedSites,
+	startRetention,
+	teamStore,
+	useMemoryStores
+} from '$lib/auth/team-store';
+import { applySchema, getPrefs, savePrefs, type UserPrefs } from '$lib/auth/users';
+import { initServices, whenConfigLoaded } from '$lib/server/services';
 import {
 	apiGuard,
 	assertSafeEnvironment,
@@ -66,6 +67,10 @@ const initAny = async () => {
 		const { initFakeServices } = await import('$lib/server/fake-mode');
 		return initFakeServices();
 	}
+	whenConfigLoaded(async (sites) => {
+		if (!devSession()) await ensureSchema();
+		await seedSites(sites);
+	});
 	return initServices();
 };
 const ensureServices = () => {
@@ -89,11 +94,12 @@ const testPrefs = (sub: string): UserPrefs => ({
 	onboarded: true
 });
 
-let testStoreReady: Promise<void> | undefined;
-const ensureTestStore = (sub: string) =>
-	(testStoreReady ??= (async () => {
-		useUsersStore(new MemoryUsersStore());
-		await savePrefs(testPrefs(sub));
+let testLoginReady: Promise<void> | undefined;
+const ensureTestLogin = (session: Session) =>
+	(testLoginReady ??= (async () => {
+		await savePrefs(testPrefs(session.sub));
+		await recordLogin(session);
+		startRetention();
 	})());
 
 const isPublic = (path: string) =>
@@ -109,15 +115,19 @@ const authHandle: Handle = async ({ event, resolve }) => {
 
 	const test = devSession();
 	if (test) {
+		useMemoryStores();
 		await ensureServices();
-		await ensureTestStore(test.sub);
-		event.locals.user = { session: test, prefs: await getPrefs(test.sub) };
+		await ensureTestLogin(test);
+		const other = actingAs(event.cookies.get(ACT_AS_COOKIE));
+		const session = (other && (await sessionAs(other, test, teamStore()))) || test;
+		event.locals.user = { session, prefs: await getPrefs(session.sub) };
 		return resolve(event);
 	}
 
 	await ensureServices();
 	if (isPublic(path)) return resolve(event);
 	await ensureSchema();
+	startRetention();
 
 	const token = event.cookies.get(SESSION_COOKIE);
 	const secret = sessionSecret();

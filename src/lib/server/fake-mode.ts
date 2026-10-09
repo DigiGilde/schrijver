@@ -1,5 +1,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import type { TeamStore } from '$lib/auth/team';
+import { seedSites, useMemoryStores } from '$lib/auth/team-store';
+import type { UsersStore } from '$lib/auth/users';
 import { ConfigStore, type ConfigReader } from '$lib/config/load';
 import { setConfigStore, setForge } from './services';
 import { commentBody } from '$lib/forge/conversation';
@@ -247,9 +250,35 @@ export async function buildFakeServices(): Promise<{ forge: FakeForge; store: Co
 	return { forge, store };
 }
 
+/**
+ * A second known colleague, Tweede Collega, as the beheerder of MOZa, and invitations that make
+ * the test user (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login.
+ */
+export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<void> {
+	await team.recordLogin({
+		sub: 'collega',
+		name: 'Tweede Collega',
+		email: 'collega@example.org',
+		emailVerified: true
+	});
+	await users.savePrefs({
+		sub: 'collega',
+		identity: 'anoniem',
+		githubLogin: null,
+		githubId: null,
+		onboarded: true
+	});
+	await team.addByEmail('moza-site', 'collega@example.org', 'beheerder', 'collega');
+	await team.addByEmail('moza-site', 'test@example.org', 'redactie', 'collega');
+	await team.addByEmail('digi-handboek', 'test@example.org', 'beheerder', 'collega');
+}
+
 export async function initFakeServices(): Promise<void> {
 	const { forge, store } = await buildFakeServices();
 	await seedScenarios(forge, testUserPseudonym());
 	setForge(forge);
 	setConfigStore(store);
+	const { users, team } = useMemoryStores();
+	await seedSites(store.sites(), team);
+	await seedFakeTeam(users, team);
 }

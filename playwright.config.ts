@@ -23,6 +23,7 @@ export default defineConfig({
 				PORT: String(port),
 				SCHRIJVER_FAKE_FORGE: '1',
 				SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR: '1000',
+				SCHRIJVER_BEHEERDERS: 'test',
 				SCHRIJVER_TEST_SESSION: JSON.stringify({
 					sub: 'test',
 					name: 'Test Gebruiker',

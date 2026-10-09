@@ -5,7 +5,10 @@ import { ConfigStore } from '$lib/config/load';
 import { CachingForge } from '$lib/forge/cache';
 import { FakeForge } from '$lib/forge/fake';
 
-vi.mock('$lib/log', () => ({ log: { info: () => {}, warn: () => {}, error: () => {} } }));
+vi.mock('$lib/log', async (original) => ({
+	...(await original<typeof import('$lib/log')>()),
+	log: { info: () => {}, warn: () => {}, error: () => {} }
+}));
 
 const services = await import('$lib/server/services');
 const { POST } = await import('../../src/routes/api/webhook/github/+server');
@@ -27,6 +30,7 @@ afterEach(() => {
 	services.stopServices();
 	services.setForge(null);
 	services.setConfigStore(null);
+	services.whenConfigLoaded(null);
 	vi.useRealTimers();
 });
 
@@ -96,6 +100,38 @@ describe('services', () => {
 		services.stopServices();
 		await vi.advanceTimersByTimeAsync(120000);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('hands the sites of every successful load to the listener, and none of a failed one', async () => {
+		const fake = new FakeForge();
+		fake.seedRepo('o/config', 'main', configFiles());
+		services.setForge(fake);
+		const seen: string[][] = [];
+		services.whenConfigLoaded(async (sites) => {
+			seen.push(sites.map((s) => s.id));
+		});
+		await services.initServices();
+		expect(seen).toEqual([['digi-handboek', 'moza-site']]);
+
+		const store = new ConfigStore({ readFile: async () => null, listFiles: async () => [] });
+		services.setConfigStore(store);
+		await services.reloadConfig();
+		expect(seen).toHaveLength(1);
+	});
+
+	it('retries the load when the listener fails', async () => {
+		const fake = new FakeForge();
+		fake.seedRepo('o/config', 'main', configFiles());
+		services.setForge(fake);
+		const listener = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('db down'))
+			.mockResolvedValue(undefined);
+		services.whenConfigLoaded(listener);
+		await services.initServices();
+		expect(listener).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(listener).toHaveBeenCalledTimes(2);
 	});
 
 	it('a load finishing after stop does not re-arm the timer', async () => {

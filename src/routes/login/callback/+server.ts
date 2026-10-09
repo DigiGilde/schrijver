@@ -8,6 +8,7 @@ import {
 	sealSession,
 	sessionSecret
 } from '$lib/auth/session';
+import { recordLogin } from '$lib/auth/team-store';
 import { getPrefs } from '$lib/auth/users';
 import { log } from '$lib/log';
 
@@ -16,6 +17,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	let onboarded;
 	try {
 		session = await finishLogin(url, cookies.get(LOGIN_COOKIE));
+		await recordLogin(session);
 		onboarded = (await getPrefs(session.sub)).onboarded;
 	} catch (err) {
 		log.error('auth.callback_failed', { reason: err instanceof Error ? err.message : 'unknown' });

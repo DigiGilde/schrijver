@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Handle } from '@sveltejs/kit';
 // @ts-expect-error SvelteKit ships no types for its internal server entry
 import { with_request_store } from '@sveltejs/kit/internal/server';
@@ -13,17 +13,38 @@ const prefs = {
 	onboarded: true
 };
 
-vi.mock('../../src/lib/server/services', () => ({ initServices: vi.fn(async () => undefined) }));
+const loaded = vi.hoisted(() => ({
+	listener: null as ((sites: unknown[]) => Promise<void>) | null
+}));
+vi.mock('../../src/lib/server/services', () => ({
+	initServices: vi.fn(async () => undefined),
+	whenConfigLoaded: (listener: (sites: unknown[]) => Promise<void>) => (loaded.listener = listener)
+}));
 vi.mock('../../src/lib/server/fake-mode', () => ({
 	initFakeServices: vi.fn(async () => undefined)
 }));
 vi.mock('../../src/lib/auth/users', () => ({
 	getPrefs: vi.fn(async () => prefs),
+	savePrefs: vi.fn(async () => undefined),
 	applySchema: vi.fn(async () => undefined)
+}));
+vi.mock('../../src/lib/auth/team-store', () => ({
+	recordLogin: vi.fn(async () => undefined),
+	seedSites: vi.fn(async () => undefined),
+	startRetention: vi.fn(),
+	teamStore: vi.fn(),
+	useMemoryStores: vi.fn()
 }));
 
 import { handle, handleError } from '../../src/hooks.server';
 import { getPrefs } from '../../src/lib/auth/users';
+import {
+	recordLogin,
+	seedSites,
+	startRetention,
+	teamStore,
+	useMemoryStores
+} from '../../src/lib/auth/team-store';
 
 const session = (over: Partial<Session> = {}): Session => ({
 	sub: 'abc',
@@ -36,7 +57,12 @@ const session = (over: Partial<Session> = {}): Session => ({
 	...over
 });
 
-function run(path: string, cookie?: string, headers: Record<string, string> = {}) {
+function run(
+	path: string,
+	cookie?: string,
+	headers: Record<string, string> = {},
+	cookies: Record<string, string> = {}
+) {
 	const set = vi.fn();
 	const locals: Record<string, unknown> = {};
 	const resolve = vi.fn(async () => new Response('ok'));
@@ -44,7 +70,7 @@ function run(path: string, cookie?: string, headers: Record<string, string> = {}
 		url: new URL(`http://localhost${path}`),
 		request: new Request(`http://localhost${path}`, { headers }),
 		cookies: {
-			get: (n: string) => (n === 'schrijver_sessie' ? cookie : undefined),
+			get: (n: string) => (n === 'schrijver_sessie' ? cookie : cookies[n]),
 			set,
 			delete: vi.fn()
 		},
@@ -183,6 +209,55 @@ describe('handle', () => {
 		const { result, set } = run('/', sealSession(session(), secret));
 		await result;
 		expect(set).not.toHaveBeenCalled();
+	});
+});
+
+describe('people and settings in the database', () => {
+	it('seeds the configured sites after each load, and starts the retention', async () => {
+		const { result } = run('/sites/x', sealSession(session(), secret));
+		await result;
+		expect(startRetention).toHaveBeenCalled();
+		await loaded.listener!([{ id: 'digi-handboek' }]);
+		expect(seedSites).toHaveBeenCalledWith([{ id: 'digi-handboek' }]);
+	});
+});
+
+describe('the dev and test session', () => {
+	const test = session({ sub: 'test', name: 'Test Gebruiker', email: 'test@example.org' });
+	beforeEach(() => {
+		process.env.SCHRIJVER_TEST_SESSION = JSON.stringify(test);
+	});
+	afterEach(() => {
+		delete process.env.SCHRIJVER_TEST_SESSION;
+	});
+
+	it('keeps people in memory and signs the test user in once, as a login', async () => {
+		const first = run('/');
+		await first.result;
+		await run('/instellingen').result;
+		expect(useMemoryStores).toHaveBeenCalled();
+		expect(recordLogin).toHaveBeenCalledTimes(1);
+		expect(recordLogin).toHaveBeenCalledWith(test);
+		expect(startRetention).toHaveBeenCalled();
+		expect((first.locals.user as { session: Session }).session.sub).toBe('test');
+	});
+
+	it('acts as another known user while the switch cookie names one', async () => {
+		vi.mocked(teamStore).mockReturnValue({
+			profile: async (sub: string) =>
+				sub === 'collega'
+					? { sub, name: 'Tweede Collega', email: 'collega@example.org', lastLoginAt: null }
+					: null
+		} as never);
+		const as = run('/', undefined, {}, { schrijver_test_als: 'collega' });
+		await as.result;
+		const user = as.locals.user as { session: Session };
+		expect(user.session).toMatchObject({ sub: 'collega', name: 'Tweede Collega' });
+		expect(getPrefs).toHaveBeenLastCalledWith('collega');
+
+		const stranger = run('/', undefined, {}, { schrijver_test_als: 'vreemd' });
+		await stranger.result;
+		expect((stranger.locals.user as { session: Session }).session.sub).toBe('test');
 	});
 });
 
