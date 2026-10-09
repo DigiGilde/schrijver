@@ -89,7 +89,13 @@ const RULES: { test: RegExp; name: string; limit: number }[] = [
 	{ test: /^\/api\/assistent$/, name: 'assistent', limit: 20 },
 	{ test: /^\/api\/sites\/[^/]+\/opslaan$/, name: 'opslaan', limit: 60 },
 	{ test: /^\/api\/sites\/[^/]+\/afbeelding$/, name: 'afbeelding', limit: 60 },
-	{ test: /^\/api\/sites\/[^/]+\/afbeeldingsgebruik$/, name: 'afbeeldingsgebruik', limit: 30 }
+	{ test: /^\/api\/sites\/[^/]+\/afbeeldingsgebruik$/, name: 'afbeeldingsgebruik', limit: 30 },
+	// What these post or change on GitHub goes out under the App's name.
+	{
+		test: /^\/api\/sites\/[^/]+\/voorstellen\/[^/]+\/(opmerking|aanpassing|opnieuw-insturen)$/,
+		name: 'gesprek',
+		limit: 10
+	}
 ];
 
 function clientKey(event: RequestEvent): string {

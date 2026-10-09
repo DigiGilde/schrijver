@@ -165,7 +165,7 @@ describe('approve, comment, merge', () => {
 		expect(spy).toHaveBeenCalledWith(
 			'o/moza',
 			pr.number,
-			'Reactie van de redactie via Schrijver (anoniem, codenaam abcdef012345):\n\nMooi'
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (anoniem, codenaam abcdef012345):\n\nMooi'
 		);
 	});
 

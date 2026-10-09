@@ -184,16 +184,19 @@ describe('FakeForge', () => {
 		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'approved', '');
 		expect((await forge.getPr(REPO, pr.number)).reviewState).toBe('approved');
 
+		forge.commentOnGitHub(REPO, pr.number, 'schrijver[bot]', 'Als de App');
 		const comments = await forge.prComments(REPO, pr.number);
 		expect(comments).toEqual([
-			expect.objectContaining({ login: 'schrijver[bot]', body: 'Via Schrijver', viaApp: true }),
+			expect.objectContaining({ login: 'schrijver[bot]', body: 'Via Schrijver', byApp: true }),
 			{
 				id: expect.any(Number),
 				login: 'jansen',
 				body: 'Op GitHub',
 				createdAt: '2030-01-01T10:00:00Z',
-				viaApp: false
-			}
+				url: expect.stringContaining('#issuecomment-'),
+				byApp: false
+			},
+			expect.objectContaining({ login: 'schrijver[bot]', body: 'Als de App', byApp: true })
 		]);
 		expect((await forge.prReviews(REPO, pr.number)).map((r) => [r.login, r.state])).toEqual([
 			['jansen', 'changes_requested'],
@@ -201,7 +204,7 @@ describe('FakeForge', () => {
 			['jansen', 'approved']
 		]);
 		comments.pop();
-		expect(await forge.prComments(REPO, pr.number)).toHaveLength(2);
+		expect(await forge.prComments(REPO, pr.number)).toHaveLength(3);
 	});
 
 	it('says who opened a pull request and when it was merged', async () => {

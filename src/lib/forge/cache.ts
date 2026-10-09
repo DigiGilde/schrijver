@@ -162,6 +162,9 @@ export class CachingForge implements Forge {
 	reviewDecision(repo: string, number: number) {
 		return this.inner.reviewDecision(repo, number);
 	}
+	appLogin() {
+		return this.inner.appLogin();
+	}
 	isPublic(repo: string) {
 		return this.cached(repo, 'public', () => this.inner.isPublic(repo));
 	}

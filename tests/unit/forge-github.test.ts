@@ -286,51 +286,71 @@ describe('GitHubForge', () => {
 		expect(err.detail).toContain('Resource not accessible');
 	});
 
-	it('lists the comments, telling the ones its own App posted from the rest', async () => {
+	it('marks a comment as the App own only when its own bot account posted it', async () => {
+		let appRequests = 0;
+		const comment = (id: number, login: string, type: string, appId: number | null) => ({
+			id,
+			user: { login, type },
+			body: `Opmerking ${id}`,
+			created_at: '2026-10-09T10:00:00Z',
+			html_url: `https://github.com/o/r/pull/7#issuecomment-${id}`,
+			performed_via_github_app: appId === null ? null : { id: appId, slug: 'x' }
+		});
 		server.use(
+			http.get(`${API}/app`, () => {
+				appRequests++;
+				return HttpResponse.json({ id: 1, slug: 'schrijver' });
+			}),
+			http.get(`${API}/repos/o/r/issues/7/comments`, () =>
+				HttpResponse.json([
+					comment(11, 'schrijver[bot]', 'Bot', 1),
+					// A person acting through the App with a user token: the App is named, the person posted.
+					comment(12, 'jansen', 'User', 1),
+					comment(13, 'ander[bot]', 'Bot', 99),
+					comment(14, 'schrijver[bot]', 'User', null),
+					{ ...comment(15, 'pietersen', 'User', null), body: null }
+				])
+			)
+		);
+		const f = forge();
+		const comments = await f.prComments('o/r', 7);
+		expect(comments.map((c) => [c.id, c.login, c.byApp])).toEqual([
+			[11, 'schrijver[bot]', true],
+			[12, 'jansen', false],
+			[13, 'ander[bot]', false],
+			[14, 'schrijver[bot]', false],
+			[15, 'pietersen', false]
+		]);
+		expect(comments[0]).toEqual({
+			id: 11,
+			login: 'schrijver[bot]',
+			body: 'Opmerking 11',
+			createdAt: '2026-10-09T10:00:00Z',
+			url: 'https://github.com/o/r/pull/7#issuecomment-11',
+			byApp: true
+		});
+		expect(comments[4].body).toBe('');
+		await f.prComments('o/r', 7);
+		expect(appRequests).toBe(1);
+	});
+
+	it('trusts no comment as the App own when GitHub does not say which account the App is', async () => {
+		server.use(
+			http.get(`${API}/app`, () => HttpResponse.json({ message: 'kapot' }, { status: 500 })),
 			http.get(`${API}/repos/o/r/issues/7/comments`, () =>
 				HttpResponse.json([
 					{
 						id: 11,
 						user: { login: 'schrijver[bot]', type: 'Bot' },
-						body: 'Via de App',
+						body: 'x',
 						created_at: '2026-10-09T10:00:00Z',
+						html_url: 'https://github.com/o/r/pull/7#issuecomment-11',
 						performed_via_github_app: { id: 1, slug: 'schrijver' }
-					},
-					{
-						id: 12,
-						user: { login: 'ander[bot]', type: 'Bot' },
-						body: 'Via een andere App',
-						created_at: '2026-10-09T11:00:00Z',
-						performed_via_github_app: { id: 99, slug: 'ander' }
-					},
-					{
-						id: 13,
-						user: { login: 'jansen', type: 'User' },
-						body: null,
-						created_at: '2026-10-09T12:00:00Z',
-						performed_via_github_app: null
 					}
 				])
 			)
 		);
-		expect(await forge().prComments('o/r', 7)).toEqual([
-			{
-				id: 11,
-				login: 'schrijver[bot]',
-				body: 'Via de App',
-				createdAt: '2026-10-09T10:00:00Z',
-				viaApp: true
-			},
-			{
-				id: 12,
-				login: 'ander[bot]',
-				body: 'Via een andere App',
-				createdAt: '2026-10-09T11:00:00Z',
-				viaApp: false
-			},
-			{ id: 13, login: 'jansen', body: '', createdAt: '2026-10-09T12:00:00Z', viaApp: false }
-		]);
+		expect((await forge().prComments('o/r', 7)).map((c) => c.byApp)).toEqual([false]);
 	});
 
 	it('pages through the comments, up to the conversation limit', async () => {

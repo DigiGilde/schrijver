@@ -53,7 +53,7 @@ export class FakeForge implements Forge {
 	private repos = new Map<string, RepoState>();
 	private reviewRequired = new Set<string>();
 	private prRepo = new Map<number, string>();
-	private comments = new Map<number, PrComment[]>();
+	private comments = new Map<number, Omit<PrComment, 'byApp'>[]>();
 	private reviews = new Map<number, PrReview[]>();
 	private failures = new Map<keyof Forge, ForgeError>();
 	private nextPr = 1;
@@ -99,8 +99,7 @@ export class FakeForge implements Forge {
 		body: string,
 		createdAt = new Date().toISOString()
 	): void {
-		this.pr(repo, number);
-		this.addComment(number, { id: this.nextId++, login, body, createdAt, viaApp: false });
+		this.addComment(repo, number, login, body, createdAt);
 	}
 
 	/** A review submitted on GitHub; as there, each reviewer's latest verdict counts. */
@@ -298,14 +297,20 @@ export class FakeForge implements Forge {
 	async comment(repo: string, number: number, body: string): Promise<void> {
 		this.maybeFail('comment');
 		this.touch(repo, number, {});
-		const createdAt = new Date().toISOString();
-		this.addComment(number, { id: this.nextId++, login: APP_LOGIN, body, createdAt, viaApp: true });
+		this.addComment(repo, number, APP_LOGIN, body, new Date().toISOString());
+	}
+
+	async appLogin(): Promise<string | null> {
+		this.maybeFail('appLogin');
+		return APP_LOGIN;
 	}
 
 	async prComments(repo: string, number: number): Promise<PrComment[]> {
 		this.maybeFail('prComments');
 		this.pr(repo, number);
-		return (this.comments.get(number) ?? []).slice(0, MAX_CONVERSATION).map((c) => ({ ...c }));
+		return (this.comments.get(number) ?? [])
+			.slice(0, MAX_CONVERSATION)
+			.map((c) => ({ ...c, byApp: c.login === APP_LOGIN }));
 	}
 
 	async prReviews(repo: string, number: number): Promise<PrReview[]> {
@@ -380,7 +385,16 @@ export class FakeForge implements Forge {
 		return r;
 	}
 
-	private addComment(number: number, comment: PrComment): void {
+	private addComment(
+		repo: string,
+		number: number,
+		login: string,
+		body: string,
+		createdAt: string
+	): void {
+		const pr = this.pr(repo, number);
+		const id = this.nextId++;
+		const comment = { id, login, body, createdAt, url: `${pr.url}#issuecomment-${id}` };
 		this.comments.set(number, [...(this.comments.get(number) ?? []), comment]);
 	}
 

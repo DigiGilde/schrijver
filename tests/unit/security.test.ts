@@ -155,6 +155,16 @@ describe('rateLimit', () => {
 		expect((await call(h, ev('/api/sites/x/afbeeldingsgebruik')).res).status).toBe(429);
 		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
 	});
+	it('allows 10 reactions, requests and re-sends per minute together, apart from the rest', async () => {
+		const h = createRateLimit(() => 5);
+		const paths = ['opmerking', 'aanpassing', 'opnieuw-insturen'].map(
+			(actie) => `/api/sites/x/voorstellen/7/${actie}`
+		);
+		for (let i = 0; i < 10; i++) expect((await call(h, ev(paths[i % 3])).res).status).toBe(200);
+		for (const path of paths) expect((await call(h, ev(path)).res).status).toBe(429);
+		expect((await call(h, ev('/api/sites/x/voorstellen/7/mergen')).res).status).toBe(200);
+		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
+	});
 	it('does not limit other paths and sweeps stale buckets', async () => {
 		let t = 0;
 		const h = createRateLimit(() => t);

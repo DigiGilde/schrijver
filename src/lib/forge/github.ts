@@ -1,7 +1,7 @@
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import { RequestError } from '@octokit/request-error';
-import { log } from '../log';
+import { errorFields, log } from '../log';
 import {
 	ForgeError,
 	MAX_CONVERSATION,
@@ -81,7 +81,7 @@ const REVIEW_STATES: Record<string, PrReview['state']> = {
 
 export class GitHubForge implements Forge {
 	private app: App;
-	private appId: string;
+	private account: Promise<string | null> | null = null;
 	private installations = new Map<string, number>();
 	private clients = new Map<number, Octo>();
 
@@ -89,7 +89,6 @@ export class GitHubForge implements Forge {
 		const privateKey = opts.privateKey.trim().startsWith('-----BEGIN')
 			? opts.privateKey.replace(/\\n/g, '\n')
 			: Buffer.from(opts.privateKey, 'base64').toString('utf8');
-		this.appId = opts.appId;
 		this.app = new App({
 			appId: opts.appId,
 			privateKey,
@@ -392,19 +391,36 @@ export class GitHubForge implements Forge {
 		return items.slice(0, MAX_CONVERSATION);
 	}
 
+	appLogin(): Promise<string | null> {
+		this.account ??= this.app.octokit.request('GET /app').then(
+			(res) => {
+				const slug = (res.data as Json)?.slug;
+				return typeof slug === 'string' && slug ? `${slug}[bot]` : null;
+			},
+			(err) => {
+				log.warn('forge.app_login_failed', errorFields(err));
+				this.account = null;
+				return null;
+			}
+		);
+		return this.account;
+	}
+
 	async prComments(repo: string, number: number): Promise<PrComment[]> {
 		const comments = await this.paged(
 			repo,
 			'GET /repos/{owner}/{repo}/issues/{issue_number}/comments',
 			{ issue_number: number }
 		);
+		// A person can act through the App with a user token: only the App's own bot account counts.
+		const bot = comments.some((c) => c.user?.type === 'Bot') ? await this.appLogin() : null;
 		return comments.map((c) => ({
 			id: c.id as number,
 			login: (c.user?.login as string | undefined) ?? '',
 			body: (c.body as string | null) ?? '',
 			createdAt: c.created_at as string,
-			viaApp:
-				c.performed_via_github_app != null && String(c.performed_via_github_app.id) === this.appId
+			url: (c.html_url as string | undefined) ?? '',
+			byApp: bot !== null && c.user?.type === 'Bot' && c.user?.login === bot
 		}));
 	}
 

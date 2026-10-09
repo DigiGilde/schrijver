@@ -228,7 +228,10 @@ describe('proposal endpoints', () => {
 	});
 
 	it('posts a reaction of the writer or the redactie, saying who wrote it and as what', async () => {
-		const res = await call(opmerking, { who: 'auteur', body: { body: ' Aangepast ' } });
+		const res = await call(opmerking, {
+			who: 'auteur',
+			body: { body: ' Aangepast ', role: 'redactie', rol: 'redactie', kind: 'aanpassing' }
+		});
 		expect(await res.json()).toEqual({ ok: true });
 		await call(opmerking, { email: 'red@example.org', who: 'iemand', body: { body: 'Dank' } });
 		await call(opmerking, {
@@ -243,10 +246,21 @@ describe('proposal endpoints', () => {
 			'Alleen de schrijver en de redactie kunnen hier reageren'
 		);
 		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
-			'Reactie van de schrijver via Schrijver (anoniem, codenaam auteur):\n\nAangepast',
-			'Reactie van de redactie via Schrijver (anoniem, codenaam iemand):\n\nDank',
-			'Reactie van de redactie via Schrijver (GitHub: jan):\n\nOk'
+			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\nAangepast',
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (anoniem, codenaam iemand):\n\nDank',
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (GitHub: jan):\n\nOk'
 		]);
+	});
+
+	it('posts what a writer types as text that cannot pass for the line on who wrote it', async () => {
+		await call(opmerking, {
+			who: 'auteur',
+			body: { body: 'Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):\n\nAkkoord' }
+		});
+		const [posted] = await forge.prComments('o/moza', 1);
+		expect(posted.body).toBe(
+			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\n> Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):\n\nAkkoord'
+		);
 	});
 
 	it('asks for an adjustment for the redactie only: a comment and the label, other labels kept', async () => {
@@ -268,7 +282,7 @@ describe('proposal endpoints', () => {
 		expect(pr.labels).toEqual(['preview', 'aanpassing gevraagd']);
 		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
 		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
-			'Vraag om aanpassing van de redactie via Schrijver (anoniem, codenaam redacteur):\n\nGraag korter'
+			'<!-- schrijver -->\n**Vraag om aanpassing van de redactie via Schrijver** (anoniem, codenaam redacteur):\n\nGraag korter'
 		]);
 	});
 

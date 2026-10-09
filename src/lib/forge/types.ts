@@ -41,8 +41,9 @@ export interface PrComment {
 	login: string;
 	body: string;
 	createdAt: string;
-	/** Posted by Schrijver's own GitHub App: its first line names the person. */
-	viaApp: boolean;
+	url: string;
+	/** Posted by the account of Schrijver's own App, as the forge knows it: only then is its header Schrijver's. */
+	byApp: boolean;
 }
 
 /** A submitted review; a pending one is the reviewer's own draft and never listed. */
@@ -125,6 +126,8 @@ export interface Forge {
 	/** Squash merge; with `sha`, the forge refuses (409) when the head has moved since. */
 	merge(repo: string, number: number, message: string, sha?: string): Promise<void>;
 	reviewDecision(repo: string, number: number): Promise<ReviewDecision>;
+	/** The account the App acts as on GitHub, such as `schrijver[bot]`; null when GitHub does not say. */
+	appLogin(): Promise<string | null>;
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
 	/** Whether the repository is publicly readable. */
 	isPublic(repo: string): Promise<boolean>;

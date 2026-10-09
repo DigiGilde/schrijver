@@ -1,5 +1,5 @@
 import type { Identity } from './trailers';
-import type { PrComment, PrReview } from './types';
+import { MAX_CONVERSATION, type PrComment, type PrReview } from './types';
 
 export type Role = 'schrijver' | 'redactie';
 export type CommentKind = 'reactie' | 'aanpassing';
@@ -20,18 +20,49 @@ export interface ConversationItem {
 	verdict: string | null;
 	/** Markdown, for the preview pipeline. */
 	text: string;
-	/** Where GitHub shows what this conversation leaves out, such as comments on lines. */
+	/** Where GitHub shows what this conversation leaves out: comments on lines, or the rest of a long text. */
 	url: string | null;
 }
 
+const MARKER = '<!-- schrijver -->';
 const KIND: Record<CommentKind, string> = { reactie: 'Reactie', aanpassing: 'Vraag om aanpassing' };
-const FIRST_LINE =
-	/^(Reactie|Vraag om aanpassing) van de (schrijver|redactie) via Schrijver \((.+)\):$/;
-const BEFORE = 'Opmerking van de redactie via Schrijver:';
+const HEADER =
+	/^\*\*(Reactie|Vraag om aanpassing) van de (schrijver|redactie) via Schrijver\*\* \((.+)\):$/;
+const BEFORE = 'Opmerking van de redactie via Schrijver:\n\n';
+/** A line that could pass for the line Schrijver writes on who wrote a comment, now or before. */
+const LOOKS_LIKE_HEADER =
+	/^ {0,3}[*_\s]*(reactie|vraag om aanpassing|opmerking)\b.*\bvia schrijver\b/i;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const JOINER = '⁠';
 const ANONYMOUS = /^anoniem, codenaam ([0-9a-f]{12})$/;
-const LINKED = /^GitHub: (\S+)$/;
+const LINKED = /^GitHub: ([A-Za-z0-9-]+)$/;
+/** Bounds on what a page shows of a conversation: anyone can comment on GitHub, also at length. */
+const MAX_TEXT = 10_000;
+const MAX_TOTAL = 200_000;
 
-const oneLine = (value: string) => value.replace(/\s+/g, ' ').trim();
+/** Breaks what GitHub reads as an HTML comment, which hides text, or as a mention, which notifies someone. */
+const disarm = (line: string) =>
+	line.replaceAll('<!--', `<${JOINER}!--`).replace(/@(?=[A-Za-z0-9])/g, `@${JOINER}`);
+
+/** The text of a reaction as the App posts it: no line in it passes for Schrijver's own; code blocks stay as they are. */
+function neutralise(text: string): string {
+	let fence = '';
+	return text
+		.split('\n')
+		.map((line) => {
+			const mark = FENCE.exec(line)?.[1];
+			if (fence) {
+				if (mark && mark[0] === fence[0] && mark.length >= fence.length) fence = '';
+				return line;
+			}
+			if (mark) {
+				fence = mark;
+				return line;
+			}
+			return LOOKS_LIKE_HEADER.test(line) ? `> ${disarm(line)}` : disarm(line);
+		})
+		.join('\n');
+}
 
 /** The person as their identity choice allows: never an e-mail address. */
 function signature(identity: Identity): string {
@@ -41,52 +72,70 @@ function signature(identity: Identity): string {
 		case 'gekoppeld':
 			return `GitHub: ${identity.login}`;
 		case 'op-naam':
-			return oneLine(identity.name);
+			return disarm(identity.name.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim());
 	}
 }
 
-/** What Schrijver posts: a first line on who wrote it and as what, then the text. */
+/** What Schrijver posts: a hidden marker and a line on who wrote it and as what, then the text. */
 export function commentBody(text: string, author: CommentAuthor): string {
-	return `${KIND[author.kind]} van de ${author.role} via Schrijver (${signature(author.identity)}):\n\n${text}`;
+	const header = `**${KIND[author.kind]} van de ${author.role} via Schrijver** (${signature(author.identity)}):`;
+	return `${MARKER}\n${header}\n\n${neutralise(text)}`;
 }
 
+/** Reads back exactly what commentBody wrote, or what Schrijver wrote before it named the person. */
 export function readComment(
 	body: string
 ): { kind: CommentKind; role: Role; who: string | null; text: string } | null {
-	const end = body.indexOf('\n');
-	const first = (end === -1 ? body : body.slice(0, end)).trim();
-	const text = end === -1 ? '' : body.slice(end + 1).replace(/^\s*\n/, '');
-	if (first === BEFORE) return { kind: 'reactie', role: 'redactie', who: null, text };
-	const match = FIRST_LINE.exec(first);
+	const text = body.replace(/\r\n/g, '\n');
+	if (text.startsWith(BEFORE)) {
+		return { kind: 'reactie', role: 'redactie', who: null, text: text.slice(BEFORE.length) };
+	}
+	if (!text.startsWith(`${MARKER}\n`)) return null;
+	const rest = text.slice(MARKER.length + 1);
+	const end = rest.indexOf('\n\n');
+	const match = end === -1 ? null : HEADER.exec(rest.slice(0, end));
 	if (!match) return null;
 	const [, kind, role, signed] = match;
 	const anonymous = ANONYMOUS.exec(signed);
 	const who = anonymous
 		? `Anoniem, codenaam ${anonymous[1]}`
 		: (LINKED.exec(signed)?.[1] ?? signed);
-	return { kind: kind === 'Reactie' ? 'reactie' : 'aanpassing', role: role as Role, who, text };
+	return {
+		kind: kind === 'Reactie' ? 'reactie' : 'aanpassing',
+		role: role as Role,
+		who,
+		text: rest.slice(end + 2)
+	};
+}
+
+const onGitHub = (url: string) => (url.startsWith('https://github.com/') ? url : null);
+
+function shorten(text: string, url: string): { text: string; url: string | null } {
+	return text.length > MAX_TEXT
+		? { text: `${text.slice(0, MAX_TEXT)}…`, url: onGitHub(url) }
+		: { text, url: null };
 }
 
 function fromComment(comment: PrComment): ConversationItem {
-	const base = { id: `c${comment.id}`, at: comment.createdAt, url: null };
-	const signed = comment.viaApp ? readComment(comment.body) : null;
+	const base = { id: `c${comment.id}`, at: comment.createdAt };
+	const signed = comment.byApp ? readComment(comment.body) : null;
 	if (signed) {
 		return {
 			...base,
 			who: signed.who ?? 'Iemand van de redactie',
 			as: signed.role,
 			verdict: signed.kind === 'aanpassing' ? 'Vraagt om een aanpassing' : null,
-			text: signed.text
+			...shorten(signed.text, comment.url)
 		};
 	}
-	return comment.viaApp
-		? { ...base, who: 'Schrijver', as: 'app', verdict: null, text: comment.body }
+	return comment.byApp
+		? { ...base, who: 'Schrijver', as: 'app', verdict: null, ...shorten(comment.body, comment.url) }
 		: {
 				...base,
 				who: comment.login || 'Onbekend',
 				as: 'github',
 				verdict: null,
-				text: comment.body
+				...shorten(comment.body, comment.url)
 			};
 }
 
@@ -103,19 +152,39 @@ function verdictOf(review: PrReview): string | null {
 	}
 }
 
-const fromReview = (review: PrReview): ConversationItem => ({
-	id: `r${review.id}`,
-	who: review.login || 'Onbekend',
-	as: 'github',
-	at: review.submittedAt,
-	verdict: verdictOf(review),
-	text: review.body,
-	url: review.state === 'commented' ? review.url : null
-});
+function fromReview(review: PrReview): ConversationItem {
+	const { text, url } = shorten(review.body, review.url);
+	return {
+		id: `r${review.id}`,
+		who: review.login || 'Onbekend',
+		as: 'github',
+		at: review.submittedAt,
+		verdict: verdictOf(review),
+		text,
+		url: review.state === 'commented' ? onGitHub(review.url) : url
+	};
+}
 
-/** Comments and reviews in time order; a comment's first line counts only when Schrijver's App posted it. */
-export function conversation(comments: PrComment[], reviews: PrReview[]): ConversationItem[] {
-	return [...comments.map(fromComment), ...reviews.map(fromReview)].sort(
+/**
+ * Comments and reviews in time order, within the bounds of one page; incomplete when GitHub may hold more.
+ * The line on who wrote a comment counts only on a comment of Schrijver's own App account.
+ */
+export function conversation(
+	comments: PrComment[],
+	reviews: PrReview[]
+): { items: ConversationItem[]; complete: boolean } {
+	const all = [...comments.map(fromComment), ...reviews.map(fromReview)].sort(
 		(a, b) => Date.parse(a.at) - Date.parse(b.at)
 	);
+	const items: ConversationItem[] = [];
+	let total = 0;
+	for (const item of all) {
+		total += item.text.length;
+		if (total > MAX_TOTAL) return { items, complete: false };
+		items.push(item);
+	}
+	return {
+		items,
+		complete: comments.length < MAX_CONVERSATION && reviews.length < MAX_CONVERSATION
+	};
 }
