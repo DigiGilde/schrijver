@@ -129,14 +129,21 @@ describe('CachingForge', () => {
 		expect(listPrs).toHaveBeenCalledTimes(3);
 	});
 
-	it('asks the forge every time for the review decision', async () => {
+	it('asks the forge every time for the review decision and the conversation', async () => {
 		const { fake, cache } = setup();
 		await fake.createBranch('o/site', 'main', 'p');
 		const pr = await fake.openDraftPr('o/site', 'p', 'main', 'P', '');
-		const reviewDecision = vi.spyOn(fake, 'reviewDecision');
-		await cache.reviewDecision('o/site', pr.number);
-		await cache.reviewDecision('o/site', pr.number);
-		expect(reviewDecision).toHaveBeenCalledTimes(2);
+		const spies = [
+			vi.spyOn(fake, 'reviewDecision'),
+			vi.spyOn(fake, 'prComments'),
+			vi.spyOn(fake, 'prReviews')
+		];
+		for (let i = 0; i < 2; i++) {
+			await cache.reviewDecision('o/site', pr.number);
+			await cache.prComments('o/site', pr.number);
+			await cache.prReviews('o/site', pr.number);
+		}
+		for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
 	});
 
 	it('passes the head sha on to merge', async () => {

@@ -4,11 +4,14 @@ import { RequestError } from '@octokit/request-error';
 import { log } from '../log';
 import {
 	ForgeError,
+	MAX_CONVERSATION,
 	MAX_PR_FILES,
 	type FileChange,
 	type FileTree,
 	type Forge,
+	type PrComment,
 	type PrFile,
+	type PrReview,
 	type PrSummary,
 	type Ref,
 	type ReviewDecision
@@ -69,8 +72,16 @@ function splitRepo(repo: string): { owner: string; repo: string } {
 	return { owner, repo: name };
 }
 
+const REVIEW_STATES: Record<string, PrReview['state']> = {
+	APPROVED: 'approved',
+	CHANGES_REQUESTED: 'changes_requested',
+	COMMENTED: 'commented',
+	DISMISSED: 'dismissed'
+};
+
 export class GitHubForge implements Forge {
 	private app: App;
+	private appId: string;
 	private installations = new Map<string, number>();
 	private clients = new Map<number, Octo>();
 
@@ -78,6 +89,7 @@ export class GitHubForge implements Forge {
 		const privateKey = opts.privateKey.trim().startsWith('-----BEGIN')
 			? opts.privateKey.replace(/\\n/g, '\n')
 			: Buffer.from(opts.privateKey, 'base64').toString('utf8');
+		this.appId = opts.appId;
 		this.app = new App({
 			appId: opts.appId,
 			privateKey,
@@ -369,6 +381,51 @@ export class GitHubForge implements Forge {
 		}));
 	}
 
+	private async paged(repo: string, route: string, params: Json): Promise<Json[]> {
+		const perPage = 100;
+		const items: Json[] = [];
+		for (let page = 1; items.length < MAX_CONVERSATION; page++) {
+			const batch: Json[] = await this.request(repo, route, { ...params, per_page: perPage, page });
+			items.push(...batch);
+			if (batch.length < perPage) break;
+		}
+		return items.slice(0, MAX_CONVERSATION);
+	}
+
+	async prComments(repo: string, number: number): Promise<PrComment[]> {
+		const comments = await this.paged(
+			repo,
+			'GET /repos/{owner}/{repo}/issues/{issue_number}/comments',
+			{ issue_number: number }
+		);
+		return comments.map((c) => ({
+			id: c.id as number,
+			login: (c.user?.login as string | undefined) ?? '',
+			body: (c.body as string | null) ?? '',
+			createdAt: c.created_at as string,
+			viaApp:
+				c.performed_via_github_app != null && String(c.performed_via_github_app.id) === this.appId
+		}));
+	}
+
+	async prReviews(repo: string, number: number): Promise<PrReview[]> {
+		const reviews = await this.paged(
+			repo,
+			'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+			{ pull_number: number }
+		);
+		return reviews
+			.filter((r) => REVIEW_STATES[r.state] && r.submitted_at)
+			.map((r) => ({
+				id: r.id as number,
+				login: (r.user?.login as string | undefined) ?? '',
+				state: REVIEW_STATES[r.state],
+				body: (r.body as string | null) ?? '',
+				submittedAt: r.submitted_at as string,
+				url: r.html_url as string
+			}));
+	}
+
 	async approve(repo: string, number: number, comment: string): Promise<void> {
 		await this.request(repo, 'POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
 			pull_number: number,
@@ -471,7 +528,9 @@ export class GitHubForge implements Forge {
 			updatedAt: pr.updated_at,
 			mergeable: pr.mergeable ?? null,
 			reviewState: reviewState(reviews),
-			checks: checkState(checks.check_runs ?? [])
+			checks: checkState(checks.check_runs ?? []),
+			author: pr.user?.login,
+			mergedAt: pr.merged_at ?? null
 		};
 	}
 }

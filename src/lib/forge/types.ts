@@ -30,7 +30,33 @@ export interface PrSummary {
 	mergeable: boolean | null;
 	reviewState: 'none' | 'approved' | 'changes_requested';
 	checks: 'none' | 'pending' | 'success' | 'failure';
+	/** Login of who opened it on GitHub; Schrijver's App for a proposal made in Schrijver. */
+	author?: string;
+	mergedAt?: string | null;
 }
+
+/** A comment in the conversation of a pull request, not one on a line of a file. */
+export interface PrComment {
+	id: number;
+	login: string;
+	body: string;
+	createdAt: string;
+	/** Posted by Schrijver's own GitHub App: its first line names the person. */
+	viaApp: boolean;
+}
+
+/** A submitted review; a pending one is the reviewer's own draft and never listed. */
+export interface PrReview {
+	id: number;
+	login: string;
+	state: 'approved' | 'changes_requested' | 'commented' | 'dismissed';
+	body: string;
+	submittedAt: string;
+	url: string;
+}
+
+/** A conversation lists at most this many comments, and at most this many reviews. */
+export const MAX_CONVERSATION = 300;
 
 export interface PrFile {
 	path: string;
@@ -90,6 +116,10 @@ export interface Forge {
 	getPr(repo: string, number: number): Promise<PrSummary>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
 	prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]>;
+	/** Oldest first. */
+	prComments(repo: string, number: number): Promise<PrComment[]>;
+	/** Oldest first. */
+	prReviews(repo: string, number: number): Promise<PrReview[]>;
 	approve(repo: string, number: number, comment: string): Promise<void>;
 	comment(repo: string, number: number, body: string): Promise<void>;
 	/** Squash merge; with `sha`, the forge refuses (409) when the head has moved since. */

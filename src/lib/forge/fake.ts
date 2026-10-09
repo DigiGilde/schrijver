@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
 import {
 	ForgeError,
+	MAX_CONVERSATION,
 	MAX_PR_FILES,
 	type FileChange,
 	type FileEntry,
 	type Forge,
+	type PrComment,
 	type PrFile,
+	type PrReview,
 	type PrSummary,
 	type Ref,
 	type ReviewDecision
@@ -34,6 +37,7 @@ const sha1 = (...parts: (Uint8Array | string)[]) => {
 	return h.digest('hex');
 };
 const toBytes = (c: Uint8Array | string) => (typeof c === 'string' ? enc.encode(c) : c);
+const APP_LOGIN = 'schrijver[bot]';
 const cloneTree = (t: Tree): Tree => new Map([...t].map(([p, b]) => [p, { ...b }]));
 /** Paths whose content differs between two trees, a path that only one of them holds included. */
 const changedPaths = (from: Tree, to: Tree): string[] =>
@@ -49,8 +53,11 @@ export class FakeForge implements Forge {
 	private repos = new Map<string, RepoState>();
 	private reviewRequired = new Set<string>();
 	private prRepo = new Map<number, string>();
+	private comments = new Map<number, PrComment[]>();
+	private reviews = new Map<number, PrReview[]>();
 	private failures = new Map<keyof Forge, ForgeError>();
 	private nextPr = 1;
+	private nextId = 1;
 	private commitCounter = 0;
 
 	seedRepo(repo: string, defaultBranch: string, files: Record<string, string | Uint8Array>): void {
@@ -82,6 +89,45 @@ export class FakeForge implements Forge {
 	/** As branch protection that requires an approving review before a merge. */
 	requireReview(repo: string): void {
 		this.reviewRequired.add(repo);
+	}
+
+	/** A comment that someone posted on GitHub itself. */
+	commentOnGitHub(
+		repo: string,
+		number: number,
+		login: string,
+		body: string,
+		createdAt = new Date().toISOString()
+	): void {
+		this.pr(repo, number);
+		this.addComment(number, { id: this.nextId++, login, body, createdAt, viaApp: false });
+	}
+
+	/** A review submitted on GitHub; as there, each reviewer's latest verdict counts. */
+	reviewOnGitHub(
+		repo: string,
+		number: number,
+		login: string,
+		state: PrReview['state'],
+		body: string,
+		submittedAt = new Date().toISOString()
+	): void {
+		const pr = this.pr(repo, number);
+		const id = this.nextId++;
+		const list = [...(this.reviews.get(number) ?? [])];
+		list.push({ id, login, state, body, submittedAt, url: `${pr.url}#pullrequestreview-${id}` });
+		this.reviews.set(number, list);
+		const latest = new Map<string, PrReview['state']>();
+		for (const review of list)
+			if (review.state !== 'commented') latest.set(review.login, review.state);
+		const verdicts = [...latest.values()];
+		this.touch(repo, number, {
+			reviewState: verdicts.includes('changes_requested')
+				? 'changes_requested'
+				: verdicts.includes('approved')
+					? 'approved'
+					: 'none'
+		});
 	}
 
 	failNext(op: keyof Forge, error: ForgeError): void {
@@ -179,7 +225,9 @@ export class FakeForge implements Forge {
 			updatedAt: new Date().toISOString(),
 			mergeable: this.mergeableByPr.get(number) ?? true,
 			reviewState: 'none',
-			checks: 'none'
+			checks: 'none',
+			author: APP_LOGIN,
+			mergedAt: null
 		};
 		this.prs.set(number, pr);
 		this.prRepo.set(number, repo);
@@ -247,9 +295,23 @@ export class FakeForge implements Forge {
 		this.touch(repo, number, { reviewState: 'approved' });
 	}
 
-	async comment(repo: string, number: number, _body: string): Promise<void> {
+	async comment(repo: string, number: number, body: string): Promise<void> {
 		this.maybeFail('comment');
 		this.touch(repo, number, {});
+		const createdAt = new Date().toISOString();
+		this.addComment(number, { id: this.nextId++, login: APP_LOGIN, body, createdAt, viaApp: true });
+	}
+
+	async prComments(repo: string, number: number): Promise<PrComment[]> {
+		this.maybeFail('prComments');
+		this.pr(repo, number);
+		return (this.comments.get(number) ?? []).slice(0, MAX_CONVERSATION).map((c) => ({ ...c }));
+	}
+
+	async prReviews(repo: string, number: number): Promise<PrReview[]> {
+		this.maybeFail('prReviews');
+		this.pr(repo, number);
+		return (this.reviews.get(number) ?? []).slice(0, MAX_CONVERSATION).map((r) => ({ ...r }));
 	}
 
 	async merge(repo: string, number: number, message: string, sha?: string): Promise<void> {
@@ -287,7 +349,7 @@ export class FakeForge implements Forge {
 			sha1(pr.baseRef, message, String(this.commitCounter++)),
 			message
 		);
-		this.touch(repo, number, { state: 'merged' });
+		this.touch(repo, number, { state: 'merged', mergedAt: new Date().toISOString() });
 	}
 
 	async reviewDecision(repo: string, number: number): Promise<ReviewDecision> {
@@ -316,6 +378,10 @@ export class FakeForge implements Forge {
 		const r = this.repos.get(repo);
 		if (!r) throw new ForgeError(404, 'Repository niet gevonden', repo);
 		return r;
+	}
+
+	private addComment(number: number, comment: PrComment): void {
+		this.comments.set(number, [...(this.comments.get(number) ?? []), comment]);
 	}
 
 	private recordCommit(repo: string, branch: string, sha: string, message: string): void {

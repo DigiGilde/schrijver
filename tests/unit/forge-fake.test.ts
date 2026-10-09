@@ -172,6 +172,46 @@ describe('FakeForge', () => {
 		expect(err.detail).toBe('Pull request is not mergeable');
 	});
 
+	it('keeps the conversation: comments through Schrijver and on GitHub, reviews that judge', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		await forge.comment(REPO, pr.number, 'Via Schrijver');
+		forge.commentOnGitHub(REPO, pr.number, 'jansen', 'Op GitHub', '2030-01-01T10:00:00Z');
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'changes_requested', 'Korter graag');
+		expect((await forge.getPr(REPO, pr.number)).reviewState).toBe('changes_requested');
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'commented', '');
+		expect((await forge.getPr(REPO, pr.number)).reviewState).toBe('changes_requested');
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'approved', '');
+		expect((await forge.getPr(REPO, pr.number)).reviewState).toBe('approved');
+
+		const comments = await forge.prComments(REPO, pr.number);
+		expect(comments).toEqual([
+			expect.objectContaining({ login: 'schrijver[bot]', body: 'Via Schrijver', viaApp: true }),
+			{
+				id: expect.any(Number),
+				login: 'jansen',
+				body: 'Op GitHub',
+				createdAt: '2030-01-01T10:00:00Z',
+				viaApp: false
+			}
+		]);
+		expect((await forge.prReviews(REPO, pr.number)).map((r) => [r.login, r.state])).toEqual([
+			['jansen', 'changes_requested'],
+			['jansen', 'commented'],
+			['jansen', 'approved']
+		]);
+		comments.pop();
+		expect(await forge.prComments(REPO, pr.number)).toHaveLength(2);
+	});
+
+	it('says who opened a pull request and when it was merged', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		expect(pr).toMatchObject({ author: 'schrijver[bot]', mergedAt: null });
+		await forge.merge(REPO, pr.number, 'm');
+		expect((await forge.getPr(REPO, pr.number)).mergedAt).toEqual(expect.any(String));
+	});
+
 	it('asks for an approval before a merge only where the repository requires one', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');

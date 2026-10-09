@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { GitHubForge } from '../../src/lib/forge/github';
-import { ForgeError } from '../../src/lib/forge/types';
+import { ForgeError, MAX_CONVERSATION } from '../../src/lib/forge/types';
 
 const { privateKey } = generateKeyPairSync('rsa', {
 	modulusLength: 2048,
@@ -284,6 +284,160 @@ describe('GitHubForge', () => {
 		expect(err).toBeInstanceOf(ForgeError);
 		expect(err.status).toBe(403);
 		expect(err.detail).toContain('Resource not accessible');
+	});
+
+	it('lists the comments, telling the ones its own App posted from the rest', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/issues/7/comments`, () =>
+				HttpResponse.json([
+					{
+						id: 11,
+						user: { login: 'schrijver[bot]', type: 'Bot' },
+						body: 'Via de App',
+						created_at: '2026-10-09T10:00:00Z',
+						performed_via_github_app: { id: 1, slug: 'schrijver' }
+					},
+					{
+						id: 12,
+						user: { login: 'ander[bot]', type: 'Bot' },
+						body: 'Via een andere App',
+						created_at: '2026-10-09T11:00:00Z',
+						performed_via_github_app: { id: 99, slug: 'ander' }
+					},
+					{
+						id: 13,
+						user: { login: 'jansen', type: 'User' },
+						body: null,
+						created_at: '2026-10-09T12:00:00Z',
+						performed_via_github_app: null
+					}
+				])
+			)
+		);
+		expect(await forge().prComments('o/r', 7)).toEqual([
+			{
+				id: 11,
+				login: 'schrijver[bot]',
+				body: 'Via de App',
+				createdAt: '2026-10-09T10:00:00Z',
+				viaApp: true
+			},
+			{
+				id: 12,
+				login: 'ander[bot]',
+				body: 'Via een andere App',
+				createdAt: '2026-10-09T11:00:00Z',
+				viaApp: false
+			},
+			{ id: 13, login: 'jansen', body: '', createdAt: '2026-10-09T12:00:00Z', viaApp: false }
+		]);
+	});
+
+	it('pages through the comments, up to the conversation limit', async () => {
+		const pages: number[] = [];
+		server.use(
+			http.get(`${API}/repos/o/r/issues/8/comments`, ({ request }) => {
+				const query = new URL(request.url).searchParams;
+				const page = Number(query.get('page'));
+				pages.push(page);
+				const start = (page - 1) * Number(query.get('per_page'));
+				return HttpResponse.json(
+					Array.from({ length: start < 350 ? Math.min(100, 350 - start) : 0 }, (_, i) => ({
+						id: start + i,
+						user: { login: 'jansen' },
+						body: 'x',
+						created_at: '2026-10-09T10:00:00Z',
+						performed_via_github_app: null
+					}))
+				);
+			})
+		);
+		const comments = await forge().prComments('o/r', 8);
+		expect(comments).toHaveLength(MAX_CONVERSATION);
+		expect(pages).toEqual([1, 2, 3]);
+	});
+
+	it('lists the submitted reviews with their verdict, without pending ones', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/7/reviews`, ({ request }) => {
+				record('reviewPage', new URL(request.url).searchParams.get('per_page'));
+				return HttpResponse.json([
+					{
+						id: 21,
+						user: { login: 'jansen' },
+						state: 'CHANGES_REQUESTED',
+						body: 'Graag korter',
+						submitted_at: '2026-10-09T10:00:00Z',
+						html_url: 'https://github.com/o/r/pull/7#pullrequestreview-21'
+					},
+					{
+						id: 22,
+						user: { login: 'pietersen' },
+						state: 'PENDING',
+						body: '',
+						html_url: 'https://github.com/o/r/pull/7#pullrequestreview-22'
+					},
+					{
+						id: 23,
+						user: { login: 'jansen' },
+						state: 'APPROVED',
+						body: '',
+						submitted_at: '2026-10-09T12:00:00Z',
+						html_url: 'https://github.com/o/r/pull/7#pullrequestreview-23'
+					}
+				]);
+			})
+		);
+		expect(await forge().prReviews('o/r', 7)).toEqual([
+			{
+				id: 21,
+				login: 'jansen',
+				state: 'changes_requested',
+				body: 'Graag korter',
+				submittedAt: '2026-10-09T10:00:00Z',
+				url: 'https://github.com/o/r/pull/7#pullrequestreview-21'
+			},
+			{
+				id: 23,
+				login: 'jansen',
+				state: 'approved',
+				body: '',
+				submittedAt: '2026-10-09T12:00:00Z',
+				url: 'https://github.com/o/r/pull/7#pullrequestreview-23'
+			}
+		]);
+		expect(bodies.reviewPage).toEqual(['100']);
+	});
+
+	it('says who opened a pull request and when it was merged', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/9`, () =>
+				HttpResponse.json({
+					number: 9,
+					title: 'T',
+					body: '',
+					draft: false,
+					state: 'closed',
+					merged_at: '2026-10-09T15:00:00Z',
+					user: { login: 'jansen' },
+					head: { ref: 'h', sha: 'sha9' },
+					base: { ref: 'main' },
+					html_url: 'https://github.com/o/r/pull/9',
+					labels: [],
+					updated_at: '2026-10-09T15:00:00Z',
+					mergeable: null
+				})
+			),
+			http.get(`${API}/repos/o/r/pulls/9/reviews`, () => HttpResponse.json([])),
+			http.get(`${API}/repos/o/r/commits/sha9/check-runs`, () =>
+				HttpResponse.json({ check_runs: [] })
+			)
+		);
+		expect(await forge().getPr('o/r', 9)).toMatchObject({
+			state: 'merged',
+			author: 'jansen',
+			mergedAt: '2026-10-09T15:00:00Z'
+		});
 	});
 
 	it('reads the review decision through GraphQL, null where no review is required', async () => {
