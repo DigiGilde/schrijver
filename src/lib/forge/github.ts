@@ -5,11 +5,13 @@ import { errorFields, log } from '../log';
 import {
 	ForgeError,
 	MAX_CONVERSATION,
+	MAX_PR_COMMITS,
 	MAX_PR_FILES,
 	type FileChange,
 	type FileTree,
 	type Forge,
 	type PrComment,
+	type PrCommit,
 	type PrFile,
 	type PrReview,
 	type PrSummary,
@@ -365,18 +367,22 @@ export class GitHubForge implements Forge {
 		}));
 	}
 
-	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {
-		const commits: Json[] = await this.request(
-			repo,
-			'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits',
-			{
-				pull_number: number,
-				per_page: 100
-			}
-		);
-		return commits.map((c) => ({
+	async prCommits(repo: string, number: number): Promise<PrCommit[]> {
+		const perPage = 100;
+		const commits: Json[] = [];
+		for (let page = 1; commits.length < MAX_PR_COMMITS; page++) {
+			const batch: Json[] = await this.request(
+				repo,
+				'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits',
+				{ pull_number: number, per_page: perPage, page }
+			);
+			commits.push(...batch);
+			if (batch.length < perPage) break;
+		}
+		return commits.slice(0, MAX_PR_COMMITS).map((c) => ({
 			sha: c.sha as string,
-			message: (c.commit as { message: string }).message
+			message: (c.commit as { message: string }).message,
+			author: (c.author?.login as string | undefined) ?? null
 		}));
 	}
 

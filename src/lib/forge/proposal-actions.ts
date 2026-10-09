@@ -1,11 +1,12 @@
 import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
+import { madeBy } from './authorship';
 import { commentBody, type CommentAuthor } from './conversation';
 import { missingAfterMerge, usageAfterMerge } from './image-usage';
 import { ADJUSTMENT_LABEL, SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
-import { identityFromPrBody, isOwnTrailer, trailersFromMessage, type Identity } from './trailers';
+import type { Identity } from './trailers';
 import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
 
 export const MAX_COMMENT_LENGTH = 5000;
@@ -24,6 +25,10 @@ export interface ActingUser {
 	identityKind: 'anoniem' | 'gekoppeld' | 'op-naam';
 }
 
+/** The account the App acts as, or null when GitHub does not say: then nobody counts as the writer. */
+export const appAccount = (forge: Forge): Promise<string | null> =>
+	forge.appLogin().catch(() => null);
+
 export async function canAct(
 	user: ActingUser,
 	site: SiteConfig,
@@ -33,17 +38,8 @@ export async function canAct(
 	if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
 		return { owner: false, editorial: false };
 	}
-	return {
-		owner: isOwnTrailer(identityFromPrBody(pr.body), user.identities),
-		editorial: await isEditorial(site, user, forge)
-	};
-}
-
-/** Whether one of the commits Schrijver made carries one of the user's identities. */
-export function wroteAlong(commits: { message: string }[], identities: Identity[]): boolean {
-	return commits.some((c) =>
-		trailersFromMessage(c.message).some((t) => isOwnTrailer(t, identities))
-	);
+	const [editorial, app] = await Promise.all([isEditorial(site, user, forge), appAccount(forge)]);
+	return { owner: madeBy(pr, user, app) === true, editorial };
 }
 
 export async function pickReviewers(

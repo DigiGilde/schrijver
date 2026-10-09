@@ -39,6 +39,13 @@ export const STATUS: Record<
 	}
 };
 
+/** Why four eyes keeps a member of the redactie from deciding on a proposal. */
+export const FOUR_EYES = {
+	zelf: 'Je schreef dit voorstel zelf.',
+	mee: 'Je schreef mee aan dit voorstel.',
+	onbekend: 'Schrijver kan niet nagaan of je dit voorstel zelf schreef.'
+} as const;
+
 /** Proposals the editors still have to act on: the ones in "Te beoordelen". */
 export const waitsForReview = (status: Status): boolean =>
 	status === 'ingestuurd' || status === 'goedgekeurd';

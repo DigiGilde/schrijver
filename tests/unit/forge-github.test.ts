@@ -377,6 +377,34 @@ describe('GitHubForge', () => {
 		expect(pages).toEqual([1, 2, 3]);
 	});
 
+	it('lists the commits with their author, paging up to the 250 GitHub lists', async () => {
+		let total = 2;
+		const pages: number[] = [];
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/7/commits`, ({ request }) => {
+				const query = new URL(request.url).searchParams;
+				const page = Number(query.get('page'));
+				pages.push(page);
+				const start = (page - 1) * Number(query.get('per_page'));
+				return HttpResponse.json(
+					Array.from({ length: Math.max(0, Math.min(100, total - start)) }, (_, i) => ({
+						sha: `s${start + i}`,
+						commit: { message: `Bericht ${start + i}` },
+						author: start + i === 1 ? null : { login: 'schrijver[bot]' }
+					}))
+				);
+			})
+		);
+		expect(await forge().prCommits('o/r', 7)).toEqual([
+			{ sha: 's0', message: 'Bericht 0', author: 'schrijver[bot]' },
+			{ sha: 's1', message: 'Bericht 1', author: null }
+		]);
+		total = 400;
+		pages.length = 0;
+		expect(await forge().prCommits('o/r', 7)).toHaveLength(250);
+		expect(pages).toEqual([1, 2, 3]);
+	});
+
 	it('lists the submitted reviews with their verdict, without pending ones', async () => {
 		server.use(
 			http.get(`${API}/repos/o/r/pulls/7/reviews`, ({ request }) => {

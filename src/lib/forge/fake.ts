@@ -2,11 +2,13 @@ import { createHash } from 'node:crypto';
 import {
 	ForgeError,
 	MAX_CONVERSATION,
+	MAX_PR_COMMITS,
 	MAX_PR_FILES,
 	type FileChange,
 	type FileEntry,
 	type Forge,
 	type PrComment,
+	type PrCommit,
 	type PrFile,
 	type PrReview,
 	type PrSummary,
@@ -22,7 +24,8 @@ interface RepoState {
 	defaultBranch: string;
 	isPublic: boolean;
 	trees: Map<string, Tree>;
-	commits: Map<string, { sha: string; message: string }[]>;
+	/** Without an author, a commit is the App's. */
+	commits: Map<string, { sha: string; message: string; author?: string | null }[]>;
 	heads: Map<string, string>;
 	snapshots: Map<string, Tree>;
 	/** The tree a branch started from: GitHub lists a pull request's files against that point, not the base's head. */
@@ -143,7 +146,10 @@ export class FakeForge implements Forge {
 	}
 
 	commitsOf(repo: string, branch: string): { sha: string; message: string }[] {
-		return [...(this.repo(repo).commits.get(branch) ?? [])];
+		return (this.repo(repo).commits.get(branch) ?? []).map(({ sha, message }) => ({
+			sha,
+			message
+		}));
 	}
 
 	removeFile(repo: string, branch: string, path: string): void {
@@ -186,6 +192,27 @@ export class FakeForge implements Forge {
 
 	async commit(repo: string, branch: string, changes: FileChange[], message: string) {
 		this.maybeFail('commit');
+		return this.applyCommit(repo, branch, changes, message);
+	}
+
+	/** A commit pushed on GitHub itself; a null author is one GitHub knows no account for. */
+	commitOnGitHub(
+		repo: string,
+		branch: string,
+		changes: FileChange[],
+		message: string,
+		author: string | null
+	): { sha: string } {
+		return this.applyCommit(repo, branch, changes, message, author);
+	}
+
+	private applyCommit(
+		repo: string,
+		branch: string,
+		changes: FileChange[],
+		message: string,
+		author?: string | null
+	): { sha: string } {
 		const tree = this.tree(repo, branch);
 		const missing = changes.find((change) => 'deleted' in change && !tree.has(change.path));
 		if (missing) {
@@ -200,7 +227,7 @@ export class FakeForge implements Forge {
 			tree.set(change.path, { content: bytes, sha: sha1(bytes) });
 		}
 		const sha = sha1(branch, message, String(this.commitCounter++));
-		this.recordCommit(repo, branch, sha, message);
+		this.recordCommit(repo, branch, sha, message, author);
 		return { sha };
 	}
 
@@ -284,9 +311,14 @@ export class FakeForge implements Forge {
 		return files.slice(0, MAX_PR_FILES);
 	}
 
-	async prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]> {
+	async prCommits(repo: string, number: number): Promise<PrCommit[]> {
 		this.maybeFail('prCommits');
-		return this.commitsOf(repo, this.pr(repo, number).headRef);
+		const commits = this.repo(repo).commits.get(this.pr(repo, number).headRef) ?? [];
+		return commits.slice(0, MAX_PR_COMMITS).map(({ sha, message, author }) => ({
+			sha,
+			message,
+			author: author === undefined ? APP_LOGIN : author
+		}));
 	}
 
 	async approve(repo: string, number: number, _comment: string): Promise<void> {
@@ -398,9 +430,15 @@ export class FakeForge implements Forge {
 		this.comments.set(number, [...(this.comments.get(number) ?? []), comment]);
 	}
 
-	private recordCommit(repo: string, branch: string, sha: string, message: string): void {
+	private recordCommit(
+		repo: string,
+		branch: string,
+		sha: string,
+		message: string,
+		author?: string | null
+	): void {
 		const r = this.repo(repo);
-		r.commits.get(branch)!.push({ sha, message });
+		r.commits.get(branch)!.push({ sha, message, ...(author !== undefined ? { author } : {}) });
 		r.heads.set(branch, sha);
 		r.snapshots.set(sha, cloneTree(this.tree(repo, branch)));
 	}

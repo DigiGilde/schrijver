@@ -1,8 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isSiteAdmin } from '$lib/auth/admin';
-import { mergeProposal, wroteAlong } from '$lib/forge/proposal-actions';
+import { authorship, fourEyes } from '$lib/forge/authorship';
+import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
+import { sameRepo } from '$lib/forge/repo';
+import { FOUR_EYES } from '$lib/forge/status';
 import { trailersFromMessage } from '$lib/forge/trailers';
 import { ForgeError, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
@@ -11,6 +14,9 @@ import { proposalAction, readJson, refuse } from '$lib/server/proposal-route';
 export const POST: RequestHandler = proposalAction(
 	'mergen',
 	async ({ site, forge, pr, acts, user }, { request }) => {
+		if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
+			return refuse(403, 'Dit voorstel kan alleen op GitHub worden samengevoegd.');
+		}
 		if (!acts.editorial) return refuse(403, 'Alleen de redactie kan samenvoegen');
 		if (!site.review['mergen-vanuit-schrijver']) {
 			return refuse(
@@ -25,16 +31,11 @@ export const POST: RequestHandler = proposalAction(
 			return refuse(400, 'Laad de pagina opnieuw en bekijk de wijzigingen voordat je samenvoegt');
 		}
 		const commits = await forge.prCommits(site.repo, pr.number);
-		const along = !acts.owner && wroteAlong(commits, user.identities);
-		if (
-			site.review['vier-ogen'] &&
-			(acts.owner || along) &&
-			!(await isSiteAdmin(site, user, forge))
-		) {
-			return refuse(
-				403,
-				`${acts.owner ? 'Je schreef dit voorstel zelf.' : 'Je schreef mee aan dit voorstel.'} Een ander lid van de redactie voegt het samen.`
-			);
+		if (site.review['vier-ogen']) {
+			const reason = fourEyes(authorship(pr, commits, user, await appAccount(forge)));
+			if (reason && !(await isSiteAdmin(site, user, forge))) {
+				return refuse(403, `${FOUR_EYES[reason]} Een ander lid van de redactie voegt het samen.`);
+			}
 		}
 		let decision: ReviewDecision = null;
 		try {

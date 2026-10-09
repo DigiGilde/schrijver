@@ -12,19 +12,36 @@ vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
 	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }));
-vi.mock('../../src/lib/auth/identity', () => ({
-	identityFor: (prefs: { who: string; githubLogin: string | null }) =>
-		prefs.githubLogin
-			? { kind: 'gekoppeld', name: 'N', githubId: 1, login: prefs.githubLogin, who: prefs.who }
-			: { kind: 'anoniem', pseudoniem: prefs.who },
-	identitiesFor: (prefs: { who: string; githubLogin: string | null }) => [
-		{ kind: 'anoniem', pseudoniem: prefs.who },
-		...(prefs.githubLogin
-			? [{ kind: 'gekoppeld', name: prefs.githubLogin, githubId: 1, login: prefs.githubLogin }]
-			: [])
-	],
-	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
-}));
+// A GitHub user id per login: the sum of its character codes, so jan is 313 and piet 434.
+vi.mock('../../src/lib/auth/identity', () => {
+	const id = (login: string) => [...login].reduce((sum, c) => sum + c.charCodeAt(0), 0);
+	return {
+		identityFor: (prefs: { who: string; githubLogin: string | null }) =>
+			prefs.githubLogin
+				? {
+						kind: 'gekoppeld',
+						name: 'N',
+						githubId: id(prefs.githubLogin),
+						login: prefs.githubLogin,
+						who: prefs.who
+					}
+				: { kind: 'anoniem', pseudoniem: prefs.who },
+		identitiesFor: (prefs: { who: string; githubLogin: string | null }) => [
+			{ kind: 'anoniem', pseudoniem: prefs.who },
+			...(prefs.githubLogin
+				? [
+						{
+							kind: 'gekoppeld',
+							name: prefs.githubLogin,
+							githubId: id(prefs.githubLogin),
+							login: prefs.githubLogin
+						}
+					]
+				: [])
+		],
+		actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
+	};
+});
 vi.mock('../../src/lib/auth/users', () => ({
 	listLinkedLogins: async () => ['jan', 'piet', 'kees', 'els', 'tom', 'zoe', 'bas', 'eva']
 }));
@@ -416,5 +433,129 @@ describe('proposal endpoints', () => {
 			detail: 'Head branch was modified. Review and try the merge again.'
 		});
 		expect((await forge.getPr('o/moza', 1)).state).toBe('open');
+	});
+});
+
+describe('four eyes, on every way to the merge', () => {
+	const RED = 'red@example.org';
+	const ONBEKEND =
+		'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.';
+	const ZELF = 'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.';
+	let sha: string;
+
+	const merge = (opts: Parameters<typeof call>[1] = {}) =>
+		call(mergen, { email: RED, ...opts, body: { sha, ...(opts.body as object) } });
+	const refused = async (res: Response, message: string) => {
+		expect(res.status).toBe(403);
+		expect((await res.json()).message).toBe(message);
+		expect((await forge.getPr('o/moza', 1)).state).toBe('open');
+	};
+
+	beforeEach(async () => {
+		state.site = site(true, true);
+		await call(insturen, { who: 'auteur' });
+		sha = (await forge.getPr('o/moza', 1)).headSha;
+		forge.permissionByLogin.set('beheerder', 'admin');
+	});
+
+	it('decides on the server: nothing in the request lets the writer merge', async () => {
+		await refused(
+			await merge({
+				who: 'auteur',
+				body: { admin: true, owner: false, editorial: true, 'vier-ogen': false, vierOgen: false }
+			}),
+			ZELF
+		);
+	});
+
+	it('fails closed without a signature, or with a malformed one, unless a site admin', async () => {
+		for (const body of ['Voorgesteld zonder ondertekening.', 'x\n\nCo-authored-by: zonder adres']) {
+			forge.prs.get(1)!.body = body;
+			await refused(await merge({ who: 'derde' }), ONBEKEND);
+		}
+		expect((await merge({ who: 'derde', gekoppeld: 'beheerder' })).status).toBe(200);
+	});
+
+	it('takes a proposal made on GitHub as written by whoever opened it, whatever its text says', async () => {
+		Object.assign(forge.prs.get(1)!, {
+			author: 'jan',
+			body: 'Op GitHub gemaakt.\n\nSchrijver-Auteur: iemandanders'
+		});
+		await refused(await merge({ who: 'iemand', gekoppeld: 'jan' }), ZELF);
+		await refused(await merge({ who: 'iemand' }), ONBEKEND);
+		expect((await merge({ who: 'iemand', gekoppeld: 'piet' })).status).toBe(200);
+	});
+
+	it('still knows the writer who unlinked the GitHub account they signed with', async () => {
+		const linked = 'Co-authored-by: jan <313+jan@users.noreply.github.com>';
+		forge.prs.get(1)!.body = `Voorgesteld.\n\n${linked}`;
+		await forge.commit(
+			'o/moza',
+			'b',
+			[{ path: 'content/a.md', content: 'later' }],
+			`B\n\n${linked}`
+		);
+		sha = (await forge.getPr('o/moza', 1)).headSha;
+		await refused(await merge({ who: 'jan-zonder-koppeling' }), ONBEKEND);
+		await refused(await merge({ who: 'jan-zonder-koppeling', gekoppeld: 'jan' }), ZELF);
+		expect((await merge({ who: 'iemand', gekoppeld: 'piet' })).status).toBe(200);
+	});
+
+	it('cannot tell who wrote a commit pushed on GitHub without a linked account', async () => {
+		forge.commitOnGitHub('o/moza', 'b', [{ path: 'content/a.md', content: 'fix' }], 'Fix', 'jan');
+		sha = (await forge.getPr('o/moza', 1)).headSha;
+		await refused(await merge({ who: 'derde' }), ONBEKEND);
+		await refused(
+			await merge({ who: 'derde', gekoppeld: 'jan' }),
+			'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.'
+		);
+		expect((await merge({ who: 'derde', gekoppeld: 'piet' })).status).toBe(200);
+	});
+
+	it('fails closed when GitHub does not say which account the App is', async () => {
+		vi.spyOn(forge, 'appLogin').mockRejectedValue(new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await refused(await merge({ who: 'derde' }), ONBEKEND);
+	});
+
+	it('refuses when the admin check fails, and when the editorial check fails', async () => {
+		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await refused(await merge({ who: 'auteur', gekoppeld: 'beheerder' }), ZELF);
+		forge.permissionByLogin.set('piet', 'write');
+		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await refused(
+			await merge({ email: 'piet@example.org', who: 'piet', gekoppeld: 'piet' }),
+			'Alleen de redactie kan samenvoegen'
+		);
+	});
+
+	it('merges no proposal from outside the repository or into another branch', async () => {
+		for (const over of [{ baseRef: 'dev' }, { headRepo: 'iemand/moza' }]) {
+			const original = { ...forge.prs.get(1)! };
+			Object.assign(forge.prs.get(1)!, over);
+			await refused(
+				await merge({ who: 'derde', gekoppeld: 'beheerder' }),
+				'Dit voorstel kan alleen op GitHub worden samengevoegd.'
+			);
+			Object.assign(forge.prs.get(1)!, original);
+		}
+	});
+
+	it('holds the same server checks for reactions, requests and re-sends', async () => {
+		forge.prs.get(1)!.headRepo = 'iemand/moza';
+		for (const handler of [opmerking, aanpassing, opnieuwInsturen]) {
+			expect((await call(handler, { email: RED, body: { body: 'x' } })).status).toBe(403);
+		}
+		forge.prs.get(1)!.headRepo = 'o/moza';
+		forge.permissionByLogin.set('piet', 'write');
+		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		const res = await call(aanpassing, { who: 'piet', gekoppeld: 'piet', body: { body: 'x' } });
+		expect(res.status).toBe(403);
+		expect((await forge.getPr('o/moza', 1)).labels).toEqual([]);
+
+		const linked = 'Co-authored-by: jan <313+jan@users.noreply.github.com>';
+		forge.prs.get(1)!.body = `Voorgesteld.\n\n${linked}`;
+		const unlinked = await call(opmerking, { who: 'jan-zonder-koppeling', body: { body: 'x' } });
+		expect(unlinked.status).toBe(403);
+		expect(await forge.prComments('o/moza', 1)).toEqual([]);
 	});
 });

@@ -35,6 +35,13 @@ export interface PrSummary {
 	mergedAt?: string | null;
 }
 
+export interface PrCommit {
+	sha: string;
+	message: string;
+	/** GitHub login of its author; null when GitHub knows no account for it. */
+	author: string | null;
+}
+
 /** A comment in the conversation of a pull request, not one on a line of a file. */
 export interface PrComment {
 	id: number;
@@ -68,6 +75,9 @@ export interface PrFile {
 
 /** GitHub lists at most this many files of a pull request: a list this long may leave files out. */
 export const MAX_PR_FILES = 3000;
+
+/** GitHub lists at most this many commits of a pull request: a list this long may leave commits out. */
+export const MAX_PR_COMMITS = 250;
 
 /** Where a pull request stands with a review that the base branch requires; null when it requires none. */
 export type ReviewDecision = 'approved' | 'changes_requested' | 'review_required' | null;
@@ -116,7 +126,7 @@ export interface Forge {
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]>;
 	getPr(repo: string, number: number): Promise<PrSummary>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
-	prCommits(repo: string, number: number): Promise<{ sha: string; message: string }[]>;
+	prCommits(repo: string, number: number): Promise<PrCommit[]>;
 	/** Oldest first. */
 	prComments(repo: string, number: number): Promise<PrComment[]>;
 	/** Oldest first. */
