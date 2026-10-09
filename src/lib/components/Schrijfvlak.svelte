@@ -4,11 +4,13 @@
 	import AfbeeldingDialoog from './AfbeeldingDialoog.svelte';
 	import Assistent from './Assistent.svelte';
 	import Editor from './Editor.svelte';
+	import Vergelijking from './Vergelijking.svelte';
 	import Voorbeeld from './Voorbeeld.svelte';
 	import Werkbalk, { type Actie, type Weergave } from './Werkbalk.svelte';
 	import * as actions from '$lib/client/editor-actions';
 	import { addImage, uniqueImage, type PendingImage } from '$lib/client/pending-images';
 	import { watchFit } from '$lib/client/sticky-fit';
+	import type { Comparison } from '$lib/client/suggestion';
 	import { previewImages } from '$lib/content/markdown-preview';
 
 	type Props = {
@@ -47,6 +49,10 @@
 	let dialogFile = $state<File | null>(null);
 	let hulpOpen = $state(false);
 	let hulpPaneel: HTMLElement | undefined = $state();
+	let assistent: ReturnType<typeof Assistent> | undefined = $state();
+	/** A suggestion for the whole text, which the text column shows in place of the text. */
+	let vergelijking = $state<Comparison | null>(null);
+	let vergelijkingKop: HTMLElement | undefined = $state();
 	let voorbeeld: HTMLElement | undefined = $state();
 	let werkbalkHoogte = $state(0);
 	let plakt = $state(false);
@@ -66,15 +72,28 @@
 
 	/**
 	 * Puts focus in the editor, switching back from the preview when that is showing. With `wissel`
-	 * false the preview stays and takes the focus itself.
+	 * false the preview stays and takes the focus itself. Behind a comparison the heading takes it.
 	 */
 	export async function focus(wissel = true) {
+		if (vergelijking) return vergelijkingKop?.focus();
 		if (weergave !== 'schrijven') {
 			if (!wissel) return voorbeeld?.focus();
 			weergave = 'schrijven';
 			await tick();
 		}
 		editor?.focus();
+	}
+
+	/** The comparison is gone: the text shows again in the view it was in, and takes the focus. */
+	async function terugNaarTekst() {
+		await tick();
+		await focus(false);
+	}
+
+	/** The view switch ends a comparison like Verwerpen does, and keeps the focus itself. */
+	function kiesWeergave(keuze: Weergave) {
+		if (vergelijking) assistent?.discard();
+		weergave = keuze;
 	}
 
 	function onActie(actie: Actie) {
@@ -119,8 +138,9 @@
 		onafbeelding={() => openDialog()}
 		onmermaid={() => actions.insertMermaid(editor, body)}
 		{afbeeldingen}
+		disabled={vergelijking !== null}
 		{weergave}
-		onweergave={(keuze) => (weergave = keuze)}
+		onweergave={kiesWeergave}
 		{oneigenschappen}
 		{eigenschappenLeeg}
 		schrijfhulpOpen={hulpOpen}
@@ -130,17 +150,19 @@
 
 <div class="vlak" class:met-hulp={hulpOpen} style:--werkbalk-hoogte="{werkbalkHoogte}px">
 	<div class="tekst">
-		<!-- Hidden rather than unmounted while the preview shows: the editor keeps its undo history and selection. -->
+		<!-- Hidden rather than unmounted while the preview or a comparison shows: the editor keeps its undo history and selection. -->
 		<div
 			role="presentation"
-			class:verborgen={weergave !== 'schrijven'}
+			class:verborgen={weergave !== 'schrijven' || vergelijking !== null}
 			ondropcapture={afbeeldingen ? dnd.ondrop : undefined}
 			ondragovercapture={afbeeldingen ? dnd.ondragover : undefined}
 			onpastecapture={afbeeldingen ? dnd.onpaste : undefined}
 		>
 			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} {kop} />
 		</div>
-		{#if weergave === 'voorbeeld'}
+		{#if vergelijking}
+			<Vergelijking {pagina} {vergelijking} bind:kop={vergelijkingKop} />
+		{:else if weergave === 'voorbeeld'}
 			<section aria-label="Voorbeeld" tabindex="-1" bind:this={voorbeeld}>
 				<nldd-card>
 					<nldd-container padding="24" sm-padding="16">
@@ -166,6 +188,7 @@
 	>
 		{#if hulpOpen}
 			<Assistent
+				bind:this={assistent}
 				{siteId}
 				getSelection={() => actions.currentSelection(editor, body)}
 				getAll={() => body}
@@ -173,7 +196,8 @@
 					actions.applySuggestion(editor, body, from, to, text, original)}
 				onMark={(from, to) => actions.markRange(editor, body, from, to)}
 				onUnmark={() => editor?.setAnnotations([])}
-				onDone={() => void focus()}
+				onDone={(compared) => void (compared ? terugNaarTekst() : focus())}
+				onCompare={(comparison) => (vergelijking = comparison)}
 				onSummary={onsamenvatting}
 			/>
 		{/if}

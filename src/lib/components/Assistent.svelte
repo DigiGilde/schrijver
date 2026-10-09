@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { diffWords } from 'diff';
+	import { onDestroy } from 'svelte';
 	import { AI_NOTICE } from '$lib/assistant/shared';
 	import type { Action, Suggestion } from '$lib/assistant/vlam';
+	import { changesLine, compare, type Comparison } from '$lib/client/suggestion';
 
 	type Props = {
 		siteId: string;
@@ -11,8 +13,13 @@
 		onApply: (from: number, to: number, replacement: string, original: string) => string | null;
 		onMark: (from: number, to: number) => void;
 		onUnmark: () => void;
-		/** Called once a suggestion is taken or dropped: its buttons are gone, so focus has to go somewhere. */
-		onDone: () => void;
+		/**
+		 * Called once a suggestion is taken or dropped: its buttons are gone, so focus has to go somewhere.
+		 * `compared` is true when the suggestion was a comparison in the text column.
+		 */
+		onDone: (compared: boolean) => void;
+		/** A suggestion for the whole text is a comparison in the text column; null when there is none. */
+		onCompare: (comparison: Comparison | null) => void;
 		/** Writes a summary into the page's description field; null when the page has none. */
 		onSummary?: ((text: string) => void) | null;
 	};
@@ -24,6 +31,7 @@
 		onMark,
 		onUnmark,
 		onDone,
+		onCompare,
 		onSummary = null
 	}: Props = $props();
 
@@ -41,6 +49,8 @@
 		to: number;
 		original: string;
 		suggestion: Suggestion;
+		/** Set for a suggestion for the whole text, which the text column shows. */
+		comparison: Comparison | null;
 	};
 
 	let instruction = $state('');
@@ -51,11 +61,14 @@
 	let pending = $state<Pending | null>(null);
 	let scope = $state<'selectie' | 'tekst'>('tekst');
 	let outcome = $state<'voorstel' | 'overgenomen' | 'samenvatting' | 'verworpen' | null>(null);
+	let alive = true;
 	let status = $derived(
 		busy
 			? 'Bezig...'
 			: outcome === 'voorstel'
-				? 'Voorstel beschikbaar'
+				? pending?.comparison
+					? 'Voorstel staat in de tekstkolom'
+					: 'Voorstel beschikbaar'
 				: outcome === 'overgenomen'
 					? 'Overgenomen'
 					: outcome === 'samenvatting'
@@ -66,7 +79,7 @@
 	);
 
 	let parts = $derived(
-		pending && pending.action !== 'samenvatting'
+		pending && !pending.comparison && pending.action !== 'samenvatting'
 			? diffWords(pending.original, pending.suggestion.replacement)
 			: []
 	);
@@ -104,13 +117,23 @@
 			});
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(data.message ?? 'De schrijfhulp is niet beschikbaar');
-			pending = {
+			// The panel closed in the meantime: no buttons are left to take or drop a comparison.
+			if (!alive) return;
+			show({
 				action,
 				from: target.from,
 				to: target.to,
 				original: target.text,
-				suggestion: data
-			};
+				suggestion: data,
+				comparison:
+					selection || action === 'samenvatting'
+						? null
+						: compare(
+								actions.find((a) => a.action === action)?.label ?? null,
+								target.text,
+								data.replacement
+							)
+			});
 			outcome = 'voorstel';
 		} catch (e) {
 			onUnmark();
@@ -130,29 +153,41 @@
 		void run('vrij');
 	}
 
+	/** Holds the suggestion, and hands the text column the comparison that goes with it. */
+	function show(next: Pending | null) {
+		pending = next;
+		onCompare(next?.comparison ?? null);
+	}
+
 	function clearPending() {
 		if (pending && pending.action !== 'samenvatting') onUnmark();
-		pending = null;
+		show(null);
+	}
+
+	/** Drops the suggestion for a control elsewhere that has taken over; that control keeps the focus. */
+	export function discard() {
+		clearPending();
+		outcome = 'verworpen';
 	}
 
 	function dismiss() {
-		clearPending();
-		outcome = 'verworpen';
-		onDone();
+		const compared = !!pending?.comparison;
+		discard();
+		onDone(compared);
 	}
 
 	function useSummary() {
 		if (!pending || !onSummary) return;
 		onSummary(pending.suggestion.replacement.trim());
-		pending = null;
+		show(null);
 		outcome = 'samenvatting';
-		onDone();
+		onDone(false);
 	}
 
 	function accept() {
 		if (!pending || pending.action === 'samenvatting') return;
-		const { from, to, suggestion, original } = pending;
-		pending = null;
+		const { from, to, suggestion, original, comparison } = pending;
+		show(null);
 		onUnmark();
 		const refused = onApply(from, to, suggestion.replacement, original);
 		if (refused) {
@@ -161,8 +196,14 @@
 		} else {
 			outcome = 'overgenomen';
 		}
-		onDone();
+		onDone(!!comparison);
 	}
+
+	onDestroy(() => {
+		alive = false;
+		clearPending();
+		if (busy) onUnmark();
+	});
 </script>
 
 <section
@@ -249,18 +290,22 @@
 				<nldd-text size="sm" color="secondary">{pending.suggestion.explanation}</nldd-text>
 				<nldd-spacer size="12"></nldd-spacer>
 				<nldd-text size="sm">
-					<div role="group" aria-labelledby="voorstel-kop" class="voorstel">
-						{#if pending.action === 'samenvatting'}
-							{pending.suggestion.replacement}
-						{:else}
-							{#each parts as part, i (i)}
-								{#if part.added}<ins><span class="sr-only">toegevoegd: </span>{part.value}</ins
-									>{:else if part.removed}<del
-										><span class="sr-only">verwijderd: </span>{part.value}</del
-									>{:else}{part.value}{/if}
-							{/each}
-						{/if}
-					</div>
+					{#if pending.comparison}
+						{changesLine(pending.comparison.count)}
+					{:else}
+						<div role="group" aria-labelledby="voorstel-kop" class="voorstel">
+							{#if pending.action === 'samenvatting'}
+								{pending.suggestion.replacement}
+							{:else}
+								{#each parts as part, i (i)}
+									{#if part.added}<ins><span class="sr-only">toegevoegd: </span>{part.value}</ins
+										>{:else if part.removed}<del
+											><span class="sr-only">verwijderd: </span>{part.value}</del
+										>{:else}{part.value}{/if}
+								{/each}
+							{/if}
+						</div>
+					{/if}
 				</nldd-text>
 				{#if pending.action === 'samenvatting' && !onSummary}
 					<nldd-spacer size="12"></nldd-spacer>
