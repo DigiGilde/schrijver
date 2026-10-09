@@ -32,6 +32,9 @@ vi.mock('../../src/lib/auth/users', () => ({
 import { POST as insturen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/insturen/+server';
 import { POST as opmerking } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/opmerking/+server';
 import { POST as mergen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/mergen/+server';
+import { POST as aanpassing } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/aanpassing/+server';
+import { POST as opnieuwInsturen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/opnieuw-insturen/+server';
+import { statusOf } from '../../src/lib/forge/proposals';
 
 let forge: FakeForge;
 const site = (mergeFromSchrijver = true) => ({
@@ -159,6 +162,60 @@ describe('proposal endpoints', () => {
 			'Reactie van de redactie via Schrijver (anoniem, codenaam iemand):\n\nDank',
 			'Reactie van de redactie via Schrijver (GitHub: jan):\n\nOk'
 		]);
+	});
+
+	it('asks for an adjustment for the redactie only: a comment and the label, other labels kept', async () => {
+		const red = { email: 'red@example.org', who: 'redacteur' };
+		expect((await call(aanpassing, { ...red, body: { body: 'Korter' } })).status).toBe(409);
+		await call(insturen, { who: 'auteur' });
+		await forge.setLabels('o/moza', 1, ['preview']);
+		const schrijver = await call(aanpassing, { who: 'auteur', body: { body: 'Zelf' } });
+		expect(schrijver.status).toBe(403);
+		expect((await schrijver.json()).message).toBe(
+			'Alleen de redactie kan om een aanpassing vragen'
+		);
+		expect((await call(aanpassing, { ...red, body: { body: ' ' } })).status).toBe(400);
+		expect((await forge.getPr('o/moza', 1)).labels).toEqual(['preview']);
+
+		const res = await call(aanpassing, { ...red, body: { body: ' Graag korter ' } });
+		expect(await res.json()).toEqual({ ok: true });
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.labels).toEqual(['preview', 'aanpassing gevraagd']);
+		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
+		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
+			'Vraag om aanpassing van de redactie via Schrijver (anoniem, codenaam redacteur):\n\nGraag korter'
+		]);
+	});
+
+	it('takes the label back off when the comment fails, so the writer is not asked for nothing', async () => {
+		await call(insturen, { who: 'auteur' });
+		forge.failNext('comment', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		const res = await call(aanpassing, { email: 'red@example.org', body: { body: 'Korter' } });
+		expect(res.status).toBe(502);
+		expect((await forge.getPr('o/moza', 1)).labels).toEqual([]);
+	});
+
+	it('sends in again for the writer or the redactie, taking off only that label', async () => {
+		await call(insturen, { who: 'auteur' });
+		await forge.setLabels('o/moza', 1, ['preview', 'aanpassing gevraagd']);
+		expect((await call(opnieuwInsturen, { who: 'vreemde' })).status).toBe(403);
+		const res = await call(opnieuwInsturen, { who: 'auteur' });
+		expect(await res.json()).toEqual({ ok: true });
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.labels).toEqual(['preview']);
+		expect(statusOf(pr)).toBe('ingestuurd');
+		const again = await call(opnieuwInsturen, { who: 'auteur' });
+		expect(again.status).toBe(409);
+		expect((await again.json()).message).toBe('Er is geen aanpassing gevraagd');
+
+		await forge.setLabels('o/moza', 1, ['aanpassing gevraagd']);
+		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
+		const github = await call(opnieuwInsturen, { email: 'red@example.org', who: 'redacteur' });
+		expect(await github.json()).toEqual({
+			ok: true,
+			warning:
+				'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
+		});
 	});
 
 	it('refuses comments on a closed proposal', async () => {

@@ -3,7 +3,7 @@ import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
 import { commentBody, type CommentAuthor } from './conversation';
 import { missingAfterMerge, usageAfterMerge } from './image-usage';
-import { SENT_MARKER, isSentIn } from './proposals';
+import { ADJUSTMENT_LABEL, SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
@@ -123,6 +123,55 @@ export async function commentProposal(
 	const clean = cleanComment(body);
 	if (clean === null) throw new RangeError('Reactie is leeg of te lang');
 	await forge.comment(site.repo, number, commentBody(clean, author));
+}
+
+/** The editors' request for an adjustment: their comment, and the label that hands the proposal back to its writer. */
+export async function askForAdjustment(
+	forge: Forge,
+	site: SiteConfig,
+	pr: PrSummary,
+	body: string,
+	author: Omit<CommentAuthor, 'kind'>
+): Promise<void> {
+	const clean = cleanComment(body);
+	if (clean === null) throw new RangeError('Reactie is leeg of te lang');
+	const labels = [...new Set([...pr.labels, ADJUSTMENT_LABEL])];
+	await forge.setLabels(site.repo, pr.number, labels);
+	try {
+		await forge.comment(
+			site.repo,
+			pr.number,
+			commentBody(clean, { ...author, kind: 'aanpassing' })
+		);
+	} catch (e) {
+		await forge.setLabels(site.repo, pr.number, pr.labels).catch((err) =>
+			log.warn('proposal.label_restore_failed', {
+				site: site.id,
+				pr: pr.number,
+				...errorFields(err)
+			})
+		);
+		throw e;
+	}
+}
+
+/** Hands the proposal back to the editors. A request for changes in a review on GitHub stays until it is reviewed again there. */
+export async function sendInAgain(
+	forge: Forge,
+	site: SiteConfig,
+	pr: PrSummary
+): Promise<{ warning?: string }> {
+	await forge.setLabels(
+		site.repo,
+		pr.number,
+		pr.labels.filter((label) => label !== ADJUSTMENT_LABEL)
+	);
+	return pr.reviewState === 'changes_requested'
+		? {
+				warning:
+					'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
+			}
+		: {};
 }
 
 const UNCHECKED =
