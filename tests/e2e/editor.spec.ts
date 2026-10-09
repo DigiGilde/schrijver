@@ -870,6 +870,14 @@ test.describe('the Schrijfhulp panel at 1280 px', () => {
 	});
 
 	test('lets go when a suggestion makes it taller than the window', async ({ page }) => {
+		await page.route('**/api/assistent', (route) =>
+			route.fulfill({
+				json: {
+					replacement: 'We hebben deze centrale plek gemaakt.',
+					explanation: 'Testantwoord, geen AI: alleen de eerste zin blijft staan.'
+				}
+			})
+		);
 		await page.setViewportSize({ width: 1280, height: 720 });
 		await openPaneel(page);
 		expect(await meegeschoven(page)).toBe(0);
