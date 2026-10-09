@@ -1,6 +1,7 @@
 import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
+import { commentBody, type CommentAuthor } from './conversation';
 import { missingAfterMerge, usageAfterMerge } from './image-usage';
 import { SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
@@ -9,12 +10,12 @@ import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
 
 export const MAX_COMMENT_LENGTH = 5000;
 const MAX_REVIEWERS = 5;
-const COMMENT_PREFIX = 'Opmerking van de redactie via Schrijver:\n\n';
 
 const MENU_LINE =
 	'Menu bijwerken: deze wijziging voegt een nieuwe pagina toe; de navigatie moet nog door de redactie worden aangepast.';
 
 export interface ActingUser {
+	sub: string;
 	/** Every identity the user can hold; the PR is theirs when its trailer matches one. */
 	identities: Identity[];
 	email: string | null;
@@ -116,11 +117,12 @@ export async function commentProposal(
 	forge: Forge,
 	site: SiteConfig,
 	number: number,
-	body: string
+	body: string,
+	author: CommentAuthor
 ): Promise<void> {
 	const clean = cleanComment(body);
-	if (clean === null) throw new RangeError('Opmerking is leeg of te lang');
-	await forge.comment(site.repo, number, COMMENT_PREFIX + clean);
+	if (clean === null) throw new RangeError('Reactie is leeg of te lang');
+	await forge.comment(site.repo, number, commentBody(clean, author));
 }
 
 const UNCHECKED =

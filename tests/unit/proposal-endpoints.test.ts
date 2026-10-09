@@ -105,8 +105,8 @@ describe('proposal endpoints', () => {
 		);
 	});
 
-	it('lets the owner send in, but not comment or merge', async () => {
-		expect((await call(opmerking, { who: 'auteur', body: { body: 'x' } })).status).toBe(403);
+	it('lets the owner send in and react, but not merge', async () => {
+		expect((await call(opmerking, { who: 'auteur', body: { body: 'x' } })).status).toBe(200);
 		expect((await call(mergen, { who: 'auteur' })).status).toBe(403);
 		expect((await call(insturen, { who: 'vreemde' })).status).toBe(403);
 		expect((await call(insturen, { who: 'auteur' })).status).toBe(200);
@@ -137,6 +137,28 @@ describe('proposal endpoints', () => {
 		expect(forge.commitsOf('o/moza', 'main').at(-1)!.message).toBe(
 			'Titel (#1)\n\nSchrijver-Auteur: auteur'
 		);
+	});
+
+	it('posts a reaction of the writer or the redactie, saying who wrote it and as what', async () => {
+		const res = await call(opmerking, { who: 'auteur', body: { body: ' Aangepast ' } });
+		expect(await res.json()).toEqual({ ok: true });
+		await call(opmerking, { email: 'red@example.org', who: 'iemand', body: { body: 'Dank' } });
+		await call(opmerking, {
+			email: 'red@example.org',
+			who: 'jan',
+			gekoppeld: 'jan',
+			body: { body: 'Ok' }
+		});
+		const vreemd = await call(opmerking, { who: 'vreemde', body: { body: 'Ik ook' } });
+		expect(vreemd.status).toBe(403);
+		expect((await vreemd.json()).message).toBe(
+			'Alleen de schrijver en de redactie kunnen hier reageren'
+		);
+		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
+			'Reactie van de schrijver via Schrijver (anoniem, codenaam auteur):\n\nAangepast',
+			'Reactie van de redactie via Schrijver (anoniem, codenaam iemand):\n\nDank',
+			'Reactie van de redactie via Schrijver (GitHub: jan):\n\nOk'
+		]);
 	});
 
 	it('refuses comments on a closed proposal', async () => {

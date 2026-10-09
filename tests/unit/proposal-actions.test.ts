@@ -154,13 +154,18 @@ describe('approve, comment, merge', () => {
 		expect(cleanComment('x'.repeat(5001))).toBeNull();
 		expect(cleanComment(3)).toBeNull();
 		const pr = await draft();
-		await expect(commentProposal(forge, site(), pr.number, ' ')).rejects.toThrow();
+		const author = {
+			identity: { kind: 'anoniem' as const, pseudoniem: 'abcdef012345' },
+			role: 'redactie' as const,
+			kind: 'reactie' as const
+		};
+		await expect(commentProposal(forge, site(), pr.number, ' ', author)).rejects.toThrow();
 		const spy = vi.spyOn(forge, 'comment');
-		await commentProposal(forge, site(), pr.number, ' Mooi ');
+		await commentProposal(forge, site(), pr.number, ' Mooi ', author);
 		expect(spy).toHaveBeenCalledWith(
 			'o/moza',
 			pr.number,
-			'Opmerking van de redactie via Schrijver:\n\nMooi'
+			'Reactie van de redactie via Schrijver (anoniem, codenaam abcdef012345):\n\nMooi'
 		);
 	});
 
@@ -415,6 +420,7 @@ describe('canAct', () => {
 	it('detects owner and editorial', async () => {
 		const pr = await draft();
 		const user = {
+			sub: 's',
 			identities: [{ kind: 'anoniem' as const, pseudoniem: 'abc' }],
 			email: 'red@example.org',
 			emailVerified: true,

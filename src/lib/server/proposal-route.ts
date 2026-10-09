@@ -3,6 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { SiteConfig } from '$lib/config/types';
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
 import { canAct, type ActingUser } from '$lib/forge/proposal-actions';
+import type { Identity } from '$lib/forge/trailers';
 import { ForgeError, type Forge, type PrSummary } from '$lib/forge/types';
 import { log } from '$lib/log';
 import { getConfigStore, getForge } from './services';
@@ -16,6 +17,8 @@ export interface ProposalContext {
 	pr: PrSummary;
 	acts: { owner: boolean; editorial: boolean };
 	user: ActingUser;
+	/** How the user signs on this site. */
+	identity: Identity;
 }
 
 type Handler = (ctx: ProposalContext, event: RequestEvent) => Promise<Response>;
@@ -34,6 +37,7 @@ export function proposalAction(action: string, handler: Handler) {
 			const pr = await forge.getPr(site.repo, nummer);
 			const identity = identityFor(current.prefs, current.session, site);
 			const user: ActingUser = {
+				sub: current.session.sub,
 				identities: identitiesFor(current.prefs, current.session),
 				email: current.session.email,
 				emailVerified: current.session.emailVerified,
@@ -41,7 +45,7 @@ export function proposalAction(action: string, handler: Handler) {
 				identityKind: identity.kind
 			};
 			const acts = await canAct(user, site, pr, forge);
-			const response = await handler({ site, forge, pr, acts, user }, event);
+			const response = await handler({ site, forge, pr, acts, user, identity }, event);
 			if (response.ok)
 				log.info(`proposal.${action}`, {
 					site: site.id,

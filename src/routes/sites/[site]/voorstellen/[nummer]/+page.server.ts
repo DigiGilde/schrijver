@@ -80,6 +80,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			.sort((a, b) => a.path.localeCompare(b.path));
 		const acts = await canAct(
 			{
+				sub: session.sub,
 				identities,
 				email: session.email,
 				emailVerified: session.emailVerified,
