@@ -5,13 +5,24 @@
 		email: string | null;
 		/** The local preview, where nothing reaches GitHub. */
 		testEnvironment: boolean;
+		/** The site the page belongs to; its "Over" page then joins the destinations. */
+		site?: { id: string; naam: string } | null;
 	};
-	let { userName, email, testEnvironment }: Props = $props();
+	let { userName, email, testEnvironment, site = null }: Props = $props();
 
-	const navigation = [
+	const navigation = $derived([
 		{ text: 'Sites', icon: 'globe', href: '/' },
+		...(site
+			? [
+					{
+						text: `Over ${site.naam}`,
+						icon: 'info',
+						href: `/sites/${encodeURIComponent(site.id)}/over`
+					}
+				]
+			: []),
 		{ text: 'Help', icon: 'help', href: '/help' }
-	];
+	]);
 	const account = [
 		{ text: 'Instellingen', icon: 'settings', href: '/instellingen' },
 		{ text: 'Uitloggen', icon: 'logout', href: '/instellingen#uitloggen' }

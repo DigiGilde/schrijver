@@ -71,3 +71,105 @@ test.describe('Help, how a change reaches the site', () => {
 		await expect.poll(() => clearance(page, 'voorstellen')).toBeGreaterThanOrEqual(7);
 	});
 });
+
+const SITE_PAGES = [
+	'/sites/digi-handboek',
+	'/sites/digi-handboek/voorstellen',
+	'/sites/digi-handboek/voorstellen/1',
+	'/sites/digi-handboek/bewerken/index.md',
+	'/sites/digi-handboek/nieuw',
+	'/sites/digi-handboek/over'
+];
+
+/** Opens the menu of the app bar, or the overflow menu that replaces it on a narrow screen. */
+async function openMenu(page: Page) {
+	await page.evaluate(() => customElements.whenDefined('nldd-menu'));
+	const menu = page.getByRole('button', { name: 'Menu' });
+	if (await menu.isVisible()) await menu.click();
+	else await page.getByRole('button', { name: 'Meer' }).click();
+	return page.getByRole('menuitem');
+}
+
+test.describe('the menu', () => {
+	for (const url of SITE_PAGES) {
+		test(`offers Over Digi Handboek, between Sites and Help, on ${url}`, async ({ page }) => {
+			await page.goto(url);
+			await expect(await openMenu(page)).toHaveText([
+				'Sites',
+				'Over Digi Handboek',
+				'Help',
+				'Instellingen',
+				'Uitloggen'
+			]);
+			await expect(page.getByRole('menuitem', { name: 'Over Digi Handboek' })).toHaveAttribute(
+				'href',
+				'/sites/digi-handboek/over'
+			);
+		});
+	}
+
+	test('names the site that the page belongs to', async ({ page }) => {
+		await page.goto('/sites/moza-site');
+		await openMenu(page);
+		await expect(
+			page.getByRole('menuitem', { name: 'Over MijnOverheid Zakelijk' })
+		).toHaveAttribute('href', '/sites/moza-site/over');
+		await expect(page.getByRole('menuitem', { name: /^Over / })).toHaveCount(1);
+	});
+
+	for (const url of ['/', '/help', '/instellingen', '/sites/bestaat-niet']) {
+		test(`has no Over item on ${url}, which belongs to no site`, async ({ page }) => {
+			await page.goto(url);
+			await expect(await openMenu(page)).toHaveText(['Sites', 'Help', 'Instellingen', 'Uitloggen']);
+		});
+	}
+
+	test('leads to the Over page inside the app, from the mouse and from the keyboard', async ({
+		page
+	}) => {
+		const navigations = () =>
+			page.evaluate(() => performance.getEntriesByType('navigation').length);
+		await page.goto('/sites/digi-handboek');
+		const before = await navigations();
+		await (await openMenu(page)).getByText('Over Digi Handboek').click();
+		await expect(page).toHaveURL(/\/sites\/digi-handboek\/over$/);
+		expect(await navigations(), 'a navigation inside the app, not a page load').toBe(before);
+
+		await page.goto('/sites/moza-site');
+		await page.evaluate(() => customElements.whenDefined('nldd-menu'));
+		await page.getByRole('button', { name: 'Menu' }).focus();
+		await page.keyboard.press('Enter');
+		const over = page.getByRole('menuitem', { name: 'Over MijnOverheid Zakelijk' });
+		for (let i = 0; i < 5 && !(await over.evaluate((el) => el.matches(':focus'))); i++) {
+			await page.keyboard.press('ArrowDown');
+		}
+		await expect(over).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect(page).toHaveURL(/\/sites\/moza-site\/over$/);
+	});
+
+	test.describe('at 320 px and 200% text', () => {
+		test.use({ viewport: { width: 320, height: 800 } });
+
+		test('moves Over <site> into the overflow menu, with the other destinations', async ({
+			page
+		}) => {
+			await page.goto('/sites/digi-handboek');
+			await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+			await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+			await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();
+			await page.getByRole('button', { name: 'Meer' }).click();
+			await expect(page.getByRole('menuitem')).toHaveText([
+				'Sites',
+				'Over Digi Handboek',
+				'Help',
+				'Instellingen',
+				'Uitloggen'
+			]);
+			await expect(page.getByRole('menuitem', { name: 'Over Digi Handboek' })).toHaveAttribute(
+				'href',
+				'/sites/digi-handboek/over'
+			);
+		});
+	});
+});
