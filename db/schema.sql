@@ -1,1 +1,53 @@
 create table if not exists user_prefs (sub text primary key, identity text not null default 'anoniem', github_login text, github_id bigint, onboarded boolean not null default false, updated_at timestamptz not null default now());
+
+-- Profile, saved at every login. The e-mail address is lower-cased and only one the identity provider verified.
+alter table user_prefs add column if not exists name text;
+alter table user_prefs add column if not exists email text;
+alter table user_prefs add column if not exists last_login_at timestamptz;
+create index if not exists user_prefs_email on user_prefs (email);
+
+create table if not exists site_settings (
+	site_id text primary key,
+	naam text not null,
+	omschrijving text,
+	adres text,
+	mergen_vanuit_schrijver boolean not null default true,
+	vier_ogen boolean not null default true,
+	identiteit_toegestaan text[] not null default array['anoniem', 'gekoppeld', 'op-naam'],
+	updated_at timestamptz not null default now(),
+	updated_by text
+);
+
+create table if not exists site_members (
+	site_id text not null references site_settings (site_id) on delete cascade,
+	sub text not null references user_prefs (sub),
+	role text not null check (role in ('beheerder', 'redactie')),
+	added_by text,
+	added_at timestamptz not null default now(),
+	primary key (site_id, sub)
+);
+create index if not exists site_members_sub on site_members (sub);
+
+create table if not exists invitations (
+	id uuid primary key,
+	site_id text not null references site_settings (site_id) on delete cascade,
+	email text not null,
+	role text not null check (role in ('beheerder', 'redactie')),
+	invited_by text,
+	created_at timestamptz not null default now(),
+	expires_at timestamptz not null,
+	unique (site_id, email)
+);
+create index if not exists invitations_email on invitations (email);
+
+-- Who changed a team, an invitation or a site setting. Never an e-mail address.
+create table if not exists audit_log (
+	id bigserial primary key,
+	at timestamptz not null default now(),
+	actor_sub text,
+	site_id text,
+	action text not null,
+	target text,
+	role text
+);
+create index if not exists audit_log_at on audit_log (at);

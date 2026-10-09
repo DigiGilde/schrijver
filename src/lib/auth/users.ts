@@ -37,6 +37,9 @@ export class MemoryUsersStore implements UsersStore {
 			.flatMap((r) => (r.githubLogin ? [r.githubLogin] : []))
 			.slice(0, limit);
 	}
+	forget(sub: string) {
+		this.rows.delete(sub);
+	}
 }
 
 export function createUsersStore(sql: postgres.Sql): UsersStore {
@@ -83,7 +86,7 @@ export function createUsersStore(sql: postgres.Sql): UsersStore {
 let sql: postgres.Sql | undefined;
 let store: UsersStore | undefined;
 
-function client(): postgres.Sql {
+export function client(): postgres.Sql {
 	if (!sql) {
 		const url = process.env.DATABASE_SERVER_FULL;
 		if (!url) throw new Error('DATABASE_SERVER_FULL is not set');
