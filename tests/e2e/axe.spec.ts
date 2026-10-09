@@ -6,6 +6,7 @@ const pages = [
 	'/sites/digi-handboek',
 	'/sites/digi-handboek/bewerken/index.md',
 	'/sites/digi-handboek/voorstellen/1',
+	'/sites/digi-handboek/over',
 	'/help',
 	'/instellingen',
 	'/onboarding',

@@ -44,12 +44,13 @@ async function sendIn(page: Page, path: string, text: string): Promise<string> {
 	return nummer;
 }
 
-test('a site has three tabs, each at its own address', async ({ page }) => {
+test('a site has two tabs, each at its own address, and none for Over', async ({ page }) => {
 	await page.goto('/sites/moza-site');
 	const bar = tabs(page);
 	const paginas = bar.getByRole('link', { name: "Pagina's" });
 	const voorstellen = bar.getByRole('link', { name: 'Voorstellen' });
-	const over = bar.getByRole('link', { name: 'Over deze site' });
+	await expect(bar.getByRole('link')).toHaveCount(2);
+	await expect(bar.getByRole('link', { name: /^Over/ })).toHaveCount(0);
 	await expect(paginas).toHaveAttribute('aria-current', 'page');
 
 	await voorstellen.click();
@@ -57,13 +58,7 @@ test('a site has three tabs, each at its own address', async ({ page }) => {
 	await expect(voorstellen).toHaveAttribute('aria-current', 'page');
 	await expect(paginas).not.toHaveAttribute('aria-current', 'page');
 	await expect(page.getByRole('radio', { name: 'Mijn voorstellen' })).toBeChecked();
-
-	await over.click();
-	await expect(page).toHaveURL(/\/sites\/moza-site\/over$/);
-	await expect(over).toHaveAttribute('aria-current', 'page');
-	await expect(
-		page.getByRole('heading', { name: 'Zo komt een wijziging op de site', level: 2 })
-	).toBeVisible();
+	await expect(bar.getByRole('link')).toHaveCount(2);
 
 	await paginas.click();
 	await expect(page).toHaveURL(/\/sites\/moza-site$/);
@@ -335,67 +330,16 @@ test('back from a proposal opened without a filter goes where the Voorstellen ta
 	await expect(page.getByRole('radio', { name: /^Mijn voorstellen/ })).toBeChecked();
 });
 
-test('the about page explains the flow and names the redactie', async ({ page }) => {
-	await page.goto('/sites/digi-handboek/over');
-	await expect(tabs(page).getByRole('link', { name: 'Over deze site' })).toHaveAttribute(
-		'aria-current',
-		'page'
-	);
-	const tekst = page.locator('nldd-simple-section nldd-rich-text');
-	for (const adres of ['naam@rijksoverheid.nl', 'test@example.org']) {
-		await expect(tekst.getByRole('link', { name: adres })).toHaveAttribute(
-			'href',
-			`mailto:${adres}`
-		);
-	}
-	await expect(
-		tekst.getByText('iedereen met schrijfrechten op de repository op GitHub.')
-	).toBeVisible();
-	await expect(
-		tekst.getByText(
-			'Goedkeuren gebeurt op GitHub: door de redactie (naam@rijksoverheid.nl en test@example.org) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
-		)
-	).toBeVisible();
-	await expect(tekst.getByText('Op naam', { exact: true })).toBeVisible();
-	await expect(
-		tekst.getByText(
-			'dan ondertekent Schrijver hier met minder gegevens van jou, bijvoorbeeld anoniem.'
-		)
-	).toBeVisible();
-	await expect(tekst.getByRole('link', { name: 'Instellingen' })).toHaveAttribute(
-		'href',
-		'/instellingen'
-	);
-	await expect(
-		page.getByRole('heading', { name: 'Concepten zijn openbaar', level: 2 })
-	).toBeVisible();
-	await expect(
-		tekst.getByRole('link', { name: 'DigiGilde/handboek, branch main' })
-	).toHaveAttribute('href', 'https://github.com/DigiGilde/handboek/tree/main');
-	await expect(
-		tekst.getByText(/configuratierepository example\/config, die niet openbaar is\./)
-	).toBeVisible();
-	await expect(tekst.getByRole('link', { name: /example\/config/ })).toHaveCount(0);
-
-	await page.goto('/sites/moza-site/over');
-	await expect(tekst.getByRole('link', { name: 'redactie@example.org' })).toBeVisible();
-	await expect(tekst.getByText('Gekoppeld aan GitHub', { exact: true })).toBeVisible();
-	await expect(tekst.getByText('Op naam', { exact: true })).toHaveCount(0);
-	await expect(
-		page.getByRole('heading', {
-			name: 'Een voorstel krijgt een voorbeeld zodra het is ingestuurd',
-			level: 2
-		})
-	).toBeVisible();
-});
-
 test.describe('on a 320 px screen', () => {
 	test.use({ viewport: { width: 320, height: 800 } });
 
-	test('the tabs fit because the last one takes its short name', async ({ page }) => {
-		await page.goto('/sites/moza-site/over');
-		const over = tabs(page).getByRole('link', { name: 'Over', exact: true });
-		await expect(over).toHaveAttribute('aria-current', 'page');
+	test('both tabs fit, with a count of three digits too', async ({ page }) => {
+		await page.goto('/sites/moza-site');
+		await page.evaluate(() => customElements.whenDefined('nldd-tab-bar-item'));
+		await tabs(page)
+			.locator('nldd-tab-bar-item')
+			.nth(1)
+			.evaluate((item) => item.setAttribute('text', 'Voorstellen (999)'));
 		const bar = (await tabs(page).boundingBox())!;
 		expect(bar.x + bar.width).toBeLessThanOrEqual(320);
 		const truncated = await tabs(page).evaluate((host) =>

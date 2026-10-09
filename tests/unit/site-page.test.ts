@@ -58,11 +58,13 @@ interface ProposalsData {
 	filter: string;
 }
 interface AboutData {
-	wachtend: number | null;
+	site: Record<string, unknown>;
 	redactie: string[];
 	ondertekenen: string[];
 	conceptenOpenbaar: boolean;
 	voorbeeld: string;
+	repo: string;
+	branch: string;
 	repoUrl: string;
 	configuratie: string | null;
 	mergenVanuitSchrijver: boolean;
@@ -189,16 +191,27 @@ describe('proposals tab', () => {
 	});
 });
 
-describe('about tab', () => {
+describe('about page', () => {
+	it('carries the description and public address for its opening, not the repository', async () => {
+		const data = await about(WRITER);
+		expect(data.site).toEqual({
+			id: 'digi-handboek',
+			naam: 'Digi Handboek',
+			omschrijving: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+			adres: 'https://digihandboek.rijks.app/'
+		});
+	});
+
 	it('names the editors, the signing choices, the preview and the repository', async () => {
 		const data = await about(WRITER);
 		expect(data.redactie).toEqual(['naam@rijksoverheid.nl', 'test@example.org']);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(data.voorbeeld).toBe('bij-push');
 		expect(data.mergenVanuitSchrijver).toBe(true);
+		expect(data.repo).toBe('DigiGilde/handboek');
+		expect(data.branch).toBe('main');
 		expect(data.repoUrl).toBe('https://github.com/DigiGilde/handboek/tree/main');
 		expect(data.configuratie).toBe('example/config');
-		expect(data.wachtend).toBeNull();
 	});
 
 	it('offers only the choices the site allows, anoniem always among them', async () => {
@@ -218,7 +231,18 @@ describe('about tab', () => {
 		}
 	});
 
-	it('counts what waits for an editorial member', async () => {
-		expect((await about(EDITOR)).wachtend).toBe(1);
+	it('carries nothing for the tabs and does not ask the forge for proposals', async () => {
+		const listPrs = vi.spyOn(forge, 'listPrs');
+		try {
+			for (const email of [EDITOR, WRITER])
+				expect(await about(email)).not.toHaveProperty('wachtend');
+			expect(listPrs).not.toHaveBeenCalled();
+		} finally {
+			listPrs.mockRestore();
+		}
+	});
+
+	it('answers 404 for a site that does not exist', async () => {
+		await expect(about(WRITER, 'bestaat-niet')).rejects.toMatchObject({ status: 404 });
 	});
 });

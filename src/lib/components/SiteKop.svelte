@@ -2,7 +2,7 @@
 	import { addressText } from '$lib/config/site-address';
 	import { proposalsTab, proposalsTabAddress } from '$lib/forge/status';
 
-	type Tab = 'paginas' | 'voorstellen' | 'over';
+	type Tab = 'paginas' | 'voorstellen';
 	let {
 		site,
 		huidig,
@@ -15,9 +15,6 @@
 	} = $props();
 
 	const voorstellen = $derived(proposalsTab(wachtend));
-	let breedte = $state(0);
-	/* The tab bar truncates rather than wraps: below this width the last tab takes its short name. */
-	const kort = $derived(breedte > 0 && breedte < 360);
 
 	/* nldd-tab-bar-item has no accessible-label, so the name goes on the link it renders. */
 	function toegankelijkeNaam(item: HTMLElement, naam: string | null) {
@@ -40,7 +37,7 @@
 	}
 </script>
 
-<div class="kop" bind:clientWidth={breedte}>
+<div class="kop">
 	<nldd-tab-bar navigation accessible-label="Onderdelen van de site">
 		<nldd-tab-bar-item
 			text="Pagina's"
@@ -52,11 +49,6 @@
 			href={proposalsTabAddress(site.id, wachtend)}
 			current={huidig === 'voorstellen' || undefined}
 			use:toegankelijkeNaam={voorstellen.label}
-		></nldd-tab-bar-item>
-		<nldd-tab-bar-item
-			text={kort ? 'Over' : 'Over deze site'}
-			href="/sites/{site.id}/over"
-			current={huidig === 'over' || undefined}
 		></nldd-tab-bar-item>
 	</nldd-tab-bar>
 	{#if site.adres}

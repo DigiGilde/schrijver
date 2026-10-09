@@ -330,7 +330,9 @@ test.describe('reflow at 320 px (WCAG 1.4.10)', () => {
 		'/',
 		'/sites/digi-handboek',
 		'/sites/digi-handboek/voorstellen/1',
+		'/sites/digi-handboek/over',
 		'/sites/digi-handboek/bewerken/index.md',
+		'/help',
 		'/instellingen'
 	]) {
 		test(url, async ({ page }) => {
