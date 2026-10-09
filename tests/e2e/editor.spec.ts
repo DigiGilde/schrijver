@@ -806,3 +806,89 @@ test('on a narrow screen Schrijfhulp from the toolbar menu takes the focus', asy
 	await expect(paneel).toBeFocused();
 	await expect(paneel).toBeInViewport();
 });
+
+test.describe('the Schrijfhulp panel at 1280 px', () => {
+	test.use({ viewport: { width: 1280, height: 900 } });
+
+	const paneel = (page: Page) => page.locator('#schrijfhulp-paneel');
+
+	async function openPaneel(page: Page) {
+		await page.goto(url);
+		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
+		await page.getByRole('button', { name: 'Schrijfhulp' }).click();
+		await expect(paneel(page)).toBeVisible();
+	}
+
+	/** Scrolls the page 300 px once the panel could stick, and reports how far the panel went along: 0 when it stays. */
+	async function meegeschoven(page: Page) {
+		const top = () => paneel(page).evaluate((el) => el.getBoundingClientRect().top);
+		await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }));
+		const before = await top();
+		await page.evaluate(() => window.scrollBy({ top: 300, behavior: 'instant' }));
+		return before - (await top());
+	}
+
+	test('stays beside the text, below the sticky bars, while it fits in the window', async ({
+		page
+	}) => {
+		await openPaneel(page);
+		expect(await meegeschoven(page)).toBe(0);
+		const toolbar = (await page.locator('nldd-toolbar[label="Opmaak"]').boundingBox())!;
+		const box = (await paneel(page).boundingBox())!;
+		expect(box.y, 'the panel sits below the toolbar').toBeGreaterThanOrEqual(
+			toolbar.y + toolbar.height
+		);
+		await expect(paneel(page)).toBeInViewport({ ratio: 1 });
+	});
+
+	test('scrolls with the page, without a scrollbar of its own, when it is taller than the window', async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 560 });
+		await openPaneel(page);
+		expect(await meegeschoven(page)).toBe(300);
+		const eigen = await paneel(page).evaluate((el) => {
+			const style = getComputedStyle(el);
+			return {
+				overflowY: style.overflowY,
+				maxHeight: style.maxHeight,
+				verborgen: el.scrollHeight - el.clientHeight
+			};
+		});
+		expect(eigen).toEqual({ overflowY: 'visible', maxHeight: 'none', verborgen: 0 });
+	});
+
+	test('lets go when the window gets too short and sticks again when it is tall enough', async ({
+		page
+	}) => {
+		await openPaneel(page);
+		expect(await meegeschoven(page)).toBe(0);
+		await page.setViewportSize({ width: 1280, height: 560 });
+		await expect.poll(() => meegeschoven(page)).toBe(300);
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await expect.poll(() => meegeschoven(page)).toBe(0);
+	});
+
+	test('lets go when a suggestion makes it taller than the window', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 720 });
+		await openPaneel(page);
+		expect(await meegeschoven(page)).toBe(0);
+		await page.locator('.cm-line', { hasText: 'We hebben deze centrale plek' }).click();
+		await page.keyboard.press('Home');
+		await page.keyboard.press('Shift+ArrowDown');
+		await page.keyboard.press('Shift+End');
+		await paneel(page).hover();
+		await paneel(page).getByRole('button', { name: 'Korter' }).click();
+		await expect(paneel(page).getByRole('button', { name: 'Overnemen' })).toBeVisible();
+		await expect.poll(() => meegeschoven(page)).toBe(300);
+	});
+
+	test('below 1008 px the panel keeps its place below the text', async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 900 });
+		await openPaneel(page);
+		expect(await meegeschoven(page)).toBe(300);
+		const text = (await page.locator('nldd-text-editor').boundingBox())!;
+		const box = (await paneel(page).boundingBox())!;
+		expect(box.y, 'below the text').toBeGreaterThanOrEqual(text.y + text.height);
+	});
+});

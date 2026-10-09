@@ -8,6 +8,7 @@
 	import Werkbalk, { type Actie, type Weergave } from './Werkbalk.svelte';
 	import * as actions from '$lib/client/editor-actions';
 	import { addImage, uniqueImage, type PendingImage } from '$lib/client/pending-images';
+	import { watchFit } from '$lib/client/sticky-fit';
 	import { previewImages } from '$lib/content/markdown-preview';
 
 	type Props = {
@@ -48,6 +49,7 @@
 	let hulpPaneel: HTMLElement | undefined = $state();
 	let voorbeeld: HTMLElement | undefined = $state();
 	let werkbalkHoogte = $state(0);
+	let plakt = $state(false);
 	let returnFocus: HTMLElement | null = null;
 
 	/*
@@ -155,10 +157,12 @@
 	<aside
 		bind:this={hulpPaneel}
 		class="hulp"
+		class:plakt
 		id="schrijfhulp-paneel"
 		aria-label="Schrijfhulp"
 		tabindex="-1"
 		hidden={!hulpOpen}
+		{@attach (paneel) => watchFit(paneel, (past) => (plakt = past))}
 	>
 		{#if hulpOpen}
 			<Assistent
@@ -225,12 +229,15 @@
 		.vlak.met-hulp {
 			grid-template-columns: minmax(0, 1fr) 22rem;
 		}
-		/* Beside a long text the panel stays in view, below the sticky bars the page reports and the toolbar. */
+		/*
+		 * Beside a long text the panel stays in view, below the sticky bars the page reports and the toolbar,
+		 * for as long as it fits there. watchFit reads `top`, so it is set also while the panel does not stick.
+		 */
 		.hulp {
-			position: sticky;
 			top: calc(var(--context-inset-top, 0px) + var(--werkbalk-hoogte) + 16px);
-			max-height: calc(100dvh - var(--context-inset-top, 0px) - var(--werkbalk-hoogte) - 32px);
-			overflow-y: auto;
+		}
+		.hulp.plakt {
+			position: sticky;
 		}
 		/* A toolbar that scrolls away needs no room above the panel. */
 		:global(nldd-page:not([sticky-header])) .hulp {
