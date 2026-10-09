@@ -7,16 +7,19 @@ const list = (page: Page, label: string) => page.locator(`nldd-list[accessible-l
 
 const FILTERS = [
 	{
+		value: 'alle',
 		radio: /^Alle voorstellen/,
 		label: 'Alle voorstellen',
 		empty: 'Er zijn geen open voorstellen.'
 	},
 	{
+		value: 'beoordelen',
 		radio: /^Te beoordelen/,
 		label: 'Te beoordelen',
 		empty: 'Er wachten geen voorstellen op de redactie.'
 	},
 	{
+		value: 'mijn',
 		radio: /^Mijn voorstellen/,
 		label: 'Mijn voorstellen',
 		empty: 'Je hebt geen open voorstellen.'
@@ -187,6 +190,31 @@ test('choosing a filter shows it at once and keeps it in the address', async ({ 
 	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
 });
 
+test('a chosen filter shows before its page data has arrived', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	let release = () => {};
+	const held = new Promise<void>((resolve) => (release = resolve));
+	await page.route(/\/voorstellen\/__data\.json/, async (route) => {
+		await held;
+		await route.continue();
+	});
+	await page.getByRole('radio', { name: 'Alle voorstellen' }).click();
+	await expect(list(page, 'Alle voorstellen')).toBeVisible();
+
+	release();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+});
+
+test('choosing a filter leaves the focus on its radio', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	const radio = page.getByRole('radio', { name: 'Alle voorstellen' });
+	await radio.click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+	await expect(radio).toBeFocused();
+});
+
 test('choosing a filter says in one status line how many proposals it shows', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
 	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
@@ -226,9 +254,10 @@ test('a filter without proposals says so in the status line', async ({ page }) =
 		.click();
 	await expect(page).toHaveURL(/\/voorstellen/);
 	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
-	for (const { radio, empty } of FILTERS) {
+	for (const { value, radio, empty } of FILTERS) {
 		await page.getByRole('radio', { name: radio }).click();
 		await expect(resultLine(page)).toHaveText(empty);
+		await expect(page).toHaveURL(new RegExp(`/voorstellen\\?filter=${value}$`));
 	}
 });
 
@@ -248,6 +277,42 @@ test('a proposal row carries its filter, and back from the proposal returns to i
 	await page.getByRole('link', { name: 'Digi Handboek', exact: true }).click();
 	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
 	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
+});
+
+test("the browser's Back from a proposal returns to the filter that was chosen", async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	await page.getByRole('radio', { name: 'Alle voorstellen' }).click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+	const row = list(page, 'Alle voorstellen').getByRole('link', {
+		name: /^Voorbeeldvoorstel Digi Handboek/
+	});
+	await row.click();
+	await expect(page).toHaveURL(/\/voorstellen\/\d+\?filter=alle$/);
+
+	await page.goBack();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
+	await expect(row).toBeVisible();
+});
+
+test('the Voorstellen tab link shows its own filter from a list that shows another one', async ({
+	page
+}) => {
+	await sendIn(page, 'over/privacy.md', 'Een tab met een eigen filter');
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
+	await page.getByRole('radio', { name: 'Alle voorstellen' }).click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=alle$/);
+
+	await tabs(page)
+		.getByRole('link', { name: /^Voorstellen/ })
+		.click();
+	await expect(page).toHaveURL(/\/voorstellen\?filter=beoordelen$/);
+	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toBeChecked();
+	await expect(list(page, 'Te beoordelen')).toBeVisible();
 });
 
 test('back from a proposal opened without a filter goes where the Voorstellen tab goes', async ({

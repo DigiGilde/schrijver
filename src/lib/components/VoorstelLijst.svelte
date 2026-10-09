@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { afterNavigate, replaceState } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import type { Proposal } from '$lib/forge/proposals';
 	import { STATUS, updatedText, waitsForReview } from '$lib/forge/status';
 
@@ -13,7 +13,7 @@
 	}: {
 		siteId: string;
 		proposals: Proposal[];
-		/** The filter from the address; choosing another one shows it at once and only rewrites the address. */
+		/** The filter from the address; choosing another one shows it at once, before the address has followed. */
 		filter: Filter;
 		editorial?: boolean;
 	} = $props();
@@ -65,7 +65,8 @@
 		gekozen = value as Filter;
 		const url = new URL(location.href);
 		url.searchParams.set('filter', value);
-		replaceState(url, {});
+		// Not a shallow replaceState: SvelteKit would then still open the old address on Back.
+		void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 </script>
 
