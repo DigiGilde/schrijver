@@ -30,15 +30,52 @@
 					met de tekst.
 				</li>
 				<li>
-					Kies "Concept bewaren" om je werk op te slaan. Dat maakt een voorstel op GitHub. Bij sites
-					met een openbare repository is dat concept voor iedereen leesbaar, ook voordat je het
-					instuurt. Zet dus niets in een concept dat nog niet openbaar mag.
-				</li>
-				<li>
-					Kies "Insturen" als je klaar bent. Dan vraagt Schrijver de redactie om je voorstel te
-					beoordelen. Je kunt later terugkomen bij je voorstellen op de pagina van de site.
+					Bewaar je werk en stuur het in. Hoe dat gaat, lees je bij
+					<a href="#voorstellen">Zo komt een wijziging op de site</a>.
 				</li>
 			</ol>
+
+			<h2 id="voorstellen">Zo komt een wijziging op de site</h2>
+			<p>Elke wijziging gaat als voorstel door drie stappen:</p>
+			<ol>
+				<li>
+					<strong>Concept.</strong> Kies "Concept bewaren" om je werk op te slaan. Dat maakt een voorstel
+					op GitHub, maar de site verandert nog niet. Bij sites met een openbare repository is het concept
+					voor iedereen leesbaar, ook voordat je het instuurt. Zet dus niets in een concept dat nog niet
+					openbaar mag.
+				</li>
+				<li>
+					<strong>Ingestuurd.</strong> Kies "Insturen" als je klaar bent. Dan vraagt Schrijver de redactie
+					van de site om te beslissen. Je kunt later terugkomen bij je voorstellen op de pagina van de
+					site.
+				</li>
+				<li>
+					<strong>Samengevoegd.</strong> De wijziging zit nu in de site. Na de volgende publicatie staat
+					ze op de site.
+				</li>
+			</ol>
+			<p>
+				De redactie beslist over een ingestuurd voorstel. Ze voegt het samen met "Samenvoegen", of
+				vraagt om een aanpassing met "Vraag om aanpassing".
+			</p>
+			<p>
+				Vraagt de redactie om een aanpassing, dan heeft het voorstel de status "Aanpassing
+				gevraagd". Je leest wat de redactie vraagt bij "Gesprek" op de pagina van het voorstel. Pas
+				het voorstel aan met "Verder bewerken" en kies daarna "Opnieuw insturen".
+			</p>
+			<p>
+				Niemand voegt een eigen voorstel samen: een andere redacteur beslist, zodat er altijd vier
+				ogen meekijken. Beheerders van de site mogen hun eigen voorstel wel samenvoegen. Een site
+				kan deze regel ook uitzetten.
+			</p>
+			<p>
+				Bij sommige sites is eerst een goedkeuring op GitHub nodig. Dat staat dan op de pagina van
+				het voorstel.
+			</p>
+			<p>
+				Wie de redactie van een site is, lees je bij "Over" en de naam van de site. Dat staat in het
+				menu zodra je op een pagina van die site bent.
+			</p>
 
 			<h2>Afbeeldingen en diagrammen</h2>
 			<p>
