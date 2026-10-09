@@ -172,6 +172,24 @@ describe('FakeForge', () => {
 		expect(err.detail).toBe('Pull request is not mergeable');
 	});
 
+	it('asks for an approval before a merge only where the repository requires one', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		expect(await forge.reviewDecision(REPO, pr.number)).toBeNull();
+		forge.requireReview(REPO);
+		expect(await forge.reviewDecision(REPO, pr.number)).toBe('review_required');
+		await expect(forge.merge(REPO, pr.number, 'm')).rejects.toMatchObject({
+			status: 405,
+			detail: 'At least 1 approving review is required by reviewers with write access.'
+		});
+		forge.prs.get(pr.number)!.reviewState = 'changes_requested';
+		expect(await forge.reviewDecision(REPO, pr.number)).toBe('changes_requested');
+		await forge.approve(REPO, pr.number, 'ok');
+		expect(await forge.reviewDecision(REPO, pr.number)).toBe('approved');
+		await forge.merge(REPO, pr.number, 'm');
+		expect((await forge.getPr(REPO, pr.number)).state).toBe('merged');
+	});
+
 	it('merge copies head files into base and marks merged', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		await forge.commit(

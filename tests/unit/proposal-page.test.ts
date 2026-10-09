@@ -84,6 +84,13 @@ beforeAll(async () => {
 	setConfigStore(services.store);
 });
 
+describe('the fake forge of the local preview', () => {
+	it('asks for an approval on GitHub on the MOZa site and not on Digi Handboek', async () => {
+		expect(await forge.reviewDecision('MinBZK/moza-site', 2)).toBe('review_required');
+		expect(await forge.reviewDecision(REPO, 1)).toBeNull();
+	});
+});
+
 describe('proposal page load', () => {
 	it('compares at most 20 pages and counts the rest', async () => {
 		const files: Record<string, string> = {};

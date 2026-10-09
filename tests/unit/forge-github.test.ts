@@ -286,6 +286,37 @@ describe('GitHubForge', () => {
 		expect(err.detail).toContain('Resource not accessible');
 	});
 
+	it('reads the review decision through GraphQL, null where no review is required', async () => {
+		const answers: (string | null)[] = ['REVIEW_REQUIRED', 'APPROVED', 'CHANGES_REQUESTED', null];
+		server.use(
+			http.post(`${API}/graphql`, async ({ request }) => {
+				record('gql', await request.json());
+				return HttpResponse.json({
+					data: { repository: { pullRequest: { reviewDecision: answers.shift() } } }
+				});
+			})
+		);
+		const f = forge();
+		expect(await f.reviewDecision('o/r', 7)).toBe('review_required');
+		expect(await f.reviewDecision('o/r', 7)).toBe('approved');
+		expect(await f.reviewDecision('o/r', 7)).toBe('changes_requested');
+		expect(await f.reviewDecision('o/r', 7)).toBeNull();
+		expect(bodies.gql[0]).toMatchObject({ variables: { owner: 'o', name: 'r', number: 7 } });
+		expect(JSON.stringify(bodies.gql[0])).toContain('reviewDecision');
+	});
+
+	it('fails the review decision with a ForgeError when GitHub answers with errors', async () => {
+		server.use(
+			http.post(`${API}/graphql`, () =>
+				HttpResponse.json({
+					data: null,
+					errors: [{ type: 'NOT_FOUND', message: 'Could not resolve to a PullRequest' }]
+				})
+			)
+		);
+		await expect(forge().reviewDecision('o/r', 7)).rejects.toBeInstanceOf(ForgeError);
+	});
+
 	it('lists PRs with draft, labels, review state and checks', async () => {
 		server.use(
 			http.get(`${API}/repos/o/r/pulls`, () =>

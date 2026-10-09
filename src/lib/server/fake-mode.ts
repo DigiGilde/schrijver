@@ -93,6 +93,7 @@ export async function buildFakeServices(): Promise<{ forge: FakeForge; store: Co
 	forge.seedRepo('MinBZK/moza-site', 'main', seedFiles('moza-site', 'content'));
 	forge.setPublic('DigiGilde/handboek', true);
 	forge.setPublic('MinBZK/moza-site', true);
+	forge.requireReview('MinBZK/moza-site');
 	await seedDraft(forge, 'DigiGilde/handboek', 'docs/index.md', 'Voorbeeldvoorstel Digi Handboek');
 	await seedDraft(forge, 'MinBZK/moza-site', 'content/contact.md', 'Voorbeeldvoorstel MOZa-site');
 	const store = new ConfigStore(fixtureReader());

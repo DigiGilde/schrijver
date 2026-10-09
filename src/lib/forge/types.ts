@@ -42,6 +42,9 @@ export interface PrFile {
 /** GitHub lists at most this many files of a pull request: a list this long may leave files out. */
 export const MAX_PR_FILES = 3000;
 
+/** Where a pull request stands with a review that the base branch requires; null when it requires none. */
+export type ReviewDecision = 'approved' | 'changes_requested' | 'review_required' | null;
+
 export class ForgeError extends Error {
 	constructor(
 		public status: number,
@@ -91,6 +94,7 @@ export interface Forge {
 	comment(repo: string, number: number, body: string): Promise<void>;
 	/** Squash merge; with `sha`, the forge refuses (409) when the head has moved since. */
 	merge(repo: string, number: number, message: string, sha?: string): Promise<void>;
+	reviewDecision(repo: string, number: number): Promise<ReviewDecision>;
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
 	/** Whether the repository is publicly readable. */
 	isPublic(repo: string): Promise<boolean>;

@@ -153,6 +153,9 @@ export class CachingForge implements Forge {
 	prCommits(repo: string, number: number) {
 		return this.inner.prCommits(repo, number);
 	}
+	reviewDecision(repo: string, number: number) {
+		return this.inner.reviewDecision(repo, number);
+	}
 	isPublic(repo: string) {
 		return this.cached(repo, 'public', () => this.inner.isPublic(repo));
 	}

@@ -10,7 +10,8 @@ import {
 	type Forge,
 	type PrFile,
 	type PrSummary,
-	type Ref
+	type Ref,
+	type ReviewDecision
 } from './types';
 
 type Octo = Awaited<ReturnType<App['getInstallationOctokit']>>;
@@ -392,6 +393,28 @@ export class GitHubForge implements Forge {
 			commit_message: rest.join('\n'),
 			...(sha ? { sha } : {})
 		});
+	}
+
+	async reviewDecision(repo: string, number: number): Promise<ReviewDecision> {
+		const ok = await this.octokit(repo);
+		const { owner, repo: name } = splitRepo(repo);
+		let data: Json;
+		try {
+			data = await ok.graphql(
+				`query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewDecision } } }`,
+				{ owner, name, number }
+			);
+		} catch (e) {
+			throw toForgeError(e);
+		}
+		const decision = data?.repository?.pullRequest?.reviewDecision;
+		return decision === 'APPROVED'
+			? 'approved'
+			: decision === 'CHANGES_REQUESTED'
+				? 'changes_requested'
+				: decision === 'REVIEW_REQUIRED'
+					? 'review_required'
+					: null;
 	}
 
 	async collaboratorPermission(

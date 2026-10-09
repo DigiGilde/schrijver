@@ -7,7 +7,8 @@ import {
 	type Forge,
 	type PrFile,
 	type PrSummary,
-	type Ref
+	type Ref,
+	type ReviewDecision
 } from './types';
 
 type Blob = { content: Uint8Array; sha: string };
@@ -46,6 +47,7 @@ export class FakeForge implements Forge {
 	prs = new Map<number, PrSummary>();
 
 	private repos = new Map<string, RepoState>();
+	private reviewRequired = new Set<string>();
 	private prRepo = new Map<number, string>();
 	private failures = new Map<keyof Forge, ForgeError>();
 	private nextPr = 1;
@@ -75,6 +77,11 @@ export class FakeForge implements Forge {
 
 	async isPublic(repo: string): Promise<boolean> {
 		return this.repo(repo).isPublic;
+	}
+
+	/** As branch protection that requires an approving review before a merge. */
+	requireReview(repo: string): void {
+		this.reviewRequired.add(repo);
 	}
 
 	failNext(op: keyof Forge, error: ForgeError): void {
@@ -258,6 +265,13 @@ export class FakeForge implements Forge {
 		if (this.view(pr).mergeable === false) {
 			throw new ForgeError(405, 'Samenvoegen geweigerd', 'Pull request is not mergeable');
 		}
+		if (this.reviewRequired.has(repo) && pr.reviewState !== 'approved') {
+			throw new ForgeError(
+				405,
+				'Samenvoegen geweigerd',
+				'At least 1 approving review is required by reviewers with write access.'
+			);
+		}
 		// Like a squash merge on GitHub: only what the branch changed since its fork point lands.
 		const head = this.tree(repo, pr.headRef);
 		const base = this.tree(repo, pr.baseRef);
@@ -274,6 +288,15 @@ export class FakeForge implements Forge {
 			message
 		);
 		this.touch(repo, number, { state: 'merged' });
+	}
+
+	async reviewDecision(repo: string, number: number): Promise<ReviewDecision> {
+		this.maybeFail('reviewDecision');
+		const pr = this.pr(repo, number);
+		if (!this.reviewRequired.has(repo)) return null;
+		if (pr.reviewState === 'approved') return 'approved';
+		if (pr.reviewState === 'changes_requested') return 'changes_requested';
+		return 'review_required';
 	}
 
 	async collaboratorPermission(_repo: string, login: string): Promise<Permission> {
