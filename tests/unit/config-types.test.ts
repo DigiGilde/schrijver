@@ -28,6 +28,15 @@ describe('parseSitesYaml', () => {
 		expect(site.identiteit.toegestaan).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(site.review.redactie).toEqual([]);
 		expect(site.review['mergen-vanuit-schrijver']).toBe(true);
+		expect(site.review['vier-ogen']).toBe(true);
+	});
+
+	it('reads four eyes per site, and only as true or false', () => {
+		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
+		expect(digi.review['vier-ogen']).toBe(false);
+		expect(moza.review['vier-ogen']).toBe(true);
+		const text = fixture('sites.yaml').replace('vier-ogen: false', 'vier-ogen: misschien');
+		expect(() => parseSitesYaml(text)).toThrow(ZodError);
 	});
 
 	it('drops a trailing slash from content.pad', () => {

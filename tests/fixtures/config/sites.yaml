@@ -15,6 +15,7 @@
   review:
     model: goedkeuring
     mergen-vanuit-schrijver: true
+    vier-ogen: false
     redactie:
       - naam@rijksoverheid.nl
   identiteit:
@@ -42,6 +43,7 @@
   review:
     model: goedkeuring
     mergen-vanuit-schrijver: true
+    vier-ogen: true
     redactie: [redactie@example.org]
   identiteit:
     toegestaan: [anoniem, gekoppeld]

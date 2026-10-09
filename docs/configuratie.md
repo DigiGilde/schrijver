@@ -34,6 +34,7 @@ A list of sites. Keys are in Dutch.
 | `content.afbeeldingen.verwijzing` | `relatief` | required in the block | How images are referenced from the page. Only `relatief`. |
 | `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct` (merge at once on "Insturen") is refused in version one: the whole configuration fails to load with "review.model: direct wordt nog niet ondersteund". |
 | `review.mergen-vanuit-schrijver` | boolean | `true` | Whether editorial users may merge (squash) from Schrijver. |
+| `review.vier-ogen` | boolean | `true` | Four eyes: the writer of a proposal cannot merge it in Schrijver, another editorial member decides. A site admin still can; for now that is someone whose linked GitHub account has admin permission on the repository. See [decision 0007](decisions/0007-three-steps-and-four-eyes.md). |
 | `review.redactie` | list of e-mail addresses | `[]` | Editorial list. Editorial is the union of this list and users who linked a GitHub account that has push permission on the repository. |
 | `identiteit.toegestaan` | list of `anoniem`, `gekoppeld`, `op-naam` | all three | Identity choices offered on this site. See [identiteit-en-privacy.md](identiteit-en-privacy.md). |
 | `preview.soort` | `bij-push`, `bij-label` or `geen` | required | `bij-push`: a preview exists for every push to the pull request. `bij-label`: a preview exists once the label is set, which Schrijver does at "Insturen". `geen`: no preview link. |

@@ -17,6 +17,7 @@ const ContentSchema = z.strictObject({
 const ReviewSchema = z.strictObject({
 	model: z.enum(['goedkeuring', 'direct']),
 	'mergen-vanuit-schrijver': z.boolean().default(true),
+	'vier-ogen': z.boolean().default(true),
 	redactie: z.array(z.string()).default([])
 });
 
