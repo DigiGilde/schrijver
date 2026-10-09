@@ -139,7 +139,7 @@ describe('imageUsage', () => {
 		]);
 	});
 
-	it('counts a file that names the image, even when its path would point elsewhere', async () => {
+	it('counts a file that names the image as a possible use, when its path reaches no file there', async () => {
 		const schema = 'content/handboek/images/schema.png';
 		forge.seedRepo(moza.repo, 'main', {
 			[schema]: PNG,
@@ -154,7 +154,75 @@ describe('imageUsage', () => {
 			'content/handboek/_index.md',
 			[schema]
 		);
-		expect(result.images[0].usedOn).toEqual([{ path: 'content/contact.md', title: 'Contact' }]);
+		expect(result.images[0].usedOn).toEqual([
+			{ path: 'content/contact.md', title: 'Contact', possible: true }
+		]);
+	});
+
+	it('lets a path to a file of the same name explain the name: each page keeps its own', async () => {
+		const privacy = 'docs/afbeeldingen/privacy/schema.png';
+		const werkwijze = 'docs/afbeeldingen/werkwijze/schema.png';
+		await forge.commit(
+			digi.repo,
+			'main',
+			[
+				{ path: privacy, content: PNG },
+				{ path: werkwijze, content: PNG },
+				{
+					path: 'docs/kennis/privacy.md',
+					content: '# Privacy\n\n![Schema](../afbeeldingen/privacy/schema.png)\n'
+				},
+				{
+					path: 'docs/werkwijze/index.md',
+					content: '# Werkwijze\n\n![Schema](../afbeeldingen/werkwijze/schema.png)\n'
+				}
+			],
+			'schema'
+		);
+		expect((await scan('docs/kennis/privacy.md', [privacy])).images).toEqual([
+			{ path: privacy, usedOn: [], excluded: false }
+		]);
+		expect((await scan('docs/werkwijze/index.md', [werkwijze])).images).toEqual([
+			{ path: werkwijze, usedOn: [], excluded: false }
+		]);
+	});
+
+	it('keeps an image a bare name in the frontmatter of a page beside it may mean', async () => {
+		const schema = 'content/handboek/images/schema.png';
+		forge.seedRepo(moza.repo, 'main', {
+			[schema]: PNG,
+			'content/handboek/_index.md': '---\ntitle: Handboek\n---\n\n![Schema](images/schema.png)\n',
+			'content/handboek/rituelen.md':
+				'---\ntitle: Rituelen\nafbeelding: schema.png\n---\n\nTekst.\n'
+		});
+		const result = await imageUsage(
+			forge,
+			moza,
+			{ titel: 'veld:title' },
+			'main',
+			'content/handboek/_index.md',
+			[schema]
+		);
+		expect(result.images[0].usedOn).toEqual([
+			{ path: 'content/handboek/rituelen.md', title: 'Rituelen', possible: true }
+		]);
+	});
+
+	it('counts a file with more mentions than it keeps as a possible use of every image', async () => {
+		const names = Array.from({ length: 5_001 }, (_, i) => `plaatje-${i}.png`).join(' ');
+		await forge.commit(
+			digi.repo,
+			'main',
+			[{ path: 'docs/over/alles.md', content: `# Alles\n\n${names}\n` }],
+			'alles'
+		);
+		expect((await scan('docs/kennis/privacy.md', [HOND])).images).toEqual([
+			{
+				path: HOND,
+				usedOn: [{ path: 'docs/over/alles.md', title: 'Alles', possible: true }],
+				excluded: false
+			}
+		]);
 	});
 
 	it('reads every kind of text file under the content folder', async () => {
@@ -191,10 +259,10 @@ describe('imageUsage', () => {
 				{
 					path: team,
 					usedOn: [
-						{ path: 'content/actueel/bericht/index.md', title: 'Bericht' },
-						{ path: 'content/data/fotos.json', title: 'data/fotos.json' },
-						{ path: 'content/data/fotos.toml', title: 'data/fotos.toml' },
-						{ path: 'content/data/fotos.yaml', title: 'data/fotos.yaml' },
+						{ path: 'content/actueel/bericht/index.md', title: 'Bericht', possible: true },
+						{ path: 'content/data/fotos.json', title: 'data/fotos.json', possible: true },
+						{ path: 'content/data/fotos.toml', title: 'data/fotos.toml', possible: true },
+						{ path: 'content/data/fotos.yaml', title: 'data/fotos.yaml', possible: true },
 						{
 							path: 'content/documenten/presentaties/pulse/index.html',
 							title: 'documenten/presentaties/pulse/index.html'
@@ -203,7 +271,7 @@ describe('imageUsage', () => {
 							path: 'content/documenten/presentaties/pulse/stijl.css',
 							title: 'documenten/presentaties/pulse/stijl.css'
 						},
-						{ path: 'content/over/a.markdown', title: 'over/a.markdown' },
+						{ path: 'content/over/a.markdown', title: 'over/a.markdown', possible: true },
 						{ path: 'content/over/b.mdx', title: 'over/b.mdx' },
 						{ path: 'content/over/c.htm', title: 'over/c.htm' }
 					],

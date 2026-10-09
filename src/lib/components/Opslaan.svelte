@@ -16,7 +16,11 @@
 	type Snapshot = { body: string; frontmatter: Record<string, unknown>; changedKeys: string[] };
 	type Fout = { message: string; detail?: string; fields?: Record<string, string> };
 	type Conflict = { mine: string; theirs: string; sha: string };
-	type Gebruik = { path: string; usedOn: { path: string; title: string }[]; deletable: boolean };
+	type Gebruik = {
+		path: string;
+		usedOn: { path: string; title: string; possible?: true }[];
+		deletable: boolean;
+	};
 	/** A save waiting for an answer: the images that may go, and the ones other pages keep. */
 	type Vraag = { paden: string[]; elders: Gebruik[]; overrideSha?: string };
 	type Antwoord = { verwijderen: string[]; elders: Gebruik[] };
@@ -119,11 +123,18 @@
 	const naamVan = (pad: string) => pad.slice(pad.lastIndexOf('/') + 1);
 	const opsomming = (namen: string[]) =>
 		new Intl.ListFormat('nl', { type: 'conjunction' }).format(namen);
+	/** The pages that surely show the image, or else the ones that only name it. */
+	const genoemd = (afbeelding: Gebruik) => {
+		const zeker = afbeelding.usedOn.filter((pagina) => !pagina.possible);
+		return zeker.length > 0 ? zeker : afbeelding.usedOn;
+	};
 	const paginas = (afbeelding: Gebruik) =>
-		opsomming(afbeelding.usedOn.map((pagina) => pagina.title));
+		opsomming(genoemd(afbeelding).map((pagina) => pagina.title));
 	const blijftStaan = (afbeelding: Gebruik) => {
-		const aantal = afbeelding.usedOn.length;
-		return `${naamVan(afbeelding.path)} blijft staan: ook gebruikt op ${aantal} ${aantal === 1 ? 'pagina' : "pagina's"}`;
+		const lijst = genoemd(afbeelding);
+		const aantal = lijst.length;
+		const hoe = lijst.some((pagina) => !pagina.possible) ? 'ook' : 'mogelijk';
+		return `${naamVan(afbeelding.path)} blijft staan: ${hoe} gebruikt op ${aantal} ${aantal === 1 ? 'pagina' : "pagina's"}`;
 	};
 
 	function tekstVan(snap: Snapshot): string {

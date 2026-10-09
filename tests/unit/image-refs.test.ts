@@ -5,6 +5,7 @@ import {
 	imageNameTails,
 	inImageFolder,
 	mentionsName,
+	reachesNamesake,
 	referencedImages,
 	removedImages,
 	resolveImageRef,
@@ -195,6 +196,24 @@ describe('mentionsName', () => {
 			mentions(text, 'docs/x/kat.png');
 			expect(performance.now() - start).toBeLessThan(500);
 		}
+	});
+});
+
+describe('reachesNamesake', () => {
+	const image = 'docs/afbeeldingen/privacy/schema.png';
+	const own = 'docs/afbeeldingen/werkwijze/schema.png';
+
+	it('finds a path to another file of the same name that exists, whatever its case', () => {
+		expect(reachesNamesake([own], image, new Set([own]))).toBe(true);
+		const upper = 'docs/afbeeldingen/werkwijze/Schema.PNG';
+		expect(reachesNamesake([upper], image, new Set([upper]))).toBe(true);
+	});
+
+	it('does not count the image itself, a path that is not there, or another name', () => {
+		expect(reachesNamesake([image], image, new Set([image]))).toBe(false);
+		expect(reachesNamesake([own], image, new Set())).toBe(false);
+		const other = 'docs/afbeeldingen/werkwijze/mijn-schema.png';
+		expect(reachesNamesake([other], image, new Set([other]))).toBe(false);
 	});
 });
 

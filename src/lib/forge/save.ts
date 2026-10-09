@@ -205,8 +205,13 @@ async function refuseDeletions(
 	if (excluded) return refuseDeletion('excluded', 400, NOT_DELETABLE, excluded.path);
 	const used = scan.images.find((image) => image.usedOn.length > 0);
 	if (used) {
-		const message = 'Niet bewaard: de afbeelding staat nog op een andere pagina';
-		const detail = `${used.path}: ${used.usedOn.map((p) => p.path).join(', ')}`;
+		const sure = used.usedOn.filter((p) => !p.possible);
+		const message =
+			sure.length > 0
+				? 'Niet bewaard: de afbeelding staat nog op een andere pagina'
+				: 'Niet bewaard: de afbeelding wordt mogelijk gebruikt op een andere pagina';
+		const named = sure.length > 0 ? sure : used.usedOn;
+		const detail = `${used.path}: ${named.map((p) => p.path).join(', ')}`;
 		return refuseDeletion('in_use', 409, message, detail);
 	}
 	if (!scan.complete) {

@@ -126,6 +126,22 @@ export function mentionsName(tails: string[], image: string): boolean {
 	return tails.some((tail) => tail.endsWith(name));
 }
 
+/**
+ * Whether `paths`, the references of a text, reach a file other than `image` with the same file name
+ * that exists: the text's mention of that name is then explained by that file.
+ */
+export function reachesNamesake(
+	paths: Iterable<string>,
+	image: string,
+	existing: ReadonlySet<string>
+): boolean {
+	const nameOf = (path: string) => path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+	const name = nameOf(image);
+	for (const path of paths)
+		if (path !== image && nameOf(path) === name && existing.has(path)) return true;
+	return false;
+}
+
 /** The images `before` refers to and `after` no longer does, both texts on `page`. */
 export function removedImages(before: string, after: string, page: string): string[] {
 	const still = referencedImages(after, page);

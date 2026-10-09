@@ -733,6 +733,53 @@ describe('save', () => {
 			expect(forge.branches(digi.repo)).toEqual(['main']);
 		});
 
+		it('deletes an image whose file name another page uses for its own image', async () => {
+			const eigen = 'docs/afbeeldingen/werkwijze/kat.png';
+			await forge.commit(
+				digi.repo,
+				'main',
+				[
+					{ path: eigen, content: PNG },
+					{
+						path: 'docs/werkwijze/index.md',
+						content: '# Werkwijze\n\n![Kat](../afbeeldingen/werkwijze/kat.png)\n'
+					}
+				],
+				'eigen kat'
+			);
+			const r = ok(
+				await save(forge, digi, digiSchema, identity, req({ body: without, deletions: [KAT] }))
+			);
+			expect(await forge.readFile(digi.repo, r.branch, KAT)).toBeNull();
+			expect(await forge.readFile(digi.repo, r.branch, eigen)).not.toBeNull();
+		});
+
+		it('says an image may still be used when another file only names it', async () => {
+			await forge.commit(
+				digi.repo,
+				'main',
+				[{ path: 'docs/kennis/bijlage.md', content: '# Bijlage\n\nZie kat.png.\n' }],
+				'bijlage'
+			);
+			const r = await save(
+				forge,
+				digi,
+				digiSchema,
+				identity,
+				req({ body: without, deletions: [KAT] })
+			);
+			expect(r).toMatchObject({
+				ok: false,
+				status: 409,
+				error: {
+					message: 'Niet bewaard: de afbeelding wordt mogelijk gebruikt op een andere pagina',
+					detail: `${KAT}: docs/kennis/bijlage.md`
+				},
+				deletionRefused: 'in_use'
+			});
+			expect(forge.branches(digi.repo)).toEqual(['main']);
+		});
+
 		it('refuses an image a page merged into the default branch since uses', async () => {
 			const first = ok(
 				await save(

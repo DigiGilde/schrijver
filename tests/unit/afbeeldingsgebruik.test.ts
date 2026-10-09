@@ -104,6 +104,24 @@ describe('POST /api/sites/[site]/afbeeldingsgebruik', () => {
 		]);
 	});
 
+	it('marks a use that rests on the file name alone as possible', async () => {
+		await forge.commit(
+			digi.repo,
+			'main',
+			[{ path: 'docs/kennis/bijlage.md', content: '# Bijlage\n\nZie kat.png.\n' }],
+			'bijlage'
+		);
+		const res = await post(good);
+		expect((await res.json()).images).toEqual([
+			{
+				path: KAT,
+				usedOn: [{ path: 'docs/kennis/bijlage.md', title: 'Bijlage', possible: true }],
+				deletable: false
+			},
+			{ path: HOND, usedOn: [{ path: 'docs/kennis/index.md', title: 'Kennis' }], deletable: false }
+		]);
+	});
+
 	it('never offers an image in the image folder of a page under content.uitsluiten', async () => {
 		const team = 'content/documenten/presentaties/pulse/images/team.jpeg';
 		forge.seedRepo(moza.repo, 'main', {

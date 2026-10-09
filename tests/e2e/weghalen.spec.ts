@@ -116,6 +116,36 @@ test('keeps an image other pages show, and says on which', async ({ page }) => {
 	await expect(melding.getByText('Toegankelijkheid en Beslissingen logboek')).toBeVisible();
 });
 
+/* Only this test edits privacy.md, and only on its own proposal branch. */
+test('says an image may still be used where another page of the proposal only names it', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/bewerken/over/privacy.md');
+	await expect(editor(page)).toContainText('Privacy');
+	await page.evaluate((text) => {
+		const element = document.querySelector('nldd-text-editor') as unknown as {
+			value: string;
+			replaceRange(from: number, to: number, text: string): void;
+		};
+		element.replaceRange(element.value.length, element.value.length, text);
+	}, '\n\nHet stroomschema staat in melding.png.\n');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await bewaarNieuw(page);
+	await expect(page).toHaveURL(/[?&]pr=\d+/);
+	const voorstel = new URL(page.url()).search;
+
+	await openZonder(page, `${KWETSBAARHEID}${voorstel}`, 'Kwetsbaarheid melden', MELDING);
+	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
+	await page.getByRole('button', { name: 'Opslaan' }).click();
+	expect(JSON.parse((await request).postData() ?? '{}').deletions).toBeUndefined();
+	await expect(vraag(page)).toHaveCount(0);
+	const melding = page
+		.locator('nldd-banner')
+		.filter({ hasText: 'melding.png blijft staan: mogelijk gebruikt op 1 pagina' });
+	await expect(melding).toBeVisible();
+	await expect(melding.getByText('Privacy')).toBeVisible();
+});
+
 test('asks nothing and checks nothing when no image goes', async ({ page }) => {
 	const checks = verzoeken(page, '/afbeeldingsgebruik');
 	await page.goto(KWETSBAARHEID);

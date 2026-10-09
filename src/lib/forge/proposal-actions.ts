@@ -134,12 +134,14 @@ async function refuseRemovedImagesInUse(forge: Forge, site: SiteConfig, pr: PrSu
 	const used = scan.images.find((image) => image.usedOn.length > 0);
 	if (used) {
 		const name = used.path.slice(used.path.lastIndexOf('/') + 1);
+		const sure = used.usedOn.filter((page) => !page.possible);
 		const pages = new Intl.ListFormat('nl', { type: 'conjunction' }).format(
-			used.usedOn.map((page) => page.path)
+			(sure.length > 0 ? sure : used.usedOn).map((page) => page.path)
 		);
+		const where = sure.length > 0 ? `staat nog op ${pages}` : `wordt mogelijk gebruikt op ${pages}`;
 		throw new ForgeError(
 			422,
-			`Niet samengevoegd: dit voorstel verwijdert ${name}, maar die afbeelding staat nog op ${pages}.`
+			`Niet samengevoegd: dit voorstel verwijdert ${name}, maar die afbeelding ${where}.`
 		);
 	}
 	if (!scan.complete) throw new ForgeError(422, UNCHECKED);

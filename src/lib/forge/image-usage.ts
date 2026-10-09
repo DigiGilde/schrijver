@@ -7,6 +7,7 @@ import {
 	imageRefs,
 	isImageFile,
 	mentionsName,
+	reachesNamesake,
 	resolveImageRefs
 } from '../content/image-refs';
 import { titleOf } from '../content/schema-form';
@@ -29,8 +30,8 @@ const decoder = new TextDecoder();
 export interface ImageUse {
 	/** Repository path of the image file. */
 	path: string;
-	/** The other files that still refer to it. */
-	usedOn: { path: string; title: string }[];
+	/** The other files that still refer to it; `possible` where no path in the file reaches it. */
+	usedOn: { path: string; title: string; possible?: true }[];
 	/** In the image folder of a page under `content.uitsluiten`, or under it itself: never deleted. */
 	excluded: boolean;
 }
@@ -115,6 +116,9 @@ async function each<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void
 	await Promise.all(Array.from({ length: Math.min(PARALLEL, items.length) }, worker));
 }
 
+/** How a file uses an image: `possible` when only its file name appears there, or too many names. */
+type Use = { title: string; possible?: true };
+
 interface Scan {
 	forge: Forge;
 	site: SiteConfig;
@@ -122,8 +126,8 @@ interface Scan {
 	limits: Limits;
 	prefix: string;
 	images: string[];
-	/** Per image, the files that use it, each with its title. */
-	uses: Map<string, Map<string, string>>;
+	/** Per image, the files that use it. */
+	uses: Map<string, Map<string, Use>>;
 	complete: boolean;
 }
 
@@ -135,7 +139,7 @@ function startScan(
 	images: string[]
 ): Scan {
 	const prefix = site.content.pad === '' ? '' : `${site.content.pad}/`;
-	const uses = new Map(images.map((image) => [image, new Map<string, string>()]));
+	const uses = new Map(images.map((image) => [image, new Map<string, Use>()]));
 	return { forge, site, schema, limits, prefix, images, uses, complete: true };
 }
 
@@ -149,9 +153,10 @@ function textFiles(scan: Scan, tree: FileTree): FileEntry[] {
 
 /**
  * Reads `files` on `ref` and notes which images each uses: by its path, from the file's folder or from
- * the site root, and when `generous` also by its file name anywhere in the file.
+ * the site root. With `onRef`, the paths on `ref`, a file that names an image anywhere is a possible use
+ * too, unless one of its paths reaches another file of that name there.
  */
-async function readFiles(scan: Scan, ref: string, files: FileEntry[], generous: boolean) {
+async function readFiles(scan: Scan, ref: string, files: FileEntry[], onRef?: Set<string>) {
 	const { forge, site, limits, prefix } = scan;
 	const rule = scan.schema?.titel ?? '';
 	if (files.length > limits.pages) scan.complete = false;
@@ -174,9 +179,13 @@ async function readFiles(scan: Scan, ref: string, files: FileEntry[], generous: 
 		const title = (PAGE_FILE.test(path) && mentions.title) || path.slice(prefix.length);
 		for (const image of scan.images) {
 			const users = scan.uses.get(image)!;
-			if (users.has(path)) continue;
-			if (mentions.all || refs.has(image) || (generous && mentionsName(mentions.tails, image)))
-				users.set(path, title);
+			if (users.has(path) && !users.get(path)!.possible) continue;
+			if (refs.has(image)) users.set(path, { title });
+			else if (
+				mentions.all ||
+				(onRef && mentionsName(mentions.tails, image) && !reachesNamesake(refs, image, onRef))
+			)
+				users.set(path, { title, possible: true });
 		}
 	});
 }
@@ -187,7 +196,7 @@ function finish(scan: Scan, excluded: (image: string) => boolean): UsageScan {
 		images: scan.images.map((path) => ({
 			path,
 			usedOn: [...scan.uses.get(path)!]
-				.map(([file, title]) => ({ path: file, title }))
+				.map(([file, use]) => ({ path: file, ...use }))
 				.sort((a, b) => a.path.localeCompare(b.path)),
 			excluded: excluded(path)
 		}))
@@ -199,8 +208,9 @@ function finish(scan: Scan, excluded: (image: string) => boolean): UsageScan {
  * text file under the content folder, also the ones Schrijver does not edit: they are part of the site
  * too. It reads them on `ref` and on the default branch, which a proposal is merged into, so a use that
  * reached either keeps the file. A file uses an image when it refers to its path, from the file's folder
- * or from the site root, or names the image's file anywhere: keeping a file by mistake is harmless,
- * deleting one a page shows is not.
+ * or from the site root, and possibly uses it when it names the image's file anywhere, unless a path in
+ * it reaches another file of that name: keeping a file by mistake is harmless, deleting one a page shows
+ * is not.
  */
 export async function imageUsage(
 	forge: Forge,
@@ -213,14 +223,14 @@ export async function imageUsage(
 ): Promise<UsageScan> {
 	const refs = [...new Set([ref, site.standaardbranch])];
 	const trees = await Promise.all(refs.map((r) => forge.readTree(site.repo, r, '')));
-	const onRef = new Set(trees[0].map((entry) => entry.path));
-	const existing = [...new Set(images)].filter((path) => onRef.has(path));
+	const paths = trees.map((tree) => new Set(tree.map((entry) => entry.path)));
+	const existing = [...new Set(images)].filter((path) => paths[0].has(path));
 	if (existing.length === 0) return { complete: !trees[0].truncated, images: [] };
 
 	const scan = startScan(forge, site, schema, limits, existing);
 	for (const [i, tree] of trees.entries()) {
 		const files = textFiles(scan, tree).filter((file) => file.path !== page);
-		await readFiles(scan, refs[i], files, true);
+		await readFiles(scan, refs[i], files, paths[i]);
 	}
 	return finish(scan, excludedImages(site, scan.prefix, trees.flat()));
 }
@@ -251,14 +261,14 @@ export async function usageAfterMerge(
 	const scan = startScan(forge, site, null, limits, images);
 	const changed = new Set([...files.map((f) => f.path), ...gone]);
 	const unchanged = textFiles(scan, base).filter((file) => !changed.has(file.path));
-	await readFiles(scan, pr.baseRef, unchanged, true);
+	await readFiles(scan, pr.baseRef, unchanged, onBase);
 	const kept = files.filter(
 		(f) => f.status !== 'removed' && f.path.startsWith(scan.prefix) && TEXT_FILE.test(f.path)
 	);
 	if (kept.length > 0) {
 		const head = await forge.readTree(site.repo, pr.headRef, '');
 		const own = textFiles(scan, head).filter((file) => changed.has(file.path));
-		await readFiles(scan, pr.headRef, own, false);
+		await readFiles(scan, pr.headRef, own);
 	}
 	return finish(scan, () => false);
 }

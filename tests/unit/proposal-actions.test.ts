@@ -262,9 +262,24 @@ describe('merge and removed images', () => {
 		]);
 		await expect(mergeProposal(forge, site(), p, [trailer])).rejects.toMatchObject(
 			red(
-				'Niet samengevoegd: dit voorstel verwijdert x.png, maar die afbeelding staat nog op content/c.md.'
+				'Niet samengevoegd: dit voorstel verwijdert x.png, maar die afbeelding wordt mogelijk gebruikt op content/c.md.'
 			)
 		);
+	});
+
+	it('merges a removal while another page shows its own image of the same name', async () => {
+		await forge.commit(
+			'o/moza',
+			'main',
+			[
+				{ path: 'content/b/images/x.png', content: 'eigen png' },
+				{ path: 'content/b/index.md', content: '# B\n\n![X](images/x.png)\n' }
+			],
+			'b'
+		);
+		await mergeProposal(forge, site(), p, [trailer]);
+		expect(forge.fileText('o/moza', 'main', X)).toBeNull();
+		expect(forge.fileText('o/moza', 'main', 'content/b/images/x.png')).toBe('eigen png');
 	});
 
 	it('refuses when it cannot see every file the proposal changes or every page', async () => {
