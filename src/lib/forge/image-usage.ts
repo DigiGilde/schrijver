@@ -151,30 +151,37 @@ function textFiles(scan: Scan, tree: FileTree): FileEntry[] {
 		.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
+/** What a file on `ref` mentions, known by its blob or read now; null when it could not be read. */
+async function mentionsIn(scan: Scan, ref: string, { path, sha }: FileEntry) {
+	const rule = scan.schema?.titel ?? '';
+	const known = mentionsByBlob.get(`${rule}\0${sha}`);
+	if (known) return known;
+	const file = await scan.forge.readFile(scan.site.repo, ref, path, {
+		maxBytes: scan.limits.bytes,
+		uncached: true
+	});
+	if (!file) return null;
+	if (file.tooLarge) {
+		scan.complete = false;
+		return null;
+	}
+	const mentions = mentionsOf(decoder.decode(file.content), scan.schema);
+	mentionsByBlob.set(`${rule}\0${file.sha}`, mentions);
+	return mentions;
+}
+
 /**
  * Reads `files` on `ref` and notes which images each uses: by its path, from the file's folder or from
  * the site root. With `onRef`, the paths on `ref`, a file that names an image anywhere is a possible use
  * too, unless one of its paths reaches another file of that name there.
  */
 async function readFiles(scan: Scan, ref: string, files: FileEntry[], onRef?: Set<string>) {
-	const { forge, site, limits, prefix } = scan;
-	const rule = scan.schema?.titel ?? '';
+	const { site, limits, prefix } = scan;
 	if (files.length > limits.pages) scan.complete = false;
-	await each(files.slice(0, limits.pages), async ({ path, sha }) => {
-		let mentions = mentionsByBlob.get(`${rule}\0${sha}`);
-		if (!mentions) {
-			const file = await forge.readFile(site.repo, ref, path, {
-				maxBytes: limits.bytes,
-				uncached: true
-			});
-			if (!file) return;
-			if (file.tooLarge) {
-				scan.complete = false;
-				return;
-			}
-			mentions = mentionsOf(decoder.decode(file.content), scan.schema);
-			mentionsByBlob.set(`${rule}\0${file.sha}`, mentions);
-		}
+	await each(files.slice(0, limits.pages), async (entry) => {
+		const { path } = entry;
+		const mentions = await mentionsIn(scan, ref, entry);
+		if (!mentions) return;
 		const refs = resolveImageRefs(mentions.refs, path, site.content.pad);
 		const title = (PAGE_FILE.test(path) && mentions.title) || path.slice(prefix.length);
 		for (const image of scan.images) {
@@ -271,4 +278,63 @@ export async function usageAfterMerge(
 		await readFiles(scan, pr.headRef, own);
 	}
 	return finish(scan, () => false);
+}
+
+export interface MissingImage {
+	/** The text file that refers to the image. */
+	page: string;
+	/** Repository path of the image. */
+	image: string;
+}
+
+/**
+ * For a pull request about to be merged: the images that the text files it adds or changes show and that
+ * will not exist after the merge, as they are on neither the base branch nor among the files it brings.
+ * A reference the base version of the file holds already is left out: the merge does not add it.
+ */
+export async function missingAfterMerge(
+	forge: Forge,
+	site: SiteConfig,
+	pr: Pick<PrSummary, 'baseRef' | 'headRef'>,
+	files: PrFile[],
+	limits = LIMITS
+): Promise<{ complete: boolean; missing: MissingImage[] }> {
+	const scan = startScan(forge, site, null, limits, []);
+	const brought = new Set(files.filter((f) => f.status !== 'removed').map((f) => f.path));
+	const changed = files.filter(
+		(f) => brought.has(f.path) && f.path.startsWith(scan.prefix) && TEXT_FILE.test(f.path)
+	);
+	if (changed.length === 0) return { complete: true, missing: [] };
+	if (changed.length > limits.pages) return { complete: false, missing: [] };
+
+	const [base, head] = await Promise.all(
+		[pr.baseRef, pr.headRef].map((ref) => forge.readTree(site.repo, ref, ''))
+	);
+	const onBase = new Map(base.map((entry) => [entry.path, entry.sha]));
+	const onHead = new Map(head.map((entry) => [entry.path, entry.sha]));
+	const missing: MissingImage[] = [];
+	await each(changed, async (f) => {
+		const sha = onHead.get(f.path);
+		const now = sha ? await mentionsIn(scan, pr.headRef, { path: f.path, sha }) : null;
+		if (!now || now.all) {
+			scan.complete = false;
+			return;
+		}
+		let gone = [...resolveImageRefs(now.refs, f.path, site.content.pad)].filter(
+			(image) => !onBase.has(image) && !brought.has(image)
+		);
+		const old = f.previous ?? f.path;
+		const oldSha = onBase.get(old);
+		if (gone.length > 0 && oldSha) {
+			const before = await mentionsIn(scan, pr.baseRef, { path: old, sha: oldSha });
+			if (before && !before.all) {
+				const had = resolveImageRefs(before.refs, old, site.content.pad);
+				gone = gone.filter((image) => !had.has(image));
+			}
+		}
+		if (gone.length > 0 && base.truncated) scan.complete = false;
+		else for (const image of gone) missing.push({ page: f.path, image });
+	});
+	missing.sort((a, b) => a.page.localeCompare(b.page) || a.image.localeCompare(b.image));
+	return { complete: scan.complete, missing };
 }

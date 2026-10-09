@@ -1,7 +1,7 @@
 import { isEditorial } from '../auth/editorial';
 import type { SiteConfig } from '../config/types';
 import { errorFields, log } from '../log';
-import { usageAfterMerge } from './image-usage';
+import { missingAfterMerge, usageAfterMerge } from './image-usage';
 import { SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
@@ -125,9 +125,14 @@ export async function commentProposal(
 
 const UNCHECKED =
 	'Niet samengevoegd: Schrijver kan niet nagaan of een afbeelding die dit voorstel verwijdert nog op een pagina staat. Voeg samen op GitHub.';
+const SHOWN_UNCHECKED =
+	'Niet samengevoegd: Schrijver kan niet nagaan of elke afbeelding die dit voorstel toont na het samenvoegen nog bestaat. Voeg samen op GitHub.';
 
-/** Refuses the merge while a page would still show an image the pull request removes. */
-async function refuseRemovedImagesInUse(forge: Forge, site: SiteConfig, pr: PrSummary) {
+/**
+ * Refuses the merge while a page would show an image that is not there after it: one the pull request
+ * removes, or one it shows that is on neither the base branch nor among its own files.
+ */
+async function refuseBrokenImages(forge: Forge, site: SiteConfig, pr: PrSummary) {
 	const files = await forge.prFiles(site.repo, pr.number);
 	if (files.length >= MAX_PR_FILES) throw new ForgeError(422, UNCHECKED);
 	const scan = await usageAfterMerge(forge, site, pr, files);
@@ -145,6 +150,16 @@ async function refuseRemovedImagesInUse(forge: Forge, site: SiteConfig, pr: PrSu
 		);
 	}
 	if (!scan.complete) throw new ForgeError(422, UNCHECKED);
+	const shown = await missingAfterMerge(forge, site, pr, files);
+	const [first] = shown.missing;
+	if (first) {
+		const name = first.image.slice(first.image.lastIndexOf('/') + 1);
+		throw new ForgeError(
+			422,
+			`Niet samengevoegd: ${first.page} toont ${name}, maar die afbeelding ontbreekt. Zet de afbeelding terug of haal de verwijzing weg.`
+		);
+	}
+	if (!shown.complete) throw new ForgeError(422, SHOWN_UNCHECKED);
 }
 
 export async function mergeProposal(
@@ -154,7 +169,7 @@ export async function mergeProposal(
 	commitsTrailers: string[],
 	sha?: string
 ): Promise<void> {
-	await refuseRemovedImagesInUse(forge, site, pr);
+	await refuseBrokenImages(forge, site, pr);
 	const trailers = [...new Set(commitsTrailers)];
 	const message = `${pr.title} (#${pr.number})${trailers.length > 0 ? `\n\n${trailers.join('\n')}` : ''}`;
 	await forge.merge(site.repo, pr.number, message, sha);

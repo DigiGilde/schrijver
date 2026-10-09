@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { CachingForge } from '../../src/lib/forge/cache';
-import { imageUsage, mentionsByBlob } from '../../src/lib/forge/image-usage';
+import { imageUsage, mentionsByBlob, missingAfterMerge } from '../../src/lib/forge/image-usage';
+import type { FileChange, PrFile } from '../../src/lib/forge/types';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -397,5 +398,127 @@ describe('imageUsage', () => {
 			images: []
 		});
 		expect(readFile).not.toHaveBeenCalled();
+	});
+});
+
+describe('missingAfterMerge', () => {
+	const pr = { baseRef: 'main', headRef: BRANCH };
+	const WEG = 'docs/afbeeldingen/privacy/weg.png';
+
+	async function proposal(changes: FileChange[]): Promise<PrFile[]> {
+		await forge.createBranch(digi.repo, 'main', BRANCH);
+		await forge.commit(digi.repo, BRANCH, changes, 'voorstel');
+		const opened = await forge.openDraftPr(digi.repo, BRANCH, 'main', 'Voorstel', '');
+		return forge.prFiles(digi.repo, opened.number);
+	}
+
+	it('names a text file that newly shows an image on neither the base nor in the proposal', async () => {
+		const files = await proposal([
+			{
+				path: 'docs/over/nieuw.md',
+				content: [
+					'# Nieuw',
+					'![Kat](../afbeeldingen/privacy/kat.png)',
+					'![Weg](../afbeeldingen/privacy/weg.png)',
+					'<img src="/afbeeldingen/privacy/ook-weg.png" alt="Ook weg">',
+					'![Eigen](../afbeeldingen/over/eigen.png)'
+				].join('\n\n')
+			},
+			{ path: 'docs/afbeeldingen/over/eigen.png', content: PNG }
+		]);
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: true,
+			missing: [
+				{ page: 'docs/over/nieuw.md', image: 'docs/afbeeldingen/privacy/ook-weg.png' },
+				{ page: 'docs/over/nieuw.md', image: WEG }
+			]
+		});
+	});
+
+	it('leaves out what the base version already showed, also under the old path of a moved page', async () => {
+		const text = '# Oud\n\n![Weg](../afbeeldingen/privacy/weg.png)\n';
+		await forge.commit(digi.repo, 'main', [{ path: 'docs/over/oud.md', content: text }], 'oud');
+		const files = await proposal([{ path: 'docs/over/oud.md', content: `${text}\nMeer.\n` }]);
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: true,
+			missing: []
+		});
+
+		await forge.commit(
+			digi.repo,
+			BRANCH,
+			[
+				{ path: 'docs/over/oud.md', deleted: true },
+				{ path: 'docs/over/hernoemd.md', content: text }
+			],
+			'verplaatst'
+		);
+		const moved: PrFile[] = [
+			{ path: 'docs/over/hernoemd.md', status: 'modified', previous: 'docs/over/oud.md' }
+		];
+		expect(await missingAfterMerge(forge, digi, pr, moved)).toEqual({
+			complete: true,
+			missing: []
+		});
+	});
+
+	it('reads nothing when the proposal changes no text file under the content folder', async () => {
+		const readTree = vi.spyOn(forge, 'readTree');
+		const files: PrFile[] = [
+			{ path: 'README.md', status: 'modified' },
+			{ path: 'docs/afbeeldingen/over/eigen.png', status: 'added' },
+			{ path: 'docs/over/weg.md', status: 'removed' }
+		];
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: true,
+			missing: []
+		});
+		expect(readTree).not.toHaveBeenCalled();
+	});
+
+	it('is incomplete beyond the bound, for a file too large, or one the head does not list', async () => {
+		const files = await proposal([
+			{ path: 'docs/over/a.md', content: '# A\n' },
+			{ path: 'docs/over/b.md', content: `# B\n\n${'x'.repeat(600_000)}\n` }
+		]);
+		const readFile = vi.spyOn(forge, 'readFile');
+		expect(await missingAfterMerge(forge, digi, pr, files, { pages: 1, bytes: 500_000 })).toEqual({
+			complete: false,
+			missing: []
+		});
+		expect(readFile).not.toHaveBeenCalled();
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: false,
+			missing: []
+		});
+		const unlisted: PrFile[] = [{ path: 'docs/over/elders.md', status: 'added' }];
+		expect(await missingAfterMerge(forge, digi, pr, unlisted)).toEqual({
+			complete: false,
+			missing: []
+		});
+	});
+
+	it('is incomplete only for a possibly missing image while the base listing was cut off', async () => {
+		const files = await proposal([
+			{ path: 'docs/over/a.md', content: '# A\n\n![Kat](../afbeeldingen/privacy/kat.png)\n' }
+		]);
+		const readTree = forge.readTree.bind(forge);
+		vi.spyOn(forge, 'readTree').mockImplementation(async (...args) =>
+			Object.assign(await readTree(...args), { truncated: true as const })
+		);
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: true,
+			missing: []
+		});
+		await forge.commit(
+			digi.repo,
+			BRANCH,
+			[{ path: 'docs/over/a.md', content: '# A\n\n![Weg](../afbeeldingen/privacy/weg.png)\n' }],
+			'weg'
+		);
+		expect(await missingAfterMerge(forge, digi, pr, files)).toEqual({
+			complete: false,
+			missing: []
+		});
 	});
 });

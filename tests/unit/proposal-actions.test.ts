@@ -282,6 +282,67 @@ describe('merge and removed images', () => {
 		expect(forge.fileText('o/moza', 'main', 'content/b/images/x.png')).toBe('eigen png');
 	});
 
+	it('refuses an older proposal that shows an image a merged deletion removed', async () => {
+		await forge.createBranch('o/moza', 'main', 'q');
+		await forge.commit(
+			'o/moza',
+			'q',
+			[{ path: 'content/b.md', content: '# B\n\n![X](images/x.png)\n' }],
+			'q'
+		);
+		const q = await forge.openDraftPr('o/moza', 'q', 'main', 'Q', '');
+		await mergeProposal(forge, site(), p, [trailer]);
+		expect(forge.fileText('o/moza', 'main', X)).toBeNull();
+		await expect(mergeProposal(forge, site(), q, [])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: content/b.md toont x.png, maar die afbeelding ontbreekt. Zet de afbeelding terug of haal de verwijzing weg.'
+			)
+		);
+		expect(forge.fileText('o/moza', 'main', 'content/b.md')).toBeNull();
+		expect((await forge.getPr('o/moza', q.number)).state).toBe('open');
+	});
+
+	it('merges a proposal that shows an image it adds, or one its page showed already', async () => {
+		await forge.commit(
+			'o/moza',
+			'main',
+			[{ path: 'content/d.md', content: '# D\n\n![Weg](images/weg.png)\n' }],
+			'd'
+		);
+		await forge.createBranch('o/moza', 'main', 'r');
+		await forge.commit(
+			'o/moza',
+			'r',
+			[
+				{ path: 'content/c.md', content: '# C\n\n![Y](images/y.png)\n' },
+				{ path: 'content/images/y.png', content: 'y' },
+				{ path: 'content/d.md', content: '# D, beter\n\n![Weg](images/weg.png)\n' }
+			],
+			'r'
+		);
+		const r = await forge.openDraftPr('o/moza', 'r', 'main', 'R', '');
+		await mergeProposal(forge, site(), r, []);
+		expect(forge.fileText('o/moza', 'main', 'content/images/y.png')).toBe('y');
+		expect(forge.fileText('o/moza', 'main', 'content/d.md')).toContain('D, beter');
+	});
+
+	it('refuses when it cannot read a page the proposal changes', async () => {
+		await forge.createBranch('o/moza', 'main', 'groot');
+		await forge.commit(
+			'o/moza',
+			'groot',
+			[{ path: 'content/groot.md', content: `# Groot\n\n${'x'.repeat(600_000)}\n` }],
+			'groot'
+		);
+		const groot = await forge.openDraftPr('o/moza', 'groot', 'main', 'Groot', '');
+		await expect(mergeProposal(forge, site(), groot, [])).rejects.toMatchObject(
+			red(
+				'Niet samengevoegd: Schrijver kan niet nagaan of elke afbeelding die dit voorstel toont na het samenvoegen nog bestaat. Voeg samen op GitHub.'
+			)
+		);
+		expect(forge.fileText('o/moza', 'main', 'content/groot.md')).toBeNull();
+	});
+
 	it('merges a proposal of more files than GitHub lists on one page', async () => {
 		await forge.createBranch('o/moza', 'main', 'groot');
 		await forge.commit(
