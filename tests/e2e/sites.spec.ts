@@ -108,7 +108,8 @@ test('the folder column stays below the sticky bars while the page scrolls', asy
 	await page.setViewportSize({ width: 1280, height: 600 });
 	await page.goto('/sites/moza-site?map=weekly%2F2025');
 	await page.evaluate(() => customElements.whenDefined('nldd-sidebar-section'));
-	await page.evaluate(() => scrollTo(0, 400));
+	// Far enough for the column to stick, not to the end of the page, where its section pushes it up.
+	await page.evaluate(() => scrollTo(0, 300));
 	const titleBar = (await page.locator('nldd-top-title-bar').boundingBox())!;
 	const column = page.locator('nldd-sidebar-section > [slot="sidebar"]');
 	await expect
