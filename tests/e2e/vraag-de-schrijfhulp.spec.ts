@@ -62,7 +62,9 @@ async function openPanelHere(page: Page) {
 	return openPanel(page);
 }
 
-test('a suggestion for the whole text is a comparison in the text column', async ({ page }) => {
+test('without VLAM the preview answers Korter with a comparison in the text column', async ({
+	page
+}) => {
 	const paneel = await openPanel(page);
 	await expect(paneel.getByRole('group', { name: 'Op de hele tekst' })).toBeVisible();
 
@@ -240,6 +242,17 @@ test('the panel counts the changes of the comparison', async ({ page }) => {
 	const paneel = await openPanel(page);
 	await paneel.getByRole('button', { name: 'Actiever' }).click();
 	await expect(paneel.getByText('2 wijzigingen staan in de tekstkolom')).toBeVisible();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Actiever')).toBeFocused();
+});
+
+test('a suggestion that changes nothing says so in the panel', async ({ page }) => {
+	await page.route('**/api/assistent', async (route) => {
+		const { text } = route.request().postDataJSON() as { text: string };
+		await route.fulfill({ json: { replacement: text, explanation: 'Niets te verbeteren.' } });
+	});
+	const paneel = await openPanel(page);
+	await paneel.getByRole('button', { name: 'Actiever' }).click();
+	await expect(paneel.getByText('Het voorstel verandert niets in je tekst')).toBeVisible();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Actiever')).toBeFocused();
 });
 
