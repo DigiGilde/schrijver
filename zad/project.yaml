@@ -26,3 +26,6 @@ components:
       VLAM_KEY_PREPAID: ''
       VLAM_MODEL: ''
       PSEUDONYM_SECRET: ''
+      # The SSO subs of the platform admins, comma separated (docs/configuratie.md). They identify
+      # people: set them in the ZAD portal too, never in this file.
+      SCHRIJVER_BEHEERDERS: ''

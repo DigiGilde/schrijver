@@ -1,6 +1,6 @@
 # Configuration
 
-Schrijver is configured, not hard-coded. All configuration lives in a private repository (`GITHUB_CONFIG_REPO`, for example `schrijver-config`), read at start-up and again on a push webhook. Changes go through a pull request like everything else.
+Schrijver is configured, not hard-coded. The structure of each site lives in a private repository (`GITHUB_CONFIG_REPO`, for example `schrijver-config`), read at start-up and again on a push webhook. Changes go through a pull request like everything else. The team of a site and its settings (name, description, address, merging, four eyes, ways to sign) live in Schrijver's database and are managed in Schrijver; `sites.yaml` only gives a new site its first settings. See [Site settings and team](#site-settings-and-team).
 
 Layout of the configuration repository:
 
@@ -19,9 +19,9 @@ A list of sites. Keys are in Dutch.
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `id` | string | required | Stable identifier, used in URLs (`/sites/<id>`) and branch names. |
-| `naam` | string | required | Name shown to colleagues. |
-| `omschrijving` | string | optional | One sentence on what the site is, shown under its name, for example "Hoe het Digi Gilde werkt en wat het maakt." |
-| `adres` | `https:` or `http:` address | optional | Public address of the site, shown to colleagues instead of the repository, for example `https://digigilde.nl/handboek`. |
+| `naam` | string | the `id` | Starting value of the name shown to colleagues. |
+| `omschrijving` | string | optional | Starting value of the one sentence on what the site is, for example "Hoe het Digi Gilde werkt en wat het maakt." |
+| `adres` | `https:` or `http:` address | optional | Starting value of the public address of the site, shown to colleagues instead of the repository, for example `https://digigilde.nl/handboek`. |
 | `forge` | `github` | required | Only `github` in version one. |
 | `repo` | string | required | `owner/name` of the site repository. The GitHub App must be installed on it. |
 | `standaardbranch` | string | required | Branch that proposals start from and merge into. |
@@ -33,10 +33,10 @@ A list of sites. Keys are in Dutch.
 | `content.afbeeldingen.pad` | string | none | Where uploaded images are stored. Placeholders: `{paginaslug}` (file name of the page without extension) and `{paginamap}` (folder of the page). Without this block the site refuses images ("Deze site accepteert geen afbeeldingen"). |
 | `content.afbeeldingen.verwijzing` | `relatief` | required in the block | How images are referenced from the page. Only `relatief`. |
 | `review.model` | `goedkeuring` or `direct` | required | `goedkeuring`: "Insturen" asks for review. `direct` (merge at once on "Insturen") is refused in version one: the whole configuration fails to load with "review.model: direct wordt nog niet ondersteund". |
-| `review.mergen-vanuit-schrijver` | boolean | `true` | Whether editorial users may merge (squash) from Schrijver. |
-| `review.vier-ogen` | boolean | `true` | Four eyes: the writer of a proposal cannot merge it in Schrijver, another editorial member decides. A site admin still can; for now that is someone whose linked GitHub account has admin permission on the repository. See [decision 0007](decisions/0007-three-steps-and-four-eyes.md). |
-| `review.redactie` | list of e-mail addresses | `[]` | Editorial list. Editorial is the union of this list and users who linked a GitHub account that has push permission on the repository. |
-| `identiteit.toegestaan` | list of `anoniem`, `gekoppeld`, `op-naam` | all three | Identity choices offered on this site. See [identiteit-en-privacy.md](identiteit-en-privacy.md). |
+| `review.mergen-vanuit-schrijver` | boolean | `true` | Starting value of "Samenvoegen in Schrijver": whether editorial users may merge (squash) from Schrijver. |
+| `review.vier-ogen` | boolean | `true` | Starting value of "Vier ogen": the writer of a proposal cannot merge it in Schrijver, another editorial member decides. A site admin still can. See [decision 0007](decisions/0007-three-steps-and-four-eyes.md). |
+| `review.redactie` | list of e-mail addresses | `[]` | Invited to the redactie once, when the site gets its first settings. An invitation binds at the first login with that verified address and expires after 30 days. The list does not decide who is editorial. |
+| `identiteit.toegestaan` | list of `anoniem`, `gekoppeld`, `op-naam` | all three | Starting value of "Ondertekenen": the identity choices offered on this site. See [identiteit-en-privacy.md](identiteit-en-privacy.md). |
 | `preview.soort` | `bij-push`, `bij-label` or `geen` | required | `bij-push`: a preview exists for every push to the pull request. `bij-label`: a preview exists once the label is set, which Schrijver does at "Insturen". `geen`: no preview link. |
 | `preview.label` | string | required for `bij-label` | Label that triggers the preview build. |
 | `preview.url` | string | required unless `soort` is `geen` | Preview URL pattern. Must contain `{nummer}`, replaced by the pull request number. |
@@ -45,7 +45,28 @@ A list of sites. Keys are in Dutch.
 
 "Voorbeeld" draws Mermaid diagrams the way the MOZa site's build does (NLDD colours, RijksSans, the `nldd:` icons from the design system, a light and a dark variant), for every site. Only the token colours are per site.
 
-Anyone signed in may propose on any site whose repository has the App installed. Editorial may also react, ask for an adjustment and merge, the latter not on a proposal they wrote while `vier-ogen` is on; approving happens on GitHub.
+A starting value is read only for a site that has no settings in Schrijver yet: the first time Schrijver loads it. After that, changing it in `sites.yaml` changes nothing; the site's admins change the setting in Schrijver. A configuration error names the field, for example `sites.yaml: 1.adres: must be a web address such as https://example.org (a starting value: once the site has its settings in Schrijver, those apply)`.
+
+Anyone signed in may propose on any site whose repository has the App installed. Editorial may also react, ask for an adjustment and merge, the latter not on a proposal they wrote while "Vier ogen" is on; approving happens on GitHub.
+
+## Site settings and team
+
+Each site's settings live in Schrijver's database, keyed by its `id`: Naam, Omschrijving, Adres, "Samenvoegen in Schrijver", "Vier ogen" and "Ondertekenen". The site's admins change them, and its team, under Instellingen in "Beheer van <naam>" (`/instellingen/sites/<id>`). Every change writes an audit row ([identiteit-en-privacy.md](identiteit-en-privacy.md#team-management)).
+
+Who may do what, checked on the server at every request:
+
+- **Editorial** decides on proposals: a member of the site's team, as beheerder or redactie, or someone whose linked GitHub account has write or admin permission on the repository.
+- **Site admin** manages the team and the settings, and may merge a proposal they wrote despite four eyes: a beheerder on the team, a platform admin, or someone whose linked GitHub account has admin permission on the repository.
+- **Platform admin** ("Schrijver-beheerder") manages every site, so no site can be locked out. A platform admin is not editorial by that alone: one who decides on proposals adds themselves to the team.
+- Everyone signed in may propose.
+
+A lookup that fails (the database, GitHub) makes no one editorial or admin.
+
+### SCHRIJVER_BEHEERDERS
+
+The platform admins: a comma-separated list of SSO subjects (`sub`), the stable key Schrijver knows a person by, never e-mail addresses. For example `SCHRIJVER_BEHEERDERS=<sub>,<sub>`, with spaces around the commas allowed. A change takes effect when Schrijver starts with the new environment.
+
+Set at least one. `sites.yaml` only invites the redactie, so without a platform admin nobody can manage a site's team until someone is a site admin another way (a linked GitHub account with admin permission on the repository). Everyone finds their own `sub` under Instellingen, as "Je kenmerk bij SSO Rijk", and hands it to the operator who sets this variable. On ZAD it is a user environment variable of the `web` component ([zad/project.yaml](../zad/project.yaml)).
 
 ## Schema (schemas/\<id\>.yaml)
 
