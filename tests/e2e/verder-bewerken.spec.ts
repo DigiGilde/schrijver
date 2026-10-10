@@ -78,6 +78,21 @@ test('the page row and the proposal row both lead back into the open proposal', 
 	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
 });
 
+test('the list offers the shortcut on own proposals only, also to the redactie', async ({
+	page
+}) => {
+	// The test user is beheerder of Digi Handboek: in its redactie, and the writer of one seeded proposal.
+	await page.goto('/sites/digi-handboek/voorstellen?filter=alle');
+	const rows = page.locator('nldd-list[accessible-label="Alle voorstellen"]');
+	await expect(
+		rows.getByRole('link', { name: 'Verder bewerken: Over het handboek: wie de redactie is' })
+	).toBeVisible();
+	await expect(rows.getByRole('link', { name: /^Kennis: het team stelt zich voor/ })).toBeVisible();
+	await expect(
+		rows.getByRole('link', { name: 'Verder bewerken: Kennis: het team stelt zich voor' })
+	).toHaveCount(0);
+});
+
 test('the shortcut of a segmented row reads as a link and gives up its label first', async ({
 	page
 }) => {

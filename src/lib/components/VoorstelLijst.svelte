@@ -113,8 +113,7 @@
 	<nldd-list accessible-label={LABEL[huidig]}>
 		<nldd-inline-dialog slot="empty" text={EMPTY[huidig]}></nldd-inline-dialog>
 		{#each shown as p (p.number)}
-			{@const verder =
-				(p.mine || editorial) && p.verderBewerken.length === 1 ? p.verderBewerken[0] : null}
+			{@const verder = p.mine && p.verderBewerken.length === 1 ? p.verderBewerken[0] : null}
 			{#if verder}
 				<nldd-list-item>
 					<nldd-list-item-segment href={adres(p)} width="full">
