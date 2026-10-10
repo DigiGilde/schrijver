@@ -53,10 +53,9 @@ describe('parseSiteFile', () => {
 		}
 		// Every beheerder of a site reads these under Structuur: no word of GitHub's own.
 		for (const field of ['forge', 'repo', 'standaardbranch']) {
-			const [error] = errorsOf(parseSiteFile(`${field}: x\n${DIGI}`));
-			expect(error.slice(field.length + 1), field).toBe(
-				' hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository het is.'
-			);
+			expect(errorsOf(parseSiteFile(`${field}: x\n${DIGI}`)), field).toEqual([
+				`${field}: hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository het is.`
+			]);
 		}
 	});
 
