@@ -76,7 +76,9 @@ export type Weigering =
 	| { soort: 'niet-geinstalleerd'; repo: string; installeren: string | null }
 	| { soort: 'onbereikbaar' }
 	| { soort: 'al-aangesloten'; repo: string; site: { id: string; naam: string } }
-	| { soort: 'klopt-niet'; repo: string; fouten: string[]; zonderMap: boolean };
+	| { soort: 'klopt-niet'; repo: string; fouten: string[]; zonderMap: boolean }
+	/** The name leads to another repository than the one step 1 showed. */
+	| { soort: 'veranderd'; repo: string };
 
 export type NewSiteField = SettingsField | 'id' | 'email' | 'zichtbaarheid';
 export type NewSiteValues = ReturnType<typeof suggestion>;

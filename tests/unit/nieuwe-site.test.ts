@@ -14,6 +14,7 @@ import { log } from '../../src/lib/log';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
 import { actions, load } from '../../src/routes/instellingen/sites/nieuw/+page.server';
+import { structureFile } from './sites-fixture';
 import {
 	parseNewSite,
 	repositoryName,
@@ -255,6 +256,7 @@ afterAll(() => {
 
 const KENNISBANK = {
 	repo: 'DigiGilde/kennisbank',
+	repoId: '4103',
 	id: 'kennisbank',
 	naam: 'Kennisbank',
 	omschrijving: 'Wat het Digi Gilde weet.',
@@ -381,6 +383,7 @@ describe('step 1', () => {
 		expect(await step('platform', 'https://github.com/digigilde/kennisbank')).toEqual({
 			stap: 2,
 			repo: 'DigiGilde/kennisbank',
+			repoId: 4103,
 			branch: 'main',
 			openbaar: true,
 			voorstel: {
@@ -481,6 +484,30 @@ describe('step 2', () => {
 	it('lets the platform admin choose who sees a site whose repository is public', async () => {
 		await thrown(add('platform', { ...KENNISBANK, zichtbaarheid: 'team' }));
 		expect(await team.settings('kennisbank')).toMatchObject({ zichtbaarheid: 'team' });
+	});
+
+	it('refuses a repository that is no longer the one step 1 showed', async () => {
+		forge.renameRepo('DigiGilde/kennisbank', 'DigiGilde/kennisbank-oud');
+		const files = Object.fromEntries(
+			['site.yaml', 'schema.yaml'].map((name) => [
+				`.schrijver/${name}`,
+				structureFile('kennisbank', name)
+			])
+		);
+		forge.seedRepo('DigiGilde/kennisbank', 'main', files, { id: 4200 });
+		forge.setPublic('DigiGilde/kennisbank', true);
+		const veranderd = {
+			status: 409,
+			data: { weigering: { soort: 'veranderd', repo: 'DigiGilde/kennisbank' } }
+		};
+		expect(await add('platform', KENNISBANK)).toMatchObject(veranderd);
+		const { repoId: _repoId, ...zonder } = KENNISBANK;
+		expect(await add('platform', zonder)).toMatchObject(veranderd);
+		expect((await team.sites()).map((s) => s.id)).not.toContain('kennisbank');
+		expect(await thrown(add('platform', { ...KENNISBANK, repoId: '4200' }))).toMatchObject({
+			status: 303
+		});
+		expect((await team.sites()).find((s) => s.id === 'kennisbank')?.repoId).toBe(4200);
 	});
 
 	it('refuses fields that are not right, and an id that is taken', async () => {

@@ -31,6 +31,8 @@
 				return 'Schrijver kon GitHub niet bereiken.';
 			case 'al-aangesloten':
 				return `${w.repo} hoort al bij de site ${w.site.naam}.`;
+			case 'veranderd':
+				return `${w.repo} is veranderd sinds de controle.`;
 			case 'klopt-niet':
 				return w.zonderMap
 					? `${w.repo} heeft nog geen map .schrijver.`
@@ -117,6 +119,11 @@
 									>Beheer van {weigering.site.naam}</a
 								>.
 							</p>
+						{:else if weigering.soort === 'veranderd'}
+							<p>
+								Onder deze naam staat nu een andere repository op GitHub. Kijk de gegevens hieronder
+								opnieuw na.
+							</p>
 						{:else if weigering.soort === 'klopt-niet'}
 							{#if !weigering.zonderMap}
 								<ul>
@@ -195,6 +202,7 @@
 					}}
 				>
 					<input type="hidden" name="repo" value={data.repo} />
+					<input type="hidden" name="repoId" value={data.repoId} />
 					<nldd-form-field label="Naam in het adres">
 						<nldd-text-field
 							name="id"

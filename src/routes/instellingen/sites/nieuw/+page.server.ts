@@ -91,6 +91,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		stap: 2 as const,
 		repo: repo.fullName,
+		repoId: repo.id,
 		branch: repo.defaultBranch,
 		openbaar: repo.isPublic,
 		voorstel: suggestion(repo, taken)
@@ -104,6 +105,9 @@ export const actions: Actions = {
 		const inspection = await inspect(String(form.get('repo') ?? ''));
 		if (!inspection.ok) return fail(409, { weigering: inspection.weigering });
 		const { repo, taken } = inspection;
+		if (form.get('repoId') !== String(repo.id)) {
+			return fail(409, { weigering: { soort: 'veranderd', repo: repo.fullName } });
+		}
 		const parsed = parseNewSite(form, taken, repo.isPublic);
 		if (!parsed.ok) return fail(400, { fouten: parsed.fouten, waarden: parsed.waarden });
 
