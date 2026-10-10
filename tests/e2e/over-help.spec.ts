@@ -10,6 +10,12 @@ const clearance = (page: Page, id: string) =>
 		return document.getElementById(target)!.getBoundingClientRect().top - bar.bottom;
 	}, id);
 
+/** Lets the browser lay out and paint twice, so what a script does after the first frame has happened. */
+const afterFrames = (page: Page) =>
+	page.evaluate(
+		() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+	);
+
 /** The element was scrolled to: it sits just below the sticky header, not merely somewhere in the viewport. */
 async function expectScrolledTo(page: Page, id: string) {
 	await expect
@@ -73,6 +79,44 @@ test.describe('Help, how a change reaches the site', () => {
 		await page.getByRole('link', { name: 'Zo komt een wijziging op de site' }).click();
 		await expect(page).toHaveURL(/\/help#voorstellen$/);
 		await expectScrolledTo(page, 'voorstellen');
+	});
+
+	test('scrolls to its fragment on a direct load, below the sticky header', async ({ page }) => {
+		await page.goto('/help#voorstellen');
+		await expectScrolledTo(page, 'voorstellen');
+		await afterFrames(page);
+		const after = await clearance(page, 'voorstellen');
+		expect(after, 'nothing scrolls it away later').toBeGreaterThanOrEqual(7);
+		expect(after, 'nothing scrolls it away later').toBeLessThanOrEqual(40);
+	});
+
+	test('scrolls to it once: a reader who scrolls away stays there', async ({ page }) => {
+		await page.goto('/help#voorstellen');
+		await expectScrolledTo(page, 'voorstellen');
+		await page.evaluate(() => window.scrollTo(0, 0));
+		await afterFrames(page);
+		expect(await page.evaluate(() => window.scrollY)).toBe(0);
+	});
+
+	for (const fragment of ['#bestaat-niet', '#%E0%A4%A']) {
+		test(`leaves the fragment ${fragment}, which names no element, alone`, async ({ page }) => {
+			const errors: Error[] = [];
+			page.on('pageerror', (error) => errors.push(error));
+			await page.goto(`/help${fragment}`);
+			await page.evaluate(() => customElements.whenDefined('nldd-page'));
+			await afterFrames(page);
+			expect(await page.evaluate(() => window.scrollY)).toBe(0);
+			expect(errors).toEqual([]);
+		});
+	}
+
+	test.describe('at 400 px', () => {
+		test.use({ viewport: { width: 400, height: 800 } });
+
+		test('scrolls to its fragment on a direct load, below the sticky header', async ({ page }) => {
+			await page.goto('/help#voorstellen');
+			await expectScrolledTo(page, 'voorstellen');
+		});
 	});
 
 	test('has its address in the server-rendered page, where a browser looks for the fragment', async ({

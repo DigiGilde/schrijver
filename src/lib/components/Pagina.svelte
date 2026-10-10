@@ -48,6 +48,39 @@
 	});
 
 	/*
+	 * The browser scrolls to the fragment of a direct load before the design system upgrades nldd-page,
+	 * which then resets the scroll to the top. Once the page is laid out and its scroll padding measured,
+	 * the fragment is scrolled to again. A navigation inside the app finds nldd-page defined and the
+	 * router scrolls it.
+	 */
+	onMount(() => {
+		const id = fragment();
+		if (!id || customElements.get('nldd-page')) return;
+		let cancelled = false;
+		void (async () => {
+			await customElements.whenDefined('nldd-page');
+			const upgraded = document.querySelector<HTMLElement & { updateComplete?: Promise<unknown> }>(
+				'nldd-page'
+			);
+			await upgraded?.updateComplete;
+			// The first frame reports the new header height to the measuring effect below; the second follows it.
+			await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)));
+			if (!cancelled) document.getElementById(id)?.scrollIntoView();
+		})();
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	function fragment(): string {
+		try {
+			return decodeURIComponent(location.hash.slice(1));
+		} catch {
+			return '';
+		}
+	}
+
+	/*
 	 * Everything that sticks while the document scrolls: the header, and the bars in the content that
 	 * mark themselves with data-plakt. A fragment or a focused element has to stop below them
 	 * (WCAG 2.4.11). Those bars stick only below a sticky header.
