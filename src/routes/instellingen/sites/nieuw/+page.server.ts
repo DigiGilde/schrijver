@@ -16,10 +16,17 @@ import {
 } from './nieuwe-site';
 
 /** Only a platform admin adds a site; anyone else gets the page that does not exist. */
-function platformAdmin(locals: App.Locals) {
+function platformAdmin(locals: App.Locals, action: string) {
 	const user = locals.user;
 	if (!user) redirect(303, '/login');
-	if (!isPlatformAdmin(user.session.sub)) error(404, 'Deze pagina bestaat niet');
+	if (!isPlatformAdmin(user.session.sub)) {
+		log.warn('beheer.refused', {
+			page: 'site-toevoegen',
+			action,
+			actor: actorPseudonym(user.session)
+		});
+		error(404, 'Deze pagina bestaat niet');
+	}
 	return user;
 }
 
@@ -73,7 +80,7 @@ async function inspect(typed: string): Promise<Inspection> {
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	platformAdmin(locals);
+	platformAdmin(locals, 'load');
 	const typed = url.searchParams.get('repo');
 	if (typed === null) return { stap: 1 as const, repo: '', weigering: null };
 	const inspection = await inspect(typed);
@@ -89,7 +96,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
 	toevoegen: async ({ locals, request }) => {
-		const user = platformAdmin(locals);
+		const user = platformAdmin(locals, 'toevoegen');
 		const form = await request.formData();
 		const inspection = await inspect(String(form.get('repo') ?? ''));
 		if (!inspection.ok) return fail(409, { weigering: inspection.weigering });

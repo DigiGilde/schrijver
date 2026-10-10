@@ -490,6 +490,29 @@ describe('proposal endpoints', () => {
 		expect(calls).not.toContain('@');
 	});
 
+	it('logs every refusal with the site, the number, the status and the actor pseudonym', async () => {
+		const warn = vi.mocked(log.warn);
+		warn.mockClear();
+		await call(mergen, { sub: 'red', body: { sha: 'abc1234' } });
+		await call(opmerking, { who: 'vreemde', body: { body: 'x' } });
+		await call(aanpassing, { who: 'auteur', body: { body: 'x' } });
+		await call(opnieuwInsturen, { who: 'vreemde' });
+		await call(insturen, { nummer: '99' });
+		await call(insturen, { who: 'auteur' });
+		await settings(true, true);
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		await call(mergen, { sub: 'red', who: 'auteur', body: { sha } });
+		expect(warn.mock.calls).toEqual([
+			['proposal.mergen_refused', { site: 'moza', pr: 1, actor: 'p-red', status: 409 }],
+			['proposal.opmerking_refused', { site: 'moza', pr: 1, actor: 'p-s', status: 403 }],
+			['proposal.aanpassing_refused', { site: 'moza', pr: 1, actor: 'p-s', status: 403 }],
+			['proposal.opnieuw-insturen_refused', { site: 'moza', pr: 1, actor: 'p-s', status: 403 }],
+			['proposal.insturen_refused', { site: 'moza', pr: 99, actor: 'p-s', status: 404 }],
+			['proposal.mergen_refused', { site: 'moza', pr: 1, actor: 'p-red', status: 403 }]
+		]);
+		expect(JSON.stringify(warn.mock.calls)).not.toMatch(/@|"red"|"s"/);
+	});
+
 	it('excludes a linked author from the reviewers', async () => {
 		for (const l of ['jan', 'piet', 'kees', 'els', 'tom', 'zoe'])
 			forge.permissionByLogin.set(l, 'write');

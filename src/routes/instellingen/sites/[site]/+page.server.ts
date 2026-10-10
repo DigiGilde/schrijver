@@ -14,13 +14,20 @@ import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './form
  * beheerder of it. Anyone else gets the same 404 as for a site that does not exist. A site whose
  * files are not valid is managed here too.
  */
-async function managed(event: RequestEvent) {
+async function managed(event: RequestEvent, action: string) {
 	const user = event.locals.user;
 	if (!user) redirect(303, '/login');
 	const status = getConfigStore().status(event.params.site ?? '');
 	const asker = { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
-	if (!status || !(await canManageSite(status.site, asker, getForge())))
+	if (!status || !(await canManageSite(status.site, asker, getForge()))) {
+		log.warn('beheer.refused', {
+			page: 'beheer',
+			site: status?.site.id ?? null,
+			action,
+			actor: actorPseudonym(user.session)
+		});
 		error(404, 'Deze pagina bestaat niet');
+	}
 	const site = status.site;
 	const team = teamStore();
 	const settings = await siteSettings(site, team);
@@ -82,7 +89,7 @@ function refused(m: Managed, actie: 'rol' | 'verwijderen', sub: string, change: 
 }
 
 export const load: PageServerLoad = async (event) => {
-	const { site, status, settings, session, team, actor } = await managed(event);
+	const { site, status, settings, session, team, actor } = await managed(event, 'load');
 	const [members, invitations] = await Promise.all([
 		team.members(site.id),
 		team.invitations(site.id)
@@ -125,7 +132,7 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	toevoegen: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'toevoegen');
 		const parsed = parseAdd(await event.request.formData());
 		if (!parsed.ok) {
 			return fail(400, { actie: 'toevoegen', fout: parsed.fout, email: parsed.email });
@@ -162,7 +169,7 @@ export const actions: Actions = {
 	},
 
 	rol: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'rol');
 		const form = await event.request.formData();
 		const sub = String(form.get('sub') ?? '');
 		const rol = form.get('rol');
@@ -186,7 +193,7 @@ export const actions: Actions = {
 	},
 
 	verwijderen: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'verwijderen');
 		const sub = String((await event.request.formData()).get('sub') ?? '');
 		const change = await m.team.removeMember(m.site.id, sub, m.actor);
 		if (!change.ok) return refused(m, 'verwijderen', sub, change);
@@ -204,7 +211,7 @@ export const actions: Actions = {
 	},
 
 	intrekken: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'intrekken');
 		const id = String((await event.request.formData()).get('id') ?? '');
 		const revoked = await m.team.revokeInvitation(m.site.id, id, m.actor.sub);
 		if (!revoked) {
@@ -222,8 +229,14 @@ export const actions: Actions = {
 	},
 
 	verwijderSite: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'verwijderSite');
 		if (!m.actor.platformAdmin) {
+			log.warn('beheer.refused', {
+				page: 'beheer',
+				site: m.site.id,
+				action: 'verwijderSite',
+				actor: actorPseudonym(m.session)
+			});
 			return fail(403, {
 				actie: 'verwijderSite',
 				fout: 'Alleen een beheerder van Schrijver haalt een site uit Schrijver.'
@@ -236,7 +249,7 @@ export const actions: Actions = {
 	},
 
 	instellingen: async (event) => {
-		const m = await managed(event);
+		const m = await managed(event, 'instellingen');
 		const parsed = parseSettings(await event.request.formData());
 		if (!parsed) return fail(400, { actie: 'instellingen', fout: 'Ongeldige aanvraag.' });
 		if (!parsed.ok) {

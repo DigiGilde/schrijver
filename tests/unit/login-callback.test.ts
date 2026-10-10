@@ -71,8 +71,38 @@ describe('login callback failure', () => {
 		expect(line).toMatchObject({
 			level: 'error',
 			event: 'auth.callback_failed',
-			reason: 'state mismatch'
+			error: 'Error'
 		});
 		expect(JSON.stringify(line)).not.toContain('SECRETCODE');
+		expect(JSON.stringify(line)).not.toContain('state mismatch');
+	});
+
+	it('logs the kind of a database error at login, never its message', async () => {
+		const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+		vi.mocked(finishLogin).mockResolvedValueOnce({
+			sub: 'abc',
+			name: 'Jan',
+			email: 'jan@example.org',
+			emailVerified: true,
+			organisation: null,
+			iat: Date.now(),
+			exp: Date.now() + 60_000
+		});
+		vi.mocked(recordLogin).mockRejectedValueOnce(
+			Object.assign(new Error('duplicate key: (email)=(jan@example.org)'), { code: '23505' })
+		);
+		const cookies = { get: vi.fn(() => 'sealed'), delete: vi.fn(), set: vi.fn() };
+		const res = await Promise.resolve()
+			.then(() =>
+				GET({
+					url: new URL('http://localhost/login/callback?code=c&state=s'),
+					cookies
+				} as unknown as Parameters<typeof GET>[0])
+			)
+			.catch((r: unknown) => r);
+		expect(res).toMatchObject({ status: 303, location: '/login/mislukt' });
+		const line = JSON.parse(String(write.mock.calls[0][0]));
+		expect(line).toMatchObject({ event: 'auth.callback_failed', error: 'Error', code: '23505' });
+		expect(JSON.stringify(line)).not.toContain('@');
 	});
 });

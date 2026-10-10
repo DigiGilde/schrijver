@@ -233,6 +233,17 @@ describe('who may add a site', () => {
 		});
 		expect((await team.sites()).map((s) => s.id)).not.toContain('kennisbank');
 	});
+
+	it('logs every refused load and action by pseudonym, never with an address or a sub', async () => {
+		await thrown(step('baas', 'DigiGilde/kennisbank'));
+		await thrown(add('baas', KENNISBANK));
+		const actor = expect.stringMatching(/^[0-9a-f]{12}$/);
+		expect(vi.mocked(log.warn).mock.calls).toEqual([
+			['beheer.refused', { page: 'site-toevoegen', action: 'load', actor }],
+			['beheer.refused', { page: 'site-toevoegen', action: 'toevoegen', actor }]
+		]);
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toMatch(/@|"baas"/);
+	});
 });
 
 describe('step 1', () => {

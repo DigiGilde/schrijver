@@ -10,7 +10,7 @@ import {
 } from '$lib/auth/session';
 import { recordLogin } from '$lib/auth/team-store';
 import { getPrefs } from '$lib/auth/users';
-import { log } from '$lib/log';
+import { errorFields, log } from '$lib/log';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	let session;
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		await recordLogin(session);
 		onboarded = (await getPrefs(session.sub)).onboarded;
 	} catch (err) {
-		log.error('auth.callback_failed', { reason: err instanceof Error ? err.message : 'unknown' });
+		log.error('auth.callback_failed', errorFields(err));
 		cookies.delete(LOGIN_COOKIE, { path: '/' });
 		redirect(303, '/login/mislukt');
 	}

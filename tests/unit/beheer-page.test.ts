@@ -127,6 +127,22 @@ describe('who may manage a site', () => {
 		}
 	});
 
+	it('logs every refused load and action by pseudonym, never with an address or a sub', async () => {
+		vi.mocked(log.warn).mockClear();
+		await thrown(load(event('red', DH)) as Promise<unknown>);
+		await thrown(act('rol', 'red', DH, { rol: 'beheerder' }));
+		await thrown(load(event('vreemd', 'iemand@example.org')) as Promise<unknown>);
+		await act('verwijderSite', 'baas', DH);
+		const actor = expect.stringMatching(/^[0-9a-f]{12}$/);
+		expect(vi.mocked(log.warn).mock.calls).toEqual([
+			['beheer.refused', { page: 'beheer', site: DH, action: 'load', actor }],
+			['beheer.refused', { page: 'beheer', site: DH, action: 'rol', actor }],
+			['beheer.refused', { page: 'beheer', site: null, action: 'load', actor }],
+			['beheer.refused', { page: 'beheer', site: DH, action: 'verwijderSite', actor }]
+		]);
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toMatch(/@|"red"|"baas"|vreemd/);
+	});
+
 	it('checks every action, not only the page', async () => {
 		for (const name of Object.keys(actions) as Action[]) {
 			expect(

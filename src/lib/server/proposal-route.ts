@@ -48,16 +48,21 @@ export function proposalAction(action: string, handler: Handler) {
 			};
 			const acts = await canAct(user, site, pr, forge);
 			const response = await handler({ site, settings, forge, pr, acts, user, identity }, event);
-			if (response.ok)
-				log.info(`proposal.${action}`, {
-					site: site.id,
-					pr: nummer,
-					actor: actorPseudonym(current.session)
-				});
+			const fields = { site: site.id, pr: nummer, actor: actorPseudonym(current.session) };
+			if (response.ok) log.info(`proposal.${action}`, fields);
+			else log.warn(`proposal.${action}_refused`, { ...fields, status: response.status });
 			return response;
 		} catch (e) {
 			if (e instanceof ForgeError) {
-				if (e.status === 404) return refuse(404, 'Voorstel niet gevonden');
+				if (e.status === 404) {
+					log.warn(`proposal.${action}_refused`, {
+						site: site.id,
+						pr: nummer,
+						actor: actorPseudonym(current.session),
+						status: 404
+					});
+					return refuse(404, 'Voorstel niet gevonden');
+				}
 				log.warn(`proposal.${action}_failed`, {
 					site: site.id,
 					pr: nummer,
