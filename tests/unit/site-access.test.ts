@@ -33,6 +33,7 @@ interface Request {
 	params?: Record<string, string>;
 	data?: boolean;
 	user?: string | null;
+	githubLogin?: string;
 	/** SvelteKit's fetch of the event, with which the guard asks for the page that does not exist. */
 	fetch?: (input: URL, init?: RequestInit) => Promise<Response>;
 }
@@ -40,7 +41,15 @@ interface Request {
 /** Runs the guard as SvelteKit would after routing: the path without `__data.json`, the route's params. */
 async function guard(
 	path: string,
-	{ method = 'GET', headers = {}, params, data = false, user = 'vreemd', fetch }: Request = {}
+	{
+		method = 'GET',
+		headers = {},
+		params,
+		data = false,
+		user = 'vreemd',
+		githubLogin,
+		fetch
+	}: Request = {}
 ) {
 	const resolve = vi.fn(async () => new Response('route'));
 	const event = {
@@ -55,7 +64,7 @@ async function guard(
 				prefs: {
 					sub: user,
 					identity: 'anoniem',
-					githubLogin: null,
+					githubLogin: githubLogin ?? null,
 					githubId: null,
 					onboarded: true
 				}
@@ -225,6 +234,18 @@ describe('the site guard', () => {
 		}
 		const malformed = await guard('/sites/%E0%A4%A');
 		expect(malformed.resolve).not.toHaveBeenCalled();
+	});
+
+	it('lets no one in when the team or GitHub cannot be read', async () => {
+		vi.spyOn(team, 'settings').mockRejectedValueOnce(new Error('database weg'));
+		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();
+		vi.spyOn(team, 'role').mockRejectedValueOnce(new Error('database weg'));
+		expect((await guard('/sites/werkplaats', { user: 'lid' })).resolve).not.toHaveBeenCalled();
+		forge.permissionByLogin.set('lezer', 'read');
+		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		const { resolve } = await guard('/sites/werkplaats', { githubLogin: 'lezer' });
+		expect(resolve).not.toHaveBeenCalled();
+		expect((await guard('/sites/werkplaats', { githubLogin: 'lezer' })).resolve).toHaveBeenCalled();
 	});
 
 	it('lets no one in when the sites or the user cannot be told', async () => {

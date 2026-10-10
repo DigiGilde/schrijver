@@ -82,7 +82,7 @@ let handle: Handle;
 let address = 0;
 
 /** One request through the composed server hook, as SvelteKit makes it after routing, as `als` or the test user. */
-async function request(file: string, call: Call, als?: string) {
+async function request(file: string, call: Call, als?: string, using?: Handle) {
 	const folder = folderOf(file);
 	const { path, params } = routeOf(folder);
 	const resolve = vi.fn(async () => new Response('route'));
@@ -108,7 +108,7 @@ async function request(file: string, call: Call, als?: string) {
 		state: { tracing: { record_span: ({ fn }: { fn: (c: unknown) => unknown }) => fn({}) } }
 	};
 	const response: Response = await with_request_store(store as never, () =>
-		handle({ event, resolve } as unknown as Parameters<Handle>[0])
+		(using ?? handle)({ event, resolve } as unknown as Parameters<Handle>[0])
 	);
 	return { response, resolve };
 }
@@ -169,6 +169,24 @@ describe('the route files of a site', () => {
 			.filter((folder) => folder.endsWith('[site]'));
 		// The beheer page checks who may see the site itself, for a site with files that are not valid too.
 		expect(elsewhere).toEqual(['instellingen/sites/[site]']);
+	});
+});
+
+describe('this test', () => {
+	it('fails for a route that escapes the guard', async () => {
+		// The server hook as it would be with a guard that forgets the API.
+		const leaky: Handle = ({ event, resolve }) =>
+			event.url.pathname.startsWith('/api/') ? resolve(event) : handle({ event, resolve });
+		const escaped = new Set<string>();
+		for (const file of routeFiles) {
+			for (const call of callsOf(file)) {
+				const { resolve } = await request(file, call, 'derde', leaky);
+				if (resolve.mock.calls.length > 0) escaped.add(file);
+			}
+		}
+		expect([...escaped].sort()).toEqual(
+			routeFiles.filter((file) => file.startsWith('api/')).sort()
+		);
 	});
 });
 
