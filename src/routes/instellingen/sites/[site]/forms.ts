@@ -6,6 +6,7 @@ import {
 	type Role,
 	type SettingsValues
 } from '$lib/auth/team';
+import { isWebAddress } from '$lib/config/site-address';
 
 /** How a role reads in a sentence: "is nu beheerder", "is nu lid van de redactie". */
 export const ROLE_IN_SENTENCE: Record<Role, string> = {
@@ -40,15 +41,6 @@ export type SettingsField = 'naam' | 'omschrijving' | 'adres';
 export type SettingsForm =
 	| { ok: true; values: SettingsValues }
 	| { ok: false; fouten: Partial<Record<SettingsField, string>> };
-
-function isWebAddress(value: string): boolean {
-	try {
-		const url = new URL(value);
-		return (url.protocol === 'https:' || url.protocol === 'http:') && url.hostname !== '';
-	} catch {
-		return false;
-	}
-}
 
 const onOff = (value: FormDataEntryValue | null) =>
 	value === 'aan' ? true : value === 'uit' ? false : null;

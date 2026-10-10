@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressText } from '../../src/lib/config/site-address';
+import { addressText, isWebAddress } from '../../src/lib/config/site-address';
 
 describe('addressText', () => {
 	it('leaves the host and the path, without the scheme and the closing slash', () => {
@@ -19,5 +19,27 @@ describe('addressText', () => {
 
 	it('gives back what is not an address as it is', () => {
 		expect(addressText('geen adres')).toBe('geen adres');
+	});
+});
+
+describe('isWebAddress', () => {
+	it('takes an address over https or http with a host', () => {
+		for (const value of ['https://example.org/', 'http://example.org/pr-1/?x=1#kop']) {
+			expect(isWebAddress(value), value).toBe(true);
+		}
+	});
+
+	it('refuses everything else', () => {
+		for (const value of [
+			'javascript:alert(1)',
+			'data:text/html,<p>x</p>',
+			'ftp://example.org',
+			'mailto:naam@example.org',
+			'https://',
+			'example.org',
+			''
+		]) {
+			expect(isWebAddress(value), value).toBe(false);
+		}
 	});
 });
