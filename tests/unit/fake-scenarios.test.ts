@@ -146,6 +146,12 @@ describe('the fake fixtures of the local preview', () => {
 				'Weekly 3 september: de terugblik',
 				ANYONE,
 				/^De pagina is intussen op de site veranderd\. Daardoor kan je voorstel /
+			],
+			[
+				'moza-site',
+				'Facilitaire diensten: wie je belt',
+				ANYONE,
+				/^De redactie vraagt je iets aan te passen\. .* er op GitHub opnieuw naar\.$/
 			]
 		];
 		for (const [site, title, redactie, expected] of rows) {
@@ -183,7 +189,8 @@ describe('the fake fixtures of the local preview', () => {
 			['Kennis: het team stelt zich voor', false],
 			['Weekly 23 september: de demo', false],
 			['Weekly 10 september: de agenda', false],
-			['Weekly 3 september: de terugblik', true]
+			['Weekly 3 september: de terugblik', true],
+			['Facilitaire diensten: wie je belt', true]
 		]);
 	});
 

@@ -9,7 +9,7 @@ const zin = (page: Page) => page.locator('nldd-text.zin');
 const knop = (page: Page, text: string) => page.locator(`nldd-box nldd-button[text="${text}"]`);
 const ZELF = 'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.';
 const GOEDKEURING =
-	'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.';
+	'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.';
 
 async function openSeeded(page: Page, site: string, title: string) {
 	await page.goto(`/sites/${site}/voorstellen?filter=alle`);
@@ -36,10 +36,12 @@ test('the writer is blocked on the proposal they sent in, and another editor is 
 	await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
 	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
 
+	// Derde Collega has no GitHub account: someone with rights there approves.
 	await als(page, 'derde');
 	await page.reload();
 	await expect(zin(page)).toHaveText(GOEDKEURING);
-	await expect(knop(page, 'Goedkeuren op GitHub')).toBeVisible();
+	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
+	await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
 });
 
 test('another editor may merge the approved proposal that the test user wrote', async ({

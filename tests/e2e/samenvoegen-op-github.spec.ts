@@ -31,15 +31,22 @@ test('with merging in Schrijver switched off, the editors merge on GitHub', asyn
 		.getByRole('link', { name: /^Weekly 23 september: de demo/ })
 		.click();
 	await expect(zin(page)).toHaveText(
-		'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.'
 	);
 	const voorstel = page.url();
 
 	await samenvoegenInSchrijver(page, false);
 	try {
 		await page.goto(voorstel);
-		await expect(zin(page)).toHaveText('Bij deze site gebeurt samenvoegen op GitHub.');
-		await expect(page.locator('nldd-box nldd-button[text="Beoordelen op GitHub"]')).toBeVisible();
+		// The test user has no GitHub account: someone with rights there merges.
+		await expect(zin(page)).toHaveText(
+			'Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.'
+		);
+		await expect(page.locator('nldd-box nldd-button[text="Beoordelen op GitHub"]')).toHaveCount(0);
+		await expect(page.locator('nldd-box nldd-button[text="Vraag om aanpassing"]')).toHaveAttribute(
+			'appearance',
+			'primary'
+		);
 		await expect(page.locator('nldd-box nldd-button[text="Samenvoegen"]')).toHaveCount(0);
 		await page.goto('/sites/moza-site/over');
 		await expect(
@@ -51,6 +58,6 @@ test('with merging in Schrijver switched off, the editors merge on GitHub', asyn
 
 	await page.goto(voorstel);
 	await expect(zin(page)).toHaveText(
-		'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.'
 	);
 });

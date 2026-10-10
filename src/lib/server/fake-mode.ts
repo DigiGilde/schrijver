@@ -380,6 +380,23 @@ export async function seedScenarios(
 			),
 			mine: true
 		});
+		const onGitHub = await seedProposal(forge, MOZA, {
+			branch: 'schrijver/moza-site/facilitaire-diensten',
+			title: 'Facilitaire diensten: wie je belt',
+			trailer: own,
+			path: 'content/handboek/werkwijze/facilitaire-diensten.md',
+			text: 'Voor een pas of een laptop bel je de servicedesk.',
+			sent: true
+		});
+		forge.reviewOnGitHub(
+			MOZA,
+			onGitHub,
+			'pietersen',
+			'changes_requested',
+			'Noem ook het telefoonnummer van de servicedesk.',
+			daysAgo(1)
+		);
+		written.push({ siteId: 'moza-site', number: onGitHub, mine: true });
 	}
 	return written;
 }

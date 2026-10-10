@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { als, alsTestgebruiker } from './als';
 
 const stap = (page: Page) =>
 	page.locator('nldd-step-bar[accessible-label="Voortgang van dit voorstel"]');
@@ -7,6 +8,18 @@ const huidigeStap = (page: Page, naam: string) =>
 	stap(page).locator(`nldd-step-bar-item[status="current"][text="${naam}"]`);
 const zin = (page: Page) => page.locator('nldd-text.zin');
 const gesprek = (page: Page) => page.locator('ol.gesprek > li');
+/** A button of the block that says what now. */
+const knop = (page: Page, text: string) => page.locator(`nldd-box nldd-button[text="${text}"]`);
+
+async function openSeeded(page: Page, site: string, title: string) {
+	await page.goto(`/sites/${site}/voorstellen?filter=alle`);
+	await page
+		.locator('nldd-list[accessible-label="Alle voorstellen"]')
+		.getByRole('link', { name: new RegExp(`^${title}`) })
+		.first()
+		.click();
+	await expect(zin(page)).toBeVisible();
+}
 
 /** The headings as Chromium's accessibility tree has them: Playwright takes the level of an h1 from its tag. */
 async function outline(page: Page): Promise<[string, number][]> {
@@ -23,7 +36,9 @@ async function outline(page: Page): Promise<[string, number][]> {
 
 // The merge changes main of the forge that all specs share. On a page no other spec edits, their
 // saves meet no newer version, whatever order the spec files run in.
-test('sends in, asks for an adjustment, sends in again, reacts and merges', async ({ page }) => {
+test('sends in an own proposal, reacts and merges it, as a writer who may merge', async ({
+	page
+}) => {
 	await page.goto('/sites/digi-handboek/bewerken/onboarding/hybride-werken.md');
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
@@ -107,51 +122,24 @@ test('sends in, asks for an adjustment, sends in again, reacts and merges', asyn
 			])
 		);
 
-	// Sent in: on this site without four eyes, the writer who is an editor decides.
+	// Sent in: on this site without four eyes, the writer in the redactie may merge it.
 	await page.getByRole('button', { name: 'Insturen' }).click();
 	await expect(huidigeStap(page, 'Ingestuurd')).toBeVisible();
-	await expect(zin(page)).toHaveText(/^Jij beslist\. Klopt de wijziging/);
-	await expect(zin(page)).toBeFocused();
-
-	// Vraag om aanpassing turns the reaction form into the request.
-	await page.getByRole('button', { name: 'Vraag om aanpassing' }).click();
-	const veld = page.getByRole('textbox', { name: 'Je reactie' });
-	await expect(veld).toBeFocused();
-	await expect(page.locator('p[role="status"]')).toHaveText(
-		'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.'
-	);
-	await expect(page.locator('nldd-form-field-help-text')).toContainText(
-		'Schrijf wat er anders moet.'
-	);
-	await page.getByRole('button', { name: 'Annuleer' }).click();
-	await expect(veld).toBeFocused();
-	await expect(page.locator('form').getByRole('button', { name: 'Plaats reactie' })).toBeVisible();
-	await page.getByRole('button', { name: 'Vraag om aanpassing' }).click();
-	await page.locator('form').getByRole('button', { name: 'Vraag om aanpassing' }).click();
-	await expect(page.locator('nldd-form-field-help-text')).toHaveText(
-		'Schrijf eerst wat er anders moet'
-	);
-	await veld.fill('Kun je de werkplekken als lijst zetten?');
-	await page.locator('form').getByRole('button', { name: 'Vraag om aanpassing' }).click();
-	await expect(page.getByText('Je vraag om aanpassing is geplaatst').first()).toBeVisible();
 	await expect(zin(page)).toHaveText(
-		'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder.'
+		'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.'
 	);
 	await expect(zin(page)).toBeFocused();
-	const vraag = gesprek(page).filter({ hasText: 'Kun je de werkplekken als lijst zetten?' });
-	await expect(vraag).toContainText('Vraagt om een aanpassing');
-	// instellingen.spec.ts switches the shared test user to Op naam for a moment.
-	await expect(vraag.locator('nldd-identity')).toHaveAttribute(
-		'text',
-		/^(Anoniem, codenaam [0-9a-f]{12}|Test Gebruiker)$/
+	await expect(knop(page, 'Samenvoegen')).toHaveAttribute('appearance', 'primary');
+	await expect(knop(page, 'Verder bewerken')).toBeVisible();
+	await expect(knop(page, 'Vraag om aanpassing')).toHaveCount(0);
+
+	// An empty reaction is refused with the focus on the field.
+	const veld = page.getByRole('textbox', { name: 'Je reactie' });
+	await page.locator('form#reactie').getByRole('button', { name: 'Plaats reactie' }).click();
+	await expect(veld).toBeFocused();
+	await expect(page.locator('form#reactie nldd-form-field-help-text')).toHaveText(
+		'Schrijf eerst je reactie'
 	);
-	await expect(vraag).toContainText('Redactie ·');
-	await expect(page.locator('form').getByRole('button', { name: 'Plaats reactie' })).toBeVisible();
-
-	await page.getByRole('button', { name: 'Opnieuw insturen' }).click();
-	await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
-	await expect(zin(page)).toHaveText(/^Jij beslist\./);
-
 	await veld.fill('Aangepast, de werkplekken staan nu in een lijst.');
 	await page.getByRole('button', { name: 'Plaats reactie' }).click();
 	await expect(page.getByText('Je reactie is geplaatst').first()).toBeVisible();
@@ -168,6 +156,91 @@ test('sends in, asks for an adjustment, sends in again, reacts and merges', asyn
 		'https://digihandboek.rijks.app/'
 	);
 	await expect(page.getByRole('textbox', { name: 'Je reactie' })).toHaveCount(0);
+});
+
+test('asks the writer for an adjustment, and gets it sent in again', async ({ page }) => {
+	// Derde Collega writes on MOZa, which asks for an approval on GitHub. The test user, in the same
+	// redactie and without a GitHub account, decides. Only this test edits this page.
+	await als(page, 'derde');
+	await page.goto('/sites/moza-site/bewerken/handboek/over-moza/geschiedenis.md');
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nSinds 2024 heet het programma MOZa.');
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await knop(page, 'Insturen').click();
+	await expect(zin(page)).toHaveText(
+		'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
+	);
+	const voorstel = page.url();
+
+	await alsTestgebruiker(page);
+	await page.goto(voorstel);
+	await expect(zin(page)).toHaveText(
+		'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.'
+	);
+	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
+	await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
+
+	// Vraag om aanpassing turns the reaction form into the request; a link in its help text leads back.
+	await knop(page, 'Vraag om aanpassing').click();
+	const veld = page.getByRole('textbox', { name: 'Je reactie' });
+	const formulier = page.locator('form#reactie');
+	await expect(veld).toBeFocused();
+	await expect(page.locator('p[role="status"]')).toHaveText(
+		'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.'
+	);
+	await expect(formulier.getByRole('button', { name: 'Annuleer' })).toHaveCount(0);
+	await formulier.getByRole('link', { name: 'Toch een gewone reactie plaatsen' }).click();
+	await expect(veld).toBeFocused();
+	await expect(page.locator('p[role="status"]')).toHaveText(
+		'Je reactie is weer een gewone reactie.'
+	);
+	await expect(formulier.getByRole('button', { name: 'Plaats reactie' })).toBeVisible();
+	await knop(page, 'Vraag om aanpassing').click();
+	await formulier.getByRole('button', { name: 'Vraag om aanpassing' }).click();
+	await expect(veld).toBeFocused();
+	await expect(formulier.locator('nldd-form-field-help-text').first()).toHaveText(
+		'Schrijf eerst wat er anders moet'
+	);
+	await expect(
+		formulier.getByRole('link', { name: 'Toch een gewone reactie plaatsen' })
+	).toBeVisible();
+	await veld.fill('Noem ook het jaar waarin het programma begon.');
+	await formulier.getByRole('button', { name: 'Vraag om aanpassing' }).click();
+	await expect(page.getByText('Je vraag om aanpassing is geplaatst').first()).toBeVisible();
+	await expect(zin(page)).toHaveText(
+		'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.'
+	);
+	await expect(zin(page)).toBeFocused();
+	await expect(knop(page, 'Opnieuw insturen')).toHaveCount(0);
+	const vraag = gesprek(page).filter({ hasText: 'Noem ook het jaar waarin het programma begon.' });
+	await expect(vraag).toContainText('Vraagt om een aanpassing');
+	// instellingen.spec.ts switches the shared test user to Op naam for a moment.
+	await expect(vraag.locator('nldd-identity')).toHaveAttribute(
+		'text',
+		/^(Anoniem, codenaam [0-9a-f]{12}|Test Gebruiker)$/
+	);
+	await expect(vraag).toContainText('Redactie ·');
+
+	// The writer reads the request and sends the proposal in again.
+	await als(page, 'derde');
+	await page.goto(voorstel);
+	await expect(zin(page)).toHaveText(
+		'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
+	);
+	await expect(knop(page, 'Verder bewerken')).toHaveAttribute('appearance', 'primary');
+	await knop(page, 'Opnieuw insturen').click();
+	await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
+	await expect(zin(page)).toHaveText(
+		'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
+	);
+	await expect(zin(page)).toBeFocused();
+	await expect(gesprek(page).last()).toContainText('Klaar voor beoordeling');
+
+	await alsTestgebruiker(page);
+	await page.goto(voorstel);
+	await expect(zin(page)).toHaveText(/^Deze site vraagt eerst een goedkeuring op GitHub\./);
 });
 
 test('shows the image that a proposal adds, with the word on the block like a text block', async ({
@@ -270,7 +343,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 			.getByRole('link', { name: /^Weekly 23 september: de demo/ })
 			.click();
 		await expect(zin(page)).toHaveText(
-			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+			'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.'
 		);
 		await expect(page.locator('#paginatitel')).toHaveAttribute(
 			'supporting-text',
@@ -283,6 +356,49 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
 	});
+
+	test('says plainly when the page changed on the site since, without a merge or a banner', async ({
+		page
+	}) => {
+		await openSeeded(page, 'moza-site', 'Weekly 10 september: de agenda');
+		await expect(zin(page)).toHaveText(
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.'
+		);
+		await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
+		await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
+		await expect(page.locator('nldd-banner')).toHaveCount(0);
+		await expect(page.getByText(/hoofdbranch/)).toHaveCount(0);
+
+		await openSeeded(page, 'moza-site', 'Weekly 3 september: de terugblik');
+		await expect(zin(page)).toHaveText(
+			'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.'
+		);
+		await expect(knop(page, 'Insturen')).toHaveCount(0);
+		await expect(knop(page, 'Verder bewerken')).toHaveCount(0);
+	});
+
+	test('answers a request for changes made on GitHub with Opnieuw insturen', async ({ page }) => {
+		await openSeeded(page, 'moza-site', 'Facilitaire diensten: wie je belt');
+		await expect(zin(page)).toHaveText(
+			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
+		);
+		await expect(gesprek(page).first()).toContainText('Vraagt om aanpassing op GitHub: pietersen');
+		await knop(page, 'Opnieuw insturen').click();
+		await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
+		await expect(zin(page)).toHaveText(
+			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
+		);
+		await expect(gesprek(page).last()).toContainText('Klaar voor beoordeling');
+
+		// Back in Te beoordelen for the rest of the redactie.
+		await als(page, 'derde');
+		await page.goto('/sites/moza-site/voorstellen?filter=beoordelen');
+		await expect(
+			page
+				.locator('nldd-list[accessible-label="Te beoordelen"]')
+				.getByRole('link', { name: /^Facilitaire diensten: wie je belt/ })
+		).toBeVisible();
+	});
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
@@ -293,7 +409,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
 			for (const [site, titel] of [
 				['digi-handboek', 'Kennis: het team stelt zich voor'],
 				['digi-handboek', 'Over het handboek: wie de redactie is'],
-				['moza-site', 'Weekly 23 september: de demo']
+				['moza-site', 'Weekly 23 september: de demo'],
+				['moza-site', 'Weekly 10 september: de agenda'],
+				['moza-site', 'Weekly 3 september: de terugblik'],
+				['moza-site', 'Facilitaire diensten: wie je belt']
 			]) {
 				await page.goto(`/sites/${site}/voorstellen?filter=alle`);
 				await page
