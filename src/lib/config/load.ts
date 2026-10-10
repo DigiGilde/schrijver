@@ -28,7 +28,7 @@ export interface SiteStatus {
 	available: boolean;
 	/** What is wrong now, in Dutch; empty when nothing is. */
 	errors: string[];
-	/** Whether its repository is public, as Schrijver last read it; null when it never could. */
+	/** Whether its repository is public, as Schrijver last read it; null when the last read failed. */
 	isPublic: boolean | null;
 }
 
@@ -153,7 +153,7 @@ export class ConfigStore {
 		const { repo, standaardbranch } = site;
 		return {
 			site,
-			isPublic: check.reason === 'invalid' ? check.repo.isPublic : (kept?.isPublic ?? null),
+			isPublic: check.reason === 'invalid' ? check.repo.isPublic : null,
 			config: kept?.config ? { ...kept.config, repo, standaardbranch } : null,
 			schema: kept?.schema ?? null,
 			schrijfwijzer: kept?.schrijfwijzer ?? '',

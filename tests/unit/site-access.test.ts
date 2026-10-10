@@ -12,6 +12,7 @@ import type { TeamStore } from '../../src/lib/auth/team';
 import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { ConfigStore } from '../../src/lib/config/load';
 import type { FakeForge } from '../../src/lib/forge/fake';
+import { ForgeError } from '../../src/lib/forge/types';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { SITE_NOT_FOUND, siteGuard, visibleSites } from '../../src/lib/server/site-access';
@@ -236,6 +237,18 @@ describe('the site guard', () => {
 			site: 'digi-handboek',
 			error: 'Error'
 		});
+	});
+
+	it('closes a site to everyone but its team while Schrijver cannot read its repository', async () => {
+		forge.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')).toMatchObject({ available: true, isPublic: null });
+		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();
+		expect(
+			(await guard('/sites/digi-handboek', { user: 'platform' })).resolve
+		).toHaveBeenCalledOnce();
+		await store.reload('digi-handboek');
+		expect((await guard('/sites/digi-handboek')).resolve).toHaveBeenCalledOnce();
 	});
 
 	it('closes a site to everyone but its team as soon as its repository turns private', async () => {

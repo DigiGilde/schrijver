@@ -111,7 +111,7 @@ describe('ConfigStore', () => {
 		expect(store.retrying()).toEqual([]);
 	});
 
-	it('keeps whether each repository is public as it last read it, until it reads it again', async () => {
+	it('keeps whether each repository is public as it last read it, and forgets it when it cannot read it', async () => {
 		forge.setPublic(DIGI, true);
 		await store.load();
 		expect(store.statuses().map((s) => [s.site.id, s.isPublic])).toEqual([
@@ -129,15 +129,21 @@ describe('ConfigStore', () => {
 		await store.reload('digi-handboek');
 		expect(store.status('digi-handboek')).toMatchObject({ available: true, isPublic: true });
 
-		forge.setPublic(DIGI, false);
 		forge.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
 		await store.reload('digi-handboek');
-		expect(store.status('digi-handboek')).toMatchObject({ errors: [UNREACHABLE], isPublic: true });
+		expect(store.status('digi-handboek')).toMatchObject({
+			available: true,
+			errors: [UNREACHABLE],
+			isPublic: null
+		});
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')?.isPublic).toBe(true);
 		forge.setInstalled(DIGI, false);
 		await store.reload('digi-handboek');
 		expect(store.status('digi-handboek')).toMatchObject({
+			available: true,
 			errors: [NOT_INSTALLED(DIGI)],
-			isPublic: true
+			isPublic: null
 		});
 	});
 
