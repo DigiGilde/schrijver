@@ -11,6 +11,7 @@
 	} from '$lib/client/pending-images';
 	import { inImageFolder, removedImages, type ImageConvention } from '$lib/content/image-refs';
 	import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '$lib/content/mermaid';
+	import type { Status } from '$lib/forge/status';
 
 	type Nieuw = { soort: string | null; folder: string; title: string };
 	type Snapshot = { body: string; frontmatter: Record<string, unknown>; changedKeys: string[] };
@@ -31,6 +32,7 @@
 		sha,
 		branch,
 		prNumber,
+		voorstel = null,
 		nieuw,
 		snapshot,
 		tekst,
@@ -53,6 +55,8 @@
 		sha: string | null;
 		branch: string | null;
 		prNumber: number | null;
+		/** Where the proposal stood when the editor opened it; null for a new one. */
+		voorstel?: Status | null;
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
 		tekst: string;
@@ -87,6 +91,10 @@
 	// svelte-ignore state_referenced_locally
 	let nieuwePagina = $state(nieuw);
 	let bewaard = $state<{ nummer: number; url: string; verwijderd: string[] } | null>(null);
+	const ingestuurd = $derived(voorstel !== null && voorstel !== 'concept');
+	const KLAAR = 'Klaar? Kies Opnieuw insturen op de pagina van het voorstel.';
+	const bewaardTekst = (nummer: number) =>
+		ingestuurd ? `Bewaard in voorstel #${nummer}` : `Concept bewaard als voorstel #${nummer}`;
 	let fout = $state<Fout | null>(null);
 	let conflict = $state<Conflict | null>(null);
 	let mermaidFout = $state<string | null>(null);
@@ -262,10 +270,11 @@
 				onverstuurd(sent);
 				onbewaard({ sha: result.sha, branch: result.branch });
 				status = [
-					`Concept bewaard als voorstel #${result.prNumber}`,
+					bewaardTekst(result.prNumber),
 					...(verwijderd.length > 0 ? [`Ook verwijderd: ${opsomming(verwijderd)}`] : []),
 					...blijven.map((afbeelding) => `${blijftStaan(afbeelding)} (${paginas(afbeelding)})`)
 				].join('. ');
+				if (voorstel === 'aanpassing-gevraagd') status += `. ${KLAAR}`;
 			} else if (result?.conflict) {
 				conflict = result.conflict;
 				status = '';
@@ -351,13 +360,25 @@
 	</div>
 {/if}
 
+{#snippet naarVoorstel(nummer: number)}
+	<nldd-button
+		slot="actions"
+		appearance="secondary"
+		text="Bekijk voorstel"
+		href={`/sites/${siteId}/voorstellen/${nummer}`}
+	></nldd-button>
+{/snippet}
+
 {#if bewaard}
 	<nldd-notification
 		variant="success"
-		text={`Concept bewaard als voorstel #${bewaard.nummer}`}
-		supporting-text={bewaard.verwijderd.length > 0
-			? `Ook verwijderd: ${opsomming(bewaard.verwijderd)}`
-			: undefined}
+		text={bewaardTekst(bewaard.nummer)}
+		supporting-text={[
+			bewaard.verwijderd.length > 0 ? `Ook verwijderd: ${opsomming(bewaard.verwijderd)}` : '',
+			voorstel === 'aanpassing-gevraagd' ? KLAAR : ''
+		]
+			.filter(Boolean)
+			.join('. ') || undefined}
 		ondismiss={(event: Event) => {
 			// Its own clock pauses while focus is inside, so only a dismiss from within had it.
 			const hadFocus = (event.currentTarget as Element).matches(':focus-within');
@@ -365,6 +386,9 @@
 			if (hadFocus) focusEditor(false);
 		}}
 	>
+		{#if voorstel === 'aanpassing-gevraagd'}
+			{@render naarVoorstel(bewaard.nummer)}
+		{/if}
 		<nldd-button
 			slot="actions"
 			appearance="secondary"
@@ -372,12 +396,9 @@
 			href={bewaard.url}
 			target="_blank"
 		></nldd-button>
-		<nldd-button
-			slot="actions"
-			appearance="secondary"
-			text="Bekijk voorstel"
-			href={`/sites/${siteId}/voorstellen/${bewaard.nummer}`}
-		></nldd-button>
+		{#if voorstel !== 'aanpassing-gevraagd'}
+			{@render naarVoorstel(bewaard.nummer)}
+		{/if}
 	</nldd-notification>
 {/if}
 

@@ -3,7 +3,9 @@ import type { PageServerLoad } from './$types';
 import { siteSettings } from '$lib/auth/team-store';
 import { parsePage } from '$lib/content/frontmatter';
 import { buildForm, newPagePath } from '$lib/content/schema-form';
+import { statusOf } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
+import type { Status } from '$lib/forge/status';
 import { getRepoVisibility } from '$lib/server/repo-visibility';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { startFrontmatter, templateFor } from '../../nieuw/new-page';
@@ -59,6 +61,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 			sha: null as string | null,
 			branch: null as string | null,
 			prNumber: null as number | null,
+			voorstel: null as Status | null,
 			nieuw: { soort, folder, title },
 			isPublic: await getRepoVisibility(site.repo),
 			loadedAt: Date.now(),
@@ -74,6 +77,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 	let ref = site.standaardbranch;
 	let branch: string | null = null;
 	let prNumber: number | null = null;
+	let voorstel: Status | null = null;
 	const wanted = query.get('branch');
 	if (wanted) {
 		const n = Number(query.get('pr'));
@@ -92,6 +96,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		ref = wanted;
 		branch = wanted;
 		prNumber = n;
+		voorstel = statusOf(pr);
 	}
 	const file = await forge.readFile(site.repo, ref, repoPath);
 	if (!file) error(404, 'Pagina niet gevonden');
@@ -113,6 +118,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		sha: file.sha as string | null,
 		branch,
 		prNumber,
+		voorstel,
 		nieuw: null as { soort: string | null; folder: string; title: string } | null,
 		isPublic: await getRepoVisibility(site.repo),
 		loadedAt: Date.now()

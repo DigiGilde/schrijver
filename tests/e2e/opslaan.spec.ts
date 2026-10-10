@@ -65,6 +65,40 @@ test('dismissing the save notification from within keeps the preview showing', a
 	await expect(page.getByRole('region', { name: 'Voorbeeld' })).toBeFocused();
 });
 
+test('a proposal that was sent in is named, not called a concept, and points to Opnieuw insturen', async ({
+	page
+}) => {
+	// The seeded proposal of the test user on Digi Handboek, for which the redactie asked an adjustment.
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await page
+		.locator('nldd-list[accessible-label="Mijn voorstellen"]')
+		.getByRole('link', { name: 'Verder bewerken: Over het handboek: wie de redactie is' })
+		.click();
+	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	const nummer = new URL(page.url()).searchParams.get('pr');
+	await expect(page.locator('#paginatitel')).toHaveAttribute(
+		'supporting-text',
+		`docs/over/index.md · Voorstel #${nummer} · De titel is de eerste kop van de tekst`
+	);
+
+	await page.locator('nldd-text-editor .cm-content').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('\n\nMail de redactie op redactie@example.org.');
+	await page.getByRole('button', { name: 'Opslaan' }).click();
+	const klaar = 'Klaar? Kies Opnieuw insturen op de pagina van het voorstel.';
+	const melding = page.locator('nldd-notification');
+	await expect(melding).toHaveAttribute('text', `Bewaard in voorstel #${nummer}`);
+	await expect(melding).toHaveAttribute('supporting-text', klaar);
+	expect(
+		await melding
+			.locator('nldd-button[slot="actions"]')
+			.evaluateAll((knoppen) => knoppen.map((knop) => knop.getAttribute('text')))
+	).toEqual(['Bekijk voorstel', 'Open op GitHub']);
+	await expect(
+		page.locator('p[role="status"]').filter({ hasText: 'Bewaard in voorstel' })
+	).toHaveText(`Bewaard in voorstel #${nummer}. ${klaar}`);
+});
+
 test('warns when a stored draft is based on an older version', async ({ page }) => {
 	const key = 'schrijver:digi-handboek:new:index.md';
 	await page.goto('/sites/digi-handboek/bewerken/index.md');

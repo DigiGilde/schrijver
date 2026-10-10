@@ -74,10 +74,11 @@
 	const titelWijzigbaar = $derived(
 		!readOnly && titelVeld !== null && fields.some((field) => field.key === titelVeld)
 	);
+	const ingestuurd = $derived(data.voorstel !== null && data.voorstel !== 'concept');
 	const ondertitel = $derived(
 		[
 			data.repoPath,
-			openbaarConcept && 'Openbaar concept',
+			ingestuurd ? `Voorstel #${data.prNumber}` : openbaarConcept && 'Openbaar concept',
 			data.titel === 'uit-h1' && !readOnly && 'De titel is de eerste kop van de tekst'
 		]
 			.filter(Boolean)
@@ -397,6 +398,7 @@
 					sha={data.sha}
 					branch={data.branch}
 					prNumber={data.prNumber}
+					voorstel={data.voorstel}
 					nieuw={data.nieuw}
 					snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
 					onbewaard={(saved) => {
