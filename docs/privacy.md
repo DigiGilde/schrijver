@@ -81,4 +81,4 @@ From SSC-ICT: see [ai-en-vlam.md](ai-en-vlam.md). From the organisation: the dat
 ## Rights and transparency
 
 - Information duty (art. 13): a Dutch privacy notice listing the recipients (GitHub public, SSC-ICT VLAM, ZAD) is still to be written and linked from onboarding.
-- Access, rectification, erasure: a `user_prefs` row can be deleted by an admin, but no function or procedure exists yet; git history cannot be erased.
+- Access, rectification, erasure: an operator can delete a `user_prefs` row, and with it the profile and the writer records of that person, but no function or procedure exists yet. Someone who is still on a team is removed from it first, by a beheerder of the site or a platform admin: a membership refers to the row, so the database refuses to delete it before. Audit rows keep their `sub` for their two years; git history cannot be erased.

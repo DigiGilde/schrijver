@@ -8,15 +8,15 @@ GitHub shows a commit made by a GitHub App as Verified only when it has no custo
 
 ## The three identity choices
 
-The choice is made in onboarding ("Hoe wil je je wijzigingen ondertekenen?"), can be changed in "Instellingen", and is limited per site by `identiteit.toegestaan`.
+The choice is made in onboarding ("Hoe wil je je wijzigingen ondertekenen?"), can be changed in "Instellingen", and is limited per site by the site setting "Ondertekenen".
 
 | Choice | Trailer, verbatim | Visible on GitHub |
 | --- | --- | --- |
 | `anoniem` (default) | `Schrijver-Auteur: <pseudonym>` | Nothing personal. |
-| `gekoppeld` | `Co-authored-by: <GitHub name> <ID+login@users.noreply.github.com>` | The commit is linked to the GitHub profile; the work e-mail address is not exposed. |
+| `gekoppeld` | `Co-authored-by: <GitHub login> <ID+login@users.noreply.github.com>` | The commit is linked to the GitHub profile; the work e-mail address is not exposed. |
 | `op-naam` | `Co-authored-by: <SSO name> <SSO e-mail>` | Full name and e-mail address. |
 
-In the code (`src/lib/forge/trailers.ts`) the `gekoppeld` name is the SSO name and the address is `${githubId}+${login}@users.noreply.github.com`. A commit message is the summary, a blank line and the trailer.
+In the code (`src/lib/forge/trailers.ts`) the `gekoppeld` name is the GitHub login, not the SSO name, so a pseudonymous GitHub profile stays pseudonymous, and the address is `${githubId}+${login}@users.noreply.github.com`. A commit message is the summary, a blank line and the trailer.
 
 `op-naam` is only available when the identity provider reports the e-mail address as verified (`email_verified`). Publication in a public repository is permanent (see [privacy.md](privacy.md#irreversible-publication)), so `op-naam` should only be allowed where the site's settings permit it.
 
@@ -57,16 +57,16 @@ The list of sites, who is on a site's team and the settings of a site live in Sc
 | Profile, with the user preferences: name, e-mail address and time of the last login. The address only when the identity provider verified it, lower-cased; otherwise none. | To show a team by name and address, and to recognise a colleague an admin adds by e-mail address. | Saved again at every login. Removed with the preferences twelve months after the last login, for someone on no team. |
 | Membership: site, `sub`, role (beheerder or redactie), who added them and when. | Who decides on proposals and who manages the site. | As long as the person is on the team. |
 | Invitation: site, the e-mail address the admin typed, role, who invited and when. | A colleague who has not signed in yet joins at their first login with that verified address. | 30 days, until it is claimed or revoked. An expired invitation is deleted. |
-| Audit row: time, who acted (`sub`), site, what happened, the target (a `sub`, an invitation id or the names of changed settings) and the role. Never an e-mail address. | Accountability: who changed a team, an invitation or a site setting. | Two years, also after the people in it left. |
+| Audit row: time, who acted (`sub`), site, what happened, the target (a `sub`, an invitation id, the names of the changed settings or of the changed columns of a site, or for a site added or removed its repository) and the role. Never an e-mail address. | Accountability: who changed the list of sites, a team, an invitation or a site setting. | Two years, also after the people in it left. |
 | Site: its key, the repository with GitHub's numeric id for it, the default branch, who added it (`sub`) and when. | Which repositories Schrijver works on. | As long as the site is in Schrijver. |
 | Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is in Schrijver: removing a site removes its settings, team, invitations and writer records. |
 | Writer record: site, proposal number, the `sub` of each person Schrijver committed to the proposal for, and the time of their first commit. It links the proposal, also an anonymous one, to the SSO account of each writer. | Four eyes: whoever wrote in a proposal does not merge it ([decision 0007](decisions/0007-three-steps-and-four-eyes.md)). | While the proposal is open. Removed when it is merged or closed (GitHub's event on the pull request, or the merge in Schrijver), and at the latest 183 days after the writer's first commit in it; also with the profile, and with the site. |
 
 - The retention runs when Schrijver starts and once a day.
 - Schrijver sends no invitation e-mail; the admin tells the colleague.
-- No e-mail address or `sub` goes into a URL. The team page shows names, addresses and roles to the site's beheerders and the platform admins only; "Over `<site>`" shows everyone who signs in the names of the team and who is beheerder, never an address. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
+- No e-mail address or `sub` goes into a URL, and no `sub` into the data of a page or a form other than the user's own: the beheer page knows a member by a key per site and member. The team page shows names, addresses and roles to the site's beheerders and the platform admins only; "Over `<site>`" shows everyone who signs in the names of the team and who is beheerder, never an address. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
 - Platform admins are subs in the environment variable `SCHRIJVER_BEHEERDERS`, not in the database.
-- Logged for team changes: the event, site, role and the actor's pseudonym; never an address or a `sub`.
+- Logged for team changes, and for every refused beheer request or proposal action: the event, site, role or status and the actor's pseudonym; never an address or a `sub`.
 
 ## Public drafts
 

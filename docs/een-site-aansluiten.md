@@ -12,7 +12,7 @@ Repository permissions:
 | --- | --- | --- |
 | Contents | Read and write | Reading pages and `.schrijver/`, creating branches, committing, merging. |
 | Pull requests | Read and write | Draft pull requests, marking ready, reviewers, reviews, listing. |
-| Issues | Read and write | Labels only (the `preview` label). |
+| Issues | Read and write | Labels: `preview` at "Insturen" and `aanpassing gevraagd` for a request for an adjustment. The conversation of a proposal: reading its comments and posting reactions. |
 | Checks | Read | Showing the build status of a preview. |
 | Metadata | Read | The repository's id, name, default branch, description and homepage, and the collaborator permission check for the editorial role. |
 
@@ -155,7 +155,7 @@ The site starts with merging in Schrijver on, four eyes on and every way to sign
 
 The site's beheerder opens "Beheer van <naam>" under Instellingen: the team (who is beheerder and who is redactie, and invitations), and the settings (naam, omschrijving, adres, merging in Schrijver, four eyes, ways to sign). On a public repository leave out "Op naam" unless real names should be visible. Users with a linked GitHub account and write permission on the repository count as redactie, with admin permission as beheerder. GitHub stays the last judge: branch protection and required reviews apply, and Schrijver shows a refusal verbatim.
 
-The page also shows the site's structure from `.schrijver/`, and what is wrong with it when the files stop being valid. Only a platform admin can remove a site, under "Site verwijderen": its settings, team and invitations go; the repository, its pages and its proposals stay on GitHub.
+The page also shows the site's structure from `.schrijver/`, and what is wrong with it when the files stop being valid. Only a platform admin can remove a site, under "Site verwijderen": its settings, team and invitations go, and so does the record of who wrote in its proposals; the repository, its pages and its proposals stay on GitHub.
 
 ## 7. Run the round-trip check
 

@@ -176,7 +176,7 @@ Rate limits: installation tokens have 5000 requests per hour per installation (t
 3. **Return later**: Schrijver lists the user's open proposals by matching the identity trailer (section 7.2) in the PR body, plus all open proposals of the site for editorial.
 4. **Send in** marks the PR ready, sets the `preview` label where the site uses one, fills the description (what changed, which page, "menu bijwerken" when it is a new page), requests reviewers among the linked GitHub accounts with write permission on the repository (never the writer), and notifies the editorial list by e-mail if ZAD offers mail (otherwise this step is a visible to-do in the proposal list).
 5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Samenvoegen" or "Vraag om aanpassing". Schrijver shows the changes in colour on the rendered page: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`; the writer adjusts and chooses "Opnieuw insturen" (decision 0007).
-6. **Merge** from Schrijver as squash, only for editorial, only when `mergen-vanuit-schrijver` is true, and with `vier-ogen` on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so and links to GitHub instead. The squash message carries the identity trailers of every contributing commit.
+6. **Merge** from Schrijver as squash, only for editorial, only when the site setting "Samenvoegen in Schrijver" is on, and with "Vier ogen" on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so and links to GitHub instead. The squash message carries the identity trailers of every contributing commit.
 
 Required review on MOZa (one approval, last-push approval) applies unchanged; Schrijver reads it as the pull request's review decision. Because the App is the PR author, any member of the redactie can be that reviewer on GitHub, including the person who wrote the text in Schrijver. Schrijver's four eyes keep that writer from merging in Schrijver; branch protection on GitHub remains the hard guarantee.
 
@@ -192,7 +192,7 @@ GitHub shows an App commit as Verified only when it carries no custom author or 
 
 The pseudonym is `HMAC-SHA256(secret, sub)` truncated to 12 hex characters. Outside Schrijver, tracing a pseudonym to a person means computing it for a candidate. Inside, Schrijver's database links each open proposal, also an anonymous one, to the SSO account of each writer: the writer record of four eyes (decision 0007). That link goes when the proposal is merged or closed, and at the latest 183 days after the writer's first commit in it. The secret is a ZAD user-env secret; rotating it changes all pseudonyms, which is acceptable and documented.
 
-The choice is made in onboarding on first sign-in, changeable in settings, limited by the site's `identiteit.toegestaan`. "Gekoppeld" asks for the GitHub login and resolves the user id via the API; it does not ask for a token.
+The choice is made in onboarding on first sign-in, changeable in settings, limited by the site setting "Ondertekenen". "Gekoppeld" asks for the GitHub login and resolves the user id via the API; it does not ask for a token.
 
 The PR body carries the same trailer for the proposal as a whole, so Schrijver lists "my proposals" from GitHub, not from the writer record.
 
@@ -286,7 +286,7 @@ Documentation is part of version one, not an afterthought, and lives in the Schr
 
 1. **Unit**: schema validation; frontmatter parse and serialise; pseudonym derivation; trailer formatting; identity choice to trailer mapping.
 2. **Round-trip corpus**: all `.md` files of both sites (vendored copies, refreshed by a script) open and save byte-identical, except the enumerated normalisations.
-3. **Flow with a fake Forge**: first save creates branch and draft PR; later save commits; Send-in marks ready and requests reviewers; merge respects `mergen-vanuit-schrijver` and editorial membership; outside PRs appear in the list; conflict detection on changed blob SHA.
+3. **Flow with a fake Forge**: first save creates branch and draft PR; later save commits; Send-in marks ready and requests reviewers; merge respects "Samenvoegen in Schrijver" and editorial membership; outside PRs appear in the list; conflict detection on changed blob SHA.
 4. **End-to-end in CI** against a throw-away GitHub repository with the App installed: the whole flow once per PR of Schrijver itself, Playwright for the UI.
 5. **Accessibility**: pa11y-ci on the main screens, keyboard-only walkthrough of edit, save and send-in, as the sites already do.
 6. **VLAM**: the client is tested against a recorded OpenAI-compatible response; the live call is a manual smoke test on the production cluster, since the sandbox has only a stub.

@@ -10,7 +10,7 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 | --- | --- | --- | --- |
 | 1 | Strong authentication | covered | Check that the realm enforces MFA (platform statement) |
 | 2 | Session management | partly | Absolute lifetime, revocation, always call Keycloak end-session |
-| 3 | Authorisation and least privilege | partly | Enforce `identiteit.toegestaan`, fix reviewer exclusion, document the PR-body trailer residual risk |
+| 3 | Authorisation and least privilege | partly | Document the PR-body trailer residual risk. Done: the server enforces "Ondertekenen", and send-in never asks the writer to review |
 | 4 | Secrets management | partly | Rotation runbook with owner; refuse start when `SESSION_SECRET` or `PSEUDONYM_SECRET` is under 32 bytes |
 | 5 | Least privilege of the GitHub App | partly | Mandatory branch protection on every site; the App is installed on site repositories only |
 | 6 | Audit trail of who did what | partly | Changes to sites, teams, invitations and site settings are in the audit log with the actor's `sub`. Still open: an actor reference on login, save, send-in, comment, merge, identity change; decide who may resolve it |
@@ -23,7 +23,7 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 | 13 | Dependency and supply chain | partly | Dependabot, `npm audit` in CI, image scan, SBOM |
 | 14 | Security testing | missing | CodeQL, ZAP baseline against a preview, pentest before go-live |
 | 15 | Secure build and deploy | partly | Separate secrets, database, OIDC client and App for previews; restrict who may label; scope `GITHUB_ADMIN_TOKEN` |
-| 16 | Test coverage of security behaviour | covered | Add tests for the reviewer and `toegestaan` fixes |
+| 16 | Test coverage of security behaviour | covered | None: the reviewer exclusion and "Ondertekenen" have their tests |
 | 17 | Abuse and DoS protection | partly | Set `ADDRESS_HEADER` and `XFF_DEPTH` on ZAD; shared limit store if more than one replica; parse Markdown for the preview and the diff in a worker with a time limit (crafted Markdown can keep the parser busy for seconds in the browser). Already bounded: a proposal view compares at most 20 pages, fetches no page above 500 kB and gives up on a diff that grows too large ("te groot"); the image usage check takes at most 20 images, reads at most 300 text files of at most 500 kB per branch, remembers per file version what it mentions so a repeated check reads only files that changed, and runs at most 60 times per user per hour |
 | 18 | Supplier agreements | missing | Statements from ZAD, SSC-ICT and GitHub, recorded here and in the register |
 | 19 | Classification (BIV) and risk analysis | missing | Short BIV classification and risk table; decide the highest classification VLAM may receive |
@@ -41,7 +41,9 @@ Report vulnerabilities and incidents as described in [SECURITY.md](../SECURITY.m
 - Authorisation derived per request; paths, image types and SVG content validated server-side; alt text required.
 - Image limits a writer can meet: at most 5 MB per image, and at most 10,000 segments or chunks per image file (JPEG segments, PNG and WebP chunks), so an animated PNG (APNG) with more than about 5,000 frames is refused.
 - Only text, instruction and writing guide go to VLAM; logs hold no content, e-mail addresses or tokens.
-- Webhook HMAC with constant-time compare; rate limits on assistant, save, upload and the image usage check.
+- Webhook HMAC with constant-time compare.
+- Rate limits per user per minute: the assistant 20, saves 60, uploads 60, the image usage check 30, reactions, requests for an adjustment and re-sends together 10, images read through Schrijver 600, and posts to the beheer pages and Site toevoegen 30 (loading a page does not count). Per hour: 20 new proposals and 60 image usage scans.
+- Refusals leave a trace: every refused proposal action is logged as `proposal.<action>_refused` with the site, the number and the status, and every refused load or action of a beheer page or Site toevoegen as `beheer.refused`; both with the actor's pseudonym, never an address or a `sub`.
 - Four eyes, where a site has it on: Schrijver records by `sub` who writes in a proposal, and an editor who wrote in it does not merge it in Schrijver; the site's admins may. When Schrijver cannot tell who wrote, it refuses.
 - Team, invitation, site and site settings changes go to the audit log with the actor's `sub`, never an e-mail address; retention as in [identiteit-en-privacy.md](identiteit-en-privacy.md#team-management).
 - An image is deleted only in the save of the page that showed it: the page's text on the branch referred to it before the save and the new text does not, also not by its site-root path. The server also checks that the image lies in the site's image folder but not under `content.uitsluiten` or in the image folder of a page there, that it is present on the branch, and that no other text file under the content folder (Markdown, HTML, YAML, JSON, TOML, CSS) uses it, on the proposal branch or on the default branch. A file uses the image when it refers to its path, and possibly uses it when it names the image's file anywhere, unless a path in that file reaches another existing file of that name; a possible use keeps the image too, and Schrijver then says it is "mogelijk gebruikt". Remaining limit: a file that shows another image of the same name by its path, and names this one by its file name only, does not keep it. A tree listing GitHub cut off, a file too large to read or more than 300 files make the check incomplete, and then nothing is deleted. The usage check answers with page paths and titles only.

@@ -78,7 +78,7 @@ Variant one, a list of folders:
 | --- | --- |
 | `mappen` | Folders (relative to `content.pad`) where a new page may be created. |
 | `bestandsnaam` | Only `uit-titel`: the file name is derived from the title. |
-| `sjabloon` | Starting body, with `{titel}` for the title. Accepted by the schema; the current code does not apply it yet. |
+| `sjabloon` | Starting body of a new page in the editor, with `{titel}` for the title. Without it, a site whose title comes from the first H1 starts with `# <titel>`. |
 
 Variant two, page types (`soorten`), each with:
 
@@ -89,7 +89,7 @@ Variant two, page types (`soorten`), each with:
 | `mappen` | Alternatively, folders to choose from; `*` matches one level. |
 | `bestandsnaam` | File name pattern. `{datum}` is today as `YYYY-MM-DD`, `{titel}` the slug of the title, `{jaar}` the year. |
 | `velden` | Fields shown for this type, by name. |
-| `sjabloon` | Starting body. Not applied by the current code, like `sjabloon` in the first variant. |
+| `sjabloon` | Starting body of a new page of this type, as `sjabloon` in the first variant. |
 
 ### schrijfwijzer.md
 
