@@ -659,6 +659,88 @@ describe('GitHubForge', () => {
 		expect(err.message).toBe('GitHub-limiet bereikt, probeer het na 13:05 opnieuw');
 	});
 
+	it('describes a repository the App is installed on, by its numeric id', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r`, () =>
+				HttpResponse.json({
+					id: 4242,
+					full_name: 'O/R',
+					default_branch: 'trunk',
+					description: 'Een site',
+					homepage: 'https://example.org/',
+					private: true
+				})
+			)
+		);
+		expect(await forge().repository('o/r')).toEqual({
+			id: 4242,
+			fullName: 'O/R',
+			defaultBranch: 'trunk',
+			description: 'Een site',
+			homepage: 'https://example.org/',
+			isPublic: false
+		});
+		server.use(
+			http.get(`${API}/repos/o/r`, () =>
+				HttpResponse.json({
+					id: 4242,
+					full_name: 'o/r',
+					default_branch: 'main',
+					description: null,
+					homepage: '',
+					private: false
+				})
+			)
+		);
+		expect(await forge().repository('o/r')).toMatchObject({
+			description: null,
+			homepage: null,
+			isPublic: true
+		});
+	});
+
+	it('answers no repository where the App is not installed, and fails on anything else', async () => {
+		server.use(
+			http.get(`${API}/repos/o/elders/installation`, () =>
+				HttpResponse.json({ message: 'Not Found' }, { status: 404 })
+			)
+		);
+		expect(await forge().repository('o/elders')).toBeNull();
+		server.use(
+			http.get(`${API}/repos/o/r`, () => HttpResponse.json({ message: 'x' }, { status: 500 }))
+		);
+		await expect(forge().repository('o/r')).rejects.toBeInstanceOf(ForgeError);
+		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ full_name: 'o/r' })));
+		await expect(forge().repository('o/r')).rejects.toBeInstanceOf(ForgeError);
+	});
+
+	it('gives the page where an owner installs the App, and nothing GitHub did not say', async () => {
+		let appRequests = 0;
+		server.use(
+			http.get(`${API}/app`, () => {
+				appRequests++;
+				return HttpResponse.json({
+					id: 1,
+					slug: 'schrijver',
+					html_url: 'https://github.com/apps/schrijver'
+				});
+			})
+		);
+		const f = forge();
+		expect(await f.installUrl()).toBe('https://github.com/apps/schrijver/installations/new');
+		expect(await f.appLogin()).toBe('schrijver[bot]');
+		expect(appRequests).toBe(1);
+
+		for (const html_url of ['javascript:alert(1)', 'http://github.com/apps/x', null]) {
+			server.use(http.get(`${API}/app`, () => HttpResponse.json({ id: 1, slug: 'x', html_url })));
+			expect(await forge().installUrl(), String(html_url)).toBeNull();
+		}
+		server.use(
+			http.get(`${API}/app`, () => HttpResponse.json({ message: 'kapot' }, { status: 500 }))
+		);
+		expect(await forge().installUrl()).toBeNull();
+	});
+
 	it('reads repository visibility and fails safe to public on 404', async () => {
 		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ private: true })));
 		expect(await forge().isPublic('o/r')).toBe(false);

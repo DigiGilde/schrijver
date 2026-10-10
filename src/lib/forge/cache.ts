@@ -168,6 +168,13 @@ export class CachingForge implements Forge {
 	isPublic(repo: string) {
 		return this.cached(repo, 'public', () => this.inner.isPublic(repo));
 	}
+	/** Never cached: adding a site and loading its structure must see the installation as it is now. */
+	repository(repo: string) {
+		return this.inner.repository(repo);
+	}
+	installUrl() {
+		return this.inner.installUrl();
+	}
 
 	collaboratorPermission(repo: string, login: string) {
 		return this.inner.collaboratorPermission(repo, login);

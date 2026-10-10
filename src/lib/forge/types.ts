@@ -79,6 +79,18 @@ export const MAX_PR_FILES = 3000;
 /** GitHub lists at most this many commits of a pull request: a list this long may leave commits out. */
 export const MAX_PR_COMMITS = 250;
 
+/** A repository as GitHub describes it to the App. */
+export interface RepoInfo {
+	/** GitHub's numeric id: it stays when the repository is renamed or moved. */
+	id: number;
+	/** owner/name as GitHub writes it now. */
+	fullName: string;
+	defaultBranch: string;
+	description: string | null;
+	homepage: string | null;
+	isPublic: boolean;
+}
+
 /** Where a pull request stands with a review that the base branch requires; null when it requires none. */
 export type ReviewDecision = 'approved' | 'changes_requested' | 'review_required' | null;
 
@@ -141,4 +153,8 @@ export interface Forge {
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
 	/** Whether the repository is publicly readable. */
 	isPublic(repo: string): Promise<boolean>;
+	/** The repository, when the App is installed on it; null when it is not, or GitHub knows no such repository. */
+	repository(repo: string): Promise<RepoInfo | null>;
+	/** Where an owner installs the App on a repository; null when GitHub does not say. */
+	installUrl(): Promise<string | null>;
 }

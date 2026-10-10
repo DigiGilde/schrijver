@@ -13,15 +13,22 @@ import {
 	type PrReview,
 	type PrSummary,
 	type Ref,
+	type RepoInfo,
 	type ReviewDecision
 } from './types';
+import { sameRepo } from './repo';
 
 type Blob = { content: Uint8Array; sha: string };
 type Tree = Map<string, Blob>;
 type Permission = 'admin' | 'write' | 'read' | 'none';
 
 interface RepoState {
+	id: number;
 	defaultBranch: string;
+	description: string | null;
+	homepage: string | null;
+	/** Whether the App is installed on it: without, GitHub shows the App nothing of it. */
+	installed: boolean;
 	isPublic: boolean;
 	trees: Map<string, Tree>;
 	/** Without an author, a commit is the App's. */
@@ -54,16 +61,29 @@ export class FakeForge implements Forge {
 	prs = new Map<number, PrSummary>();
 
 	private repos = new Map<string, RepoState>();
+	/** Old names of renamed repositories: GitHub sends a request for one on to the new name. */
+	private movedTo = new Map<string, string>();
 	private reviewRequired = new Set<string>();
 	private prRepo = new Map<number, string>();
 	private comments = new Map<number, Omit<PrComment, 'byApp'>[]>();
 	private reviews = new Map<number, PrReview[]>();
 	private failures = new Map<keyof Forge, ForgeError>();
 	private nextPr = 1;
+	private nextRepoId = 1000;
 	private nextId = 1;
 	private commitCounter = 0;
 
-	seedRepo(repo: string, defaultBranch: string, files: Record<string, string | Uint8Array>): void {
+	seedRepo(
+		repo: string,
+		defaultBranch: string,
+		files: Record<string, string | Uint8Array>,
+		about: {
+			id?: number;
+			description?: string | null;
+			homepage?: string | null;
+			installed?: boolean;
+		} = {}
+	): void {
 		const tree: Tree = new Map();
 		for (const [path, content] of Object.entries(files)) {
 			const bytes = toBytes(content);
@@ -71,7 +91,11 @@ export class FakeForge implements Forge {
 		}
 		const head = sha1('seed', repo);
 		this.repos.set(repo, {
+			id: about.id ?? this.nextRepoId++,
 			defaultBranch,
+			description: about.description ?? null,
+			homepage: about.homepage ?? null,
+			installed: about.installed ?? true,
 			isPublic: false,
 			trees: new Map([[defaultBranch, tree]]),
 			commits: new Map([[defaultBranch, []]]),
@@ -87,6 +111,51 @@ export class FakeForge implements Forge {
 
 	async isPublic(repo: string): Promise<boolean> {
 		return this.repo(repo).isPublic;
+	}
+
+	/** As renaming or moving a repository on GitHub: the old name leads to the new one. */
+	renameRepo(from: string, to: string): void {
+		const state = this.repo(from);
+		this.repos.delete(from);
+		this.repos.set(to, state);
+		this.movedTo.set(from.toLowerCase(), to);
+		for (const [number, repo] of this.prRepo) if (repo === from) this.prRepo.set(number, to);
+	}
+
+	/** As choosing another default branch on GitHub. */
+	setDefaultBranch(repo: string, branch: string): void {
+		this.tree(repo, branch);
+		this.repo(repo).defaultBranch = branch;
+	}
+
+	/** As installing the App on a repository, or taking it off again. */
+	setInstalled(repo: string, installed: boolean): void {
+		const state = this.repos.get(repo);
+		if (!state) throw new ForgeError(404, 'Repository niet gevonden', repo);
+		state.installed = installed;
+	}
+
+	async repository(repo: string): Promise<RepoInfo | null> {
+		this.maybeFail('repository');
+		const named = (name: string) => [...this.repos].find(([key]) => sameRepo(key, name));
+		// An old name leads on to the new one until another repository takes it.
+		const moved = this.movedTo.get(repo.toLowerCase());
+		const found = named(repo) ?? (moved ? named(moved) : undefined);
+		if (!found || !found[1].installed) return null;
+		const [fullName, state] = found;
+		return {
+			id: state.id,
+			fullName,
+			defaultBranch: state.defaultBranch,
+			description: state.description,
+			homepage: state.homepage,
+			isPublic: state.isPublic
+		};
+	}
+
+	async installUrl(): Promise<string | null> {
+		this.maybeFail('installUrl');
+		return 'https://github.com/apps/schrijver/installations/new';
 	}
 
 	/** As branch protection that requires an approving review before a merge. */
@@ -413,7 +482,7 @@ export class FakeForge implements Forge {
 
 	private repo(repo: string): RepoState {
 		const r = this.repos.get(repo);
-		if (!r) throw new ForgeError(404, 'Repository niet gevonden', repo);
+		if (!r || !r.installed) throw new ForgeError(404, 'Repository niet gevonden', repo);
 		return r;
 	}
 

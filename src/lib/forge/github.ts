@@ -16,6 +16,7 @@ import {
 	type PrReview,
 	type PrSummary,
 	type Ref,
+	type RepoInfo,
 	type ReviewDecision
 } from './types';
 
@@ -83,7 +84,7 @@ const REVIEW_STATES: Record<string, PrReview['state']> = {
 
 export class GitHubForge implements Forge {
 	private app: App;
-	private account: Promise<string | null> | null = null;
+	private about: Promise<Json | null> | null = null;
 	private installations = new Map<string, number>();
 	private clients = new Map<number, Octo>();
 
@@ -397,19 +398,56 @@ export class GitHubForge implements Forge {
 		return items.slice(0, MAX_CONVERSATION);
 	}
 
-	appLogin(): Promise<string | null> {
-		this.account ??= this.app.octokit.request('GET /app').then(
-			(res) => {
-				const slug = (res.data as Json)?.slug;
-				return typeof slug === 'string' && slug ? `${slug}[bot]` : null;
-			},
+	/** What GitHub says about the App itself; null when it does not answer, so a later call asks again. */
+	private aboutApp(): Promise<Json | null> {
+		this.about ??= this.app.octokit.request('GET /app').then(
+			(res) => res.data as Json,
 			(err) => {
 				log.warn('forge.app_login_failed', errorFields(err));
-				this.account = null;
+				this.about = null;
 				return null;
 			}
 		);
-		return this.account;
+		return this.about;
+	}
+
+	async appLogin(): Promise<string | null> {
+		const slug = (await this.aboutApp())?.slug;
+		return typeof slug === 'string' && slug ? `${slug}[bot]` : null;
+	}
+
+	async installUrl(): Promise<string | null> {
+		const page = (await this.aboutApp())?.html_url;
+		return typeof page === 'string' && page.startsWith('https://')
+			? `${page.replace(/\/+$/, '')}/installations/new`
+			: null;
+	}
+
+	async repository(repo: string): Promise<RepoInfo | null> {
+		let data: Json;
+		try {
+			data = await this.request(repo, 'GET /repos/{owner}/{repo}');
+		} catch (e) {
+			if (e instanceof ForgeError && e.status === 404) return null;
+			throw e;
+		}
+		const { id, full_name: fullName, default_branch: defaultBranch } = data ?? {};
+		if (
+			!Number.isSafeInteger(id) ||
+			typeof fullName !== 'string' ||
+			typeof defaultBranch !== 'string'
+		) {
+			throw new ForgeError(502, 'GitHub gaf een fout', 'repository without id, name or branch');
+		}
+		const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : null);
+		return {
+			id,
+			fullName,
+			defaultBranch,
+			description: text(data.description),
+			homepage: text(data.homepage),
+			isPublic: !data.private
+		};
 	}
 
 	async prComments(repo: string, number: number): Promise<PrComment[]> {

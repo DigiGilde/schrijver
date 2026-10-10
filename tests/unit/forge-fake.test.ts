@@ -357,4 +357,55 @@ describe('FakeForge', () => {
 		forge.setPublic(REPO, true);
 		expect(await forge.isPublic(REPO)).toBe(true);
 	});
+
+	it('describes a repository by its id, whatever the casing of its name', async () => {
+		forge.seedRepo(
+			'Org/Kennis',
+			'trunk',
+			{},
+			{
+				id: 77,
+				description: 'Wat we weten',
+				homepage: 'https://kennis.example/'
+			}
+		);
+		forge.setPublic('Org/Kennis', true);
+		expect(await forge.repository('org/kennis')).toEqual({
+			id: 77,
+			fullName: 'Org/Kennis',
+			defaultBranch: 'trunk',
+			description: 'Wat we weten',
+			homepage: 'https://kennis.example/',
+			isPublic: true
+		});
+		expect(await forge.repository('org/bestaat-niet')).toBeNull();
+		expect((await forge.repository(REPO))?.id).toEqual(expect.any(Number));
+		expect(await forge.installUrl()).toBe('https://github.com/apps/schrijver/installations/new');
+	});
+
+	it('shows nothing of a repository the App is not installed on', async () => {
+		forge.setInstalled(REPO, false);
+		expect(await forge.repository(REPO)).toBeNull();
+		await expect(forge.readFile(REPO, 'main', 'content/a.md')).rejects.toMatchObject({
+			status: 404
+		});
+		forge.setInstalled(REPO, true);
+		expect(await forge.repository(REPO)).not.toBeNull();
+	});
+
+	it('follows a renamed repository and a new default branch, keeping its id', async () => {
+		const { id } = (await forge.repository(REPO))!;
+		await forge.createBranch(REPO, 'main', 'trunk');
+		forge.setDefaultBranch(REPO, 'trunk');
+		forge.renameRepo(REPO, 'acme/nieuw');
+		expect(await forge.repository(REPO)).toMatchObject({
+			id,
+			fullName: 'acme/nieuw',
+			defaultBranch: 'trunk'
+		});
+		expect(dec((await forge.readFile('acme/nieuw', 'trunk', 'content/a.md'))!.content)).toBe(
+			'alpha'
+		);
+		expect(() => forge.setDefaultBranch('acme/nieuw', 'bestaat-niet')).toThrow(ForgeError);
+	});
 });
