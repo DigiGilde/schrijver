@@ -3,6 +3,7 @@ import {
 	NOT_MERGEABLE,
 	STATUS,
 	STEPS,
+	TOO_MANY_COMMITS,
 	dateText,
 	momentText,
 	proposalsTab,
@@ -121,6 +122,7 @@ describe('whatNow', () => {
 		approvalMissing: false,
 		actsOnGitHub: true,
 		notMergeable: false,
+		tooManyCommits: false,
 		canEdit: true,
 		mergedAt: null,
 		siteAddress: true
@@ -135,16 +137,19 @@ describe('whatNow', () => {
 				flags.flatMap((mergeInSchrijver) =>
 					flags.flatMap((approvalMissing) =>
 						flags.flatMap((actsOnGitHub) =>
-							flags.map((notMergeable) => ({
-								status,
-								editor,
-								mergeInSchrijver,
-								approvalRequired: approvalMissing,
-								approvalMissing,
-								actsOnGitHub,
-								notMergeable,
-								...over
-							}))
+							flags.flatMap((notMergeable) =>
+								flags.map((tooManyCommits) => ({
+									status,
+									editor,
+									mergeInSchrijver,
+									approvalRequired: approvalMissing,
+									approvalMissing,
+									actsOnGitHub,
+									notMergeable,
+									tooManyCommits,
+									...over
+								}))
+							)
 						)
 					)
 				)
@@ -246,6 +251,40 @@ describe('whatNow', () => {
 			actions: ['beoordelen-op-github', 'verder-bewerken'],
 			primary: 'beoordelen-op-github'
 		});
+	});
+
+	it('sends an editor to GitHub for a proposal that Schrijver cannot check, and says why', () => {
+		const why =
+			'Dit voorstel is zo vaak bewaard dat Schrijver niet alles kan nakijken. Samenvoegen gebeurt daarom op GitHub.';
+		expect(TOO_MANY_COMMITS).toBe(
+			'Dit voorstel is zo vaak bewaard dat Schrijver niet alles kan nakijken.'
+		);
+		expect(row({ editor: true, tooManyCommits: true })).toEqual({
+			sentence: why,
+			actions: ['beoordelen-op-github', 'vraag-om-aanpassing'],
+			primary: 'beoordelen-op-github'
+		});
+		expect(row({ writer: true, editor: true, tooManyCommits: true })).toEqual({
+			sentence: why,
+			actions: ['beoordelen-op-github', 'verder-bewerken'],
+			primary: 'beoordelen-op-github'
+		});
+		expect(row({ editor: true, tooManyCommits: true, actsOnGitHub: false })).toEqual({
+			sentence: `${why} Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.`,
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
+		});
+		expect(row({ editor: true, tooManyCommits: true, approvalMissing: true }).sentence).toBe(why);
+		expect(
+			row({ editor: true, tooManyCommits: true, mergeInSchrijver: false }).sentence,
+			'the setting of the site is the reason when it is the first'
+		).toBe('Bij deze site gebeurt samenvoegen op GitHub.');
+		expect(row({ editor: true, tooManyCommits: true, blocked: 'zelf' }).sentence).toBe(
+			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
+		);
+		for (const situation of open({ tooManyCommits: true }))
+			for (const writer of flags)
+				expect(row({ ...situation, writer }).actions).not.toContain('samenvoegen');
 	});
 
 	it('gives an editor who cannot act on GitHub no GitHub button, and says who acts there', () => {

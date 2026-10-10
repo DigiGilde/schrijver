@@ -5,7 +5,7 @@ import { commentBody } from '../../src/lib/forge/conversation';
 import { dateText } from '../../src/lib/forge/status';
 import { identityTrailer, pseudonym } from '../../src/lib/forge/trailers';
 import type { FakeForge } from '../../src/lib/forge/fake';
-import { ForgeError } from '../../src/lib/forge/types';
+import { ForgeError, MAX_PR_COMMITS } from '../../src/lib/forge/types';
 
 vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
@@ -529,6 +529,85 @@ describe('what now', () => {
 				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.',
 			actions: [],
 			primary: null
+		});
+	});
+
+	describe('a proposal with as many commits as GitHub lists', () => {
+		const WHY =
+			'Dit voorstel is zo vaak bewaard dat Schrijver niet alles kan nakijken. Samenvoegen gebeurt daarom op GitHub.';
+
+		/** A sent-in proposal of `count` commits on a site that merges in Schrijver. */
+		async function committed(site: SiteId, file: string, count: number): Promise<number> {
+			const nummer = await make(site, { [file]: 'Veel\n' }, { sent: true, writer: 'schrijver' });
+			const branch = `schrijver/${site}/test-${made}`;
+			for (let n = 1; n < count; n++) await forge.commit(REPOS[site], branch, [], `Bewerk ${n}`);
+			expect(await forge.prCommits(REPOS[site], nummer)).toHaveLength(count);
+			return nummer;
+		}
+
+		it('has no merge in Schrijver, but the GitHub row, with the reason', async () => {
+			const nummer = await committed('digi-handboek', 'docs/kennis/veel-a.md', MAX_PR_COMMITS);
+			const octo = { sub: EDITOR, githubLogin: 'octo' };
+			expect((await open('digi-handboek', nummer, octo)).watNu).toEqual({
+				sentence: WHY,
+				actions: ['beoordelen-op-github', 'vraag-om-aanpassing'],
+				primary: 'beoordelen-op-github'
+			});
+			expect((await open('digi-handboek', nummer, { sub: EDITOR })).watNu).toEqual({
+				sentence: `${WHY} Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.`,
+				actions: ['vraag-om-aanpassing'],
+				primary: 'vraag-om-aanpassing'
+			});
+			expect((await open('digi-handboek', nummer)).watNu.sentence, 'for anyone else').toBe(
+				'De redactie beoordeelt dit voorstel.'
+			);
+		});
+
+		it('still merges in Schrijver with one commit fewer', async () => {
+			const nummer = await committed('digi-handboek', 'docs/kennis/veel-b.md', MAX_PR_COMMITS - 1);
+			expect((await open('digi-handboek', nummer, { sub: EDITOR })).watNu.actions).toEqual([
+				'samenvoegen',
+				'vraag-om-aanpassing'
+			]);
+		});
+
+		it('does not ask GitHub for an approval that nothing will use', async () => {
+			const decision = vi.spyOn(forge, 'reviewDecision');
+			try {
+				const few = await committed('digi-handboek', 'docs/kennis/veel-c.md', MAX_PR_COMMITS - 1);
+				await open('digi-handboek', few, { sub: EDITOR });
+				expect(decision).toHaveBeenCalledTimes(1);
+				decision.mockClear();
+				const many = await committed('digi-handboek', 'docs/kennis/veel-d.md', MAX_PR_COMMITS);
+				await open('digi-handboek', many, { sub: EDITOR });
+				expect(decision).not.toHaveBeenCalled();
+			} finally {
+				decision.mockRestore();
+			}
+		});
+
+		it('keeps the answer of four eyes first, which cannot tell from a list that may be cut off', async () => {
+			const nummer = await committed('moza-site', 'content/veel-f.md', MAX_PR_COMMITS);
+			expect((await open('moza-site', nummer, { sub: MOZA_OTHER_EDITOR })).watNu.sentence).toBe(
+				'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie beslist.'
+			);
+			forge.permissionByLogin.set('octo', 'admin');
+			try {
+				expect(
+					(await open('moza-site', nummer, { sub: MOZA_OTHER_EDITOR, githubLogin: 'octo' })).watNu
+						.sentence
+				).toBe(WHY);
+			} finally {
+				forge.permissionByLogin.delete('octo');
+			}
+		});
+
+		it('still loads when the list of commits cannot be read, and then leaves the merge as it is', async () => {
+			const nummer = await committed('digi-handboek', 'docs/kennis/veel-e.md', MAX_PR_COMMITS);
+			forge.failNext('prCommits', new ForgeError(502, 'GitHub is niet bereikbaar'));
+			expect((await open('digi-handboek', nummer, { sub: EDITOR })).watNu.actions).toContain(
+				'samenvoegen'
+			);
 		});
 	});
 

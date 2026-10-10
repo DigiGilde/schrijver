@@ -6,9 +6,9 @@ import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
-import { FOUR_EYES, NOT_MERGEABLE } from '$lib/forge/status';
+import { FOUR_EYES, NOT_MERGEABLE, TOO_MANY_COMMITS } from '$lib/forge/status';
 import { trailersFromMessage } from '$lib/forge/trailers';
-import { ForgeError, type ReviewDecision } from '$lib/forge/types';
+import { ForgeError, MAX_PR_COMMITS, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { proposalAction, readJson, refuse } from '$lib/server/proposal-route';
 
@@ -35,6 +35,8 @@ export const POST: RequestHandler = proposalAction(
 			return refuse(400, 'Laad de pagina opnieuw en bekijk de wijzigingen voordat je samenvoegt');
 		}
 		const commits = await forge.prCommits(site.repo, pr.number);
+		if (commits.length >= MAX_PR_COMMITS)
+			return refuse(422, `${TOO_MANY_COMMITS} Voeg het samen op GitHub.`);
 		// The merge is of the head the reader saw and four eyes read the commits of, or none at all.
 		if (sha !== pr.headSha || commits.at(-1)?.sha !== sha) return refuse(409, NEW_VERSION);
 		if (settings.vierOgen) {

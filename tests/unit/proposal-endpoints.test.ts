@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeForge } from '../../src/lib/forge/fake';
-import { ForgeError } from '../../src/lib/forge/types';
+import { ForgeError, MAX_PR_COMMITS } from '../../src/lib/forge/types';
 import { log } from '../../src/lib/log';
 import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { settingsOf, useTeams } from './team-fixture';
@@ -644,6 +644,60 @@ describe('proposal endpoints', () => {
 
 		expect((await call(mergen, { ...red, body: { sha } })).status).toBe(200);
 		expect(merge).toHaveBeenCalledWith('o/moza', 1, expect.any(String), sha);
+	});
+
+	describe('a proposal with as many commits as GitHub lists', () => {
+		const SAYS =
+			'Dit voorstel is zo vaak bewaard dat Schrijver niet alles kan nakijken. Voeg het samen op GitHub.';
+
+		/** The proposal has `count` commits, the one of the test setup included. */
+		async function committed(count: number) {
+			await call(insturen, { who: 'auteur' });
+			for (let n = 1; n < count; n++) {
+				await forge.commit('o/moza', 'b', [], `Bewerk ${n}\n\nSchrijver-Auteur: auteur`);
+			}
+			return (await forge.getPr('o/moza', 1)).headSha;
+		}
+
+		it('refuses with a sentence that points to GitHub, and merges nothing', async () => {
+			const sha = await committed(MAX_PR_COMMITS);
+			const merge = vi.spyOn(forge, 'merge');
+			const res = await call(mergen, { sub: 'red', body: { sha } });
+			expect(res.status).toBe(422);
+			expect(await res.json()).toEqual({ ok: false, message: SAYS });
+			expect(merge).not.toHaveBeenCalled();
+			expect((await forge.getPr('o/moza', 1)).state).toBe('open');
+		});
+
+		it('says so also when the list ends before the head, instead of asking to reload', async () => {
+			await committed(MAX_PR_COMMITS);
+			await forge.commit('o/moza', 'b', [], 'Nog een\n\nSchrijver-Auteur: auteur');
+			const sha = (await forge.getPr('o/moza', 1)).headSha;
+			expect(await forge.prCommits('o/moza', 1)).toHaveLength(MAX_PR_COMMITS);
+			const res = await call(mergen, { sub: 'red', body: { sha } });
+			expect(res.status).toBe(422);
+			expect((await res.json()).message).toBe(SAYS);
+		});
+
+		it('refuses a site admin as well, and logs the refusal', async () => {
+			const sha = await committed(MAX_PR_COMMITS);
+			forge.permissionByLogin.set('beheerder', 'admin');
+			vi.mocked(log.warn).mockClear();
+			const res = await call(mergen, { sub: 'red', gekoppeld: 'beheerder', body: { sha } });
+			expect(res.status).toBe(422);
+			expect(log.warn).toHaveBeenCalledWith('proposal.mergen_refused', {
+				site: 'moza',
+				pr: 1,
+				actor: 'p-red',
+				status: 422
+			});
+		});
+
+		it('merges with one commit fewer', async () => {
+			const sha = await committed(MAX_PR_COMMITS - 1);
+			expect((await call(mergen, { sub: 'red', body: { sha } })).status).toBe(200);
+			expect((await forge.getPr('o/moza', 1)).state).toBe('merged');
+		});
 	});
 
 	it('still says so when GitHub finds a newer head than the one it was asked to merge', async () => {

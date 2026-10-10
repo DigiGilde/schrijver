@@ -60,6 +60,10 @@ export const forReview = <P extends { status: Status; mine: boolean }>(
 export const NOT_MERGEABLE =
 	'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.';
 
+/** Why Schrijver does not merge a proposal with as many commits as GitHub lists. */
+export const TOO_MANY_COMMITS =
+	'Dit voorstel is zo vaak bewaard dat Schrijver niet alles kan nakijken.';
+
 /** The text and accessible name of the Voorstellen tab; the count is only there for editorial members. */
 export function proposalsTab(waiting: number | null): { text: string; label: string | null } {
 	if (!waiting) return { text: 'Voorstellen', label: null };
@@ -161,6 +165,8 @@ export interface Situation {
 	actsOnGitHub: boolean;
 	/** GitHub cannot merge the proposal: the page changed on the site in the meantime. */
 	notMergeable: boolean;
+	/** The list of commits is as long as GitHub gives, so Schrijver cannot check the whole proposal. */
+	tooManyCommits: boolean;
 	/** Schrijver can open the proposal's pages in the editor. */
 	canEdit: boolean;
 	mergedAt: string | null;
@@ -228,18 +234,13 @@ export function whatNow(
 	const next: Action[] = s.writer ? edit : ['vraag-om-aanpassing'];
 	const ask = s.writer ? '' : ' Moet er iets anders, vraag dan om een aanpassing.';
 	const main = s.writer ? null : 'vraag-om-aanpassing';
-	if (!s.mergeInSchrijver)
-		return s.actsOnGitHub
-			? say(
-					'Bij deze site gebeurt samenvoegen op GitHub.',
-					['beoordelen-op-github', ...next],
-					'beoordelen-op-github'
-				)
-			: say(
-					`Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen.${ask}`,
-					next,
-					main
-				);
+	const onGitHub = (why: string) =>
+		s.actsOnGitHub
+			? say(why, ['beoordelen-op-github', ...next], 'beoordelen-op-github')
+			: say(`${why} Iemand met rechten op GitHub voegt het voorstel daar samen.${ask}`, next, main);
+	if (!s.mergeInSchrijver) return onGitHub('Bij deze site gebeurt samenvoegen op GitHub.');
+	if (s.tooManyCommits)
+		return onGitHub(`${TOO_MANY_COMMITS} Samenvoegen gebeurt daarom op GitHub.`);
 	if (s.approvalMissing)
 		return s.actsOnGitHub
 			? say(

@@ -13,7 +13,7 @@ import { appAccount, canAct, type ActingUser } from '$lib/forge/proposal-actions
 import { toProposal } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import { FOUR_EYES, dateText, stepOf, whatNow } from '$lib/forge/status';
-import { ForgeError, type Forge, type ReviewDecision } from '$lib/forge/types';
+import { ForgeError, MAX_PR_COMMITS, type Forge, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { backToProposals } from '$lib/server/site-tabs';
@@ -131,20 +131,25 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		const deciding =
 			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
 		let blocked: keyof typeof FOUR_EYES | null = null;
-		if (deciding && settings.vierOgen) {
+		let tooManyCommits = false;
+		if (deciding && (settings.vierOgen || settings.mergenVanuitSchrijver)) {
 			const [commits, writers] = await Promise.all([
 				forge.prCommits(site.repo, nummer).catch(() => null),
-				recordedWriters(site.id, nummer)
+				settings.vierOgen ? recordedWriters(site.id, nummer) : null
 			]);
-			const reason =
-				commits && writers
-					? fourEyes(authorship(pr, commits, user, { app, repo: site.repo, writers }))
-					: 'onbekend';
-			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
+			tooManyCommits = commits !== null && commits.length >= MAX_PR_COMMITS;
+			if (settings.vierOgen) {
+				const reason =
+					commits && writers
+						? fourEyes(authorship(pr, commits, user, { app, repo: site.repo, writers }))
+						: 'onbekend';
+				if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
+			}
 		}
 		const resending = acts.owner && !outside && status === 'aanpassing-gevraagd';
 		let decision: ReviewDecision = null;
-		if (!notMergeable && ((deciding && !blocked && settings.mergenVanuitSchrijver) || resending)) {
+		const merging = deciding && !blocked && !tooManyCommits && settings.mergenVanuitSchrijver;
+		if (!notMergeable && (merging || resending)) {
 			decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
 				log.warn('proposal.review_decision_failed', {
 					site: site.id,
@@ -199,6 +204,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				// An editor outside the team is one through write permission on GitHub; the team does not say.
 				actsOnGitHub: user.githubLogin !== null,
 				notMergeable,
+				tooManyCommits,
 				canEdit: verderBewerken.length > 0,
 				mergedAt: pr.mergedAt ?? null,
 				siteAddress: !!settings.adres
