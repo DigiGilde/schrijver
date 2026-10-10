@@ -44,11 +44,15 @@ test('settings: a platform admin finds every site under Beheer, and everyone the
 	// The test user is beheerder of Digi Handboek only.
 	await page.goto('/instellingen');
 	await expect(
-		page.getByText('Je beheert het team en de instellingen van deze sites.')
+		page.getByText('Je beheert het team en de instellingen van deze site.', { exact: true })
 	).toBeVisible();
 	await expect(sites.getByRole('link')).toHaveCount(1);
 	await expect(sites.getByRole('link', { name: 'Digi Handboek' })).toBeVisible();
-	await expect(page.getByText('Je kenmerk bij SSO Rijk: test')).toBeVisible();
+	await expect(
+		page.getByText(
+			'Je kenmerk bij SSO Rijk: test. Een beheerder van Schrijver kan je hierom vragen.'
+		)
+	).toBeVisible();
 
 	await als(page, 'platform');
 	await page.goto('/instellingen');

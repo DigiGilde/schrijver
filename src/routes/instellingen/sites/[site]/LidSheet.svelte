@@ -150,8 +150,9 @@
 									<nldd-title size="5" heading-level="2" text="Uit het team halen"></nldd-title>
 									<nldd-rich-text>
 										<p>
-											{lid.jij ? 'Je beslist' : `${naam} beslist`} dan niet meer over voorstellen van
-											{site}. Wie op GitHub schrijfrechten heeft, hoort wel bij de redactie.
+											{lid.jij
+												? `Je beslist dan niet meer over voorstellen van ${site}, tenzij je schrijfrechten hebt op de repository op GitHub.`
+												: `${naam} beslist dan niet meer over voorstellen van ${site}, tenzij die schrijfrechten heeft op de repository op GitHub.`}
 										</p>
 									</nldd-rich-text>
 									<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

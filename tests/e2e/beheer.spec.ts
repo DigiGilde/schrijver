@@ -54,7 +54,7 @@ test('the beheer page shows the team, an open invitation and the GitHub rule', a
 	await expect(row(page, 'naam@rijksoverheid.nl')).toContainText('Uitgenodigd, nog niet ingelogd');
 	await expect(
 		page.getByText(
-			'Ook wie op GitHub schrijfrechten heeft op DigiGilde/handboek, hoort bij de redactie; met admin-rechten ben je beheerder.'
+			"Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."
 		)
 	).toBeVisible();
 	await expect(
@@ -91,6 +91,11 @@ test('a known colleague is added at once, gets another role in a sheet and is re
 	await expect(row(page, 'Tweede Collega')).toContainText('Beheerder');
 
 	await member(page, 'Tweede Collega').click();
+	await expect(
+		sheet(page).getByText(
+			'Tweede Collega beslist dan niet meer over voorstellen van Digi Handboek, tenzij die schrijfrechten heeft op de repository op GitHub.'
+		)
+	).toBeVisible();
 	await sheet(page).getByRole('button', { name: 'Haal uit het team' }).click();
 	await expect(confirmation(page)).toHaveAttribute('text', 'Haal Tweede Collega uit het team?');
 	await confirmation(page).getByRole('button', { name: 'Houd in het team' }).click();
@@ -177,12 +182,16 @@ test('a site admin manages only their own sites; anyone else gets the page that 
 	await asCollega(page);
 	await page.goto('/instellingen');
 	await expect(
-		page.getByText('Je beheert het team en de instellingen van deze sites.')
+		page.getByText('Je beheert het team en de instellingen van deze site.', { exact: true })
 	).toBeVisible();
 	const sites = page.locator('nldd-list[accessible-label="Sites die je beheert"]');
 	await expect(sites.getByRole('link')).toHaveCount(1);
 	await expect(sites.getByRole('link', { name: 'MijnOverheid Zakelijk' })).toBeVisible();
-	await expect(page.getByText('Je kenmerk bij SSO Rijk: collega')).toBeVisible();
+	await expect(
+		page.getByText(
+			'Je kenmerk bij SSO Rijk: collega. Een beheerder van Schrijver kan je hierom vragen.'
+		)
+	).toBeVisible();
 
 	const response = await page.goto(DH);
 	expect(response?.status()).toBe(404);

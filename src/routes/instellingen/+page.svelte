@@ -43,7 +43,7 @@
 				<nldd-text>
 					{data.beheer.platform
 						? 'Je bent beheerder van Schrijver. Je beheert het team en de instellingen van elke site.'
-						: 'Je beheert het team en de instellingen van deze sites.'}
+						: `Je beheert het team en de instellingen van ${data.beheer.sites.length === 1 ? 'deze site' : 'deze sites'}.`}
 				</nldd-text>
 				{#if data.beheer.sites.length > 0}
 					<nldd-list accessible-label="Sites die je beheert">
@@ -82,7 +82,7 @@
 			</form>
 		</nldd-container>
 		<nldd-text color="secondary" size="sm" class="kenmerk"
-			>Je kenmerk bij SSO Rijk: {data.kenmerk}</nldd-text
+			>Je kenmerk bij SSO Rijk: {data.kenmerk}. Een beheerder van Schrijver kan je hierom vragen.</nldd-text
 		>
 	</nldd-container>
 </Pagina>

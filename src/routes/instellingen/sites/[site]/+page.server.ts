@@ -110,7 +110,7 @@ export const load: PageServerLoad = async (event) => {
 	]);
 	const branch = site.standaardbranch.split('/').map(encodeURIComponent).join('/');
 	return {
-		beheer: { id: site.id, naam: settings.naam, repo: site.repo },
+		beheer: { id: site.id, naam: settings.naam },
 		toegevoegd: event.url.searchParams.get('toegevoegd') === '1',
 		structuur: {
 			bruikbaar: status.available,

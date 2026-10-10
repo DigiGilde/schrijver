@@ -123,8 +123,8 @@
 			{/each}
 		</nldd-list>
 		<nldd-text color="secondary"
-			>Ook wie op GitHub schrijfrechten heeft op {site.repo}, hoort bij de redactie; met
-			admin-rechten ben je beheerder.</nldd-text
+			>Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met
+			beheerrechten daar zijn ze beheerder.</nldd-text
 		>
 		<form
 			method="post"

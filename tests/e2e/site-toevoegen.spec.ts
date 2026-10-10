@@ -31,7 +31,7 @@ async function openAdd(page: Page) {
 test('only a platform admin adds or removes a site', async ({ page }) => {
 	await page.goto('/instellingen');
 	await expect(
-		page.getByText('Je beheert het team en de instellingen van deze sites.')
+		page.getByText('Je beheert het team en de instellingen van deze site.', { exact: true })
 	).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Site toevoegen' })).toHaveCount(0);
 	expect((await page.goto('/instellingen/sites/nieuw'))?.status()).toBe(404);

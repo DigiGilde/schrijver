@@ -186,7 +186,7 @@ describe('who may manage a site', () => {
 
 	it('shows the team, the invitations and the settings to a beheerder of the site', async () => {
 		const data = (await load(event('baas', DH))) as Record<string, unknown>;
-		expect(data.beheer).toEqual({ id: DH, naam: 'Digi Handboek', repo: 'DigiGilde/handboek' });
+		expect(data.beheer).toEqual({ id: DH, naam: 'Digi Handboek' });
 		const key = expect.stringMatching(/^[0-9a-f]{32}$/);
 		expect(data.leden).toEqual([
 			expect.objectContaining({ sleutel: key, naam: 'Naam baas', rol: 'beheerder', jij: true }),

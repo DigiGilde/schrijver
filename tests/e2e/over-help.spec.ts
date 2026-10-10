@@ -336,16 +336,14 @@ test.describe('the Over page', () => {
 		await expect(main).not.toContainText(/Goedgekeurd|Goedkeuren|pull request|merge/i);
 	});
 
-	test('names the team by name and role, and everyone with write access, in one block', async ({
+	test('names the team by name and role in one block, and leaves GitHub to Bestanden op GitHub', async ({
 		page
 	}) => {
 		await page.goto('/sites/digi-handboek/over');
 		const redactie = part(page, 'Redactie');
 		await expect(redactie).toHaveCount(1);
 		await expect(redactie.getByRole('listitem')).toHaveText(['Test Gebruiker (beheerder)']);
-		await expect(redactie).toContainText(
-			'Ook wie op GitHub schrijfrechten heeft op DigiGilde/handboek, hoort bij de redactie; met admin-rechten ben je beheerder.'
-		);
+		await expect(redactie).not.toContainText('schrijfrechten');
 		await expect(redactie).toContainText(
 			'Een vraag aan de redactie stel je in het gesprek bij je voorstel.'
 		);
@@ -450,8 +448,12 @@ test.describe('the Over page', () => {
 			'https://github.com/DigiGilde/handboek/tree/main/.schrijver'
 		);
 		await expect(bestanden).toContainText(
-			'Dat wijzig je met een voorstel in de repository van de site.'
+			"Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."
 		);
+		await expect(bestanden).toContainText(
+			'De structuur van de site staat in de map .schrijver op GitHub. Die wijzig je met een voorstel in de repository van de site.'
+		);
+		await expect(inhoud(page)).not.toContainText('Deze gegevens kun je hier alleen lezen');
 		await expect(bestanden).not.toContainText('configuratierepository');
 		await expect(bestanden).toContainText('met "Via GitHub"');
 	});

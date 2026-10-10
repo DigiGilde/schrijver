@@ -66,10 +66,6 @@
 						De redactie beslist over de voorstellen. In het team van deze site staat nog niemand.
 					</p>
 				{/if}
-				<p>
-					Ook wie op GitHub schrijfrechten heeft op {data.repo}, hoort bij de redactie; met
-					admin-rechten ben je beheerder.
-				</p>
 				<p>Een vraag aan de redactie stel je in het gesprek bij je voorstel.</p>
 				{#if !data.mergenVanuitSchrijver}
 					<p>Op deze site gebeurt het samenvoegen op GitHub, niet in Schrijver.</p>
@@ -133,10 +129,13 @@
 					bij Voorstellen, met "Via GitHub".
 				</p>
 				<p>
-					Deze gegevens kun je hier alleen lezen. Het team en de instellingen van de site regelen de
-					beheerders van de site in Schrijver. Hoe de site is opgebouwd, staat in de map <a
-						href={data.structuurUrl}>.schrijver op GitHub</a
-					>. Dat wijzig je met een voorstel in de repository van de site.
+					Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met
+					beheerrechten daar zijn ze beheerder.
+				</p>
+				<p>
+					De structuur van de site staat in de map <a href={data.structuurUrl}
+						>.schrijver op GitHub</a
+					>. Die wijzig je met een voorstel in de repository van de site.
 				</p>
 			</nldd-rich-text>
 		</nldd-container>
