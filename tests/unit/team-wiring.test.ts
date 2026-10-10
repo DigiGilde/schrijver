@@ -141,7 +141,8 @@ describe('retention', () => {
 		expect(log.info).toHaveBeenCalledWith('team.retention', {
 			invitations: 0,
 			users: 0,
-			audit: 0
+			audit: 0,
+			writers: 0
 		});
 		await vi.advanceTimersByTimeAsync(24 * 3600_000);
 		expect(retention).toHaveBeenCalledTimes(2);

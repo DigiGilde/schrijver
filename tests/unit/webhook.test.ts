@@ -123,6 +123,55 @@ describe('github webhook', () => {
 		expect(reloadSite).not.toHaveBeenCalled();
 	});
 
+	describe('a pull request that is merged or closed', () => {
+		const closed = (number: number, repository: Record<string, unknown>, action = 'closed') => ({
+			action,
+			number,
+			pull_request: { number, merged: number % 2 === 0 },
+			repository
+		});
+
+		beforeEach(async () => {
+			await team.recordLogin({
+				sub: 'jan',
+				name: 'Jan',
+				email: 'jan@example.org',
+				emailVerified: true
+			});
+			for (const number of [4, 5, 6]) await team.recordWriter('site', number, 'jan');
+		});
+
+		it('takes the record of who wrote it along, merged or not, matched by repository id', async () => {
+			expect((await call('pull_request', closed(4, { id: 7, full_name: SITE }))).status).toBe(204);
+			await call('pull_request', closed(5, { id: 7, full_name: 'Org/nieuwe-naam' }));
+			expect(await team.writers('site', 4)).toEqual([]);
+			expect(await team.writers('site', 5)).toEqual([]);
+			expect(log.info).toHaveBeenCalledWith('webhook.writers_forgotten', { site: 'site', pr: 4 });
+		});
+
+		it('keeps it for another event, another repository, or a number that is not one', async () => {
+			for (const payload of [
+				closed(6, { id: 7, full_name: SITE }, 'synchronize'),
+				closed(6, { id: 7, full_name: SITE }, 'reopened'),
+				closed(6, { id: 8, full_name: 'Org/ander' }),
+				{ ...closed(6, { id: 7, full_name: SITE }), pull_request: { number: '6' } },
+				{ ...closed(6, { id: 7, full_name: SITE }), pull_request: null }
+			]) {
+				await call('pull_request', payload);
+			}
+			expect(await team.writers('site', 6)).toEqual(['jan']);
+		});
+
+		it('answers 503 when the record cannot be deleted, so GitHub can send it again', async () => {
+			vi.spyOn(team, 'forgetWriters').mockRejectedValueOnce(new Error('database down'));
+			expect((await call('pull_request', closed(4, { id: 7, full_name: SITE }))).status).toBe(503);
+			expect(log.error).toHaveBeenCalledWith('webhook.writers_failed', {
+				repo: SITE,
+				error: 'Error'
+			});
+		});
+	});
+
 	it('ignores other events', async () => {
 		const res = await call('ping', push());
 		expect(res.status).toBe(204);

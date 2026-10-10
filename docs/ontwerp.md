@@ -190,11 +190,11 @@ GitHub shows an App commit as Verified only when it carries no custom author or 
 | Gekoppeld aan GitHub | `Co-authored-by: <GitHub name> <ID+login@users.noreply.github.com>` | Commit linked to the GitHub profile, work e-mail not exposed. |
 | Op naam | `Co-authored-by: <SSO name> <SSO e-mail>` | Full name and address. |
 
-The pseudonym is `HMAC-SHA256(secret, sub)` truncated to 12 hex characters. Tracing a pseudonym to a person means computing it for a candidate; there is no lookup table to leak. The secret is a ZAD user-env secret; rotating it changes all pseudonyms, which is acceptable and documented.
+The pseudonym is `HMAC-SHA256(secret, sub)` truncated to 12 hex characters. Outside Schrijver, tracing a pseudonym to a person means computing it for a candidate. Inside, Schrijver's database links each open proposal, also an anonymous one, to the SSO account of each writer: the writer record of four eyes (decision 0007). That link goes when the proposal is merged or closed, and at the latest 183 days after the writer's first commit in it. The secret is a ZAD user-env secret; rotating it changes all pseudonyms, which is acceptable and documented.
 
 The choice is made in onboarding on first sign-in, changeable in settings, limited by the site's `identiteit.toegestaan`. "Gekoppeld" asks for the GitHub login and resolves the user id via the API; it does not ask for a token.
 
-The PR body carries the same trailer for the proposal as a whole, so Schrijver can list "my proposals" without its own table.
+The PR body carries the same trailer for the proposal as a whole, so Schrijver lists "my proposals" from GitHub, not from the writer record.
 
 ### 7.3 Conflicts
 

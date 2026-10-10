@@ -66,6 +66,18 @@ export async function recordedWriters(siteId: string, number: number): Promise<s
 	}
 }
 
+/**
+ * Forgets who wrote in a proposal Schrijver merged. A failure is only logged: the merge is done, and
+ * GitHub's event on the closed pull request or the daily retention deletes the record later.
+ */
+export async function forgetWriters(siteId: string, number: number): Promise<void> {
+	try {
+		await teamStore().forgetWriters(siteId, number);
+	} catch (err) {
+		log.warn('proposal.writers_not_forgotten', { site: siteId, pr: number, ...errorFields(err) });
+	}
+}
+
 /** At every login: the profile, and the invitations for the verified address become memberships. */
 export async function recordLogin(session: Session): Promise<void> {
 	const claimed = await teamStore().recordLogin({

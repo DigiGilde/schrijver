@@ -4,7 +4,7 @@ Schrijver lets a colleague propose changes without a GitHub account. This page s
 
 ## Why commits are authored by the App
 
-GitHub shows a commit made by a GitHub App as Verified only when it has no custom author or committer. Every commit in a site repository is therefore authored by the App, and the person is expressed only in trailers in the commit message and in the pull request body. Schrijver lists "my proposals" by matching that trailer in the pull request body; it has no table of proposals.
+GitHub shows a commit made by a GitHub App as Verified only when it has no custom author or committer. Every commit in a site repository is therefore authored by the App, and the person is expressed only in trailers in the commit message and in the pull request body. Schrijver lists "my proposals" by matching that trailer in the pull request body, not from its own records. It does keep one record per proposal: while a proposal is open, Schrijver's database links it to the SSO account of each writer, also an anonymous one, for four eyes (the writer record under [team management](#team-management)).
 
 ## The three identity choices
 
@@ -28,7 +28,7 @@ In the code (`src/lib/forge/trailers.ts`) the `gekoppeld` name is the SSO name a
 
 The pseudonym is `HMAC-SHA256(PSEUDONYM_SECRET, sub)` truncated to 12 hexadecimal characters, where `sub` is the SSO subject.
 
-- Tracing a pseudonym to a person means computing it for a candidate `sub` and comparing. There is no lookup table to leak.
+- Outside Schrijver, tracing a pseudonym to a person means computing it for a candidate `sub` and comparing. Inside Schrijver's database it takes no secret for an open proposal: its writer record holds the `sub` of each writer, also of one who signed anonymously, so whoever can read the database (an operator, a backup) can see who wrote it. That link goes when the proposal is merged or closed, and at the latest 183 days after the writer's first commit in it.
 - Rotating `PSEUDONYM_SECRET` changes every pseudonym. Existing commits keep the old value, and "my proposals" no longer matches proposals made under the old secret. Rotate only deliberately, and record the date.
 
 ## What is sent to VLAM
@@ -60,7 +60,7 @@ The list of sites, who is on a site's team and the settings of a site live in Sc
 | Audit row: time, who acted (`sub`), site, what happened, the target (a `sub`, an invitation id or the names of changed settings) and the role. Never an e-mail address. | Accountability: who changed a team, an invitation or a site setting. | Two years, also after the people in it left. |
 | Site: its key, the repository with GitHub's numeric id for it, the default branch, who added it (`sub`) and when. | Which repositories Schrijver works on. | As long as the site is in Schrijver. |
 | Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is in Schrijver: removing a site removes its settings, team, invitations and writer records. |
-| Writer record: site, proposal number, the `sub` of each person Schrijver committed to the proposal for, and the time of their first commit. | Four eyes: whoever wrote in a proposal does not merge it ([decision 0007](decisions/0007-three-steps-and-four-eyes.md)). | Removed with the profile; until then it stays, also for closed proposals. |
+| Writer record: site, proposal number, the `sub` of each person Schrijver committed to the proposal for, and the time of their first commit. It links the proposal, also an anonymous one, to the SSO account of each writer. | Four eyes: whoever wrote in a proposal does not merge it ([decision 0007](decisions/0007-three-steps-and-four-eyes.md)). | While the proposal is open. Removed when it is merged or closed (GitHub's event on the pull request, or the merge in Schrijver), and at the latest 183 days after the writer's first commit in it; also with the profile, and with the site. |
 
 - The retention runs when Schrijver starts and once a day.
 - Schrijver sends no invitation e-mail; the admin tells the colleague.

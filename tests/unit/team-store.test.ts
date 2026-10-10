@@ -619,6 +619,35 @@ function contract(make: () => Promise<Harness>) {
 			expect(await team.writers(DH, 1)).toEqual([]);
 		});
 
+		it('forgets who wrote a proposal that was merged or closed, and keeps the others', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			await team.recordWriter(DH, 7, 'piet');
+			await team.recordWriter(DH, 8, 'jan');
+			await team.recordWriter(MOZA, 7, 'piet');
+			await team.forgetWriters(DH, 7);
+			expect(await team.writers(DH, 7)).toEqual([]);
+			expect(await team.writers(DH, 8)).toEqual(['jan']);
+			expect(await team.writers(MOZA, 7)).toEqual(['piet']);
+			await team.forgetWriters(DH, 99);
+			expect(await team.writers(DH, 8)).toEqual(['jan']);
+		});
+
+		it('forgets who wrote a proposal 183 days after their first commit, open or not', async () => {
+			h.at('2026-04-09T10:00:00.000Z');
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordWriter(DH, 3, 'jan');
+			h.at('2026-04-11T10:00:00.000Z');
+			await team.recordWriter(DH, 4, 'jan');
+			await team.recordWriter(DH, 3, 'jan');
+			h.at(START);
+			expect(await team.retention()).toMatchObject({ users: 0, writers: 1 });
+			expect(await team.writers(DH, 3)).toEqual([]);
+			expect(await team.writers(DH, 4)).toEqual(['jan']);
+			expect((await team.profile('jan'))?.email).toBe('jan@example.org');
+		});
+
 		it('forgets what a forgotten user wrote, and keeps the others', async () => {
 			h.at('2025-09-01T10:00:00.000Z');
 			await team.recordLogin(login('weg', 'weg@example.org'));

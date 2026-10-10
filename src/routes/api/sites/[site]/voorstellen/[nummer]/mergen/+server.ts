@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { canManageSite } from '$lib/auth/roles';
-import { recordedWriters } from '$lib/auth/team-store';
+import { forgetWriters, recordedWriters } from '$lib/auth/team-store';
 import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
@@ -78,6 +78,7 @@ export const POST: RequestHandler = proposalAction(
 			}
 			throw e;
 		}
+		await forgetWriters(site.id, pr.number);
 		return json({ ok: true });
 	}
 );

@@ -37,6 +37,27 @@ async function pushed(payload: Record<string, unknown>, repository: Record<strin
 	await reloadSite(site.id);
 }
 
+/** A merged or closed pull request of a registered repository takes the record of its writers along. */
+async function closed(payload: Record<string, unknown>, repository: Record<string, unknown>) {
+	const number = isBlock(payload.pull_request) ? payload.pull_request.number : undefined;
+	if (payload.action !== 'closed' || !Number.isSafeInteger(number) || (number as number) <= 0)
+		return;
+	const team = teamStore();
+	const site = (await team.sites()).find((s) => s.repoId === repository.id);
+	if (!site) return;
+	await team.forgetWriters(site.id, number as number);
+	log.info('webhook.writers_forgotten', { site: site.id, pr: number });
+}
+
+async function handle(
+	event: string,
+	payload: Record<string, unknown>,
+	repository: Record<string, unknown> | null
+) {
+	if (event === 'push' && repository) await pushed(payload, repository);
+	if (event === 'pull_request' && repository) await closed(payload, repository);
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	const raw = Buffer.from(await request.arrayBuffer());
 	const body = raw.toString('utf8');
@@ -65,14 +86,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		const forge = getForge();
 		if (forge instanceof CachingForge) forge.invalidate(repo);
 	}
-	if (event === 'push' && isBlock(payload) && repository) {
-		try {
-			await pushed(payload, repository);
-		} catch (err) {
-			// GitHub shows a failed delivery, from where it can be sent again.
-			log.error('webhook.reload_failed', { repo, ...errorFields(err) });
-			return new Response(null, { status: 503 });
-		}
+	try {
+		if (isBlock(payload)) await handle(event, payload, repository);
+	} catch (err) {
+		// GitHub shows a failed delivery, from where it can be sent again.
+		const failed = event === 'pull_request' ? 'webhook.writers_failed' : 'webhook.reload_failed';
+		log.error(failed, { repo, ...errorFields(err) });
+		return new Response(null, { status: 503 });
 	}
 	return new Response(null, { status: 204 });
 };

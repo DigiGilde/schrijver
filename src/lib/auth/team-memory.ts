@@ -8,6 +8,7 @@ import {
 	movedColumns,
 	normaliseEmail,
 	sortMembers,
+	writersBefore,
 	type Actor,
 	type AddResult,
 	type AddSiteResult,
@@ -381,6 +382,10 @@ export class MemoryTeamStore implements TeamStore {
 			.map((w) => w.sub);
 	}
 
+	async forgetWriters(siteId: string, number: number) {
+		this.writerRows = this.writerRows.filter((w) => !(w.siteId === siteId && w.number === number));
+	}
+
 	async audit(siteId?: string) {
 		return this.auditRows
 			.map((entry, order) => ({ entry, order }))
@@ -417,6 +422,9 @@ export class MemoryTeamStore implements TeamStore {
 		}
 		const gone = new Set(forgotten.map((p) => p.sub));
 		this.writerRows = this.writerRows.filter((w) => !gone.has(w.sub));
+		const writerCutoff = writersBefore(now);
+		const writers = this.writerRows.length;
+		this.writerRows = this.writerRows.filter((w) => w.firstAt >= writerCutoff);
 
 		const auditCutoff = auditBefore(now);
 		const before = this.auditRows.length;
@@ -425,7 +433,8 @@ export class MemoryTeamStore implements TeamStore {
 		return {
 			invitations: expired.length,
 			users: forgotten.length,
-			audit: before - this.auditRows.length
+			audit: before - this.auditRows.length,
+			writers: writers - this.writerRows.length
 		};
 	}
 }

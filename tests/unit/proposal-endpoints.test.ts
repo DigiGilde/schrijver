@@ -268,6 +268,28 @@ describe('proposal endpoints', () => {
 		);
 	});
 
+	it('forgets who wrote the proposal once it is merged', async () => {
+		await call(insturen, { who: 'auteur' });
+		await recorded('schrijver');
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		expect((await call(mergen, { sub: 'red', body: { sha } })).status).toBe(200);
+		expect(await team.writers('moza', 1)).toEqual([]);
+	});
+
+	it('merges when the record of who wrote it cannot be deleted, and logs that', async () => {
+		await call(insturen, { who: 'auteur' });
+		await recorded('schrijver');
+		vi.spyOn(team, 'forgetWriters').mockRejectedValueOnce(new Error('database weg'));
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		expect((await call(mergen, { sub: 'red', body: { sha } })).status).toBe(200);
+		expect((await forge.getPr('o/moza', 1)).state).toBe('merged');
+		expect(log.warn).toHaveBeenCalledWith('proposal.writers_not_forgotten', {
+			site: 'moza',
+			pr: 1,
+			error: 'Error'
+		});
+	});
+
 	it('posts a reaction of the writer or the redactie, saying who wrote it and as what', async () => {
 		const res = await call(opmerking, {
 			who: 'auteur',

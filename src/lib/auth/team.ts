@@ -8,6 +8,8 @@ export const IDENTITY_KINDS: readonly IdentityKind[] = ['anoniem', 'gekoppeld', 
 export const INVITATION_DAYS = 30;
 export const FORGET_AFTER_MONTHS = 12;
 export const AUDIT_YEARS = 2;
+/** A writer record goes when its proposal is merged or closed, and at the latest after this many days. */
+export const WRITER_DAYS = 183;
 
 export interface Profile {
 	sub: string;
@@ -134,6 +136,7 @@ export interface RetentionResult {
 	invitations: number;
 	users: number;
 	audit: number;
+	writers: number;
 }
 
 export interface TeamStore {
@@ -184,12 +187,15 @@ export interface TeamStore {
 	recordWriter(siteId: string, number: number, sub: string): Promise<void>;
 	/** The users Schrijver committed to a proposal for, the first one first. */
 	writers(siteId: string, number: number): Promise<string[]>;
+	/** Deletes the record of who wrote a proposal: it was merged or closed. */
+	forgetWriters(siteId: string, number: number): Promise<void>;
 
 	/** Newest first. */
 	audit(siteId?: string): Promise<AuditEntry[]>;
 	/**
 	 * Deletes expired invitations, the profile, preferences and writing records of users not seen
-	 * for twelve months who are on no team, and audit rows older than two years.
+	 * for twelve months who are on no team, writing records older than 183 days, and audit rows older
+	 * than two years.
 	 */
 	retention(): Promise<RetentionResult>;
 }
@@ -222,6 +228,8 @@ function monthsBefore(date: Date, months: number): Date {
 export const forgetBefore = (now: Date) => monthsBefore(now, FORGET_AFTER_MONTHS);
 /** Audit rows from before this moment are deleted. */
 export const auditBefore = (now: Date) => monthsBefore(now, AUDIT_YEARS * 12);
+/** Writer records from before this moment are deleted, whatever became of their proposal. */
+export const writersBefore = (now: Date) => new Date(now.getTime() - WRITER_DAYS * 24 * 3600_000);
 
 /** Beheerders first, then by name or address. */
 export function sortMembers(members: Member[]): Member[] {

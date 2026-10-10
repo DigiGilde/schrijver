@@ -10,6 +10,7 @@ import {
 	movedColumns,
 	normaliseEmail,
 	sortMembers,
+	writersBefore,
 	type Actor,
 	type AddResult,
 	type AddSiteResult,
@@ -487,6 +488,10 @@ export function createTeamStore(
 			return rows.map((r) => r.sub);
 		},
 
+		async forgetWriters(siteId, number) {
+			await sql`delete from proposal_writers where site_id = ${siteId} and number = ${number}`;
+		},
+
 		async audit(siteId) {
 			const rows = await sql<AuditRow[]>`
 				select at, actor_sub, site_id, action, target, role from audit_log
@@ -524,8 +529,15 @@ export function createTeamStore(
 					delete from user_prefs p
 					where coalesce(p.last_login_at, p.updated_at) < ${forgetBefore(now)}
 					and not exists (select 1 from site_members m where m.sub = p.sub)`;
+				const writers = await tx`
+					delete from proposal_writers where first_at < ${writersBefore(now)}`;
 				const old = await tx`delete from audit_log where at < ${auditBefore(now)}`;
-				return { invitations: expired.length, users: users.count, audit: old.count };
+				return {
+					invitations: expired.length,
+					users: users.count,
+					audit: old.count,
+					writers: writers.count
+				};
 			});
 		}
 	};
