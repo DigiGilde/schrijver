@@ -504,6 +504,22 @@ describe('pickReviewers', () => {
 });
 
 describe('canAct', () => {
+	it('lets a bijdrager or a GitHub account that may only read decide nothing, also on their own proposal', async () => {
+		await useTeams([settingsOf('moza')], { moza: { pen: 'bijdrager' } });
+		forge.permissionByLogin.set('lezer', 'read');
+		const pr = await draft();
+		const user = {
+			sub: 'pen',
+			identities: [{ kind: 'anoniem' as const, pseudoniem: 'abc' }],
+			githubLogin: null,
+			identityKind: 'anoniem' as const
+		};
+		expect(await canAct(user, site(), pr, forge)).toEqual({ owner: true, editorial: false });
+		expect(
+			await canAct({ ...user, sub: 'vreemd', githubLogin: 'lezer' }, site(), pr, forge)
+		).toEqual({ owner: true, editorial: false });
+	});
+
 	it('detects owner and editorial', async () => {
 		await useTeams([settingsOf('moza')], { moza: { s: 'redactie' } });
 		const pr = await draft();

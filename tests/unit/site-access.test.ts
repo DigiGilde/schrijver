@@ -236,6 +236,22 @@ describe('the site guard', () => {
 		expect(malformed.resolve).not.toHaveBeenCalled();
 	});
 
+	it('lets a linked GitHub account in on a private repository only, whatever GitHub answers', async () => {
+		forge.permissionByLogin.set('lezer', 'read');
+		forge.permissionByLogin.set('octo', 'admin');
+		for (const githubLogin of ['lezer', 'octo']) {
+			expect((await guard('/sites/werkplaats', { githubLogin })).resolve).toHaveBeenCalledOnce();
+		}
+		// On a public repository GitHub says read for anyone, and even admin opens no team's site.
+		const settings = (await team.settings('digi-handboek'))!;
+		await team.saveSettings('digi-handboek', { ...settings, zichtbaarheid: 'team' }, 'platform');
+		for (const githubLogin of ['lezer', 'octo']) {
+			const { resolve } = await guard('/sites/digi-handboek', { githubLogin });
+			expect(resolve, githubLogin).not.toHaveBeenCalled();
+		}
+		expect((await guard('/sites/digi-handboek', { user: 'platform' })).resolve).toHaveBeenCalled();
+	});
+
 	it('lets no one in when the team or GitHub cannot be read', async () => {
 		vi.spyOn(team, 'settings').mockRejectedValueOnce(new Error('database weg'));
 		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();

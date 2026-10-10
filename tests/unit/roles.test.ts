@@ -94,8 +94,10 @@ describe('site roles', () => {
 	it('also lets a linked GitHub account with admin permission manage it', async () => {
 		forge.permissionByLogin.set('octo', 'admin');
 		forge.permissionByLogin.set('schrijver', 'write');
+		forge.permissionByLogin.set('lezer', 'read');
 		expect(await canManageSite(site('b'), as('vreemd', 'octo'), forge)).toBe(true);
 		expect(await canManageSite(site('b'), as('vreemd', 'schrijver'), forge)).toBe(false);
+		expect(await canManageSite(site('b'), as('vreemd', 'lezer'), forge)).toBe(false);
 		expect(await canManageSite(site('b'), as('red', 'onbekend'), forge)).toBe(false);
 	});
 

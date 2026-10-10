@@ -163,6 +163,31 @@ describe('proposal endpoints', () => {
 		expect((await res.json()).message).toContain('GitHub');
 	});
 
+	it('lets a bijdrager or a GitHub account that may only read decide nothing, also on their own proposal', async () => {
+		await team.recordLogin({
+			sub: 'pen',
+			name: 'Pen',
+			email: 'pen@team.example',
+			emailVerified: true
+		});
+		await team.addByEmail('moza', 'pen@team.example', 'bijdrager', 'baas');
+		forge.permissionByLogin.set('lezer', 'read');
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		for (const vierOgen of [false, true]) {
+			await settings(true, vierOgen);
+			for (const who of [{ sub: 'pen' }, { sub: 'pen', who: 'auteur' }, { gekoppeld: 'lezer' }]) {
+				const label = JSON.stringify({ vierOgen, ...who });
+				expect((await call(mergen, { ...who, body: { sha } })).status, label).toBe(403);
+				const vraag = await call(aanpassing, { ...who, body: { body: 'Graag anders.' } });
+				expect(vraag.status, label).toBe(403);
+			}
+		}
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.state).toBe('open');
+		expect(pr.labels).not.toContain('aanpassing gevraagd');
+	});
+
 	it('keeps the writer from merging their own proposal with four eyes, unless a site admin', async () => {
 		await settings(true, true);
 		await call(insturen, { who: 'auteur' });
