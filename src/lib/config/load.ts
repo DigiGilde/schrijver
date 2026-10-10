@@ -93,6 +93,7 @@ export class ConfigStore {
 
 	/** Reads the registry and every site's structure. Throws, keeping what it had, when the registry cannot be read. */
 	async load(): Promise<void> {
+		const forgotten = new Map(this.forgotten);
 		let registered: RegisteredSite[];
 		try {
 			registered = await this.registry.sites();
@@ -103,7 +104,14 @@ export class ConfigStore {
 		const entries = await inParallel(registered, PARALLEL, (site) =>
 			this.read(site, this.entries.get(site.id))
 		);
-		this.entries = new Map(entries.map((entry) => [entry.site.id, entry]));
+		// A site forgotten while the others were read may have been read before it was: it stays unknown.
+		this.entries = new Map(
+			entries.map((entry) => {
+				const id = entry.site.id;
+				const forgottenSince = (this.forgotten.get(id) ?? 0) !== (forgotten.get(id) ?? 0);
+				return [id, forgottenSince ? { ...entry, isPublic: null } : entry];
+			})
+		);
 		this.loadedAt = this.clock();
 		this.lastError = null;
 	}

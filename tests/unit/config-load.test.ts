@@ -175,6 +175,32 @@ describe('ConfigStore', () => {
 		expect(store.status('bestaat-niet')).toBeUndefined();
 	});
 
+	it('keeps a visibility forgotten while every site is read, also when its own read had finished before', async () => {
+		forge.setPublic(DIGI, true);
+		forge.setPublic(MOZA, true);
+		await store.load();
+		const lookup = forge.repository.bind(forge);
+		let release: () => void = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		vi.spyOn(forge, 'repository').mockImplementation(async (repo) => {
+			if (repo === MOZA) await held;
+			return lookup(repo);
+		});
+		const loading = store.load();
+		await vi.waitFor(() => expect(forge.repository).toHaveBeenCalledWith(MOZA));
+		// The read of Digi Handboek has finished by now; the one of MOZa waits.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		forge.setPublic(DIGI, false);
+		store.forgetVisibility('digi-handboek');
+		expect(store.status('digi-handboek')?.isPublic).toBeNull();
+		release();
+		await loading;
+		expect(store.status('digi-handboek')?.isPublic).toBeNull();
+		expect(store.status('moza-site')?.isPublic).toBe(true);
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')?.isPublic).toBe(false);
+	});
+
 	it('knows nothing of a repository it never read, or one its name now leads to that is not its own', async () => {
 		forge.setInstalled(MOZA, false);
 		await store.load();
