@@ -36,7 +36,7 @@
 			case 'klopt-niet':
 				return w.zonderMap
 					? `${w.repo} heeft nog geen map .schrijver.`
-					: `De bestanden in .schrijver van ${w.repo} kloppen niet.`;
+					: `De structuur in .schrijver van ${w.repo} klopt niet.`;
 		}
 	}
 	const kop = $derived(weigering ? zin(weigering) : '');
@@ -129,7 +129,7 @@
 							{/if}
 							<p>
 								Wat er in .schrijver hoort, lees je in <a href={DOCS}>Een site aansluiten</a>. De
-								bestanden wijzig je met een voorstel in de repository.
+								structuur wijzig je met een voorstel in de repository.
 							</p>
 						{/if}
 					</nldd-rich-text>
@@ -140,7 +140,7 @@
 		{#if data.stap === 1}
 			<nldd-text>
 				Een site in Schrijver is een repository op GitHub met de map .schrijver erin. Schrijver
-				kijkt of de Schrijver-app op de repository staat en of de bestanden in .schrijver kloppen.
+				kijkt of de Schrijver-app op de repository staat en of de structuur in .schrijver klopt.
 			</nldd-text>
 			<nldd-form>
 				<form method="get" novalidate>
@@ -174,8 +174,8 @@
 					<nldd-title size="3" heading-level="2" text="Gegevens van de site"></nldd-title>
 				</div>
 				<nldd-text>
-					De Schrijver-app staat op {data.repo} en de bestanden in .schrijver kloppen. Schrijver werkt
-					op de branch {data.branch}.
+					De Schrijver-app staat op {data.repo} en de structuur in .schrijver klopt. Schrijver werkt op
+					de branch {data.branch}.
 				</nldd-text>
 			</nldd-container>
 			<nldd-form>
@@ -197,7 +197,7 @@
 					}}
 				>
 					<input type="hidden" name="repo" value={data.repo} />
-					<nldd-form-field label="Kenmerk">
+					<nldd-form-field label="Naam in het adres">
 						<nldd-text-field
 							name="id"
 							value={waarden.id}

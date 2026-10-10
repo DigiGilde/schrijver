@@ -71,7 +71,7 @@
 {#if justLinked}
 	<nldd-banner
 		variant="success"
-		text="Je GitHub-account is gekoppeld. Kies hieronder 'Gekoppeld aan mijn GitHub-account' en sla op als je zo wilt ondertekenen."
+		text="Je GitHub-account is gekoppeld. Kies hieronder 'Gekoppeld aan GitHub' en sla op als je zo wilt ondertekenen."
 	></nldd-banner>
 {/if}
 
@@ -95,12 +95,12 @@
 				<nldd-radio-button-group name="identity" required onchange={onChange}>
 					<nldd-radio-button-field
 						value="anoniem"
-						label="Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vast pseudoniem."
+						label="Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vaste codenaam."
 						checked={selected === 'anoniem' || undefined}
 					></nldd-radio-button-field>
 					<nldd-radio-button-field
 						value="gekoppeld"
-						label="Gekoppeld aan mijn GitHub-account: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
+						label="Gekoppeld aan GitHub: je GitHub-gebruikersnaam staat bij de wijziging en die telt mee op je GitHub-profiel. Je naam en werkadres blijven verborgen."
 						checked={selected === 'gekoppeld' || undefined}
 						disabled={!linked || undefined}
 					></nldd-radio-button-field>
@@ -113,7 +113,7 @@
 				</nldd-radio-button-group>
 				{#if !linked}
 					<nldd-form-field-help-text
-						>'Gekoppeld' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
+						>'Gekoppeld aan GitHub' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
 					>
 				{/if}
 				{#if !emailVerified}
@@ -122,9 +122,9 @@
 					>
 				{/if}
 				<nldd-form-field-help-text>
-					Wat met 'Gekoppeld' of 'Op naam' in een openbare repository komt, blijft daar voorgoed
-					zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets anders
-					kiest.
+					Wat met 'Gekoppeld aan GitHub' of 'Op naam' in een openbare repository komt, blijft daar
+					voorgoed zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets
+					anders kiest.
 				</nldd-form-field-help-text>
 			</nldd-form-field>
 

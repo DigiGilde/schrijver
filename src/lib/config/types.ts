@@ -147,7 +147,7 @@ const GITHUB = 'Schrijver weet van GitHub welke repository en welke standaardbra
 
 /** Fields of the old central configuration, and where each is set now. */
 const MOVED: Record<string, string> = {
-	id: 'Het kenmerk van de site kies je in Schrijver, bij Site toevoegen.',
+	id: 'De naam van de site in het adres kies je in Schrijver, bij Site toevoegen.',
 	naam: SETTINGS,
 	omschrijving: SETTINGS,
 	adres: SETTINGS,

@@ -14,6 +14,20 @@ test('settings: the save button is ready after loading and saves the choice', as
 	await expect(page.getByRole('radio', { name: /^Anoniem/ })).toBeChecked();
 });
 
+test('settings: the signing choices are called as everywhere else', async ({ page }) => {
+	await page.goto('/instellingen');
+	await expect(
+		page.getByRole('radio', {
+			name: 'Anoniem (standaard): je naam komt nergens in GitHub. Schrijver geeft je een vaste codenaam.'
+		})
+	).toBeVisible();
+	await expect(page.getByRole('radio', { name: /^Gekoppeld aan GitHub: / })).toBeVisible();
+	await expect(
+		page.getByText("'Gekoppeld aan GitHub' kan pas als je hieronder je GitHub-account koppelt.")
+	).toBeVisible();
+	await expect(page.getByText(/pseudoniem|Gekoppeld aan mijn/)).toHaveCount(0);
+});
+
 test('onboarding: saving the choice leads to the start page', async ({ page }) => {
 	await page.goto('/onboarding');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
@@ -48,7 +62,7 @@ test('settings: a platform admin finds every site under Beheer, and everyone the
 	await expect(sites.getByRole('link')).toHaveCount(3);
 	await expect(sites.getByRole('link', { name: 'Digi Handboek' })).toBeVisible();
 	await expect(sites.locator('nldd-list-item').filter({ hasText: 'Oude site' })).toContainText(
-		'De instellingen in de repository kloppen niet'
+		'De structuur in .schrijver klopt niet'
 	);
 	await expect(page.getByText('Je kenmerk bij SSO Rijk: platform')).toBeVisible();
 

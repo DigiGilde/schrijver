@@ -29,7 +29,7 @@ export const SITE_ID_MAX = 50;
 /** Addresses under /instellingen/sites/ that a site cannot take. */
 const RESERVED = new Set(['nieuw']);
 
-export const ID_TAKEN = 'Er is al een site met dit kenmerk. Kies een ander.';
+export const ID_TAKEN = 'Er is al een site met deze naam in het adres. Kies een andere.';
 
 /** The id a site gets unless someone types another: from the name of its repository, not one in use. */
 export function suggestedId(repo: string, taken: Set<string>): string {
@@ -89,13 +89,14 @@ export function parseNewSite(form: FormData, taken: Set<string>): NewSiteForm {
 	const email = normaliseEmail(typed);
 	const errors: Partial<Record<NewSiteField, string>> = { ...fouten };
 
-	if (id === '') errors.id = 'Een kenmerk is nodig.';
+	if (id === '') errors.id = 'Een naam in het adres is nodig.';
 	else if (id.length > SITE_ID_MAX)
-		errors.id = `Een kenmerk heeft hoogstens ${SITE_ID_MAX} tekens.`;
+		errors.id = `Een naam in het adres heeft hoogstens ${SITE_ID_MAX} tekens.`;
 	else if (!SITE_ID.test(id)) {
 		errors.id =
-			'Een kenmerk heeft kleine letters en cijfers, met streepjes ertussen, zoals kennisbank.';
-	} else if (RESERVED.has(id)) errors.id = 'Dit kenmerk gebruikt Schrijver zelf. Kies een ander.';
+			'Een naam in het adres heeft kleine letters en cijfers, met streepjes ertussen, zoals kennisbank.';
+	} else if (RESERVED.has(id))
+		errors.id = 'Deze naam in het adres gebruikt Schrijver zelf. Kies een andere.';
 	else if (taken.has(id)) errors.id = ID_TAKEN;
 
 	if (beheerder === 'collega') {

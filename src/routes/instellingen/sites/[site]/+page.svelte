@@ -38,9 +38,9 @@
 				{#if data.structuur.fouten.length > 0}
 					<nldd-banner
 						variant="critical"
-						text="De instellingen in de repository kloppen niet"
+						text="De structuur in .schrijver klopt niet"
 						supporting-text={data.structuur.bruikbaar
-							? 'Schrijver werkt met de laatste instellingen die wel klopten. Wat er niet klopt, staat bij Structuur.'
+							? 'Schrijver werkt met de laatste structuur die wel klopte. Wat er niet klopt, staat bij Structuur.'
 							: 'Zolang dat zo is, kan niemand de site bewerken. Wat er niet klopt, staat bij Structuur.'}
 					></nldd-banner>
 				{/if}

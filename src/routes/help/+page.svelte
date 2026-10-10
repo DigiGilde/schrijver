@@ -50,10 +50,13 @@
 					site.
 				</li>
 				<li>
-					<strong>Samengevoegd.</strong> De wijziging zit nu in de site. Na de volgende publicatie staat
-					ze op de site.
+					<strong>Samengevoegd.</strong> Na de volgende publicatie staat de wijziging op de site.
 				</li>
 			</ol>
+			<p>
+				In de lijsten van voorstellen staat soms "Goedgekeurd": het voorstel is ingestuurd en op
+				GitHub goedgekeurd, en de redactie kan het samenvoegen.
+			</p>
 			<p>
 				De redactie beslist over een ingestuurd voorstel. Ze voegt het samen met "Samenvoegen", of
 				vraagt om een aanpassing met "Vraag om aanpassing".
@@ -64,9 +67,9 @@
 				het voorstel aan met "Verder bewerken" en kies daarna "Opnieuw insturen".
 			</p>
 			<p>
-				Niemand voegt een eigen voorstel samen: een andere redacteur beslist, zodat er altijd vier
-				ogen meekijken. Beheerders van de site mogen hun eigen voorstel wel samenvoegen. Een site
-				kan deze regel ook uitzetten.
+				Niemand voegt een eigen voorstel samen: een ander lid van de redactie beslist, zodat er
+				altijd vier ogen meekijken. Beheerders van de site mogen hun eigen voorstel wel samenvoegen.
+				Een site kan deze regel ook uitzetten.
 			</p>
 			<p>
 				Bij sommige sites is eerst een goedkeuring op GitHub nodig. Dat staat dan op de pagina van

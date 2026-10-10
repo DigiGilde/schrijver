@@ -115,17 +115,23 @@ describe('parseNewSite', () => {
 
 	it('says in Dutch what is wrong with each field, and keeps what was typed', () => {
 		const cases: [Record<string, string>, Record<string, string>][] = [
-			[{ id: '' }, { id: 'Een kenmerk is nodig.' }],
-			[{ id: 'x'.repeat(51) }, { id: 'Een kenmerk heeft hoogstens 50 tekens.' }],
+			[{ id: '' }, { id: 'Een naam in het adres is nodig.' }],
+			[{ id: 'x'.repeat(51) }, { id: 'Een naam in het adres heeft hoogstens 50 tekens.' }],
 			[
 				{ id: 'Kennis_Bank' },
 				{
-					id: 'Een kenmerk heeft kleine letters en cijfers, met streepjes ertussen, zoals kennisbank.'
+					id: 'Een naam in het adres heeft kleine letters en cijfers, met streepjes ertussen, zoals kennisbank.'
 				}
 			],
-			[{ id: '-kennis' }, { id: expect.stringMatching(/^Een kenmerk heeft kleine letters/) }],
-			[{ id: 'nieuw' }, { id: 'Dit kenmerk gebruikt Schrijver zelf. Kies een ander.' }],
-			[{ id: 'digi-handboek' }, { id: 'Er is al een site met dit kenmerk. Kies een ander.' }],
+			[
+				{ id: '-kennis' },
+				{ id: expect.stringMatching(/^Een naam in het adres heeft kleine letters/) }
+			],
+			[{ id: 'nieuw' }, { id: 'Deze naam in het adres gebruikt Schrijver zelf. Kies een andere.' }],
+			[
+				{ id: 'digi-handboek' },
+				{ id: 'Er is al een site met deze naam in het adres. Kies een andere.' }
+			],
 			[{ naam: ' ' }, { naam: 'Een naam is nodig.' }],
 			[{ adres: 'ftp://x' }, { adres: expect.stringMatching(/^Een adres begint met https/) }],
 			[{ beheerder: 'collega', email: '' }, { email: 'Een e-mailadres is nodig.' }],
@@ -428,7 +434,7 @@ describe('step 2', () => {
 			status: 400,
 			data: {
 				fouten: {
-					id: 'Er is al een site met dit kenmerk. Kies een ander.',
+					id: 'Er is al een site met deze naam in het adres. Kies een andere.',
 					naam: 'Een naam is nodig.'
 				},
 				waarden: { id: 'moza-site', naam: '' }
@@ -443,7 +449,7 @@ describe('step 2', () => {
 			.mockResolvedValueOnce({ ok: false, reason: 'id-taken' });
 		expect(await add('platform', KENNISBANK)).toMatchObject({
 			status: 400,
-			data: { fouten: { id: 'Er is al een site met dit kenmerk. Kies een ander.' } }
+			data: { fouten: { id: 'Er is al een site met deze naam in het adres. Kies een andere.' } }
 		});
 		expect(taken).toHaveBeenCalledOnce();
 	});

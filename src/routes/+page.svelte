@@ -40,7 +40,7 @@
 							<nldd-container slot="footer" padding="16" padding-top="0" gap="4">
 								{#if site.klopNiet}
 									<nldd-text size="sm" weight="medium" color="critical"
-										>De instellingen in de repository kloppen niet</nldd-text
+										>De structuur in .schrijver klopt niet</nldd-text
 									>
 								{/if}
 								{#each site.status as regel (regel)}

@@ -40,7 +40,9 @@ test.describe('Help, how a change reaches the site', () => {
 		await expect(page.locator('h2#voorstellen')).toHaveText('Zo komt een wijziging op de site');
 	});
 
-	test('names the three steps and does not count an approval as one', async ({ page }) => {
+	test('names the three steps, and explains Goedgekeurd in the lists without making it one', async ({
+		page
+	}) => {
 		await page.goto('/help');
 		const steps = page.locator('h2#voorstellen + p + ol > li');
 		await expect(steps).toHaveText([/^Concept\. /, /^Ingestuurd\. /, /^Samengevoegd\. /]);
@@ -48,8 +50,13 @@ test.describe('Help, how a change reaches the site', () => {
 		await expect(steps.nth(1)).toContainText(
 			'vraagt Schrijver de redactie van de site om te beslissen'
 		);
-		await expect(steps.nth(2)).toContainText('Na de volgende publicatie staat ze op de site');
-		await expect(inhoud(page).getByText('Goedgekeurd')).toHaveCount(0);
+		await expect(steps.nth(2)).toHaveText(
+			'Samengevoegd. Na de volgende publicatie staat de wijziging op de site.'
+		);
+		await expect(page.locator('h2#voorstellen + p + ol + p')).toHaveText(
+			'In de lijsten van voorstellen staat soms "Goedgekeurd": het voorstel is ingestuurd en op GitHub goedgekeurd, en de redactie kan het samenvoegen.'
+		);
+		await expect(inhoud(page).getByText('Goedgekeurd')).toHaveCount(1);
 	});
 
 	test('says who decides, how to adjust a proposal and where the editors are named', async ({
@@ -62,7 +69,10 @@ test.describe('Help, how a change reaches the site', () => {
 		await expect(text).toContainText('de status "Aanpassing gevraagd"');
 		await expect(text).toContainText('bij "Gesprek" op de pagina van het voorstel');
 		await expect(text).toContainText('met "Verder bewerken" en kies daarna "Opnieuw insturen"');
-		await expect(text).toContainText('Niemand voegt een eigen voorstel samen');
+		await expect(text).toContainText(
+			'Niemand voegt een eigen voorstel samen: een ander lid van de redactie beslist'
+		);
+		await expect(text).not.toContainText('redacteur');
 		await expect(text).toContainText(
 			'Beheerders van de site mogen hun eigen voorstel wel samenvoegen'
 		);

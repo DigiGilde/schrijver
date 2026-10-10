@@ -75,7 +75,7 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 
 	await check(page, 'DigiGilde/intranet');
 	await expect(
-		status(page, 'De bestanden in .schrijver van DigiGilde/intranet kloppen niet.')
+		status(page, 'De structuur in .schrijver van DigiGilde/intranet klopt niet.')
 	).toHaveCount(1);
 	await expect(
 		page.getByText('.schrijver/site.yaml: preview.url: moet {nummer} bevatten')
@@ -102,14 +102,19 @@ test('Site toevoegen adds a site, and Site verwijderen takes it out again', asyn
 	await expect(page).toHaveURL(/\?repo=digigilde%2Fkennisbank$/);
 	await expect(page.getByRole('heading', { level: 2, name: 'Gegevens van de site' })).toBeVisible();
 	await expect(status(page, 'DigiGilde/kennisbank kan een site worden.')).toHaveCount(1);
+	await expect(
+		page.getByText(
+			'De Schrijver-app staat op DigiGilde/kennisbank en de structuur in .schrijver klopt.'
+		)
+	).toBeVisible();
 	await expect(page.locator('nldd-step-bar-item[status="current"]')).toHaveAttribute(
 		'text',
 		'Gegevens van de site'
 	);
 	const form = stepTwo(page);
-	const id = form.getByRole('textbox', { name: 'Kenmerk' });
+	const id = form.getByRole('textbox', { name: 'Naam in het adres' });
 	await expect(id).toHaveValue('kennisbank');
-	await expect(form.getByRole('textbox', { name: 'Naam' })).toHaveValue('Kennisbank');
+	await expect(form.getByRole('textbox', { name: 'Naam', exact: true })).toHaveValue('Kennisbank');
 	await expect(form.getByRole('textbox', { name: /^Omschrijving/ })).toHaveValue(
 		'Wat het Digi Gilde weet over werken bij de overheid.'
 	);
@@ -123,7 +128,9 @@ test('Site toevoegen adds a site, and Site verwijderen takes it out again', asyn
 	await form.getByRole('radio', { name: 'Een collega' }).click();
 	const email = form.getByRole('textbox', { name: 'E-mailadres van je collega' });
 	await form.getByRole('button', { name: 'Voeg site toe' }).click();
-	await expect(form.getByText('Er is al een site met dit kenmerk. Kies een ander.')).toBeVisible();
+	await expect(
+		form.getByText('Er is al een site met deze naam in het adres. Kies een andere.')
+	).toBeVisible();
 	await expect(form.getByText('Een e-mailadres is nodig.')).toBeVisible();
 	await expect(status(page, 'Niet alles klopt. Kijk de velden met een melding na.')).toHaveCount(1);
 	await expect(id).toBeFocused();
@@ -190,13 +197,13 @@ test('a site whose files are not valid shows only its admins what is wrong', asy
 	await als(page, 'platform');
 	await page.goto('/');
 	const card = siteCard(page, 'Oude site');
-	await expect(card).toContainText('De instellingen in de repository kloppen niet');
+	await expect(card).toContainText('De structuur in .schrijver klopt niet');
 	await expect(card).toHaveAttribute('href', '/instellingen/sites/oude-site');
 	await expect(card).toHaveAttribute('accessible-label', 'Beheer van Oude site');
 	await card.click();
 	await expect(page).toHaveURL(/\/instellingen\/sites\/oude-site$/);
 	await expect(
-		page.locator('nldd-banner[text="De instellingen in de repository kloppen niet"]')
+		page.locator('nldd-banner[text="De structuur in .schrijver klopt niet"]')
 	).toHaveAttribute('supporting-text', /Zolang dat zo is, kan niemand de site bewerken/);
 	await expect(
 		page.getByText(
@@ -248,7 +255,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await als(page, 'platform');
 		await openAdd(page);
 		await check(page, 'DigiGilde/intranet');
-		await expect(status(page, 'kloppen niet')).toHaveCount(1);
+		await expect(status(page, 'klopt niet')).toHaveCount(1);
 		await axe(page);
 
 		await page.setViewportSize({ width: 1280, height: 800 });

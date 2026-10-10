@@ -52,7 +52,7 @@
 								<nldd-text-cell
 									text={site.naam}
 									supporting-text={site.klopNiet
-										? 'De instellingen in de repository kloppen niet'
+										? 'De structuur in .schrijver klopt niet'
 										: undefined}
 								></nldd-text-cell>
 								<nldd-spacer-cell size="8"></nldd-spacer-cell>
