@@ -15,6 +15,8 @@ const serverEnv = {
 		organisation: null,
 		exp: 9999999999999
 	}),
+	// A platform admin, to reach "Site toevoegen".
+	SCHRIJVER_BEHEERDERS: 'test',
 	PSEUDONYM_SECRET: 'e2e-pseudonym-secret',
 	SESSION_SECRET: 'e2e-session-secret-e2e-session-secret',
 	ORIGIN: `http://localhost:${port}`
