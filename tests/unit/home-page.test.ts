@@ -182,9 +182,11 @@ describe('home page', () => {
 		vi.useFakeTimers();
 		forge.collaboratorPermission = () => new Promise(() => {});
 		let sites: Data['sites'] | null = null;
-		void load({
-			locals: { user: { session: session(OTHER), prefs: { ...prefs, githubLogin: 'lezer' } } }
-		} as never).then((data) => (sites = (data as Data).sites));
+		void (
+			load({
+				locals: { user: { session: session(OTHER), prefs: { ...prefs, githubLogin: 'lezer' } } }
+			} as never) as Promise<Data>
+		).then((data) => (sites = data.sites));
 		await vi.advanceTimersByTimeAsync(2000);
 		expect(sites!.map((site) => site.id)).toEqual(['digi-handboek', 'moza-site']);
 		expect(vi.getTimerCount()).toBe(0);
