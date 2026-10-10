@@ -70,7 +70,7 @@
 			</nldd-list-item>
 		</nldd-list>
 	{/if}
-	<nldd-link href={structuur.url} text="Bekijk .schrijver op GitHub"></nldd-link>
+	<nldd-link href={structuur.url} text=".schrijver bekijken op GitHub"></nldd-link>
 </nldd-container>
 
 <style>

@@ -358,7 +358,7 @@
 	<nldd-button
 		slot="actions"
 		appearance="secondary"
-		text="Bekijk voorstel"
+		text="Voorstel bekijken"
 		href={`/sites/${siteId}/voorstellen/${nummer}`}
 	></nldd-button>
 {/snippet}
@@ -386,7 +386,7 @@
 		<nldd-button
 			slot="actions"
 			appearance="secondary"
-			text="Open op GitHub"
+			text="Voorstel bekijken op GitHub"
 			href={bewaard.url}
 			target="_blank"
 		></nldd-button>

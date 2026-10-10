@@ -146,9 +146,9 @@
 			<nldd-title size="3" heading-level="2" text="Bestanden op GitHub"></nldd-title>
 			<nldd-rich-text>
 				<p>
-					De pagina's staan op GitHub in <a href={data.repoUrl}>{data.repo}, branch {data.branch}</a
-					>. Collega's die GitHub kennen, kunnen daar ook direct werken. Hun voorstellen staan ook
-					bij Voorstellen, met "Via GitHub".
+					De pagina's staan op GitHub in <a href={data.repoUrl}>{data.repo}</a>. Collega's die
+					GitHub kennen, kunnen daar ook direct werken. Hun voorstellen staan ook bij Voorstellen,
+					met "Via GitHub".
 				</p>
 				<p>
 					Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met

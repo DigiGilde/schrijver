@@ -16,6 +16,10 @@ vi.mock('$app/state', () => state);
 import ConceptBanner from '../../src/lib/components/ConceptBanner.svelte';
 import Diff from '../../src/lib/components/Diff.svelte';
 import LeesAlleenBanner from '../../src/lib/components/LeesAlleenBanner.svelte';
+import PrefsForm from '../../src/lib/components/PrefsForm.svelte';
+import Structuur from '../../src/routes/instellingen/sites/[site]/Structuur.svelte';
+import GitHubStart from '../../src/routes/login/github/start/+page.svelte';
+import Over from '../../src/routes/sites/[site]/over/+page.svelte';
 import Foutpagina from '../../src/routes/+error.svelte';
 import Startpagina from '../../src/routes/+page.svelte';
 import Uitgelogd from '../../src/routes/uitgelogd/+page.svelte';
@@ -113,5 +117,99 @@ describe('the changes of a page', () => {
 		expect(
 			[...document.querySelectorAll('table.gegevens th[scope="col"]')].map((th) => th.textContent)
 		).toEqual(['Eigenschap', 'Huidig', 'Voorgesteld']);
+	});
+});
+
+describe('the links that leave Schrijver', () => {
+	const GITHUB = 'https://github.com/DigiGilde/handboek/blob/main/docs/a.md';
+
+	it('say what they open: the file of a page that cannot be edited', () => {
+		const button = screen(LeesAlleenBanner, {
+			readOnly: { reason: 'toml', message: 'detail', githubUrl: GITHUB }
+		}).querySelector('nldd-banner nldd-button[slot="actions"]')!;
+		expect(button.getAttribute('text')).toBe('Bestand bekijken op GitHub');
+		expect(button.getAttribute('href')).toBe(GITHUB);
+		expect(button.getAttribute('target')).toBe('_blank');
+	});
+
+	it('say what they open: a change that is too large to show', () => {
+		const document = screen(Diff, {
+			path: 'docs/a.md',
+			titel: 'A',
+			before: null,
+			after: null,
+			source: [],
+			status: 'modified',
+			teGroot: true,
+			githubUrl: 'https://github.com/DigiGilde/handboek/pull/3/files'
+		});
+		expect(document.querySelector('nldd-link')?.getAttribute('text')).toBe(
+			'Wijziging bekijken op GitHub'
+		);
+	});
+
+	it('say what they open: the folder of the structure on GitHub', () => {
+		const document = screen(Structuur, {
+			structuur: {
+				bruikbaar: true,
+				fouten: [],
+				url: 'https://github.com/DigiGilde/handboek/tree/main/.schrijver',
+				samenvatting: null
+			}
+		});
+		expect(document.querySelector('nldd-link')?.getAttribute('text')).toBe(
+			'.schrijver bekijken op GitHub'
+		);
+	});
+
+	it('say where they lead: on to GitHub, where the account is linked', () => {
+		const document = screen(GitHubStart, { data: { url: 'https://github.com/login/oauth' } });
+		expect(document.querySelector('a[href="https://github.com/login/oauth"]')?.textContent).toBe(
+			'Verder naar GitHub'
+		);
+	});
+
+	it('name the repository on Over, not its branch', () => {
+		const document = screen(Over, {
+			data: {
+				site: { id: 'digi-handboek', naam: 'Digi Handboek', omschrijving: null, adres: null },
+				redactie: [],
+				kanBeheren: false,
+				mergenVanuitSchrijver: true,
+				ondertekenen: ['anoniem'],
+				zichtbaarheid: 'iedereen',
+				repoOpenbaar: true,
+				conceptenOpenbaar: true,
+				voorbeeld: 'bij-push',
+				repo: 'DigiGilde/handboek',
+				repoUrl: 'https://github.com/DigiGilde/handboek/tree/main',
+				structuurUrl: 'https://github.com/DigiGilde/handboek/tree/main/.schrijver'
+			}
+		});
+		const link = document.querySelector(
+			'a[href="https://github.com/DigiGilde/handboek/tree/main"]'
+		);
+		expect(link?.textContent).toBe('DigiGilde/handboek');
+		expect(document.body.textContent).not.toMatch(/branch/i);
+	});
+});
+
+describe('the settings of a colleague', () => {
+	const props = { identity: 'anoniem', emailVerified: true, sites: [], headings: true };
+	const buttons = (document: Document) =>
+		[...document.querySelectorAll('nldd-button')].map((button) => button.getAttribute('text'));
+
+	it('are saved with "Bewaar", and the GitHub account is linked with "GitHub-account koppelen"', () => {
+		expect(buttons(screen(PrefsForm, { ...props, githubLogin: '' }))).toEqual([
+			'Bewaar',
+			'GitHub-account koppelen'
+		]);
+	});
+
+	it('unlink the GitHub account with "Ontkoppel GitHub-account"', () => {
+		expect(buttons(screen(PrefsForm, { ...props, githubLogin: 'torvalds' }))).toEqual([
+			'Bewaar',
+			'Ontkoppel GitHub-account'
+		]);
 	});
 });

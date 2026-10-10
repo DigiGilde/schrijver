@@ -30,7 +30,7 @@ test('the writer is blocked on the proposal they sent in, and another editor is 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nTwee paar ogen zien meer.');
 	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
-	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await page.getByRole('link', { name: 'Voorstel bekijken', exact: true }).click();
 	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(ZELF);
 	await expect(knop(page, 'Voeg samen')).toHaveCount(0);

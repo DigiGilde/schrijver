@@ -18,7 +18,7 @@
 	<nldd-button
 		slot="actions"
 		appearance="secondary"
-		text="Open op GitHub"
+		text="Bestand bekijken op GitHub"
 		href={readOnly.githubUrl}
 		target="_blank"
 	></nldd-button>

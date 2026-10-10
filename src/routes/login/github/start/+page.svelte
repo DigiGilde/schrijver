@@ -13,6 +13,6 @@
 	<nldd-container gap="16">
 		<nldd-text>Je gaat naar GitHub om je account te koppelen.</nldd-text>
 		<!-- A plain anchor: it must work before (or without) the design system scripts. -->
-		<nldd-rich-text><p><a href={data.url}>Ga verder naar GitHub</a></p></nldd-rich-text>
+		<nldd-rich-text><p><a href={data.url}>Verder naar GitHub</a></p></nldd-rich-text>
 	</nldd-container>
 </Pagina>

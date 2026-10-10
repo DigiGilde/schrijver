@@ -58,7 +58,7 @@ test('dismissing the save notification from within keeps the preview showing', a
 	await expect(melding).toBeVisible();
 	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 
-	await melding.getByRole('link', { name: 'Bekijk voorstel' }).focus();
+	await melding.getByRole('link', { name: 'Voorstel bekijken', exact: true }).focus();
 	await page.keyboard.press('Escape');
 	await expect(melding).toHaveCount(0);
 	await expect(page.getByRole('radio', { name: 'Voorbeeld' })).toBeChecked();
@@ -93,7 +93,7 @@ test('a proposal that was sent in is named, not called a concept, and points to 
 		await melding
 			.locator('nldd-button[slot="actions"]')
 			.evaluateAll((knoppen) => knoppen.map((knop) => knop.getAttribute('text')))
-	).toEqual(['Bekijk voorstel', 'Open op GitHub']);
+	).toEqual(['Voorstel bekijken', 'Voorstel bekijken op GitHub']);
 	await expect(
 		page.locator('p[role="status"]').filter({ hasText: 'Bewaard in voorstel' })
 	).toHaveText(`Bewaard in voorstel #${nummer}. ${klaar}`);

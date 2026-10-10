@@ -17,6 +17,7 @@ vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
 
 import { commentBody } from '../../src/lib/forge/conversation';
 import type { FakeForge } from '../../src/lib/forge/fake';
+import { ForgeError } from '../../src/lib/forge/types';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/sites/[site]/voorstellen/[nummer]/+page.server';
@@ -98,5 +99,71 @@ describe('the conversation on the proposal page', () => {
 			['Anoniem, codenaam 0123456789ab', 'Schrijver van dit voorstel · op naam'],
 			['torvalds', 'Op GitHub']
 		]);
+	});
+});
+
+describe('the links to GitHub on the proposal page', () => {
+	let made = 0;
+	async function propose(files: Record<string, string> = { 'docs/links.md': '# Links\n' }) {
+		const branch = `schrijver/digi-handboek/links-${++made}`;
+		await forge.createBranch(REPO, 'main', branch);
+		await forge.commit(
+			REPO,
+			branch,
+			Object.entries(files).map(([path, content]) => ({ path, content })),
+			'x'
+		);
+		return (await forge.openDraftPr(REPO, branch, 'main', `Links ${made}`, '')).number;
+	}
+	const links = (document: Document) =>
+		[...document.querySelectorAll('nldd-link')].map((link) => link.getAttribute('text'));
+
+	it('name what they open, with the verb "bekijken" and never a pronoun', async () => {
+		const number = await propose();
+		expect(links(await page(number))).toEqual([
+			'Uitleg over voorstellen',
+			'Voorstel bekijken op GitHub'
+		]);
+	});
+
+	it('send a colleague to a review that only commented on lines, and to the rest of a long reaction', async () => {
+		const number = await propose();
+		forge.reviewOnGitHub(REPO, number, 'pietersen', 'commented', '', '2026-10-01T10:00:00.000Z');
+		forge.commentOnGitHub(REPO, number, 'torvalds', 'x'.repeat(10_001), '2026-10-02T10:00:00.000Z');
+		const document = await page(number);
+		expect(document.body.textContent).toContain('Plaatste reacties in de tekst op GitHub');
+		expect(links(document)).toEqual([
+			'Uitleg over voorstellen',
+			'Reactie bekijken op GitHub',
+			'Rest van de reactie bekijken op GitHub',
+			'Voorstel bekijken op GitHub'
+		]);
+	});
+
+	it('send a colleague to the conversation that could not be loaded or is longer than shown', async () => {
+		const unloaded = await propose();
+		forge.failNext('prComments', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		const document = await page(unloaded);
+		expect(document.body.textContent).toContain('Het gesprek kon niet worden geladen.');
+		expect(links(document)).toContain('Gesprek bekijken op GitHub');
+
+		const long = await propose();
+		for (let n = 0; n < 300; n++) forge.commentOnGitHub(REPO, long, 'torvalds', `Reactie ${n}`);
+		const longer = await page(long);
+		expect(longer.body.textContent).toContain('Het gesprek is langer dan Schrijver hier toont.');
+		expect(links(longer)).toContain('Gesprek bekijken op GitHub');
+	});
+
+	it('send a colleague to the changes of a proposal from a fork, and to the pages not compared', async () => {
+		const fork = await propose();
+		forge.prs.get(fork)!.headRepo = 'iemand/handboek';
+		expect(links(await page(fork))).toContain('Wijzigingen bekijken op GitHub');
+
+		const files = Object.fromEntries(
+			Array.from({ length: 21 }, (_, n) => [`docs/veel/pagina-${n}.md`, `# Pagina ${n}\n`])
+		);
+		const many = await page(await propose(files));
+		expect(many.body.textContent).toContain('Nog 1 pagina is hier niet vergeleken.');
+		expect(links(many)).toContain("Pagina's bekijken op GitHub");
 	});
 });

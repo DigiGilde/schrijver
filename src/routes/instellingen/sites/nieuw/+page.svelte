@@ -108,7 +108,7 @@
 								daar deze repository. Controleer hem daarna hier opnieuw.
 							</p>
 							{#if weigering.installeren}
-								<p><a href={weigering.installeren}>Installeer de Schrijver-app op GitHub</a></p>
+								<p><a href={weigering.installeren}>Schrijver-app installeren op GitHub</a></p>
 							{/if}
 						{:else if weigering.soort === 'onbereikbaar'}
 							<p>Probeer het over een paar minuten opnieuw.</p>

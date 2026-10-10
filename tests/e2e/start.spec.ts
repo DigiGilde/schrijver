@@ -98,7 +98,7 @@ test('a card says what waits for you on that site', async ({ page }) => {
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nGezien op de startpagina');
 	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
-	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await page.getByRole('link', { name: 'Voorstel bekijken', exact: true }).click();
 	await expect(page.locator('nldd-step-bar-item[status="current"][text="Concept"]')).toBeVisible();
 	const proposal = page.url();
 

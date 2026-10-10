@@ -403,7 +403,8 @@ function annotate(html: string, state: string, word: string, label: string, doc:
 const skipped = (aantal: number) =>
 	aantal === 1 ? '1 alinea ongewijzigd' : `${aantal} alinea's ongewijzigd`;
 
-export const TE_GROOT = 'Deze wijziging is te groot om hier te tonen. Bekijk haar op GitHub.';
+export const TE_GROOT =
+	'Deze wijziging is te groot om hier te tonen. Bekijk de wijziging op GitHub.';
 
 /** The blocks as HTML for `nldd-rich-text`: every top-level element stays a direct child of it. */
 export function toHtml(blocks: DiffBlock[], doc: Document): string {

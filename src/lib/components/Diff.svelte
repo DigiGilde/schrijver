@@ -129,7 +129,7 @@
 	{#if githubUrl}
 		<nldd-text>
 			Deze wijziging is te groot om hier te tonen.
-			<nldd-link href={githubUrl} target="_blank" text="Bekijk haar op GitHub"></nldd-link>
+			<nldd-link href={githubUrl} target="_blank" text="Wijziging bekijken op GitHub"></nldd-link>
 		</nldd-text>
 	{:else}
 		<nldd-text>{TE_GROOT}</nldd-text>

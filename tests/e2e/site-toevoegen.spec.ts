@@ -58,7 +58,7 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 	await check(page, 'MinBZK/elders');
 	await expect(status(page, 'De Schrijver-app staat niet op MinBZK/elders.')).toHaveCount(1);
 	await expect(
-		page.getByRole('link', { name: 'Installeer de Schrijver-app op GitHub' })
+		page.getByRole('link', { name: 'Schrijver-app installeren op GitHub' })
 	).toHaveAttribute('href', 'https://github.com/apps/schrijver/installations/new');
 
 	await check(page, 'DigiGilde/nieuwsbrief');
@@ -275,7 +275,7 @@ test('a site whose files are not valid shows only its admins what is wrong', asy
 		)
 	).toBeVisible();
 	await expect(page.getByText('.schrijver/schema.yaml: ontbreekt')).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Bekijk .schrijver op GitHub' })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: '.schrijver bekijken op GitHub' })).toHaveAttribute(
 		'href',
 		'https://github.com/DigiGilde/oude-site/tree/main/.schrijver'
 	);

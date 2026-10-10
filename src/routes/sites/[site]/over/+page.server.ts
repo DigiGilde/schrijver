@@ -36,7 +36,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		conceptenOpenbaar: site.concepten === 'openbaar' && isPublic !== false,
 		voorbeeld: site.preview.soort,
 		repo: site.repo,
-		branch,
 		repoUrl,
 		structuurUrl: `${repoUrl}/.schrijver`
 	};

@@ -438,13 +438,11 @@ test.describe('the Over page', () => {
 		);
 	});
 
-	test('names the repository and branch, and where the structure of the site sits', async ({
-		page
-	}) => {
+	test('names the repository, and where the structure of the site sits', async ({ page }) => {
 		await page.goto('/sites/digi-handboek/over');
 		const bestanden = part(page, 'Bestanden op GitHub');
 		await expect(
-			bestanden.getByRole('link', { name: 'DigiGilde/handboek, branch main' })
+			bestanden.getByRole('link', { name: 'DigiGilde/handboek', exact: true })
 		).toHaveAttribute('href', 'https://github.com/DigiGilde/handboek/tree/main');
 		await expect(bestanden.getByRole('link', { name: '.schrijver op GitHub' })).toHaveAttribute(
 			'href',

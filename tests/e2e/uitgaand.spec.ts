@@ -17,7 +17,7 @@ test('linking GitHub reaches the GitHub authorize page', async ({ page }) => {
 	});
 	await page.goto('/instellingen');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
-	await page.getByRole('button', { name: 'Koppel je GitHub-account' }).click();
+	await page.getByRole('button', { name: 'GitHub-account koppelen' }).click();
 	await page.waitForURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/);
 	const url = new URL(page.url());
 	expect(url.searchParams.get('client_id')).toBe('Iv1.e2e');
@@ -37,7 +37,7 @@ test('the start page offers a link to GitHub without JavaScript', async ({ brows
 	expect(res.status()).toBe(303);
 	expect(res.headers().location).toBe('/login/github/start');
 	await page.goto('/login/github/start');
-	const link = page.getByRole('link', { name: 'Ga verder naar GitHub' });
+	const link = page.getByRole('link', { name: 'Verder naar GitHub' });
 	await expect(link).toHaveAttribute('href', /^https:\/\/github\.com\/login\/oauth\/authorize\?/);
 	await context.close();
 });

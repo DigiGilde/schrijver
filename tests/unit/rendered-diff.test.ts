@@ -665,7 +665,9 @@ describe('toHtml', () => {
 	it('shows a comparison that is too large as one line', () => {
 		const html = toHtml(withContext([{ kind: 'te-groot' }]), doc);
 		expect(html).toBe(`<p class="diff-overgeslagen">${TE_GROOT}</p>`);
-		expect(TE_GROOT).toBe('Deze wijziging is te groot om hier te tonen. Bekijk haar op GitHub.');
+		expect(TE_GROOT).toBe(
+			'Deze wijziging is te groot om hier te tonen. Bekijk de wijziging op GitHub.'
+		);
 	});
 
 	it('survives the sanitiser that runs before the markup is shown', () => {

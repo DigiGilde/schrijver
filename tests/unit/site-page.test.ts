@@ -72,7 +72,6 @@ interface AboutData {
 	repoOpenbaar: boolean | null;
 	voorbeeld: string;
 	repo: string;
-	branch: string;
 	repoUrl: string;
 	structuurUrl: string;
 	mergenVanuitSchrijver: boolean;
@@ -220,7 +219,6 @@ describe('about page', () => {
 		expect(data.voorbeeld).toBe('bij-push');
 		expect(data.mergenVanuitSchrijver).toBe(true);
 		expect(data.repo).toBe('DigiGilde/handboek');
-		expect(data.branch).toBe('main');
 		expect(data.repoUrl).toBe('https://github.com/DigiGilde/handboek/tree/main');
 		expect(data.structuurUrl).toBe('https://github.com/DigiGilde/handboek/tree/main/.schrijver');
 	});

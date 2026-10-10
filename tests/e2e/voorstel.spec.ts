@@ -49,7 +49,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 	await page.keyboard.press('Shift+ControlOrMeta+End');
 	await page.keyboard.type('Voorstel door e2e');
 	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
-	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await page.getByRole('link', { name: 'Voorstel bekijken', exact: true }).click();
 
 	// What now, for the writer of a concept, in one block under the title.
 	await expect(huidigeStap(page, 'Concept')).toBeVisible();
@@ -65,7 +65,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 		'supporting-text',
 		/^Voor de pagina Hybride werken · van jou · bijgewerkt \d{1,2} [a-z]+$/
 	);
-	await expect(page.getByRole('link', { name: 'Hoe werkt dit?' })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: 'Uitleg over voorstellen' })).toHaveAttribute(
 		'href',
 		'/help#voorstellen'
 	);
@@ -77,7 +77,9 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 		await expect(page.getByText(weg)).toHaveCount(0);
 	}
 	await expect(page.locator('nldd-badge[text="Concept"]')).toHaveCount(0);
-	await expect(page.getByRole('link', { name: /^Dit voorstel op GitHub/ })).toBeVisible();
+	await expect(
+		page.locator('#inhoud').getByRole('link', { name: 'Voorstel bekijken op GitHub' })
+	).toBeVisible();
 
 	// What changes: words on the changes, dimmed context, the Markdown view.
 	await expect(page.getByRole('heading', { name: 'Wat er verandert', level: 2 })).toBeVisible();
@@ -155,7 +157,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 	await expect(zin(page)).toHaveText(
 		/^Samengevoegd op \d{1,2} [a-z]+\. Na de volgende publicatie staat de wijziging op de site\.\s*$/
 	);
-	await expect(page.getByRole('link', { name: /^Bekijk de site/ })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: /^Site bekijken/ })).toHaveAttribute(
 		'href',
 		'https://digihandboek.rijks.app/'
 	);
@@ -171,7 +173,7 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nSinds 2024 heet het programma MOZa.');
 	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
-	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await page.getByRole('link', { name: 'Voorstel bekijken', exact: true }).click();
 	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(
 		'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
@@ -339,7 +341,7 @@ test('shows a reaction as text, with links that open a new tab and nothing that 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nEen reactie met opmaak');
 	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
-	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
+	await page.getByRole('link', { name: 'Voorstel bekijken', exact: true }).click();
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
 	await veld.fill(
 		'# Een kop in een reactie\n\nZie [de licentie](https://example.org/licentie) en **dit**.\n\n<img src=x onerror="window.geraakt=1">\n\n<script>window.geraakt=2</script>'

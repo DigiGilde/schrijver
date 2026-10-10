@@ -170,13 +170,13 @@
 			<nldd-button
 				appearance="secondary"
 				type="submit"
-				text="Koppeling verwijderen"
+				text="Ontkoppel GitHub-account"
 				loading={unlinking || undefined}
 			></nldd-button>
 		</form>
 	{:else}
 		<form method="post" action="/login/github" data-sveltekit-reload>
-			<nldd-button appearance="secondary" type="submit" text="Koppel je GitHub-account"
+			<nldd-button appearance="secondary" type="submit" text="GitHub-account koppelen"
 			></nldd-button>
 		</form>
 	{/if}

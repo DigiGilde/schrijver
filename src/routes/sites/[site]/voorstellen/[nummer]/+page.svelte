@@ -249,7 +249,7 @@
 	{:else if actie === 'bekijk-de-site' && data.site.adres}
 		<nldd-button
 			appearance={appearance(actie)}
-			text="Bekijk de site"
+			text="Site bekijken"
 			href={data.site.adres}
 			target="_blank"
 		></nldd-button>
@@ -293,7 +293,7 @@
 				{:else if data.voorbeeld?.stand === 'mislukt'}
 					<nldd-text color="secondary">De voorbeeldsite is niet gelukt</nldd-text>
 				{/if}
-				<nldd-link href="/help#voorstellen" size="sm" text="Hoe werkt dit?"></nldd-link>
+				<nldd-link href="/help#voorstellen" size="sm" text="Uitleg over voorstellen"></nldd-link>
 			</nldd-container>
 		</nldd-box>
 
@@ -320,7 +320,10 @@
 				{#if data.fromFork}
 					<nldd-text>
 						De wijzigingen van dit voorstel staan buiten de repository van de site.
-						<nldd-link href="{data.githubUrl}/files" target="_blank" text="Bekijk ze op GitHub"
+						<nldd-link
+							href="{data.githubUrl}/files"
+							target="_blank"
+							text="Wijzigingen bekijken op GitHub"
 						></nldd-link>
 					</nldd-text>
 				{:else if data.diffs.length === 0 && data.andereBestanden.length === 0}
@@ -344,7 +347,10 @@
 						{data.nietVergeleken === 1
 							? 'Nog 1 pagina is hier niet vergeleken.'
 							: `Nog ${data.nietVergeleken} pagina's zijn hier niet vergeleken.`}
-						<nldd-link href="{data.githubUrl}/files" target="_blank" text="Bekijk ze op GitHub"
+						<nldd-link
+							href="{data.githubUrl}/files"
+							target="_blank"
+							text="Pagina's bekijken op GitHub"
 						></nldd-link>
 					</nldd-text>
 				{/if}
@@ -366,7 +372,8 @@
 				{#if data.gesprek === null}
 					<nldd-text>
 						Het gesprek kon niet worden geladen.
-						<nldd-link href={data.githubUrl} target="_blank" text="Lees het op GitHub"></nldd-link>
+						<nldd-link href={data.githubUrl} target="_blank" text="Gesprek bekijken op GitHub"
+						></nldd-link>
 					</nldd-text>
 				{:else if items.length === 0}
 					<nldd-text color="secondary">Nog geen reacties.</nldd-text>
@@ -396,7 +403,9 @@
 											href={item.url}
 											target="_blank"
 											size="sm"
-											text={item.text.endsWith('…') ? 'Lees de rest op GitHub' : 'Bekijk op GitHub'}
+											text={item.text.endsWith('…')
+												? 'Rest van de reactie bekijken op GitHub'
+												: 'Reactie bekijken op GitHub'}
 										></nldd-link>
 									{/if}
 								</nldd-container>
@@ -406,7 +415,7 @@
 					{#if !data.gesprek.volledig}
 						<nldd-text>
 							Het gesprek is langer dan Schrijver hier toont.
-							<nldd-link href={data.githubUrl} target="_blank" text="Lees het op GitHub"
+							<nldd-link href={data.githubUrl} target="_blank" text="Gesprek bekijken op GitHub"
 							></nldd-link>
 						</nldd-text>
 					{/if}
@@ -459,7 +468,11 @@
 					</nldd-form>
 				{/if}
 
-				<nldd-link href={data.githubUrl} target="_blank" size="sm" text="Dit voorstel op GitHub"
+				<nldd-link
+					href={data.githubUrl}
+					target="_blank"
+					size="sm"
+					text="Voorstel bekijken op GitHub"
 				></nldd-link>
 			</nldd-container>
 		</nldd-simple-section>
