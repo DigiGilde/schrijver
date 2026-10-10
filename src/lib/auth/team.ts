@@ -85,7 +85,6 @@ export type AuditAction =
 	| 'site.added'
 	| 'site.removed'
 	| 'site.moved'
-	| 'settings.seeded'
 	| 'settings.changed'
 	| 'member.added'
 	| 'member.role_changed'
