@@ -65,15 +65,15 @@ export async function recordWriter(siteId: string, number: number, sub: string):
 }
 
 /**
- * Who Schrijver recorded as writing in a proposal, the first first. None when they cannot be read:
- * four eyes then falls back to the signatures, which block where they cannot tell.
+ * Who Schrijver recorded as writing in a proposal, the first first: an empty list when nobody is
+ * recorded, null when the record cannot be read, which four eyes takes as cannot tell.
  */
-export async function recordedWriters(siteId: string, number: number): Promise<string[]> {
+export async function recordedWriters(siteId: string, number: number): Promise<string[] | null> {
 	try {
 		return await teamStore().writers(siteId, number);
 	} catch (err) {
 		log.warn('proposal.writers_failed', { site: siteId, pr: number, ...errorFields(err) });
-		return [];
+		return null;
 	}
 }
 

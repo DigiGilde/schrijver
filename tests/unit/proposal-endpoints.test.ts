@@ -520,18 +520,17 @@ describe('four eyes, on every way to the merge', () => {
 		expect((await merge({ who: 'derde' })).status).toBe(200);
 	});
 
-	it('falls back to the signatures when the records cannot be read', async () => {
-		forge.prs.get(1)!.body =
-			'Voorgesteld.\n\nCo-authored-by: jan <313+jan@users.noreply.github.com>';
+	it('refuses when the record cannot be read, whatever the signatures say, unless a site admin', async () => {
 		await redacteur('schrijver');
 		await team.recordWriter('moza', 1, 'schrijver');
-		vi.spyOn(team, 'writers').mockRejectedValueOnce(new Error('database weg'));
+		vi.spyOn(team, 'writers').mockRejectedValue(new Error('database weg'));
 		await refused(await merge({ who: 'derde' }), ONBEKEND);
 		expect(log.warn).toHaveBeenCalledWith('proposal.writers_failed', {
 			site: 'moza',
 			pr: 1,
 			error: 'Error'
 		});
+		expect((await merge({ who: 'derde', gekoppeld: 'beheerder' })).status).toBe(200);
 	});
 
 	it('still knows the writer who unlinked the GitHub account they signed with', async () => {
@@ -572,8 +571,13 @@ describe('four eyes, on every way to the merge', () => {
 		);
 	});
 
-	it('merges no proposal from outside the repository or into another branch', async () => {
-		for (const over of [{ baseRef: 'dev' }, { headRepo: 'iemand/moza' }]) {
+	it('merges no proposal from a fork, a deleted fork, an unknown head or into another branch', async () => {
+		for (const over of [
+			{ baseRef: 'dev' },
+			{ headRepo: 'iemand/moza' },
+			{ headRepo: '' },
+			{ headRepo: undefined }
+		]) {
 			const original = { ...forge.prs.get(1)! };
 			Object.assign(forge.prs.get(1)!, over);
 			await refused(

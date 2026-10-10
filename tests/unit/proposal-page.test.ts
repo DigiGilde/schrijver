@@ -209,17 +209,25 @@ interface Page {
 }
 
 let made = 0;
-/** A proposal on a site, signed by the user `door` or by someone else, with the given body text. */
+/**
+ * A proposal on a site, signed by the user `door` or by someone else, or with the given signature,
+ * and with the given body text.
+ */
 async function make(
 	site: SiteId,
 	files: Record<string, string>,
-	{ door, sent = false, body }: { door?: string; sent?: boolean; body?: string } = {}
+	{
+		door,
+		sent = false,
+		body,
+		signature
+	}: { door?: string; sent?: boolean; body?: string; signature?: string } = {}
 ): Promise<number> {
 	const repo = REPOS[site];
 	const branch = `schrijver/${site}/test-${++made}`;
 	await forge.createBranch(repo, 'main', branch);
 	const who = door ? pseudonym(process.env.PSEUDONYM_SECRET!, door) : 'iemandanders';
-	const trailer = identityTrailer({ kind: 'anoniem', pseudoniem: who });
+	const trailer = signature ?? identityTrailer({ kind: 'anoniem', pseudoniem: who });
 	await forge.commit(
 		repo,
 		branch,
@@ -332,7 +340,7 @@ describe('what now', () => {
 		const nummer = await make(
 			'moza-site',
 			{ 'content/zeven-c.md': 'Zeven\n' },
-			{ sent: true, body: 'Co-authored-by: jan <313+jan@users.noreply.github.com>' }
+			{ sent: true, signature: 'Co-authored-by: jan <313+jan@users.noreply.github.com>' }
 		);
 		const sentence = async (sub: string) =>
 			(await open('moza-site', nummer, { sub })).watNu.sentence;
@@ -344,6 +352,24 @@ describe('what now', () => {
 		expect(await sentence(MOZA_OTHER_EDITOR)).toBe(
 			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
 		);
+	});
+
+	it('blocks when the record of writers cannot be read, unless the reader is a site admin', async () => {
+		const nummer = await make('moza-site', { 'content/zeven-e.md': 'Zeven\n' }, { sent: true });
+		const writers = vi.spyOn(team, 'writers').mockRejectedValue(new Error('database weg'));
+		try {
+			expect((await open('moza-site', nummer, { sub: MOZA_OTHER_EDITOR })).watNu.sentence).toMatch(
+				/^Schrijver kan niet nagaan/
+			);
+			forge.permissionByLogin.set('octo', 'admin');
+			expect(
+				(await open('moza-site', nummer, { sub: MOZA_OTHER_EDITOR, githubLogin: 'octo' })).watNu
+					.sentence
+			).toMatch(/^Deze site vraagt eerst een goedkeuring op GitHub\./);
+		} finally {
+			writers.mockRestore();
+			forge.permissionByLogin.delete('octo');
+		}
 	});
 
 	it('follows four eyes as the site settings have it', async () => {

@@ -11,7 +11,9 @@ import { log } from '../../src/lib/log';
 import { seedFromConfig } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import {
+	recordedWriters,
 	recordLogin,
+	recordWriter,
 	seedSites,
 	startRetention,
 	stopRetention,
@@ -32,7 +34,8 @@ afterEach(() => {
 });
 
 describe('seeding from the configuration', () => {
-	it('takes the values of the configured site, with four eyes on', () => {
+	it('takes the starting values of the configured site, four eyes too', () => {
+		expect(seedFromConfig(digi).values.vierOgen).toBe(false);
 		expect(seedFromConfig(moza)).toEqual({
 			siteId: 'moza-site',
 			values: {
@@ -85,6 +88,45 @@ describe('the login', () => {
 			role: 'redactie'
 		});
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
+	});
+});
+
+describe('the record of who writes', () => {
+	it('tells nobody recorded apart from a record that cannot be read', async () => {
+		const team = new MemoryTeamStore();
+		useTeamStore(team);
+		await seedSites([digi], team);
+		expect(await recordedWriters('digi-handboek', 4)).toEqual([]);
+		await team.recordLogin({
+			sub: 'jan',
+			name: 'Jan',
+			email: 'jan@example.org',
+			emailVerified: true
+		});
+		await recordWriter('digi-handboek', 4, 'jan');
+		expect(await recordedWriters('digi-handboek', 4)).toEqual(['jan']);
+
+		vi.spyOn(team, 'writers').mockRejectedValue(new Error('connection to jan@example.org'));
+		expect(await recordedWriters('digi-handboek', 4)).toBeNull();
+		expect(log.warn).toHaveBeenCalledWith('proposal.writers_failed', {
+			site: 'digi-handboek',
+			pr: 4,
+			error: 'Error'
+		});
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('@');
+	});
+
+	it('logs a record that cannot be written, without the person, and goes on', async () => {
+		const team = new MemoryTeamStore();
+		useTeamStore(team);
+		await seedSites([digi], team);
+		await expect(recordWriter('digi-handboek', 4, 'onbekend')).resolves.toBeUndefined();
+		expect(log.warn).toHaveBeenCalledWith('proposal.writer_not_recorded', {
+			site: 'digi-handboek',
+			pr: 4,
+			error: 'Error'
+		});
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('onbekend');
 	});
 });
 

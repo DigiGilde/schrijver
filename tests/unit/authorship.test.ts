@@ -10,6 +10,7 @@ import type { Identity } from '../../src/lib/forge/trailers';
 import type { PrCommit, PrSummary } from '../../src/lib/forge/types';
 
 const APP = 'schrijver[bot]';
+const REPO = 'o/moza';
 const ANONIEM: Identity = { kind: 'anoniem', pseudoniem: '9f86d081884c' };
 const GEKOPPELD: Identity = { kind: 'gekoppeld', name: 'jansen', githubId: 7, login: 'jansen' };
 const OP_NAAM: Identity = { kind: 'op-naam', name: 'Jan Jansen', email: 'Jan@Example.org' };
@@ -35,11 +36,13 @@ const OTHER: Reader = {
 
 const LINKED_JANSEN = 'Co-authored-by: jansen <7+jansen@users.noreply.github.com>';
 const NAMED_JAN = 'Co-authored-by: Jan Jansen <jan@example.org>';
+const SOMEONE = 'Schrijver-Auteur: 111111111111';
 
 const pr = (over: Partial<PrSummary>): PrSummary =>
 	({
-		body: 'Voorgesteld.\n\nSchrijver-Auteur: 111111111111',
+		body: `Voorgesteld.\n\n${SOMEONE}`,
 		author: APP,
+		headRepo: REPO,
 		...over
 	}) as PrSummary;
 const signed = (line: string) => pr({ body: `Voorgesteld.\n\n${line}` });
@@ -52,12 +55,12 @@ const why = (
 	proposal: PrSummary,
 	reader: Reader,
 	{ commits = [] as PrCommit[], writers = [] as string[], app = APP as string | null } = {}
-) => fourEyes(authorship(proposal, commits, reader, app, writers));
+) => fourEyes(authorship(proposal, commits, reader, { app, repo: REPO, writers }));
 
 describe('signedBy', () => {
 	it('compares each kind of signature with the identity of that kind', () => {
 		expect(signedBy('Schrijver-Auteur: 9f86d081884c', ALL)).toBe(true);
-		expect(signedBy('Schrijver-Auteur: 111111111111', ALL)).toBe(false);
+		expect(signedBy(SOMEONE, ALL)).toBe(false);
 		expect(signedBy(LINKED_JANSEN, ALL)).toBe(true);
 		expect(signedBy('Co-authored-by: ander <8+ander@users.noreply.github.com>', ALL)).toBe(false);
 		expect(signedBy(NAMED_JAN, ALL)).toBe(true);
@@ -88,38 +91,53 @@ describe('signedBy', () => {
 describe('four eyes with the writers Schrijver recorded', () => {
 	it('blocks the recorded writer who opened it, and a co-writer through Verder bewerken', () => {
 		const writers = ['jan', 'piet'];
-		const proposal = signed('Schrijver-Auteur: 111111111111');
-		expect(why(proposal, ALL, { writers })).toBe('zelf');
-		expect(why(proposal, { ...OTHER, sub: 'piet' }, { writers })).toBe('mee');
-		expect(why(proposal, OTHER, { writers })).toBeNull();
+		expect(why(signed(SOMEONE), ALL, { writers })).toBe('zelf');
+		expect(why(signed(SOMEONE), { ...OTHER, sub: 'piet' }, { writers })).toBe('mee');
+		expect(why(signed(SOMEONE), OTHER, { writers })).toBeNull();
 	});
 
-	it('lets another editor decide where a signature cannot be compared, once a writer is recorded', () => {
+	it('lets another editor decide where a signature cannot be compared, once the record accounts for it', () => {
 		for (const line of [LINKED_JANSEN, NAMED_JAN, 'Zonder ondertekening']) {
-			const proposal = signed(line);
 			const commits = [commit(`Bewerk\n\n${line}`)];
-			expect(why(proposal, OTHER, { commits }), `${line}, no record`).toBe('onbekend');
-			expect(why(proposal, OTHER, { commits, writers: ['jan'] }), line).toBeNull();
+			expect(why(signed(line), OTHER, { commits }), `${line}, no record`).toBe('onbekend');
+			expect(why(signed(line), OTHER, { commits, writers: ['jan'] }), line).toBeNull();
 		}
 	});
 
+	it('blocks again when a signer is missing from the record: from before it, elsewhere, or not written', () => {
+		const commits = [
+			commit(`Bewerk\n\n${LINKED_JANSEN}`),
+			commit('Bewerk\n\nSchrijver-Auteur: bbbbbbbbbbbb')
+		];
+		const proposal = signed(LINKED_JANSEN);
+		expect(why(proposal, OTHER, { commits, writers: ['mee'] })).toBe('onbekend');
+		expect(why(proposal, OTHER, { commits, writers: ['jan', 'mee'] })).toBeNull();
+		const renamed = [commit('Bewerk\n\nCo-authored-by: Jan J. <JAN@example.org>')];
+		expect(why(signed(NAMED_JAN), OTHER, { commits: renamed, writers: ['jan'] })).toBeNull();
+	});
+
 	it("still counts a signature that is the reader's, for a writer from before the records", () => {
-		const proposal = signed('Schrijver-Auteur: 9f86d081884c');
-		expect(why(proposal, ALL, { writers: ['piet'] })).toBe('zelf');
+		expect(why(signed('Schrijver-Auteur: 9f86d081884c'), ALL, { writers: ['piet'] })).toBe('zelf');
 		const along = [commit(`Bewerk\n\n${NAMED_JAN}`)];
-		expect(
-			why(signed('Schrijver-Auteur: 111111111111'), ALL, { commits: along, writers: ['piet'] })
-		).toBe('mee');
+		expect(why(signed(SOMEONE), ALL, { commits: along, writers: ['piet'] })).toBe('mee');
+	});
+
+	it('counts a recorded writer also where GitHub has made or touched the proposal', () => {
+		const jan = { ...BY_ADDRESS, sub: 'jan' };
+		const openedOnGitHub = pr({ author: 'pietersen', body: 'Op GitHub gemaakt.' });
+		expect(why(openedOnGitHub, jan, { writers: ['jan'] })).toBe('mee');
+		const touched = [commit(`Bewerk\n\n${SOMEONE}`), commit('Fix', 'pietersen')];
+		expect(why(signed(SOMEONE), jan, { commits: touched, writers: ['jan'] })).toBe('zelf');
 	});
 
 	it('falls back to the signatures without any record, and blocks where they cannot tell', () => {
-		for (const [line, mine] of [
-			['Schrijver-Auteur: 9f86d081884c', 'Schrijver-Auteur: 111111111111'],
+		for (const [line, other] of [
+			['Schrijver-Auteur: 9f86d081884c', SOMEONE],
 			[LINKED_JANSEN, 'Co-authored-by: ander <8+ander@users.noreply.github.com>'],
 			[NAMED_JAN, 'Co-authored-by: Piet <piet@example.org>']
 		]) {
 			expect(why(signed(line), ALL), line).toBe('zelf');
-			expect(why(signed(mine), ALL), mine).toBeNull();
+			expect(why(signed(other), ALL), other).toBeNull();
 		}
 		expect(why(signed('Schrijver-Auteur: 9f86d081884c'), OTHER)).toBeNull();
 		expect(why(signed(LINKED_JANSEN), BY_ADDRESS)).toBe('onbekend');
@@ -130,7 +148,7 @@ describe('four eyes with the writers Schrijver recorded', () => {
 
 describe('four eyes for what was made on GitHub', () => {
 	it("takes a proposal opened on GitHub as its opener's, whatever its text says", () => {
-		const forged = pr({ author: 'jansen', body: 'x\n\nSchrijver-Auteur: 111111111111' });
+		const forged = pr({ author: 'jansen', body: `x\n\n${SOMEONE}` });
 		expect(why(forged, ALL)).toBe('zelf');
 		expect(why(pr({ author: 'pietersen' }), ALL)).toBeNull();
 	});
@@ -140,55 +158,54 @@ describe('four eyes for what was made on GitHub', () => {
 		const commits = [commit('Fix', 'pietersen'), commit('Nog een', null)];
 		expect(why(github, BY_ADDRESS, { commits })).toBeNull();
 		expect(why(github, BY_ADDRESS, { commits, writers: ['jan'] })).toBeNull();
-		expect(
-			why(pr({ author: undefined, body: 'Op GitHub, door een verwijderd account' }), OTHER)
-		).toBeNull();
+		const ghost = pr({ author: undefined, body: 'Op GitHub, door een verwijderd account' });
+		expect(why(ghost, OTHER)).toBeNull();
 	});
 
 	it('counts a commit made on GitHub under the linked account as writing along', () => {
 		const commits = [commit('Fix', 'jansen')];
-		expect(why(signed('Schrijver-Auteur: 111111111111'), ALL, { commits })).toBe('mee');
-		expect(why(signed('Schrijver-Auteur: 111111111111'), ALL, { commits, writers: ['piet'] })).toBe(
-			'mee'
-		);
-		expect(
-			why(signed('Schrijver-Auteur: 111111111111'), { ...ALL, githubLogin: 'piet' }, { commits })
-		).toBeNull();
+		expect(why(signed(SOMEONE), ALL, { commits })).toBe('mee');
+		expect(why(signed(SOMEONE), ALL, { commits, writers: ['piet'] })).toBe('mee');
+		expect(why(signed(SOMEONE), { ...ALL, githubLogin: 'piet' }, { commits })).toBeNull();
+	});
+
+	it('holds only for a head branch in the site repository, not for a fork, a deleted fork or none', () => {
+		for (const headRepo of ['iemand/moza', '', undefined]) {
+			const fork = pr({ author: 'pietersen', body: 'Uit een fork.', headRepo });
+			const commits = [commit('Fix', 'pietersen')];
+			expect(why(fork, BY_ADDRESS, { commits }), String(headRepo)).toBe('onbekend');
+			expect(why(fork, BY_ADDRESS, { commits, writers: ['jan'] }), String(headRepo)).toBe(
+				'onbekend'
+			);
+			expect(why({ ...fork, author: 'jansen' }, ALL), String(headRepo)).toBe('zelf');
+		}
 	});
 });
 
 describe('four eyes where GitHub does not tell everything', () => {
-	it('cannot tell without the App account, unless a record or the linked account answers', () => {
-		const proposal = signed('Schrijver-Auteur: 111111111111');
-		expect(why(proposal, OTHER, { app: null })).toBe('onbekend');
-		expect(why(proposal, OTHER, { app: null, writers: ['jan'] })).toBeNull();
-		expect(why(proposal, ALL, { app: null, writers: ['jan'] })).toBe('zelf');
+	it('cannot tell without the App account, record or not', () => {
+		expect(why(signed(SOMEONE), OTHER, { app: null })).toBe('onbekend');
+		expect(why(signed(SOMEONE), OTHER, { app: null, writers: ['jan'] })).toBe('onbekend');
+		expect(why(signed(SOMEONE), ALL, { app: null, writers: ['jan'] })).toBe('mee');
 		expect(why(pr({ author: 'jansen' }), ALL, { app: null })).toBe('zelf');
 	});
 
-	it('cannot tell from a list as long as GitHub gives, but for a recorded proposal and a reader without a link', () => {
-		const commits = Array(250).fill(commit('Bewerk\n\nSchrijver-Auteur: 111111111111'));
-		const proposal = signed('Schrijver-Auteur: 111111111111');
-		expect(why(proposal, OTHER, { commits: commits.slice(1) })).toBeNull();
-		expect(why(proposal, OTHER, { commits })).toBe('onbekend');
-		expect(why(proposal, OTHER, { commits, writers: ['jan'] })).toBeNull();
-		expect(why(proposal, { ...OTHER, githubLogin: 'ander' }, { commits, writers: ['jan'] })).toBe(
-			'onbekend'
-		);
+	it('cannot tell from a list as long as GitHub gives, record or not', () => {
+		const commits = Array(250).fill(commit(`Bewerk\n\n${SOMEONE}`));
+		expect(why(signed(SOMEONE), OTHER, { commits: commits.slice(1) })).toBeNull();
+		expect(why(signed(SOMEONE), OTHER, { commits })).toBe('onbekend');
+		expect(why(signed(SOMEONE), OTHER, { commits, writers: ['jan'] })).toBe('onbekend');
 	});
 });
 
 describe('authorship', () => {
 	it('reads who made a proposal in Schrijver from its signature, and who wrote along from its commits', () => {
+		const context = { app: APP, repo: REPO, writers: [] };
 		const made = pr({ body: 'x\n\nSchrijver-Auteur: 9f86d081884c' });
-		expect(authorship(made, [], ALL, APP, [])).toEqual({ own: true, along: false });
-		const other = pr({});
-		const commits = [
-			commit('Bewerk\n\nSchrijver-Auteur: 111111111111'),
-			commit(`Bijgewerkt\n\n${NAMED_JAN}`)
-		];
-		expect(authorship(other, commits, ALL, APP, [])).toEqual({ own: false, along: true });
-		expect(authorship(other, commits.slice(0, 1), ALL, APP, [])).toEqual({
+		expect(authorship(made, [], ALL, context)).toEqual({ own: true, along: false });
+		const commits = [commit(`Bewerk\n\n${SOMEONE}`), commit(`Bijgewerkt\n\n${NAMED_JAN}`)];
+		expect(authorship(pr({}), commits, ALL, context)).toEqual({ own: false, along: true });
+		expect(authorship(pr({}), commits.slice(0, 1), ALL, context)).toEqual({
 			own: false,
 			along: false
 		});

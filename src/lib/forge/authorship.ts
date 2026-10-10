@@ -1,3 +1,4 @@
+import { sameRepo } from './repo';
 import { identityFromPrBody, trailersFromMessage, type Identity } from './trailers';
 import { MAX_PR_COMMITS, type PrCommit, type PrSummary } from './types';
 
@@ -50,24 +51,36 @@ export function signedBy(trailer: string | null, reader: Reader): Answer {
 	return null;
 }
 
+/** What four eyes is decided from, besides the proposal and the reader. */
+export interface Context {
+	/** The account the App acts as; null when GitHub did not say. */
+	app: string | null;
+	/** The site's repository. */
+	repo: string;
+}
+
 /**
  * Whether content is the reader's. What the App wrote is the signer's. What was made on GitHub is the
- * account's that made it, so only a reader who linked that account wrote it: only accounts with write
- * permission push to the repository, and they decide on GitHub, under its branch protection.
+ * account's that made it, so only a reader who linked that account wrote it.
  */
 function writtenBy(
 	author: string | null | undefined,
 	signature: () => Answer,
 	reader: Reader,
-	app: string | null
+	{ app, inRepo }: { app: string | null; inRepo: boolean }
 ): Answer {
 	if (author && app !== null && same(author, app)) return signature();
 	if (author && reader.githubLogin !== null && same(author, reader.githubLogin)) return true;
+	// Only for a head branch in the site's repository: only accounts with write permission push there,
+	// and GitHub lets no author approve their own pull request where a review is required.
+	if (!inRepo) return null;
 	// Without the App's account, an author it names could still be the App.
 	return app === null && author ? null : false;
 }
 
-function commitBy(commit: PrCommit, reader: Reader, app: string | null): Answer {
+const inSiteRepo = (pr: PrSummary, repo: string) => !!pr.headRepo && sameRepo(pr.headRepo, repo);
+
+function commitBy(commit: PrCommit, reader: Reader, app: string | null, inRepo: boolean): Answer {
 	return writtenBy(
 		commit.author,
 		() => {
@@ -75,7 +88,7 @@ function commitBy(commit: PrCommit, reader: Reader, app: string | null): Answer 
 			return trailers.length === 0 ? null : anyOf(trailers.map((t) => signedBy(t, reader)));
 		},
 		reader,
-		app
+		{ app, inRepo }
 	);
 }
 
@@ -83,34 +96,69 @@ function commitBy(commit: PrCommit, reader: Reader, app: string | null): Answer 
  * Whether the reader made a proposal, from what GitHub says now. Its signature counts only when Schrijver's
  * App opened it; a proposal made on GitHub is its opener's, whatever its text says.
  */
-export function madeBy(pr: PrSummary, reader: Reader, app: string | null): Answer {
-	return writtenBy(pr.author, () => signedBy(identityFromPrBody(pr.body), reader), reader, app);
+export function madeBy(pr: PrSummary, reader: Reader, { app, repo }: Context): Answer {
+	return writtenBy(pr.author, () => signedBy(identityFromPrBody(pr.body), reader), reader, {
+		app,
+		inRepo: inSiteRepo(pr, repo)
+	});
+}
+
+/** Who a signature names, by its stable part, so that a changed name is still the same signer. */
+function signer(line: string): string {
+	const trimmed = line.trim();
+	const pseudonym = PSEUDONYM.exec(trimmed)?.[1];
+	if (pseudonym) return `anoniem:${pseudonym}`;
+	const githubId = LINKED.exec(trimmed)?.[1];
+	if (githubId) return `gekoppeld:${githubId}`;
+	const email = NAMED.exec(trimmed)?.[1];
+	return email ? `op-naam:${email.toLowerCase()}` : trimmed;
+}
+
+/**
+ * Whether the record accounts for all the App wrote: no more signers than recorded writers, each of
+ * whom committed. A writer from before the record, from another instance or whose record failed
+ * makes one signer more, and the signatures decide again.
+ */
+function accountedFor(pr: PrSummary, commits: PrCommit[], app: string, writers: readonly string[]) {
+	if (commits.length >= MAX_PR_COMMITS) return false;
+	const signers = new Set<string>();
+	if (pr.author && same(pr.author, app)) signers.add(signer(identityFromPrBody(pr.body) ?? ''));
+	for (const c of commits) {
+		if (!c.author || !same(c.author, app)) continue;
+		const trailers = trailersFromMessage(c.message);
+		if (trailers.length === 0) signers.add('');
+		for (const t of trailers) signers.add(signer(t));
+	}
+	return signers.size <= writers.length;
 }
 
 /**
  * Whether the reader made a proposal or wrote one of its commits. `writers` are the subs Schrijver
- * recorded as writing in it, the one who opened it first.
+ * recorded as writing in it, the first one first; they always count, besides what GitHub says.
  */
 export function authorship(
 	pr: PrSummary,
 	commits: PrCommit[],
 	reader: Reader,
-	app: string | null,
-	writers: readonly string[]
+	{ app, repo, writers }: Context & { writers: readonly string[] }
 ): Writing {
-	const recorded = writers.length > 0;
-	// Once Schrijver recorded who writes, the record answers for what its App wrote: a signature that
-	// cannot be compared no longer counts against the reader, one that is theirs still does.
-	const settle = (answer: Answer): Answer => (recorded && answer === null ? false : answer);
-	const own = anyOf([writers[0] === reader.sub, settle(madeBy(pr, reader, app))]);
+	const inRepo = inSiteRepo(pr, repo);
+	const openedByApp = app !== null && !!pr.author && same(pr.author, app);
+	// A complete record answers for what the App wrote: a signature that cannot be compared then no
+	// longer counts against the reader; one that is theirs still does.
+	const complete =
+		inRepo && app !== null && writers.length > 0 && accountedFor(pr, commits, app, writers);
+	const settle = (answer: Answer): Answer => (complete && answer === null ? false : answer);
+	const own = anyOf([
+		openedByApp && writers[0] === reader.sub,
+		settle(madeBy(pr, reader, { app, repo }))
+	]);
 	const along = [
-		writers.slice(1).includes(reader.sub),
-		...commits.map((c) => settle(commitBy(c, reader, app)))
+		(openedByApp ? writers.slice(1) : writers).includes(reader.sub),
+		...commits.map((c) => settle(commitBy(c, reader, app, inRepo)))
 	];
-	// GitHub lists no more commits than this, so one beyond them could be the reader's: made on GitHub
-	// under their linked account, or, without a record, by Schrijver for them.
-	if (commits.length >= MAX_PR_COMMITS)
-		along.push(recorded && reader.githubLogin === null ? false : null);
+	// GitHub lists no more commits than this, so one beyond them could be the reader's.
+	if (commits.length >= MAX_PR_COMMITS) along.push(null);
 	return { own, along: anyOf(along) };
 }
 

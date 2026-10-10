@@ -33,11 +33,11 @@ export async function canAct(
 	pr: PrSummary,
 	forge: Forge
 ): Promise<{ owner: boolean; editorial: boolean }> {
-	if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
+	if (!pr.headRepo || !sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
 		return { owner: false, editorial: false };
 	}
 	const [editorial, app] = await Promise.all([isEditorial(site, user, forge), appAccount(forge)]);
-	return { owner: madeBy(pr, user, app) === true, editorial };
+	return { owner: madeBy(pr, user, { app, repo: site.repo }) === true, editorial };
 }
 
 export async function pickReviewers(

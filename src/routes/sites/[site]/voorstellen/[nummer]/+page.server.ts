@@ -126,7 +126,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				forge.prCommits(site.repo, nummer).catch(() => null),
 				recordedWriters(site.id, nummer)
 			]);
-			const reason = commits ? fourEyes(authorship(pr, commits, user, app, writers)) : 'onbekend';
+			const reason =
+				commits && writers
+					? fourEyes(authorship(pr, commits, user, { app, repo: site.repo, writers }))
+					: 'onbekend';
 			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
 		}
 		let approvalMissing = false;
