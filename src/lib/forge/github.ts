@@ -372,6 +372,18 @@ export class GitHubForge implements Forge {
 		};
 	}
 
+	async mergeBase(repo: string, base: Ref, head: Ref): Promise<string> {
+		const data = await this.request(repo, 'GET /repos/{owner}/{repo}/compare/{basehead}', {
+			basehead: `${base}...${head}`,
+			per_page: 1
+		});
+		const sha = data?.merge_base_commit?.sha;
+		if (typeof sha !== 'string' || !/^[0-9a-f]{40,64}$/.test(sha)) {
+			throw new ForgeError(502, 'GitHub gaf een fout', 'compare without a merge base');
+		}
+		return sha;
+	}
+
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
 		const perPage = 100;
 		const files: Json[] = [];

@@ -41,6 +41,45 @@ describe('FakeForge', () => {
 		]);
 	});
 
+	it('knows the commit a branch was made from, also after the base moved on or took it in', async () => {
+		await forge.createBranch(REPO, 'main', 'voorstel');
+		const start = (await forge.openDraftPr(REPO, 'voorstel', 'main', 'T', 'B')).headSha;
+		const { sha: head } = await forge.commit(
+			REPO,
+			'voorstel',
+			[{ path: 'content/a.md', content: 'alfa' }],
+			'mijn'
+		);
+		await forge.commit(REPO, 'main', [{ path: 'content/a.md', content: 'anders' }], 'op de site');
+		expect(await forge.mergeBase(REPO, 'main', head)).toBe(start);
+		expect(await forge.mergeBase(REPO, 'main', 'voorstel')).toBe(start);
+		expect(forge.fileText(REPO, start, 'content/a.md')).toBe('alpha');
+		expect(forge.fileText(REPO, head, 'content/a.md')).toBe('alfa');
+
+		forge.mergeableByPr.set(1, true);
+		await forge.merge(REPO, 1, 'Mijn');
+		expect(await forge.mergeBase(REPO, 'main', head)).toBe(start);
+	});
+
+	it('finds the merge base of a branch made from another branch, and of a head the base holds', async () => {
+		await forge.createBranch(REPO, 'main', 'eerst');
+		const { sha: first } = await forge.commit(REPO, 'eerst', [], 'een');
+		await forge.createBranch(REPO, 'eerst', 'daarna');
+		const { sha: second } = await forge.commit(REPO, 'daarna', [], 'twee');
+		const seeded = await forge.mergeBase(REPO, 'main', 'eerst');
+		expect(await forge.mergeBase(REPO, 'main', second)).toBe(seeded);
+		expect(await forge.mergeBase(REPO, 'eerst', second)).toBe(first);
+		expect(await forge.mergeBase(REPO, 'main', seeded)).toBe(seeded);
+	});
+
+	it('does not know the merge base of a ref it does not have, and can be made to fail', async () => {
+		await expect(forge.mergeBase(REPO, 'main', 'ghost')).rejects.toMatchObject({ status: 404 });
+		await expect(forge.mergeBase(REPO, 'ghost', 'main')).rejects.toMatchObject({ status: 404 });
+		forge.failNext('mergeBase', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await expect(forge.mergeBase(REPO, 'main', 'main')).rejects.toMatchObject({ status: 502 });
+		expect(await forge.mergeBase(REPO, 'main', 'main')).toEqual(expect.any(String));
+	});
+
 	it('does not hand over a file above maxBytes', async () => {
 		const big = await forge.readFile(REPO, 'main', 'content/a.md', { maxBytes: 3 });
 		expect(big?.tooLarge).toBe(true);

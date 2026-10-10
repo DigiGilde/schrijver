@@ -35,6 +35,8 @@ interface RepoState {
 	/** Without an author, a commit is the App's. */
 	commits: Map<string, { sha: string; message: string; author?: string | null }[]>;
 	heads: Map<string, string>;
+	/** The commit each commit follows; a seeded head has none. */
+	parents: Map<string, string | null>;
 	snapshots: Map<string, Tree>;
 	/** The tree a branch started from: GitHub lists a pull request's files against that point, not the base's head. */
 	forkTrees: Map<string, Tree>;
@@ -101,6 +103,7 @@ export class FakeForge implements Forge {
 			trees: new Map([[defaultBranch, tree]]),
 			commits: new Map([[defaultBranch, []]]),
 			heads: new Map([[defaultBranch, head]]),
+			parents: new Map([[head, null]]),
 			snapshots: new Map([[head, cloneTree(tree)]]),
 			forkTrees: new Map()
 		});
@@ -390,6 +393,31 @@ export class FakeForge implements Forge {
 		return { headRef, headSha, headRepo, baseRef };
 	}
 
+	async mergeBase(repo: string, base: Ref, head: Ref): Promise<string> {
+		this.maybeFail('mergeBase');
+		const r = this.repo(repo);
+		const history = (ref: Ref): string[] => {
+			this.tree(repo, ref);
+			const shas: string[] = [];
+			let sha: string | null = r.heads.get(ref) ?? ref;
+			while (sha) {
+				shas.push(sha);
+				sha = r.parents.get(sha) ?? null;
+			}
+			return shas;
+		};
+		const ofBase = new Set(history(base));
+		const common = history(head).find((sha) => ofBase.has(sha));
+		if (!common) {
+			throw new ForgeError(
+				404,
+				'Niet gevonden op GitHub',
+				`No common ancestor of ${base} and ${head}`
+			);
+		}
+		return common;
+	}
+
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
 		this.maybeFail('prFiles');
 		const pr = this.pr(repo, number);
@@ -533,6 +561,7 @@ export class FakeForge implements Forge {
 	): void {
 		const r = this.repo(repo);
 		r.commits.get(branch)!.push({ sha, message, ...(author !== undefined ? { author } : {}) });
+		r.parents.set(sha, r.heads.get(branch) ?? null);
 		r.heads.set(branch, sha);
 		r.snapshots.set(sha, cloneTree(this.tree(repo, branch)));
 	}

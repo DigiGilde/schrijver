@@ -519,6 +519,42 @@ describe('GitHubForge', () => {
 		expect((await forge().prHead('o/r', 9)).headRepo).toBe('');
 	});
 
+	it('finds where a pull request started with one compare call, asked for one commit', async () => {
+		const asked: { path: string; perPage: string | null }[] = [];
+		server.use(
+			http.get(`${API}/repos/o/r/compare/:basehead`, ({ request }) => {
+				const url = new URL(request.url);
+				asked.push({ path: url.pathname, perPage: url.searchParams.get('per_page') });
+				return HttpResponse.json({
+					merge_base_commit: { sha: 'b'.repeat(40) },
+					ahead_by: 3,
+					files: []
+				});
+			})
+		);
+		const head = 'a'.repeat(40);
+		expect(await forge().mergeBase('o/r', 'main', head)).toBe('b'.repeat(40));
+		expect(asked).toEqual([{ path: `/repos/o/r/compare/main...${head}`, perPage: '1' }]);
+	});
+
+	it('fails the merge base when GitHub names no commit, and passes its refusal on', async () => {
+		const answer = (status: number, body: Record<string, unknown>) =>
+			server.use(
+				http.get(`${API}/repos/o/r/compare/:basehead`, () => HttpResponse.json(body, { status }))
+			);
+		for (const body of [{}, { merge_base_commit: {} }, { merge_base_commit: { sha: 'abc' } }]) {
+			answer(200, body);
+			await expect(forge().mergeBase('o/r', 'main', 'c'.repeat(40))).rejects.toMatchObject({
+				status: 502
+			});
+		}
+		answer(404, { message: 'No common ancestor between main and x' });
+		await expect(forge().mergeBase('o/r', 'main', 'x')).rejects.toMatchObject({
+			status: 404,
+			detail: 'No common ancestor between main and x'
+		});
+	});
+
 	it('says who asks for changes and whose review GitHub waits for', async () => {
 		server.use(
 			http.get(`${API}/repos/o/r/pulls/8`, () =>

@@ -149,6 +149,8 @@ export interface Forge {
 	getPr(repo: string, number: number): Promise<PrSummary>;
 	/** One lookup of the pull request, without its reviews and checks. */
 	prHead(repo: string, number: number): Promise<PrHead>;
+	/** The commit where `head` and `base` last agree: what a pull request's changes are measured from. */
+	mergeBase(repo: string, base: Ref, head: Ref): Promise<string>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
 	prCommits(repo: string, number: number): Promise<PrCommit[]>;
 	/** Oldest first. */

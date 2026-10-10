@@ -59,7 +59,7 @@ export class CachingForge implements Forge {
 		private clock: () => number = Date.now,
 		/** Pull request lists and file lists: short, because check runs do not invalidate. */
 		private prTtlMs = 15000,
-		/** The head of a pull request, which each image of a proposal asks for. */
+		/** The head of a pull request and where it started, which each image of a proposal asks for. */
 		private headTtlMs = 10000
 	) {}
 
@@ -152,6 +152,14 @@ export class CachingForge implements Forge {
 			repo,
 			`prhead\0${number}`,
 			() => this.inner.prHead(repo, number),
+			this.headTtlMs
+		);
+	}
+	mergeBase(repo: string, base: Ref, head: Ref): Promise<string> {
+		return this.cached(
+			repo,
+			`mergebase\0${base}\0${head}`,
+			() => this.inner.mergeBase(repo, base, head),
 			this.headTtlMs
 		);
 	}

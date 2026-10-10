@@ -164,6 +164,29 @@ describe('CachingForge', () => {
 		expect(prHead).toHaveBeenCalledTimes(4);
 	});
 
+	it('reads where a pull request started once in ten seconds for a head, and again after a write', async () => {
+		const { fake, cache, advance } = setup();
+		await fake.createBranch('o/site', 'main', 'p');
+		const start = (await fake.openDraftPr('o/site', 'p', 'main', 'P', '')).headSha;
+		const { sha } = await fake.commit('o/site', 'p', [{ path: 'a.md', content: 'nieuw' }], 'm');
+		const mergeBase = vi.spyOn(fake, 'mergeBase');
+		expect(await cache.mergeBase('o/site', 'main', sha)).toBe(start);
+		await cache.mergeBase('o/site', 'main', sha);
+		expect(mergeBase).toHaveBeenCalledTimes(1);
+		const { sha: later } = await fake.commit('o/site', 'p', [], 'n');
+		await cache.mergeBase('o/site', 'main', later);
+		expect(mergeBase).toHaveBeenCalledTimes(2);
+		advance(10001);
+		await cache.mergeBase('o/site', 'main', later);
+		expect(mergeBase).toHaveBeenCalledTimes(3);
+		await cache.commit('o/site', 'p', [], 'o');
+		await cache.mergeBase('o/site', 'main', later);
+		expect(mergeBase).toHaveBeenCalledTimes(4);
+		cache.invalidate('o/site');
+		await cache.mergeBase('o/site', 'main', later);
+		expect(mergeBase).toHaveBeenCalledTimes(5);
+	});
+
 	it('drops what it holds of a repository when a label is added or taken off', async () => {
 		const { fake, cache } = setup();
 		await fake.createBranch('o/site', 'main', 'p');
