@@ -97,7 +97,7 @@ test('a card says what waits for you on that site', async ({ page }) => {
 	await page.keyboard.type('\n\nGezien op de startpagina');
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
-	await expect(page.locator('nldd-badge[text="Concept"]')).toBeVisible();
+	await expect(page.locator('nldd-step-bar-item[status="current"][text="Concept"]')).toBeVisible();
 	const proposal = page.url();
 
 	await page.goto('/');
@@ -107,7 +107,9 @@ test('a card says what waits for you on that site', async ({ page }) => {
 	// The test user is editorial on this site: a sent-in proposal waits for review.
 	await page.goto(proposal);
 	await page.getByRole('button', { name: 'Insturen' }).click();
-	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	await expect(
+		page.locator('nldd-step-bar-item[status="current"][text="Ingestuurd"]')
+	).toBeVisible();
 	await page.goto('/');
 	await expect(card).toContainText(/(1 voorstel wacht|\d+ voorstellen wachten) op beoordeling/);
 	await expect(siteCard(page, 'MijnOverheid Zakelijk')).not.toContainText('op beoordeling');

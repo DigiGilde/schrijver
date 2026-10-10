@@ -40,7 +40,9 @@ async function sendIn(page: Page, path: string, text: string): Promise<string> {
 	const nummer = (await saved.textContent())!.match(/#(\d+)/)![1];
 	await page.goto(`/sites/digi-handboek/voorstellen/${nummer}`);
 	await page.getByRole('button', { name: 'Insturen' }).click();
-	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	await expect(
+		page.locator('nldd-step-bar-item[status="current"][text="Ingestuurd"]')
+	).toBeVisible();
 	return nummer;
 }
 

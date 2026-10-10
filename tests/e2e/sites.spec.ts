@@ -155,31 +155,33 @@ test('Te beoordelen is a filter of the proposals tab, for editorial members only
 	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toHaveCount(0);
 });
 
-test('the proposal page shows what changed before the comment form', async ({ page }) => {
+test('the proposal page says what now, then what changes, then the conversation', async ({
+	page
+}) => {
 	await page.goto('/sites/digi-handboek/voorstellen/1');
-	await expect(page.getByRole('heading', { name: 'Wijzigingen', level: 2 })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Opmerking', level: 2 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Wat er verandert', level: 2 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Gesprek', level: 2 })).toBeVisible();
 	expect(
 		await inDocumentOrder(page, [
-			'nldd-badge',
-			'nldd-step-bar',
-			'nldd-toolbar[label="Acties voor dit voorstel"]',
-			'nldd-title[text="Wijzigingen"]',
-			'nldd-title[text="Opmerking"]'
+			'nldd-box nldd-step-bar',
+			'nldd-box nldd-text.zin',
+			'nldd-title[text="Wat er verandert"]',
+			'nldd-title[text="Gesprek"]',
+			'nldd-form'
 		]),
-		'status, flow, actions, changes, comment'
+		'flow, what now, changes, conversation, reaction'
 	).toBe(true);
 });
 
-test('the comment form follows the NLDD form pattern', async ({ page }) => {
+test('the reaction form follows the NLDD form pattern', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/voorstellen/1');
 	const form = page.locator('nldd-form > form');
 	await expect(
-		form.locator('nldd-form-field[label="Opmerking"] nldd-multi-line-text-field')
+		form.locator('nldd-form-field[label="Je reactie"] nldd-multi-line-text-field')
 	).toHaveCount(1);
 	await expect(
 		form.locator('nldd-form-actions > nldd-button-group > nldd-button[type="submit"]')
-	).toHaveAttribute('text', 'Opmerking plaatsen');
+	).toHaveAttribute('text', 'Plaats reactie');
 });
 
 test('Nieuwe pagina is a plain primary button, not a one-item toolbar', async ({ page }) => {
@@ -190,10 +192,14 @@ test('Nieuwe pagina is a plain primary button, not a one-item toolbar', async ({
 	await expect(page.locator('nldd-toolbar nldd-button[text="Nieuwe pagina"]')).toHaveCount(0);
 });
 
-test('the primary action of a proposal is the first action in its toolbar', async ({ page }) => {
-	await page.goto('/sites/digi-handboek/voorstellen/1');
-	await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
-	const toolbar = page.locator('nldd-toolbar[label="Acties voor dit voorstel"]');
+test('the primary action of a proposal comes first among its actions', async ({ page }) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
+	await list(page, 'Mijn voorstellen')
+		.getByRole('link', { name: /^Onboarding: begin bij je buddy/ })
+		.click();
+	await expect(page).toHaveURL(/\/voorstellen\/\d+\?filter=mijn$/);
+	await page.evaluate(() => customElements.whenDefined('nldd-button-group'));
+	const toolbar = page.locator('nldd-box nldd-button-group');
 	const primary = toolbar.locator('nldd-button[appearance="primary"]');
 	await expect(primary).toHaveAttribute('text', 'Insturen');
 	const others = await toolbar.locator('nldd-button:not([appearance="primary"])').all();

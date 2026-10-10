@@ -91,13 +91,15 @@ test('asks before deleting an image no other page shows, and deletes it with the
 	expect((await bestand(page)).status()).toBe(200);
 
 	await page.goto(`/sites/digi-handboek/voorstellen/${new URL(page.url()).searchParams.get('pr')}`);
-	const bestanden = page.getByRole('table', { name: 'Alle gewijzigde bestanden' });
-	const rij = bestanden.getByRole('row').filter({ hasText: MELDING_PAD });
-	await expect(rij).toContainText('verwijderd');
-	await expect(rij.getByRole('link')).toHaveAccessibleName(/^Bestand verwijderd, bekijk op GitHub/);
-	await expect(
-		bestanden.getByRole('row').filter({ hasText: 'docs/over/kwetsbaarheid.md' })
-	).toContainText('gewijzigd');
+	const ook = page.locator('nldd-text.bestanden');
+	await expect(ook).toHaveText(
+		/^Ook in dit voorstel: afbeelding\s+melding\.png\s+Opent in nieuw tabblad\s+verwijderd\.\s*$/
+	);
+	await expect(ook.getByRole('link', { name: /^melding\.png/ })).toHaveAttribute(
+		'href',
+		/\/files$/
+	);
+	await expect(page.getByRole('heading', { name: 'Kwetsbaarheid melden', level: 3 })).toBeVisible();
 });
 
 test('keeps an image other pages show, and says on which', async ({ page }) => {
@@ -205,16 +207,19 @@ async function bewaarNieuw(page: Page): Promise<string> {
 	return (await bewaard.textContent())!.match(/#(\d+)/)![1];
 }
 
+const stap = (page: Page, naam: string) =>
+	page.locator(`nldd-step-bar-item[status="current"][text="${naam}"]`);
+
 async function stuurIn(page: Page, nummer: string) {
 	await page.goto(`/sites/digi-handboek/voorstellen/${nummer}`);
 	await page.getByRole('button', { name: 'Insturen' }).click();
-	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	await expect(stap(page, 'Ingestuurd')).toBeVisible();
 }
 
 async function voegSamen(page: Page, nummer: string) {
 	await stuurIn(page, nummer);
 	await page.getByRole('button', { name: 'Samenvoegen' }).click();
-	await expect(page.locator('nldd-badge[text="Samengevoegd"]')).toBeVisible();
+	await expect(stap(page, 'Samengevoegd')).toBeVisible();
 }
 
 test('refuses to merge a deletion while a page merged since shows the image', async ({ page }) => {
@@ -259,7 +264,7 @@ test('refuses to merge a deletion while a page merged since shows the image', as
 		'text',
 		'Niet samengevoegd: dit voorstel verwijdert bot.png, maar die afbeelding staat nog op docs/kennis/sso-rijk-keycloak.md.'
 	);
-	await expect(page.locator('nldd-badge[text="Ingestuurd"]')).toBeVisible();
+	await expect(stap(page, 'Ingestuurd')).toBeVisible();
 	const bestand = await page.request.get(
 		`/api/sites/digi-handboek/bestand?${new URLSearchParams({ pad: 'docs/afbeeldingen/reservation-bot/bot.png' })}`
 	);
