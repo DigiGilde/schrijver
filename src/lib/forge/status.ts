@@ -222,18 +222,3 @@ export function whatNow(
 		'samenvoegen'
 	);
 }
-
-/** "a", "a en b", "a, b en c". */
-export function listing(items: string[]): string {
-	if (items.length <= 1) return items.join('');
-	return `${items.slice(0, -1).join(', ')} en ${items.at(-1)}`;
-}
-
-const WRITE_ACCESS = 'iemand met schrijfrechten op de repository';
-
-/** Approving happens on GitHub only, so an editor known by address needs a GitHub account as well. */
-export function whoApproves(redactie: string[]): string {
-	return redactie.length === 0
-		? `Goedkeuren gebeurt op GitHub: door ${WRITE_ACCESS}.`
-		: `Goedkeuren gebeurt op GitHub: door de redactie (${listing(redactie)}) met een GitHub-account, of door ${WRITE_ACCESS}.`;
-}

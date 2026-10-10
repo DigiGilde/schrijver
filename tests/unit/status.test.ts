@@ -3,7 +3,6 @@ import {
 	STATUS,
 	STEPS,
 	dateText,
-	listing,
 	momentText,
 	proposalsTab,
 	proposalsTabAddress,
@@ -11,7 +10,6 @@ import {
 	updatedText,
 	waitsForReview,
 	whatNow,
-	whoApproves,
 	type Situation,
 	type Status
 } from '../../src/lib/forge/status';
@@ -107,18 +105,6 @@ describe('the flow of a proposal', () => {
 		expect(stepOf('goedgekeurd')).toBe('Ingestuurd');
 		expect(stepOf('samengevoegd')).toBe('Samengevoegd');
 		expect(stepOf('gesloten')).toBeNull();
-	});
-
-	it('lists the editors by address, or only the people with write access', () => {
-		expect(listing([])).toBe('');
-		expect(listing(['a@x'])).toBe('a@x');
-		expect(listing(['a@x', 'b@x', 'c@x'])).toBe('a@x, b@x en c@x');
-		expect(whoApproves(['a@x'])).toBe(
-			'Goedkeuren gebeurt op GitHub: door de redactie (a@x) met een GitHub-account, of door iemand met schrijfrechten op de repository.'
-		);
-		expect(whoApproves([])).toBe(
-			'Goedkeuren gebeurt op GitHub: door iemand met schrijfrechten op de repository.'
-		);
 	});
 });
 

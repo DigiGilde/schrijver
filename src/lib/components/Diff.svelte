@@ -29,7 +29,7 @@
 		/** The server did not fetch the page: it is above the size a proposal view compares. */
 		teGroot?: boolean;
 		/** The page title: the heading, with the path under it. */
-		titel?: string;
+		titel: string;
 		/** Where GitHub shows a change too large to show here. */
 		githubUrl?: string;
 		/** Where the images of the old and of the new text are, when they sit at other versions. */
@@ -96,10 +96,7 @@
 				? 'geen wijzigingen in de tekst'
 				: `${aantal} ${aantal === 1 ? 'wijziging' : 'wijzigingen'}`
 	);
-	const onderkop = $derived.by(() => {
-		if (titel) return [path, telling].filter(Boolean).join(' · ');
-		return telling ? telling[0].toUpperCase() + telling.slice(1) : undefined;
-	});
+	const onderkop = $derived([path, telling].filter(Boolean).join(' · '));
 
 	type Lines = Extract<SourcePart, { text: string }>;
 	const GUTTER = { added: '+', removed: '-', same: '' };
@@ -138,8 +135,8 @@
 	{/if}
 {/snippet}
 
-<section class="diff" aria-label={titel ?? path}>
-	<nldd-title size="4" heading-level="3" text={titel ?? path} supporting-text={onderkop}>
+<section class="diff" aria-label={titel}>
+	<nldd-title size="4" heading-level="3" text={titel} supporting-text={onderkop}>
 		{#if nieuwePagina}<nldd-badge slot="end" color="accent" text="Nieuwe pagina"></nldd-badge>{/if}
 		{#if verwijderd}<nldd-badge slot="end" color="critical" text="Verwijderd"></nldd-badge>{/if}
 	</nldd-title>
@@ -177,7 +174,7 @@
 		<nldd-segmented-control
 			class="weergave"
 			size="sm"
-			accessible-label="Weergave van de wijzigingen in {titel ?? path}"
+			accessible-label="Weergave van de wijzigingen in {titel}"
 			value={view}
 			onchange={onWeergave}
 		>

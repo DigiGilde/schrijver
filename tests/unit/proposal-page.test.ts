@@ -125,22 +125,11 @@ describe('proposal page load', () => {
 	});
 });
 
-describe('the versions that the comparison reads its images at', () => {
-	it('are the base branch for the old text and the head commit for the new text', async () => {
+describe('the version that the comparison reads the old images at', () => {
+	// The new images are read by the proposal's number, at its head: see bestand.test.ts.
+	it('is the base branch', async () => {
 		const nummer = await proposal('plaatjes-dddd', { 'docs/plaatjes.md': '![Een](een.png)\n' });
-		const head = (await forge.getPr(REPO, nummer)).headSha;
-		expect(head).toMatch(/^[0-9a-f]{40}$/);
-		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main', after: head });
-
-		await forge.commit(
-			REPO,
-			'schrijver/digi-handboek/plaatjes-dddd',
-			[{ path: 'docs/plaatjes.md', content: '![Twee](twee.png)\n' }],
-			'verder'
-		);
-		const moved = (await forge.getPr(REPO, nummer)).headSha;
-		expect(moved).not.toBe(head);
-		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main', after: moved });
+		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main' });
 	});
 });
 

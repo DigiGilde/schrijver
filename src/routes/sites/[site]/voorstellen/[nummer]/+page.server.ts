@@ -208,7 +208,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			nogMeerBestanden: Math.max(others.length - MAX_OTHER_FILES, 0),
 			fromFork,
 			headSha: pr.headSha,
-			imageRefs: { before: pr.baseRef, after: head },
+			imageRefs: { before: pr.baseRef },
 			githubUrl: pr.url,
 			notMergeable: pr.state === 'open' && pr.mergeable === false,
 			gesprek,
