@@ -412,7 +412,7 @@ describe('proposal endpoints', () => {
 		});
 	});
 
-	it('sends in again for the writer or the redactie, taking off only that label', async () => {
+	it('sends in again for the writer, taking off only that label', async () => {
 		await call(insturen, { who: 'auteur' });
 		await forge.addLabel('o/moza', 1, 'preview');
 		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
@@ -425,6 +425,42 @@ describe('proposal endpoints', () => {
 		const again = await call(opnieuwInsturen, { who: 'auteur' });
 		expect(again.status).toBe(409);
 		expect((await again.json()).message).toBe('Er is geen aanpassing gevraagd');
+	});
+
+	it('lets only the writer send in again: an editor gets a 403, logged, and nothing is done', async () => {
+		await call(insturen, { who: 'auteur' });
+		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
+		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
+		const rerequest = vi.spyOn(forge, 'rerequestReviewers');
+		const comment = vi.spyOn(forge, 'comment');
+		const warn = vi.mocked(log.warn);
+		warn.mockClear();
+		for (const asker of [{ sub: 'red', who: 'redacteur' }, { who: 'vreemde' }]) {
+			const res = await call(opnieuwInsturen, asker);
+			expect(res.status).toBe(403);
+			expect(await res.json()).toEqual({
+				ok: false,
+				message: 'Alleen de schrijver kan dit voorstel opnieuw insturen'
+			});
+		}
+		expect(rerequest).not.toHaveBeenCalled();
+		expect(comment).not.toHaveBeenCalled();
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.labels).toEqual(['aanpassing gevraagd']);
+		expect(pr.requestedReviewers).toEqual([]);
+		expect(warn.mock.calls).toEqual([
+			['proposal.opnieuw-insturen_refused', { site: 'moza', pr: 1, actor: 'p-red', status: 403 }],
+			['proposal.opnieuw-insturen_refused', { site: 'moza', pr: 1, actor: 'p-s', status: 403 }]
+		]);
+		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
+	});
+
+	it('lets a writer who is in the redactie too send in again', async () => {
+		await call(insturen, { who: 'auteur' });
+		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
+		const res = await call(opnieuwInsturen, { sub: 'red', who: 'auteur' });
+		expect(await res.json()).toEqual({ ok: true });
+		expect(statusOf(await forge.getPr('o/moza', 1))).toBe('ingestuurd');
 	});
 
 	it('answers a request for changes on GitHub too: its reviewer is asked to review again', async () => {
