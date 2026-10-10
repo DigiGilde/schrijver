@@ -12,6 +12,9 @@ import { ForgeError, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { proposalAction, readJson, refuse } from '$lib/server/proposal-route';
 
+const NEW_VERSION =
+	'Er is intussen een nieuwe versie van dit voorstel. Laad de pagina opnieuw en bekijk de wijzigingen.';
+
 export const POST: RequestHandler = proposalAction(
 	'mergen',
 	async ({ site, settings, forge, pr, acts, user }, { request }) => {
@@ -32,6 +35,8 @@ export const POST: RequestHandler = proposalAction(
 			return refuse(400, 'Laad de pagina opnieuw en bekijk de wijzigingen voordat je samenvoegt');
 		}
 		const commits = await forge.prCommits(site.repo, pr.number);
+		// The merge is of the head the reader saw and four eyes read the commits of, or none at all.
+		if (sha !== pr.headSha || commits.at(-1)?.sha !== sha) return refuse(409, NEW_VERSION);
 		if (settings.vierOgen) {
 			const [writers, app] = await Promise.all([
 				recordedWriters(site.id, pr.number),
@@ -70,11 +75,7 @@ export const POST: RequestHandler = proposalAction(
 			);
 		} catch (e) {
 			if (e instanceof ForgeError && e.status === 409) {
-				return refuse(
-					409,
-					'Er is intussen een nieuwe versie van dit voorstel. Laad de pagina opnieuw en bekijk de wijzigingen.',
-					e.detail
-				);
+				return refuse(409, NEW_VERSION, e.detail);
 			}
 			throw e;
 		}

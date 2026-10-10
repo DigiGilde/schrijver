@@ -482,15 +482,58 @@ describe('proposal endpoints', () => {
 			[{ path: 'content/a.md', content: 'later' }],
 			'Bewerk\n\nSchrijver-Auteur: auteur'
 		);
+		const merge = vi.spyOn(forge, 'merge');
 
 		expect((await call(mergen, red)).status).toBe(400);
 		const res = await call(mergen, { ...red, body: { sha: seen } });
+		expect(res.status).toBe(409);
+		expect(await res.json()).toEqual({
+			ok: false,
+			message:
+				'Er is intussen een nieuwe versie van dit voorstel. Laad de pagina opnieuw en bekijk de wijzigingen.'
+		});
+		const head = (await forge.getPr('o/moza', 1)).headSha;
+		expect((await call(mergen, { ...red, body: { sha: head.slice(0, 7) } })).status).toBe(409);
+		expect(merge).not.toHaveBeenCalled();
+		expect((await forge.getPr('o/moza', 1)).state).toBe('open');
+	});
+
+	it('merges no head that the list of commits four eyes reads does not end in', async () => {
+		await call(insturen, { who: 'auteur' });
+		const red = { sub: 'red' };
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const commits = await forge.prCommits('o/moza', 1);
+		vi.spyOn(forge, 'prCommits').mockResolvedValueOnce([
+			...commits,
+			{ sha: 'f'.repeat(40), message: 'Later\n\nSchrijver-Auteur: ander', author: 'schrijver[bot]' }
+		]);
+		const merge = vi.spyOn(forge, 'merge');
+		const lagging = await call(mergen, { ...red, body: { sha } });
+		expect(lagging.status).toBe(409);
+		expect((await lagging.json()).message).toContain('Laad de pagina opnieuw');
+		expect(merge).not.toHaveBeenCalled();
+
+		expect((await call(mergen, { ...red, body: { sha } })).status).toBe(200);
+		expect(merge).toHaveBeenCalledWith('o/moza', 1, expect.any(String), sha);
+	});
+
+	it('still says so when GitHub finds a newer head than the one it was asked to merge', async () => {
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		forge.failNext(
+			'merge',
+			new ForgeError(
+				409,
+				'Conflict op GitHub',
+				'Head branch was modified. Review and try the merge again.'
+			)
+		);
+		const res = await call(mergen, { sub: 'red', body: { sha } });
 		expect(res.status).toBe(409);
 		expect(await res.json()).toMatchObject({
 			message: expect.stringContaining('nieuwe versie'),
 			detail: 'Head branch was modified. Review and try the merge again.'
 		});
-		expect((await forge.getPr('o/moza', 1)).state).toBe('open');
 	});
 });
 
