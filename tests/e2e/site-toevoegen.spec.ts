@@ -206,9 +206,12 @@ test('a site whose files are not valid shows only its admins what is wrong', asy
 
 /**
  * The same exceptions as tests/e2e/beheer.spec.ts, with the step bar of tests/e2e/axe.spec.ts, whose
- * track is a pseudo-element; axe names an item by its reflected href too.
+ * track is a pseudo-element; axe names an item by its reflected href too. In the removal dialog axe
+ * takes the wrapped supporting text for partly covered, though nothing covers it (measured by hand,
+ * light / dark mode: 11.3:1 / 11.4:1).
  */
 const allowedContrast = [
+	/^nldd-modal-dialog(:nth-child\(\d+\))?,nldd-inline-dialog,\.inline-dialog__supporting-text$/,
 	/^(nldd-top-title-bar|\.optisch),nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/,
 	/^nldd-step-bar-item\[(status="current"|text="[^"]+"|href="[^"]*")\],\.step-bar__item-(number|title)$/,
 	/^nldd-status-bar,\.status-bar__text$/,
@@ -256,5 +259,26 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await page.goto('/instellingen/sites/oude-site');
 		await expect(page.getByRole('heading', { level: 2, name: 'Structuur' })).toBeVisible();
 		await axe(page);
+
+		const dialog = page.locator('nldd-modal-dialog[text="Verwijder Oude site uit Schrijver?"]');
+		await page
+			.locator('nldd-box[background="critical"]')
+			.getByRole('button', { name: 'Verwijder site' })
+			.click();
+		await expect(dialog).toHaveAttribute('open');
+		// The dialog fades in; mid-way its text has no contrast yet.
+		await page.waitForFunction(() => {
+			const shown = document
+				.querySelector('nldd-modal-dialog[open]')
+				?.shadowRoot?.querySelector('dialog');
+			return (
+				!!shown?.open &&
+				shown.getAnimations({ subtree: true }).length === 0 &&
+				getComputedStyle(shown).opacity === '1'
+			);
+		});
+		await axe(page);
+		await page.keyboard.press('Escape');
+		await expect(dialog).not.toHaveAttribute('open');
 	});
 }
