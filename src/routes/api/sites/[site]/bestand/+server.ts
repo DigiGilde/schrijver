@@ -16,6 +16,8 @@ const TYPES: Record<string, string> = {
 	svg: 'image/svg+xml'
 };
 
+const COMMIT = /^[0-9a-f]{40}$/;
+
 const fail = (status: number, message: string) => json({ message }, { status });
 
 /** The fixed folder before the first placeholder of `afbeeldingen.pad`, or null when there is none. */
@@ -42,7 +44,7 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 
 	const pad = url.searchParams.get('pad') ?? '';
 	const ref = url.searchParams.get('ref') || site.standaardbranch;
-	if (ref !== site.standaardbranch && !ref.startsWith(`schrijver/${site.id}/`))
+	if (ref !== site.standaardbranch && !ref.startsWith(`schrijver/${site.id}/`) && !COMMIT.test(ref))
 		return fail(400, 'Ongeldige versie');
 	if (
 		pad === '' ||

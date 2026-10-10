@@ -3,7 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import Diff from '$lib/components/Diff.svelte';
 	import Pagina from '$lib/components/Pagina.svelte';
-	import { markdownToHtml } from '$lib/content/markdown-preview';
+	import { markdownToHtml, previewImages } from '$lib/content/markdown-preview';
 	import type { ConversationItem } from '$lib/forge/conversation';
 	import { STEPS, momentText, type Action } from '$lib/forge/status';
 
@@ -147,6 +147,11 @@
 	}
 
 	const appearance = (actie: Action) => (actie === data.watNu.primary ? 'primary' : 'secondary');
+
+	const images = (page: string) => ({
+		before: previewImages({ siteId: data.site.id, page, ref: data.imageRefs.before, pending: [] }),
+		after: previewImages({ siteId: data.site.id, page, ref: data.imageRefs.after, pending: [] })
+	});
 </script>
 
 <svelte:head><title>{data.proposal.title} · {data.site.naam} · Schrijver</title></svelte:head>
@@ -314,6 +319,7 @@
 						status={d.status}
 						teGroot={d.teGroot}
 						githubUrl="{data.githubUrl}/files"
+						images={images(d.path)}
 					/>
 				{/each}
 				{#if data.nietVergeleken > 0}

@@ -46,6 +46,7 @@ interface Data {
 	diffs: Diff[];
 	nietVergeleken: number;
 	terug: string;
+	imageRefs: { before: string; after: string };
 }
 
 async function proposal(slug: string, files: Record<string, string>): Promise<number> {
@@ -111,6 +112,25 @@ describe('proposal page load', () => {
 			expect.objectContaining({ path: 'docs/groot.md', teGroot: true, before: null, after: null })
 		]);
 		expect(data.nietVergeleken).toBe(0);
+	});
+});
+
+describe('the versions that the comparison reads its images at', () => {
+	it('are the base branch for the old text and the head commit for the new text', async () => {
+		const nummer = await proposal('plaatjes-dddd', { 'docs/plaatjes.md': '![Een](een.png)\n' });
+		const head = (await forge.getPr(REPO, nummer)).headSha;
+		expect(head).toMatch(/^[0-9a-f]{40}$/);
+		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main', after: head });
+
+		await forge.commit(
+			REPO,
+			'schrijver/digi-handboek/plaatjes-dddd',
+			[{ path: 'docs/plaatjes.md', content: '![Twee](twee.png)\n' }],
+			'verder'
+		);
+		const moved = (await forge.getPr(REPO, nummer)).headSha;
+		expect(moved).not.toBe(head);
+		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main', after: moved });
 	});
 });
 

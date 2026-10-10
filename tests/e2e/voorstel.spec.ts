@@ -147,6 +147,50 @@ test('sends in, asks for an adjustment, sends in again, reacts and merges', asyn
 	await expect(page.getByRole('textbox', { name: 'Je reactie' })).toHaveCount(0);
 });
 
+test('shows the image that a proposal adds, with the word on the block like a text block', async ({
+	page
+}) => {
+	await page.goto('/sites/digi-handboek/voorstellen?filter=alle');
+	await page
+		.locator('nldd-list[accessible-label="Alle voorstellen"]')
+		.getByRole('link', { name: /^Kennis: het team stelt zich voor/ })
+		.first()
+		.click();
+	await expect(page.locator('.diff-woord').first()).toBeVisible();
+
+	const afbeelding = page.locator('[data-diff="toegevoegd"] img');
+	await expect(afbeelding).toHaveAttribute('alt', 'Het team bij de kick-off');
+	await expect
+		.poll(() => afbeelding.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+		.toBe(160);
+	const src = new URL((await afbeelding.getAttribute('src'))!, page.url());
+	expect(src.pathname).toBe('/api/sites/digi-handboek/bestand');
+	expect(src.searchParams.get('pad')).toBe('docs/afbeeldingen/kennis/team.png');
+	expect(src.searchParams.get('ref'), 'the head commit of the proposal').toMatch(/^[0-9a-f]{40}$/);
+
+	// The word sits in the block, as in a text block, not on a line of its own above it.
+	const blok = page.locator('[data-diff="toegevoegd"]').filter({ has: page.locator('img') });
+	const woord = blok.locator('.diff-woord');
+	await expect(woord).toHaveText('Nieuw');
+	const tekst = page
+		.locator('[data-diff="toegevoegd"]')
+		.filter({ hasText: 'Hier vind je wie wat weet.' });
+	const kaders = {
+		afbeelding: [(await blok.boundingBox())!, (await woord.boundingBox())!],
+		tekst: [(await tekst.boundingBox())!, (await tekst.locator('.diff-woord').boundingBox())!]
+	};
+	for (const [naam, [kader, label]] of Object.entries(kaders)) {
+		expect(label.y, `${naam}: the word is in the block`).toBeGreaterThanOrEqual(kader.y);
+		expect(label.y + label.height, `${naam}: the word is in the block`).toBeLessThanOrEqual(
+			kader.y + kader.height
+		);
+	}
+	expect(
+		kaders.afbeelding[1].x - kaders.afbeelding[0].x,
+		'the word starts where the word of a text block starts'
+	).toBeCloseTo(kaders.tekst[1].x - kaders.tekst[0].x, 0);
+});
+
 test('shows a reaction as text, with links that open a new tab and nothing that runs', async ({
 	page
 }) => {

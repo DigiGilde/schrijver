@@ -13,8 +13,10 @@ export type DiffBlock =
 	| { kind: 'overgeslagen'; aantal: number }
 	| { kind: 'te-groot' };
 
+/** Which of the two texts a block comes from; what it shows, such as an image, may sit at another version. */
+type Side = 'before' | 'after';
 type Block = { type: string; source: string };
-type Body = { blocks: Block[]; definitions: string };
+type Body = { blocks: Block[]; definitions: string; side: Side };
 type Span = [start: number, end: number];
 type Pair = [old: number, nieuw: number];
 type Part = {
@@ -25,7 +27,7 @@ type Part = {
 	chars: number;
 };
 type Budget = { chars: number };
-type Render = (markdown: string) => string;
+type Render = (markdown: string, side: Side) => string;
 
 const ATOMIC = new Set(['code', 'html', 'thematicBreak']);
 /** The prefix for screen readers goes in front of these, not inside a link name or a mark. */
@@ -60,7 +62,7 @@ function typeOf(node: RootContent): string {
 	return node.type;
 }
 
-function splitBody(markdown: string): Body {
+function splitBody(markdown: string, side: Side): Body {
 	// Offsets count after a leading BOM, and a change of line endings alone is no change.
 	const text = markdown.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 	const blocks: Block[] = [];
@@ -70,7 +72,7 @@ function splitBody(markdown: string): Body {
 		if (node.type === 'definition' || node.type === 'footnoteDefinition') definitions.push(source);
 		else blocks.push({ type: typeOf(node), source });
 	}
-	return { blocks, definitions: definitions.join('\n') };
+	return { blocks, definitions: definitions.join('\n'), side };
 }
 
 const renderChars = (body: Body) =>
@@ -81,7 +83,10 @@ const renderChars = (body: Body) =>
 
 /** Reference-style links and footnotes need their definitions, which are blocks of their own: they render nothing alone. */
 function renderBlock(body: Body, block: Block, render: Render): string {
-	return render(body.definitions ? `${block.source}\n\n${body.definitions}` : block.source);
+	return render(
+		body.definitions ? `${block.source}\n\n${body.definitions}` : block.source,
+		body.side
+	);
 }
 
 function parseHtml(html: string, doc: Document): HTMLTemplateElement {
@@ -90,22 +95,35 @@ function parseHtml(html: string, doc: Document): HTMLTemplateElement {
 	return template;
 }
 
-/** Text nodes in document order; code and diagrams are not text to mark words in. */
+/** Code and diagrams are not text to mark words in. */
+const isOpaque = (element: Element) =>
+	element.localName === 'nldd-code-viewer' || element.classList.contains('mermaid');
+
+/** Text nodes in document order. */
 function textNodes(root: Node): Text[] {
 	const found: Text[] = [];
 	const visit = (node: Node) => {
 		for (const child of node.childNodes) {
 			if (child.nodeType === TEXT_NODE) found.push(child as Text);
-			else if (child.nodeType === ELEMENT_NODE) {
-				const element = child as Element;
-				if (element.localName !== 'nldd-code-viewer' && !element.classList.contains('mermaid')) {
-					visit(element);
-				}
-			}
+			else if (child.nodeType === ELEMENT_NODE && !isOpaque(child as Element)) visit(child);
 		}
 	};
 	visit(root);
 	return found;
+}
+
+/** The first text that is more than white space, or the first image when that comes before it. */
+function startOf(root: Node): Text | Element | undefined {
+	for (const child of root.childNodes) {
+		if (child.nodeType === TEXT_NODE && /\S/.test((child as Text).data)) return child as Text;
+		if (child.nodeType !== ELEMENT_NODE) continue;
+		const element = child as Element;
+		if (element.localName === 'img') return element;
+		if (isOpaque(element)) continue;
+		const found = startOf(element);
+		if (found) return found;
+	}
+	return undefined;
 }
 
 function wrapSpans(nodes: Text[], ranges: Span[], tag: 'ins' | 'del'): void {
@@ -242,8 +260,8 @@ export function renderedDiff(
 	doc: Document
 ): DiffBlock[] {
 	if (before.length + after.length > MAX_CHARS) return tooLarge();
-	const old = splitBody(before);
-	const nieuw = splitBody(after);
+	const old = splitBody(before, 'before');
+	const nieuw = splitBody(after, 'after');
 	if (renderChars(old) + renderChars(nieuw) > MAX_RENDER_CHARS) return tooLarge();
 	const changes = diffArrays(
 		old.blocks.map((block) => block.source),
@@ -353,7 +371,7 @@ export function countChanges(blocks: DiffBlock[]): number {
 	).length;
 }
 
-/** Marks the block, and puts the visible word and the prefix for screen readers where its text starts. */
+/** Marks the block, and puts the visible word and the prefix for screen readers where its text or image starts. */
 function annotate(html: string, state: string, word: string, label: string, doc: Document): string {
 	const template = parseHtml(html, doc);
 	const content = template.content;
@@ -368,7 +386,7 @@ function annotate(html: string, state: string, word: string, label: string, doc:
 	const prefix = doc.createElement('span');
 	prefix.className = 'sr-only';
 	prefix.textContent = label;
-	let anchor: Node | undefined = textNodes(content).find((node) => /\S/.test(node.data));
+	let anchor: Node | undefined = startOf(content);
 	if (!anchor) {
 		content.insertBefore(prefix, elements[0]);
 		content.insertBefore(visible, prefix);

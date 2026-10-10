@@ -322,6 +322,69 @@ describe('renderedDiff', () => {
 	});
 });
 
+describe('the text a block is rendered from', () => {
+	const asked = (before: string, after: string) => {
+		const calls: [string, string][] = [];
+		renderedDiff(
+			before,
+			after,
+			(markdown, side) => {
+				calls.push([markdown, side]);
+				return render(markdown);
+			},
+			doc
+		);
+		return calls;
+	};
+
+	it('is the old text for a removed block, and the new text for an added or an unchanged one', () => {
+		expect(asked('Gelijk.\n\nWeg.\n', 'Gelijk.\n\nNieuw.\n')).toEqual([
+			['Gelijk.', 'after'],
+			['Weg.', 'before'],
+			['Nieuw.', 'after']
+		]);
+	});
+
+	it('is the old text for the was half of a changed block, and the new text for the wordt half', () => {
+		const blocks = renderedDiff(
+			'Een alinea met een plaatje.\n',
+			'Een alinea met een nieuw plaatje.\n',
+			(markdown, side) => `<p data-versie="${side}">${markdown.trim()}</p>`,
+			doc
+		);
+		expect(blocks).toEqual([
+			{
+				kind: 'gewijzigd',
+				was: '<p data-versie="before">Een alinea met een plaatje.</p>',
+				wordt: '<p data-versie="after">Een alinea met een <ins>nieuw </ins>plaatje.</p>'
+			}
+		]);
+	});
+
+	it('takes the definitions of a block from its own text', () => {
+		expect(asked('Eén ![a][x]\n\n[x]: oud.png\n', 'Twee ![a][x]\n\n[x]: nieuw.png\n')).toEqual([
+			['Eén ![a][x]\n\n[x]: oud.png', 'before'],
+			['Twee ![a][x]\n\n[x]: nieuw.png', 'after']
+		]);
+	});
+
+	it('shows each side its own version of an image', () => {
+		const at = (version: string) => (markdown: string) =>
+			markdownToHtml(markdown, sanitize, (src) => `/versie/${version}/${src}`);
+		const blocks = renderedDiff(
+			'![Plan](plan.png)\n\nGelijk.\n\n![Oud](oud.png)\n',
+			'![Plan](plan.png)\n\nGelijk.\n\n![Nieuw](nieuw.png)\n',
+			(markdown, side) => at(side === 'before' ? 'oud' : 'nieuw')(markdown),
+			doc
+		);
+		const html = blocks.map((block) => ('html' in block ? block.html : '')).join('');
+		expect(html).toContain('src="/versie/nieuw/plan.png"');
+		expect(html).toContain('src="/versie/oud/oud.png"');
+		expect(html).toContain('src="/versie/nieuw/nieuw.png"');
+		expect(html).not.toContain('/versie/oud/plan.png');
+	});
+});
+
 describe('limits', () => {
 	const paragraphs = (prefix: string, count: number) =>
 		Array.from({ length: count }, (_, i) => `${prefix} ${i}`).join('\n\n') + '\n';
@@ -530,6 +593,56 @@ describe('toHtml', () => {
 		expect(html).toBe(
 			`${word('Verwijderd')}<span class="sr-only">Verwijderd: </span><nldd-code-viewer language="bash" data-diff="verwijderd">ls</nldd-code-viewer>`
 		);
+	});
+
+	describe('for a block with an image', () => {
+		const image = '<img src="/plaatje.png" alt="Het team">';
+		const annotated = (html: string) => toHtml([{ kind: 'toegevoegd', html }], doc);
+		const lead = `${word('Nieuw')}<span class="sr-only">Toegevoegd: </span>`;
+
+		it('puts the word in the block, in front of the image, as it goes in front of text', () => {
+			expect(annotated(`<p>${image}</p>`)).toBe(`<p data-diff="toegevoegd">${lead}${image}</p>`);
+		});
+
+		it('puts the word in front of the image when it comes before the text', () => {
+			expect(annotated(`<p>${image} en dan tekst</p>`)).toBe(
+				`<p data-diff="toegevoegd">${lead}${image} en dan tekst</p>`
+			);
+		});
+
+		it('puts the word in front of the text when it comes before the image', () => {
+			expect(annotated(`<p>Eerst tekst ${image}</p>`)).toBe(
+				`<p data-diff="toegevoegd">${lead}Eerst tekst ${image}</p>`
+			);
+		});
+
+		it('puts the word outside a link around the image, as it goes outside a link around text', () => {
+			expect(annotated(`<p><a href="https://a.nl">${image}</a></p>`)).toBe(
+				`<p data-diff="toegevoegd">${lead}<a href="https://a.nl">${image}</a></p>`
+			);
+		});
+
+		it('puts the word in the first list item of a list that starts with an image', () => {
+			const html = annotated(`<ul>\n<li>${image}</li>\n<li>twee</li>\n</ul>`);
+			expect(html).toContain(`<li>${lead}${image}</li>`);
+		});
+
+		it('puts the word in front of the image of a changed block too', () => {
+			const html = toHtml(
+				[{ kind: 'gewijzigd', was: `<p>${image}</p>`, wordt: `<p>${image} nieuw</p>` }],
+				doc
+			);
+			expect(html).toContain(
+				`<p data-diff="was">${word('Was')}<span class="sr-only">Oude tekst: </span>${image}</p>`
+			);
+			expect(html).toContain(
+				`<p data-diff="wordt">${word('Wordt')}<span class="sr-only">Nieuwe tekst: </span>${image} nieuw</p>`
+			);
+		});
+
+		it('leaves the word in front of a block that has neither text nor an image', () => {
+			expect(annotated('<hr>')).toBe(`${lead}<hr data-diff="toegevoegd">`);
+		});
 	});
 
 	it('shows a comparison that is too large as one line', () => {

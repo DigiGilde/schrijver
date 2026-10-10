@@ -1,6 +1,6 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
-	import { PURIFY_CONFIG, markdownToHtml } from '$lib/content/markdown-preview';
+	import { PURIFY_CONFIG, markdownToHtml, type ResolveImage } from '$lib/content/markdown-preview';
 	import {
 		TE_GROOT,
 		comparePages,
@@ -18,7 +18,8 @@
 		status = 'modified',
 		teGroot: paginaTeGroot = false,
 		titel,
-		githubUrl
+		githubUrl,
+		images
 	}: {
 		path: string;
 		before: string | null;
@@ -31,6 +32,8 @@
 		titel?: string;
 		/** Where GitHub shows a change too large to show here. */
 		githubUrl?: string;
+		/** Where the images of the old and of the new text are, when they sit at other versions. */
+		images?: { before: ResolveImage; after: ResolveImage };
 	} = $props();
 	const nieuwePagina = $derived(paginaTeGroot ? status === 'added' : before === null);
 	const verwijderd = $derived(paginaTeGroot ? status === 'removed' : after === null);
@@ -67,10 +70,12 @@
 			klaar = true;
 			return;
 		}
+		const render = (md: string, side: 'before' | 'after') =>
+			markdownToHtml(md, undefined, images?.[side]);
 		if (before === null || after === null) {
-			plainHtml = markdownToHtml(before === null ? nieuw.body : old.body);
+			plainHtml = before === null ? render(nieuw.body, 'after') : render(old.body, 'before');
 		} else {
-			const { blocks, count } = comparePages(before, after, (md) => markdownToHtml(md), document);
+			const { blocks, count } = comparePages(before, after, render, document);
 			const clean = (html: string) => DOMPurify.sanitize(html, PURIFY_CONFIG);
 			aantal = count;
 			diffHtml = {

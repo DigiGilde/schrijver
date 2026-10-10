@@ -59,6 +59,25 @@ describe('GET /api/sites/[site]/bestand', () => {
 		expect((await get({ pad: 'docs/afbeeldingen/home/nieuw.png' })).status).toBe(404);
 	});
 
+	it('serves an image from a commit by its id, as that commit has it', async () => {
+		const branch = 'schrijver/digi-handboek/home-abcd';
+		const first = forge.commitsOf(digi.repo, branch)[0].sha;
+		await forge.commit(
+			digi.repo,
+			branch,
+			[{ path: 'docs/afbeeldingen/home/later.png', content: PNG }],
+			'y'
+		);
+		expect((await get({ pad: 'docs/afbeeldingen/home/nieuw.png', ref: first })).status).toBe(200);
+		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', ref: first })).status).toBe(404);
+		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', ref: branch })).status).toBe(200);
+	});
+
+	it('404 for a commit the repository does not have', async () => {
+		const res = await get({ pad: 'docs/afbeeldingen/home/kat.png', ref: 'a'.repeat(40) });
+		expect(res.status).toBe(404);
+	});
+
 	it('sandboxes an svg', async () => {
 		const res = await get({ pad: 'content/over/images/logo.svg' }, { site: 'moza-site' });
 		expect(res.headers.get('content-type')).toBe('image/svg+xml');
@@ -94,8 +113,20 @@ describe('GET /api/sites/[site]/bestand', () => {
 		}
 	});
 
-	it('400 for a ref that is not the default branch or a Schrijver branch of the site', async () => {
-		for (const ref of ['andere', 'schrijver/moza-site/x-abcd']) {
+	it('400 for a ref that is not the default branch, a Schrijver branch of the site or a commit id', async () => {
+		const commit = forge.commitsOf(digi.repo, 'schrijver/digi-handboek/home-abcd')[0].sha;
+		for (const ref of [
+			'andere',
+			'schrijver/moza-site/x-abcd',
+			'HEAD',
+			'main~1',
+			commit.slice(0, 7),
+			commit.slice(0, 39),
+			`${commit}0`,
+			commit.toUpperCase(),
+			`${commit}\n`,
+			`${commit}/../..`
+		]) {
 			expect((await get({ pad: 'docs/afbeeldingen/home/kat.png', ref })).status, ref).toBe(400);
 		}
 	});
