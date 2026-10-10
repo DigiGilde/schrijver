@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { changesLine, compare, comparisonTitle } from '../../src/lib/client/suggestion';
+import {
+	changesLine,
+	compare,
+	comparisonTitle,
+	selectsWholeText
+} from '../../src/lib/client/suggestion';
 import { sourceDiff } from '../../src/lib/content/source-diff';
 
 describe('comparisonTitle', () => {
@@ -32,6 +37,33 @@ describe('changesLine', () => {
 
 	it('does not count a comparison that is too large to make', () => {
 		expect(changesLine(null)).toBe('De wijzigingen staan in de tekstkolom');
+	});
+});
+
+describe('selectsWholeText', () => {
+	const text = '# Titel\n\nEen alinea.\n';
+	const select = (from: number, to: number) => selectsWholeText({ from, to }, text);
+
+	it('counts a selection of everything', () => {
+		expect(select(0, text.length)).toBe(true);
+	});
+
+	it('counts a selection that leaves out only white space at either end', () => {
+		const padded = '\n  # Titel\n\nEen alinea.\n\n';
+		expect(selectsWholeText({ from: 3, to: padded.length - 2 }, padded)).toBe(true);
+		expect(selectsWholeText({ from: 0, to: padded.length - 1 }, padded)).toBe(true);
+		expect(select(0, text.length - 1)).toBe(true);
+	});
+
+	it('does not count a selection that leaves out text', () => {
+		expect(select(1, text.length)).toBe(false);
+		expect(select(0, text.length - 2)).toBe(false);
+		expect(select(9, 20)).toBe(false);
+	});
+
+	it('tells a word of a short text from all of it', () => {
+		expect(selectsWholeText({ from: 0, to: 6 }, 'Eerste tweede')).toBe(false);
+		expect(selectsWholeText({ from: 0, to: 13 }, 'Eerste tweede')).toBe(true);
 	});
 });
 

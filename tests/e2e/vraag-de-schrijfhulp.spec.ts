@@ -274,6 +274,30 @@ test('a suggestion for a selection stays in the panel', async ({ page }) => {
 	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
 });
 
+test('select all, then an action, asks for the whole text and compares it in the text column', async ({
+	page
+}) => {
+	const paneel = await openPanelHere(page);
+	await editor(page).click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await paneel.hover();
+	await expect(paneel.getByRole('group', { name: 'Op de hele tekst' })).toBeVisible();
+
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
+	await expect(paneel.getByRole('status')).toHaveText('Voorstel staat in de tekstkolom');
+	await expect(paneel.getByText('1 wijziging staat in de tekstkolom')).toBeVisible();
+	await expect(paneel.getByText('Over het Digi Gilde'), 'the panel holds no text').toHaveCount(0);
+	await expect(
+		page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Korter' })
+	).toContainText('Over het Digi Gilde');
+
+	await paneel.getByRole('button', { name: 'Overnemen' }).click();
+	await expect(editor(page)).toBeFocused();
+	await expect(editor(page)).not.toContainText('Over het Digi Gilde');
+	await expect(editor(page)).toContainText('Het Digi Handboek');
+});
+
 test('Samenvatting on the whole text stays in the panel', async ({ page }) => {
 	const paneel = await openPanelHere(page);
 	await paneel.getByRole('button', { name: 'Samenvatting', exact: true }).click();

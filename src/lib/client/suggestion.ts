@@ -13,6 +13,11 @@ export type Comparison = {
 	count: number | null;
 };
 
+/** Whether a selection takes in all of the text but white space at either end: that asks for the whole text. */
+export function selectsWholeText(selection: { from: number; to: number }, text: string): boolean {
+	return text.slice(0, selection.from).trim() === '' && text.slice(selection.to).trim() === '';
+}
+
 export const comparisonTitle = (label: string | null) =>
 	label ? `Voorstel van Schrijfhulp: ${label}` : 'Voorstel van Schrijfhulp';
 

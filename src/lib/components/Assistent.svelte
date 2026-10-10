@@ -3,7 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import { AI_NOTICE } from '$lib/assistant/shared';
 	import type { Action, Suggestion } from '$lib/assistant/vlam';
-	import { changesLine, compare, type Comparison } from '$lib/client/suggestion';
+	import { changesLine, compare, selectsWholeText, type Comparison } from '$lib/client/suggestion';
 
 	type Props = {
 		siteId: string;
@@ -84,14 +84,19 @@
 			: []
 	);
 
+	function partOfText() {
+		const selection = getSelection();
+		return selection && !selectsWholeText(selection, getAll()) ? selection : null;
+	}
+
 	function refreshScope() {
-		scope = getSelection() ? 'selectie' : 'tekst';
+		scope = partOfText() ? 'selectie' : 'tekst';
 	}
 
 	async function run(action: Action) {
 		if (busy) return;
 		if (action === 'vrij' && !instruction.trim()) return;
-		const selection = getSelection();
+		const selection = partOfText();
 		const all = selection ? null : getAll();
 		const target = selection
 			? { text: selection.text, from: selection.from, to: selection.to }
