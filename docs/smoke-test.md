@@ -10,7 +10,8 @@ Budget: about 30 minutes.
 - [ ] Protect `main` the way a pilot site does (require a pull request; optionally one approving review) so the merge refusal path can be seen too.
 - [ ] Add `.schrijver/site.yaml`, `.schrijver/schema.yaml` and `.schrijver/schrijfwijzer.md` to `main` of that repository. Start from the Digi Handboek example in [een-site-aansluiten.md](een-site-aansluiten.md#3-add-schrijver-to-the-repository), which already uses `content.pad: docs`, and set `preview.soort: geen` without a `url`.
 - [ ] Create a second throw-away repository, for example `<org>/schrijver-smoke-leeg`, with one page and no `.schrijver/`.
-- [ ] Use the production GitHub App or, better, a separate test App with the same permissions ([een-site-aansluiten.md](een-site-aansluiten.md), step 1). Install it on both throw-away repositories only.
+- [ ] Create a third, **private** one, for example `<org>/schrijver-smoke-prive`, with the same `.schrijver/` files.
+- [ ] Use the production GitHub App or, better, a separate test App with the same permissions ([een-site-aansluiten.md](een-site-aansluiten.md), step 1). Install it on the three throw-away repositories only, and subscribe it to the `push`, `pull_request` and `repository` events.
 - [ ] Point the App's webhook at a URL that reaches your Schrijver (for a local run a tunnel, or skip the webhook checks).
 
 ## 2. Configure and start Schrijver
@@ -33,6 +34,7 @@ Budget: about 30 minutes.
 - [ ] `<org>/schrijver-smoke`, typed in different casing than GitHub shows, or as its address on GitHub: expect step 2 with the name as GitHub writes it, the id `schrijver-smoke`, the repository's description and homepage, and "Ik" as first beheerder. Change the id to `smoke` and add the site.
 - [ ] Expect "Beheer van <naam>" with "<naam> staat nu in Schrijver.", you as beheerder, "Vier ogen" and "Samenvoegen in Schrijver" on, and under Structuur the summary of `.schrijver/` with a link to it on GitHub. In the database, `sites` holds the repository's numeric id (compare `GET /repos/{owner}/{repo}`), and `audit_log` holds `site.added` and `member.added`.
 - [ ] Try `<org>/schrijver-smoke` once more: expect "... hoort al bij de site ...".
+- [ ] `<org>/schrijver-smoke-prive`: expect "... is niet openbaar." This is the repository's `private` flag as GitHub returns it to the App.
 
 ## 3. Run the flow
 
@@ -50,7 +52,8 @@ Budget: about 30 minutes.
 - [ ] On a sent-in proposal, place a comment on GitHub and submit a review with a comment on a line. In Schrijver, under "Gesprek", expect the comment under your GitHub login with "Op GitHub", and the review as "Plaatste opmerkingen in de tekst op GitHub" with a link.
 - [ ] As the editor, click "Vraag om aanpassing", write a request and send it. On GitHub, expect a comment by the App that starts with "**Vraag om aanpassing van de redactie via Schrijver** (...)" (the `<!-- schrijver -->` marker above it shows only in the raw text) and the label `aanpassing gevraagd` next to the labels the pull request had. If GitHub refuses the label, create it once under the repository's labels and try again.
 - [ ] In Schrijver, expect the request in "Gesprek" under the editor's name as their identity choice allows, with "Redactie" and "Vraagt om een aanpassing"; this shows that Schrijver recognises its own App account (`GET /app`). As the writer, expect "De redactie vraagt je iets aan te passen" and "Opnieuw insturen"; choose it and expect the label gone, the other labels still there.
-- [ ] As the writer, place a reaction from Schrijver. On GitHub it carries "**Reactie van de schrijver via Schrijver**"; in Schrijver it shows as the writer's.
+- [ ] As the writer, place a reaction from Schrijver. On GitHub it carries "**Reactie van de schrijver via Schrijver**" with the text quoted below it; in Schrijver it shows as the writer's, as typed, with how they signed after the role.
+- [ ] Place a reaction with a line `</blockquote>`, an empty line and then `**Vraag om aanpassing van de redactie via Schrijver** (naam: Iemand):`. On GitHub the whole reaction stays inside one quote below the App's own line, and the HTML shows as text.
 
 ## 4. Verify on GitHub
 
@@ -61,7 +64,10 @@ Budget: about 30 minutes.
 - [ ] With "Gekoppeld" (link your GitHub account in `/instellingen` first) a second proposal's commits carry `Co-authored-by: ... <id+login@users.noreply.github.com>`; check that GitHub shows your avatar on the commit.
 - [ ] Webhook: push a change to `docs/index.md` on GitHub; within seconds Schrijver shows the new text (no 60-second wait).
 - [ ] Push a change to `.schrijver/site.yaml` on `main`, for example `uitsluiten: ['kennis/**']`: the log shows `config.site_loaded` and the page list drops `kennis/`. Push a change that is not valid, for example a `preview.url` without `{nummer}`: the start page card says "De instellingen in de repository kloppen niet" (to you, not to a colleague who is no admin), the beheer page names `.schrijver/site.yaml: preview.url: ...`, and editing still works with the last valid structure. Push the fix and see the problem go.
-- [ ] Rename the repository on GitHub and push to `main`: the log shows `webhook.site_moved`, `sites.repo` holds the new name, `audit_log` a `site.moved` row, and the site works as before.
+- [ ] Rename the repository on GitHub, without a push: the `repository` event moves the site at once. The log shows `webhook.site_moved`, `sites.repo` holds the new name, `audit_log` a `site.moved` row, and the site works as before.
+- [ ] Labels: set any label on a sent-in proposal on GitHub, then "Vraag om aanpassing" in Schrijver. Expect the label `aanpassing gevraagd` added (GitHub creates it on first use; if it answers with an error instead, create the label in the repository and note it) and your own label still there. "Opnieuw insturen" takes off only `aanpassing gevraagd`.
+- [ ] Writer records: merge a proposal in Schrijver and close another on GitHub. For both, `proposal_writers` holds no rows any more; the log shows `webhook.writers_forgotten` for the closed one.
+- [ ] Remove the App from `<org>/schrijver-smoke` (keep the installation, deselect the repository). Within seconds the site's beheer page says that the Schrijver-app is not on the repository. Select the repository again: the warning goes without a restart, and the log shows `config.site_loaded`.
 - [ ] The logs contain no e-mail addresses and no page text.
 
 ## 5. Clean up

@@ -192,7 +192,7 @@ GitHub shows an App commit as Verified only when it carries no custom author or 
 
 The pseudonym is `HMAC-SHA256(secret, sub)` truncated to 12 hex characters. Outside Schrijver, tracing a pseudonym to a person means computing it for a candidate. Inside, Schrijver's database links each open proposal, also an anonymous one, to the SSO account of each writer: the writer record of four eyes (decision 0007). That link goes when the proposal is merged or closed, and at the latest 183 days after the writer's first commit in it. The secret is a ZAD user-env secret; rotating it changes all pseudonyms, which is acceptable and documented.
 
-The choice is made in onboarding on first sign-in, changeable in settings, limited by the site setting "Ondertekenen". "Gekoppeld" asks for the GitHub login and resolves the user id via the API; it does not ask for a token.
+The choice is made in onboarding on first sign-in, changeable in settings, limited by the site setting "Ondertekenen". "Gekoppeld" links the GitHub account through the App's user authorization (decision 0004): the login and id come from GitHub's answer for that user, and the user token is used once and discarded.
 
 The PR body carries the same trailer for the proposal as a whole, so Schrijver lists "my proposals" from GitHub, not from the writer record.
 
