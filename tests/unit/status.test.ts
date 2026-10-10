@@ -124,6 +124,23 @@ describe('whatNow', () => {
 	};
 	const now = new Date('2026-10-10T12:00:00Z');
 	const row = (over: Partial<Situation>) => whatNow({ ...base, ...over }, now);
+	const flags = [false, true];
+	/** Every situation of an open proposal in the site's own repository. */
+	const open = (over: Partial<Situation> = {}) =>
+		(['concept', 'ingestuurd', 'goedgekeurd', 'aanpassing-gevraagd'] as const).flatMap((status) =>
+			flags.flatMap((editor) =>
+				flags.flatMap((mergeInSchrijver) =>
+					flags.map((approvalMissing) => ({
+						status,
+						editor,
+						mergeInSchrijver,
+						approvalRequired: approvalMissing,
+						approvalMissing,
+						...over
+					}))
+				)
+			)
+		);
 
 	it('asks the writer of a concept to send it in', () => {
 		for (const editor of [false, true]) {
@@ -149,7 +166,7 @@ describe('whatNow', () => {
 
 	it('lets the writer send in again after any request for an adjustment, and says who looks again', () => {
 		const asked = { status: 'aanpassing-gevraagd' as const, writer: true };
-		for (const editor of [false, true]) {
+		for (const editor of flags) {
 			expect(row({ ...asked, editor })).toEqual({
 				sentence:
 					'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar.',
@@ -175,10 +192,25 @@ describe('whatNow', () => {
 				primary: 'samenvoegen'
 			});
 		}
-		expect(row({ writer: true, editor: true }).actions).toEqual([
-			'samenvoegen',
-			'vraag-om-aanpassing'
-		]);
+	});
+
+	it('lets a writer whom four eyes do not stop merge an own proposal, or edit it further', () => {
+		for (const status of ['ingestuurd', 'goedgekeurd'] as const) {
+			expect(row({ status, writer: true, editor: true })).toEqual({
+				sentence:
+					'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.',
+				actions: ['samenvoegen', 'verder-bewerken'],
+				primary: 'samenvoegen'
+			});
+		}
+		expect(row({ writer: true, editor: true, canEdit: false }).actions).toEqual(['samenvoegen']);
+	});
+
+	it('never has a writer ask for an adjustment of an own proposal', () => {
+		for (const situation of open({ writer: true }))
+			expect(row(situation).actions, JSON.stringify(situation)).not.toContain(
+				'vraag-om-aanpassing'
+			);
 	});
 
 	it('sends an editor to GitHub for an approval the site requires first', () => {
@@ -187,12 +219,22 @@ describe('whatNow', () => {
 			actions: ['goedkeuren-op-github', 'vraag-om-aanpassing'],
 			primary: 'goedkeuren-op-github'
 		});
+		expect(row({ writer: true, editor: true, approvalMissing: true })).toEqual({
+			sentence: 'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
+			actions: ['goedkeuren-op-github', 'verder-bewerken'],
+			primary: 'goedkeuren-op-github'
+		});
 	});
 
 	it('sends an editor to GitHub where the site merges there', () => {
 		expect(row({ editor: true, mergeInSchrijver: false, approvalMissing: true })).toEqual({
 			sentence: 'Bij deze site gebeurt samenvoegen op GitHub.',
 			actions: ['beoordelen-op-github', 'vraag-om-aanpassing'],
+			primary: 'beoordelen-op-github'
+		});
+		expect(row({ writer: true, editor: true, mergeInSchrijver: false })).toEqual({
+			sentence: 'Bij deze site gebeurt samenvoegen op GitHub.',
+			actions: ['beoordelen-op-github', 'verder-bewerken'],
 			primary: 'beoordelen-op-github'
 		});
 	});
@@ -229,7 +271,7 @@ describe('whatNow', () => {
 	});
 
 	it('says the writer is adjusting the proposal, and gives the editors no button for that step', () => {
-		for (const editor of [false, true]) {
+		for (const editor of flags) {
 			expect(row({ status: 'aanpassing-gevraagd', editor })).toEqual({
 				sentence: 'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
 				actions: [],
@@ -271,11 +313,12 @@ describe('whatNow', () => {
 		});
 	});
 
-	it('writes no dash characters', () => {
-		const flags = [false, true];
+	it('writes no dash characters and no GitHub words', () => {
 		for (const status of ALL)
 			for (const writer of flags)
-				for (const editor of flags)
-					expect(row({ status, writer, editor }).sentence).not.toMatch(/[\u2013\u2014]/);
+				for (const situation of [...open({ writer }), { status, writer }])
+					expect(row(situation).sentence).not.toMatch(
+						/[\u2013\u2014]|hoofdbranch|branch|pull request|merge/i
+					);
 	});
 });

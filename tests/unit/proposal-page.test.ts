@@ -410,6 +410,20 @@ describe('what now', () => {
 		);
 	});
 
+	it('lets a writer whom four eyes do not stop merge an own proposal, or edit it further', async () => {
+		const eigen = await make(
+			'digi-handboek',
+			{ 'docs/kennis/eigen.md': '# Eigen\n' },
+			{ door: EDITOR, sent: true }
+		);
+		expect((await open('digi-handboek', eigen, { sub: EDITOR })).watNu).toEqual({
+			sentence:
+				'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.',
+			actions: ['samenvoegen', 'verder-bewerken'],
+			primary: 'samenvoegen'
+		});
+	});
+
 	it('lets the writer send in again, also after a request on GitHub, and says where the redactie looks', async () => {
 		const moza = await make(
 			'moza-site',

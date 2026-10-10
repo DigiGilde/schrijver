@@ -200,17 +200,25 @@ export function whatNow(
 	if (s.writer && !s.editor)
 		return say('De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.', edit);
 	if (!s.editor) return say('De redactie beoordeelt dit voorstel.');
+	/* A writer who may merge an own proposal asks nobody for an adjustment, least of all themselves. */
+	const next: Action[] = s.writer ? edit : ['vraag-om-aanpassing'];
 	if (!s.mergeInSchrijver)
 		return say(
 			'Bij deze site gebeurt samenvoegen op GitHub.',
-			['beoordelen-op-github', 'vraag-om-aanpassing'],
+			['beoordelen-op-github', ...next],
 			'beoordelen-op-github'
 		);
 	if (s.approvalMissing)
 		return say(
 			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
-			['goedkeuren-op-github', 'vraag-om-aanpassing'],
+			['goedkeuren-op-github', ...next],
 			'goedkeuren-op-github'
+		);
+	if (s.writer)
+		return say(
+			'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.',
+			['samenvoegen', ...edit],
+			'samenvoegen'
 		);
 	return say(
 		'Jij beslist. Klopt de wijziging, voeg hem dan samen; na de volgende publicatie staat hij op de site. Moet er iets anders, vraag dan om een aanpassing.',
