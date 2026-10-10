@@ -275,7 +275,7 @@ export const actions: Actions = {
 			});
 			return fail(403, {
 				actie: 'verwijderSite',
-				fout: 'Alleen een beheerder van Schrijver haalt een site uit Schrijver.'
+				fout: 'Alleen een beheerder van Schrijver verwijdert een site uit Schrijver.'
 			});
 		}
 		if (!(await m.team.removeSite(m.site.id, m.actor.sub))) error(404, 'Deze pagina bestaat niet');

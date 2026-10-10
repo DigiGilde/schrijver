@@ -72,7 +72,7 @@ test('the logged-out page offers a link to the SSO without JavaScript', async ({
 	const context = await browser.newContext({ javaScriptEnabled: false });
 	const page = await context.newPage();
 	await page.goto('/uitgelogd');
-	await expect(page.getByRole('link', { name: 'Meld je af bij SSO Rijk' })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: 'Uitloggen bij SSO Rijk' })).toHaveAttribute(
 		'href',
 		new RegExp(`^${issuer}/logout\\?`)
 	);

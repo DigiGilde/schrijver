@@ -14,7 +14,7 @@
 
 			<h2>Stap voor stap</h2>
 			<ol>
-				<li>Kies een site op de beginpagina.</li>
+				<li>Kies een site op de startpagina.</li>
 				<li>Open een bestaande pagina, of kies "Nieuwe pagina" en het soort pagina.</li>
 				<li>
 					Bewerk de tekst met de werkbalk: vet, cursief, koppen, lijsten met opsommingstekens of
@@ -92,7 +92,7 @@
 				B1-niveau. Zij schrijft nooit zelf in je pagina: jij kiest "Neem suggestie over" of "Verwerp
 				suggestie". Heb je een stuk tekst geselecteerd, dan werkt de schrijfhulp alleen op die
 				selectie; anders op de hele tekst. De schrijfhulp krijgt alleen de tekst waar je mee werkt
-				en de schrijfwijzer van de site, nooit je naam, e-mailadres of keuze voor naamsvermelding.
+				en de schrijfwijzer van de site, nooit je naam, e-mailadres of je keuze bij Ondertekenen.
 				Controleer elke suggestie zelf.
 			</p>
 			<p>
@@ -105,7 +105,7 @@
 				beslist.
 			</p>
 
-			<h2>Wat je identiteitskeuze betekent</h2>
+			<h2>Wat je keuze bij Ondertekenen betekent</h2>
 			<ul>
 				<li>
 					<strong>Anoniem</strong>: op GitHub staat alleen een codenaam, geen naam of e-mailadres.
@@ -126,7 +126,7 @@
 			<h2>Hulp nodig?</h2>
 			<p>
 				Loop je vast, werkt iets niet of mis je een site? Vraag het aan de redactie van de site of
-				aan het team dat Schrijver beheert.
+				aan een beheerder van Schrijver.
 			</p>
 			<p>
 				Sommige sites ziet alleen hun team: mis je zo'n site, vraag dan een beheerder van die site

@@ -133,7 +133,7 @@
 								</ul>
 							{/if}
 							<p>
-								Wat er in .schrijver hoort, lees je in <a href={DOCS}>Een site aansluiten</a>. De
+								Wat er in .schrijver hoort, lees je in <a href={DOCS}>Een site toevoegen</a>. De
 								structuur wijzig je met een voorstel in de repository.
 							</p>
 						{/if}
@@ -168,7 +168,8 @@
 					</nldd-form-field>
 					<nldd-form-actions>
 						<nldd-button-group>
-							<nldd-button appearance="primary" type="submit" text="Controleer"></nldd-button>
+							<nldd-button appearance="primary" type="submit" text="Controleer repository"
+							></nldd-button>
 						</nldd-button-group>
 					</nldd-form-actions>
 				</form>
@@ -180,7 +181,7 @@
 				</div>
 				<nldd-text>
 					De Schrijver-app staat op {data.repo} en de structuur in .schrijver klopt. Schrijver werkt op
-					de branch {data.branch}.
+					de standaardbranch {data.branch}.
 				</nldd-text>
 			</nldd-container>
 			<nldd-form>

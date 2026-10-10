@@ -11,14 +11,14 @@
 		{#if data.configNotLoaded}
 			<nldd-banner
 				variant="critical"
-				text="Configuratie niet geladen"
-				supporting-text="Schrijver probeert het elke minuut opnieuw. Blijft dit zo, meld het dan bij de beheerders."
+				text="Sites niet geladen"
+				supporting-text="Schrijver probeert het elke minuut opnieuw. Blijft dit zo, meld het dan bij een beheerder van Schrijver."
 			></nldd-banner>
 		{/if}
 		{#if data.sites.length === 0}
 			<nldd-inline-dialog
 				text="Nog geen sites"
-				supporting-text="Vraag de beheerders om je site aan te sluiten."
+				supporting-text="Vraag een beheerder van Schrijver om je site toe te voegen."
 			></nldd-inline-dialog>
 		{:else}
 			<nldd-collection item-width="320px" show-load-more>

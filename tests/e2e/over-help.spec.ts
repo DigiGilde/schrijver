@@ -34,7 +34,7 @@ test.describe('Help, how a change reaches the site', () => {
 			'Zo komt een wijziging op de site',
 			'Afbeeldingen en diagrammen',
 			'De schrijfhulp',
-			'Wat je identiteitskeuze betekent',
+			'Wat je keuze bij Ondertekenen betekent',
 			'Hulp nodig?'
 		]);
 		await expect(page.locator('h2#voorstellen')).toHaveText('Zo komt een wijziging op de site');

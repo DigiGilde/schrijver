@@ -47,7 +47,7 @@ async function add(
 	await addForm(page)
 		.getByRole('radio', { name: new RegExp(`^${rol}:`) })
 		.click();
-	await addForm(page).getByRole('button', { name: 'Voeg toe' }).click();
+	await addForm(page).getByRole('button', { name: 'Voeg toe aan het team' }).click();
 }
 
 test('the beheer page shows the team, an open invitation and the GitHub rule', async ({ page }) => {
@@ -113,7 +113,7 @@ test('a known colleague is added at once, gets another role in a sheet and is re
 	await expect(status(page, 'Tweede Collega hoort niet meer bij het team.')).toHaveCount(1);
 });
 
-test('an unknown address is invited, and Intrekken takes the invitation back by keyboard', async ({
+test('an unknown address is invited, and Trek uitnodiging in takes the invitation back by keyboard', async ({
 	page
 }) => {
 	await open(page, DH);
@@ -122,7 +122,7 @@ test('an unknown address is invited, and Intrekken takes the invitation back by 
 	await addForm(page)
 		.getByRole('radio', { name: /^Beheerder:/ })
 		.click();
-	await addForm(page).getByRole('button', { name: 'Voeg toe' }).focus();
+	await addForm(page).getByRole('button', { name: 'Voeg toe aan het team' }).focus();
 	await page.keyboard.press('Enter');
 	await expect(status(page, 'nieuw-lid@example.org is uitgenodigd als beheerder.')).toHaveCount(1);
 	await expect(field).toBeFocused();
@@ -132,11 +132,11 @@ test('an unknown address is invited, and Intrekken takes the invitation back by 
 	// A control in the row, not a link: an icon with plain text, no accent colour.
 	const intrekken = invitation.locator('nldd-list-item-segment[button]');
 	await expect(intrekken.locator('nldd-icon-cell')).toHaveAttribute('icon', 'trash');
-	await expect(intrekken.locator('nldd-text-cell')).toHaveAttribute('text', 'Intrekken');
+	await expect(intrekken.locator('nldd-text-cell')).toHaveAttribute('text', 'Trek uitnodiging in');
 	await expect(intrekken.locator('nldd-text-cell')).not.toHaveAttribute('color', /.+/);
 
 	await team(page)
-		.getByRole('button', { name: 'Intrekken: de uitnodiging voor nieuw-lid@example.org' })
+		.getByRole('button', { name: 'Trek uitnodiging in voor nieuw-lid@example.org' })
 		.focus();
 	await page.keyboard.press('Enter');
 	await expect(invitation).toHaveCount(0);

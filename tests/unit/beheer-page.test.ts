@@ -611,7 +611,7 @@ describe('removing a site', () => {
 	it('is refused to a beheerder of the site, and to anyone else', async () => {
 		expect(await act('verwijderSite', 'baas', DH)).toMatchObject({
 			status: 403,
-			data: { fout: 'Alleen een beheerder van Schrijver haalt een site uit Schrijver.' }
+			data: { fout: 'Alleen een beheerder van Schrijver verwijdert een site uit Schrijver.' }
 		});
 		expect(await thrown(act('verwijderSite', 'red', DH))).toMatchObject({ status: 404 });
 		expect((await team.sites()).map((s) => s.id)).toContain(DH);

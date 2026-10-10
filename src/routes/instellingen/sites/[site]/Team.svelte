@@ -125,12 +125,12 @@
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 					<nldd-list-item-segment
 						button
-						accessible-label="Intrekken: de uitnodiging voor {uitnodiging.email}"
+						accessible-label="Trek uitnodiging in voor {uitnodiging.email}"
 						onclick={() => trekIn(uitnodiging.id)}
 					>
 						<nldd-icon-cell size="20" icon="trash"></nldd-icon-cell>
 						<nldd-spacer-cell size="8"></nldd-spacer-cell>
-						<nldd-text-cell width="fit-content" text="Intrekken"></nldd-text-cell>
+						<nldd-text-cell width="fit-content" text="Trek uitnodiging in"></nldd-text-cell>
 					</nldd-list-item-segment>
 				</nldd-list-item>
 			{/each}
@@ -222,7 +222,7 @@
 						<nldd-button
 							appearance="primary"
 							type="submit"
-							text="Voeg toe"
+							text="Voeg toe aan het team"
 							loading={toevoegen || undefined}
 						></nldd-button>
 					</nldd-button-group>

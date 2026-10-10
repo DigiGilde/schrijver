@@ -17,7 +17,9 @@
 	<nldd-container gap="16">
 		<nldd-text>{page.error?.message ?? titel} (foutcode {page.status})</nldd-text>
 		{#if page.error?.id}
-			<nldd-text color="secondary" size="sm">Kenmerk voor de beheerders: {page.error.id}</nldd-text>
+			<nldd-text color="secondary" size="sm"
+				>Foutkenmerk voor een beheerder van Schrijver: {page.error.id}</nldd-text
+			>
 		{/if}
 		<nldd-link href="/" text="Naar de startpagina"></nldd-link>
 	</nldd-container>

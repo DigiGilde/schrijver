@@ -21,7 +21,7 @@ const stepTwo = (page: Page) => page.locator('form[action$="/toevoegen"]');
 
 async function check(page: Page, repo: string) {
 	await repoField(page).fill(repo);
-	await page.getByRole('button', { name: 'Controleer' }).click();
+	await page.getByRole('button', { name: 'Controleer repository' }).click();
 }
 
 async function openAdd(page: Page) {
@@ -63,7 +63,7 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 
 	await check(page, 'DigiGilde/nieuwsbrief');
 	await expect(status(page, 'DigiGilde/nieuwsbrief heeft nog geen map .schrijver.')).toHaveCount(1);
-	await expect(page.getByRole('link', { name: 'Een site aansluiten' })).toHaveAttribute(
+	await expect(page.getByRole('link', { name: 'Een site toevoegen' })).toHaveAttribute(
 		'href',
 		/\/docs\/een-site-aansluiten\.md$/
 	);
@@ -102,7 +102,7 @@ test('Site toevoegen adds a site, and Site verwijderen takes it out again', asyn
 	await expect(status(page, 'DigiGilde/kennisbank kan een site worden.')).toHaveCount(1);
 	await expect(
 		page.getByText(
-			'De Schrijver-app staat op DigiGilde/kennisbank en de structuur in .schrijver klopt.'
+			'De Schrijver-app staat op DigiGilde/kennisbank en de structuur in .schrijver klopt. Schrijver werkt op de standaardbranch main.'
 		)
 	).toBeVisible();
 	await expect(page.locator('nldd-step-bar-item[status="current"]')).toHaveAttribute(
