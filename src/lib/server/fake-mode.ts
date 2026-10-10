@@ -134,7 +134,7 @@ export async function seedScenarios(forge: FakeForge, mine: string | null): Prom
 				kind: 'aanpassing'
 			})
 		);
-		await seedProposal(forge, MOZA, {
+		const contact = await seedProposal(forge, MOZA, {
 			branch: 'schrijver/moza-site/toegankelijkheid-contact',
 			title: 'Toegankelijkheid: wie je kunt mailen',
 			trailer: own,
@@ -142,6 +142,7 @@ export async function seedScenarios(forge: FakeForge, mine: string | null): Prom
 			text: 'Loop je tegen een probleem aan? Mail de redactie, dan zoeken we het samen uit.',
 			sent: true
 		});
+		forge.reviewOnGitHub(MOZA, contact, 'pietersen', 'approved', 'Akkoord.', daysAgo(1));
 	}
 
 	const team = await seedProposal(forge, DIGI, {
@@ -215,13 +216,7 @@ function fixtureReader(): ConfigReader {
 	return {
 		async readFile(path) {
 			try {
-				const text = readFileSync(join(base, path), 'utf8');
-				return path === 'sites.yaml'
-					? text.replace(
-							'- naam@rijksoverheid.nl',
-							'- naam@rijksoverheid.nl\n      - test@example.org'
-						)
-					: text;
+				return readFileSync(join(base, path), 'utf8');
 			} catch {
 				return null;
 			}
@@ -250,25 +245,31 @@ export async function buildFakeServices(): Promise<{ forge: FakeForge; store: Co
 	return { forge, store };
 }
 
+/** Known colleagues of the local preview, each signed in once. */
+const COLLEAGUES = [
+	{ sub: 'collega', name: 'Tweede Collega', email: 'collega@example.org' },
+	{ sub: 'derde', name: 'Derde Collega', email: 'derde@example.org' },
+	{ sub: 'platform', name: 'Beheerder Schrijver', email: 'platform@example.org' }
+];
+
 /**
- * A second known colleague, Tweede Collega, as the beheerder of MOZa, and invitations that make
- * the test user (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login.
+ * Known colleagues: Tweede Collega as the beheerder of MOZa, Derde Collega in its redactie, and
+ * Beheerder Schrijver on no team (the platform admin of the e2e run). Invitations make the test user
+ * (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login.
  */
 export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<void> {
-	await team.recordLogin({
-		sub: 'collega',
-		name: 'Tweede Collega',
-		email: 'collega@example.org',
-		emailVerified: true
-	});
-	await users.savePrefs({
-		sub: 'collega',
-		identity: 'anoniem',
-		githubLogin: null,
-		githubId: null,
-		onboarded: true
-	});
+	for (const { sub, name, email } of COLLEAGUES) {
+		await team.recordLogin({ sub, name, email, emailVerified: true });
+		await users.savePrefs({
+			sub,
+			identity: 'anoniem',
+			githubLogin: null,
+			githubId: null,
+			onboarded: true
+		});
+	}
 	await team.addByEmail('moza-site', 'collega@example.org', 'beheerder', 'collega');
+	await team.addByEmail('moza-site', 'derde@example.org', 'redactie', 'collega');
 	await team.addByEmail('moza-site', 'test@example.org', 'redactie', 'collega');
 	await team.addByEmail('digi-handboek', 'test@example.org', 'beheerder', 'collega');
 }

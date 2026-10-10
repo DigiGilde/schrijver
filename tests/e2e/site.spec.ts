@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { als } from './als';
 
 /** Tabs and rows are found by their host: they are slotted into it, so not descendants of its landmark or list. */
 const tabs = (page: Page) =>
@@ -47,7 +48,9 @@ async function sendIn(page: Page, path: string, text: string): Promise<string> {
 }
 
 test('a site has two tabs, each at its own address, and none for Over', async ({ page }) => {
-	await page.goto('/sites/moza-site');
+	// Outside the redactie the Voorstellen tab opens the own proposals.
+	await als(page, 'derde');
+	await page.goto('/sites/digi-handboek');
 	const bar = tabs(page);
 	const paginas = bar.getByRole('link', { name: "Pagina's" });
 	const voorstellen = bar.getByRole('link', { name: 'Voorstellen' });
@@ -56,14 +59,14 @@ test('a site has two tabs, each at its own address, and none for Over', async ({
 	await expect(paginas).toHaveAttribute('aria-current', 'page');
 
 	await voorstellen.click();
-	await expect(page).toHaveURL(/\/sites\/moza-site\/voorstellen$/);
+	await expect(page).toHaveURL(/\/sites\/digi-handboek\/voorstellen$/);
 	await expect(voorstellen).toHaveAttribute('aria-current', 'page');
 	await expect(paginas).not.toHaveAttribute('aria-current', 'page');
 	await expect(page.getByRole('radio', { name: 'Mijn voorstellen' })).toBeChecked();
 	await expect(bar.getByRole('link')).toHaveCount(2);
 
 	await paginas.click();
-	await expect(page).toHaveURL(/\/sites\/moza-site$/);
+	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
 	await expect(list(page, "Pagina's")).toBeVisible();
 });
 
@@ -122,10 +125,12 @@ test('the Voorstellen tab counts what waits for the editors', async ({ page }) =
 			.first()
 	).toBeVisible();
 
-	await page.goto('/sites/moza-site');
+	// Derde Collega is on the team of MOZa, not on that of Digi Handboek.
+	await als(page, 'derde');
+	await page.goto('/sites/digi-handboek');
 	const gewoon = tabs(page).getByRole('link', { name: /^Voorstellen/ });
 	await expect(gewoon).toHaveAccessibleName('Voorstellen');
-	await expect(gewoon).toHaveAttribute('href', '/sites/moza-site/voorstellen');
+	await expect(gewoon).toHaveAttribute('href', '/sites/digi-handboek/voorstellen');
 });
 
 test('an old ?tab= link opens the proposals tab with the same filter', async ({
@@ -140,8 +145,9 @@ test('an old ?tab= link opens the proposals tab with the same filter', async ({
 	await expect(page).toHaveURL(/\/sites\/digi-handboek\/voorstellen\?filter=alle$/);
 	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeChecked();
 
-	await page.goto('/sites/moza-site?tab=beoordelen');
-	await expect(page).toHaveURL(/\/sites\/moza-site\/voorstellen\?filter=beoordelen$/);
+	await als(page, 'derde');
+	await page.goto('/sites/digi-handboek?tab=beoordelen');
+	await expect(page).toHaveURL(/\/sites\/digi-handboek\/voorstellen\?filter=beoordelen$/);
 	await expect(page.getByRole('radio', { name: 'Mijn voorstellen' })).toBeChecked();
 	await expect(page.getByRole('radio', { name: /Te beoordelen/ })).toHaveCount(0);
 });

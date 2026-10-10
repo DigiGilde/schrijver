@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { als } from './als';
 
 /** A list is found by its host: its rows are slotted into it, so they are not descendants of its role=list. */
 const list = (page: Page, label: string) => page.locator(`nldd-list[accessible-label="${label}"]`);
@@ -150,7 +151,9 @@ test('Te beoordelen is a filter of the proposals tab, for editorial members only
 
 	await page.goto('/sites/digi-handboek/voorstellen');
 	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toBeVisible();
-	await page.goto('/sites/moza-site/voorstellen');
+	// Derde Collega is on the team of MOZa, not on that of Digi Handboek.
+	await als(page, 'derde');
+	await page.goto('/sites/digi-handboek/voorstellen');
 	await expect(page.getByRole('radio', { name: 'Alle voorstellen' })).toBeVisible();
 	await expect(page.getByRole('radio', { name: /^Te beoordelen/ })).toHaveCount(0);
 });

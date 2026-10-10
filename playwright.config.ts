@@ -2,10 +2,16 @@ import { defineConfig } from '@playwright/test';
 
 const port = Number(process.env.E2E_PORT ?? 4391);
 const issuerPort = port + 1;
+// These change the settings or the team of a site for everyone, so they run after the other specs.
+const SITE_CHANGES = /(beheer|samenvoegen-op-github)\.spec\.ts$/;
 
 export default defineConfig({
 	testDir: 'tests/e2e',
 	use: { baseURL: `http://localhost:${port}` },
+	projects: [
+		{ name: 'app', testIgnore: SITE_CHANGES },
+		{ name: 'site-wijzigen', testMatch: SITE_CHANGES, dependencies: ['app'] }
+	],
 	webServer: [
 		{
 			command: `node tests/e2e/fake-issuer.mjs`,
@@ -23,7 +29,7 @@ export default defineConfig({
 				PORT: String(port),
 				SCHRIJVER_FAKE_FORGE: '1',
 				SCHRIJVER_NIEUWE_VOORSTELLEN_PER_UUR: '1000',
-				SCHRIJVER_BEHEERDERS: 'test',
+				SCHRIJVER_BEHEERDERS: 'platform',
 				SCHRIJVER_TEST_SESSION: JSON.stringify({
 					sub: 'test',
 					name: 'Test Gebruiker',

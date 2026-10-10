@@ -345,11 +345,23 @@ test.describe('the Over page', () => {
 		await expect(redactie).not.toContainText('samenvoegen');
 	});
 
-	test('leads a site admin to the beheer page of the site', async ({ page }) => {
+	test('lists the beheerders first, then the redactie by name', async ({ page }) => {
+		await page.goto('/sites/moza-site/over');
+		await expect(part(page, 'Redactie').getByRole('listitem')).toHaveText([
+			'Tweede Collega (beheerder)',
+			'Derde Collega',
+			'Test Gebruiker'
+		]);
+	});
+
+	test('leads a site admin to the beheer page of the site, and nobody else', async ({ page }) => {
 		await page.goto('/sites/digi-handboek/over');
 		await expect(
 			part(page, 'Redactie').getByRole('link', { name: 'Beheer van Digi Handboek' })
 		).toHaveAttribute('href', '/instellingen/sites/digi-handboek');
+		await page.goto('/sites/moza-site/over');
+		await expect(part(page, 'Redactie')).toContainText('Test Gebruiker');
+		await expect(part(page, 'Redactie').getByRole('link', { name: /^Beheer van/ })).toHaveCount(0);
 	});
 
 	test('says when merging happens on GitHub only', async ({ page }) => {

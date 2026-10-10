@@ -21,6 +21,9 @@ describe('the team in the local preview', () => {
 			getConfigStore().site('digi-handboek')?.seed.naam
 		);
 		expect(await team.role('moza-site', 'collega')).toBe('beheerder');
+		expect(await team.role('moza-site', 'derde')).toBe('redactie');
+		expect(await team.sitesOf('platform')).toEqual([]);
+		expect((await team.profile('platform'))?.name).toBe('Beheerder Schrijver');
 		expect((await getPrefs('collega')).onboarded).toBe(true);
 		expect(await invited('digi-handboek')).toEqual([
 			'naam@rijksoverheid.nl redactie',

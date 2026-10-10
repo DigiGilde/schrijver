@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { als } from './als';
 
 /** The card of a site is found by its host: the heading is slotted into it, so it is no descendant of the article inside. */
 const siteCard = (page: Page, name: string) =>
@@ -112,5 +113,10 @@ test('a card says what waits for you on that site', async ({ page }) => {
 	).toBeVisible();
 	await page.goto('/');
 	await expect(card).toContainText(/(1 voorstel wacht|\d+ voorstellen wachten) op beoordeling/);
-	await expect(siteCard(page, 'MijnOverheid Zakelijk')).not.toContainText('op beoordeling');
+
+	// Derde Collega is on the team of MOZa, not on that of Digi Handboek.
+	await als(page, 'derde');
+	await page.goto('/');
+	await expect(siteCard(page, 'MijnOverheid Zakelijk')).toContainText('op beoordeling');
+	await expect(card).not.toContainText('op beoordeling');
 });

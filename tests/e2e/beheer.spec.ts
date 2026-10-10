@@ -4,8 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 /*
  * The local preview seeds Digi Handboek with the test user as beheerder and an open invitation for
  * naam@rijksoverheid.nl, and MOZa with Tweede Collega (collega@example.org) as its only beheerder.
- * The test user is a platform admin (SCHRIJVER_BEHEERDERS=test). Each test leaves the team as it
- * found it. The rows, dialogs and their buttons live in shadow roots: locate them from the hosts.
+ * The platform admin is Beheerder Schrijver (SCHRIJVER_BEHEERDERS=platform). Each test leaves the
+ * team as it found it. The rows, dialogs and their buttons live in shadow roots: locate them from
+ * the hosts.
  */
 const DH = '/instellingen/sites/digi-handboek';
 const MOZA = '/instellingen/sites/moza-site';
@@ -195,7 +196,9 @@ test('the settings of the site are checked on the server and saved', async ({ pa
 
 	await naam.fill('Digi Handboek bewerkt');
 	await adres.fill('https://digihandboek.rijks.app/');
-	await form.getByRole('switch', { name: 'Vier ogen' }).click();
+	const vierOgen = form.getByRole('switch', { name: 'Vier ogen' });
+	const vierOgenAan = await vierOgen.isChecked();
+	await vierOgen.click();
 	await form.getByRole('checkbox', { name: 'Op naam' }).click();
 	await form.getByRole('button', { name: 'Bewaar' }).click();
 	await expect(status(page, 'De instellingen van de site zijn bewaard.')).toHaveCount(1);
@@ -205,7 +208,7 @@ test('the settings of the site are checked on the server and saved', async ({ pa
 
 	await page.reload();
 	await page.evaluate(() => customElements.whenDefined('nldd-switch-field'));
-	await expect(form.getByRole('switch', { name: 'Vier ogen' })).not.toBeChecked();
+	await expect(vierOgen).toBeChecked({ checked: !vierOgenAan });
 	await expect(form.getByRole('checkbox', { name: 'Op naam' })).not.toBeChecked();
 	await expect(form.getByRole('checkbox', { name: 'Gekoppeld aan GitHub' })).toBeChecked();
 	await expect(page.getByText('Anoniem kan altijd. Wat mag hier nog meer?')).toBeVisible();

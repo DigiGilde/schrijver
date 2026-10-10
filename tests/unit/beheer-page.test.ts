@@ -142,8 +142,7 @@ describe('who may manage a site', () => {
 			})
 		]);
 		expect(data.uitnodigingen).toEqual([
-			expect.objectContaining({ email: 'naam@rijksoverheid.nl', rol: 'redactie' }),
-			expect.objectContaining({ email: 'test@example.org', rol: 'redactie' })
+			expect.objectContaining({ email: 'naam@rijksoverheid.nl', rol: 'redactie' })
 		]);
 		expect(data.instellingen).toMatchObject({ naam: 'Digi Handboek', vierOgen: false });
 	});

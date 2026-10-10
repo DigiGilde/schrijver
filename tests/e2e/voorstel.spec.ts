@@ -220,8 +220,8 @@ test('shows a reaction as text, with links that open a new tab and nothing that 
 	);
 });
 
-test.describe('on the MOZa site, where the test user is not in the redactie', () => {
-	test('tells the writer there is nothing to do, and anyone else that the editors decide', async ({
+test.describe('on the MOZa site, where the test user is in the redactie and four eyes hold', () => {
+	test('leaves an own proposal to another editor, and asks for the approval on GitHub first', async ({
 		page
 	}) => {
 		await page.goto('/sites/moza-site/voorstellen?filter=alle');
@@ -230,17 +230,20 @@ test.describe('on the MOZa site, where the test user is not in the redactie', ()
 			.getByRole('link', { name: /^Toegankelijkheid: wie je kunt mailen/ })
 			.click();
 		await expect(zin(page)).toHaveText(
-			'De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.'
+			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
 		);
 		await expect(page.getByRole('link', { name: 'Verder bewerken' })).toBeVisible();
 		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
 
 		await page.goto('/sites/moza-site/voorstellen?filter=alle');
 		await page
 			.locator('nldd-list[accessible-label="Alle voorstellen"]')
 			.getByRole('link', { name: /^Weekly 23 september: de demo/ })
 			.click();
-		await expect(zin(page)).toHaveText('De redactie beoordeelt dit voorstel.');
+		await expect(zin(page)).toHaveText(
+			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		);
 		await expect(page.locator('#paginatitel')).toHaveAttribute(
 			'supporting-text',
 			/^Voor de pagina MOZa Weekly 23 september 2026 · van een anonieme collega · /
@@ -249,7 +252,7 @@ test.describe('on the MOZa site, where the test user is not in the redactie', ()
 		await expect(gesprek(page).first()).toContainText('jansen');
 		await expect(gesprek(page).first()).toContainText('Op GitHub ·');
 		await expect(gesprek(page).last()).toContainText('Ziet er goed uit.');
-		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toHaveCount(0);
+		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
 	});
 });

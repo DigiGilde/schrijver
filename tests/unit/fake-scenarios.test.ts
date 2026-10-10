@@ -31,11 +31,11 @@ async function sentence(
 	site: SiteId,
 	title: string,
 	redactie: boolean,
-	{ mergenVanuitSchrijver = true } = {}
+	{ mergenVanuitSchrijver = true, sub = 'lezer' } = {}
 ): Promise<string> {
 	const repo = site === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
 	const nummer = await numberOf(repo, title);
-	const team = await useTeams(sites, redactie ? { [site]: { lezer: 'redactie' } } : {});
+	const team = await useTeams(sites, redactie ? { [site]: { [sub]: 'redactie' } } : {});
 	const settings = (await team.settings(site))!;
 	await team.saveSettings(site, { ...settings, mergenVanuitSchrijver }, 'baas');
 	const data = (await load({
@@ -44,7 +44,7 @@ async function sentence(
 		locals: {
 			user: {
 				session: {
-					sub: 'lezer',
+					sub,
 					name: 'Lezer',
 					email: 'lezer@example.org',
 					emailVerified: true,
@@ -53,7 +53,7 @@ async function sentence(
 					exp: Date.now() + 60_000
 				},
 				prefs: {
-					sub: 'lezer',
+					sub,
 					identity: 'anoniem',
 					githubLogin: null,
 					githubId: null,
@@ -127,6 +127,12 @@ describe('the fake fixtures of the local preview', () => {
 			const reader = redactie ? 'de redactie' : 'een ander';
 			expect(await sentence(site, title, redactie), `${title} voor ${reader}`).toMatch(expected);
 		}
+	});
+
+	it('let another editor merge the approved proposal of the test user', async () => {
+		expect(
+			await sentence('moza-site', 'Toegankelijkheid: wie je kunt mailen', EDITOR, { sub: 'derde' })
+		).toMatch(/^Jij beslist\./);
 	});
 
 	it('show the row for a site that merges on GitHub, with its setting turned off', async () => {
