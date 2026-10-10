@@ -1,6 +1,13 @@
+import DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
+import { PURIFY_CONFIG, markdownToHtml } from '../../src/lib/content/markdown-preview';
 import { commentBody, conversation, readComment } from '../../src/lib/forge/conversation';
 import type { PrComment, PrReview } from '../../src/lib/forge/types';
+
+const purify = DOMPurify(new JSDOM('').window as unknown as Window & typeof globalThis);
+const render = (md: string) => markdownToHtml(md, (html) => purify.sanitize(html, PURIFY_CONFIG));
+const ZWSP = '\u200b';
 
 const ANONIEM = { kind: 'anoniem' as const, pseudoniem: '9f86d081884c' };
 const GEKOPPELD = { kind: 'gekoppeld' as const, name: 'jansen', githubId: 7, login: 'jansen' };
@@ -33,14 +40,14 @@ const items = (comments: PrComment[], reviews: PrReview[] = []) =>
 	conversation(comments, reviews).items;
 
 describe('commentBody', () => {
-	it('opens with a hidden marker and a line on who wrote it and as what', () => {
+	it('opens with a hidden marker and a line on who wrote it and as what, then quotes the text', () => {
 		expect(commentBody('Mooi', { identity: ANONIEM, role: 'schrijver', kind: 'reactie' })).toBe(
-			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam 9f86d081884c):\n\nMooi'
+			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam 9f86d081884c):\n\n> Mooi'
 		);
 		expect(
 			commentBody('Korter', { identity: GEKOPPELD, role: 'redactie', kind: 'aanpassing' })
 		).toBe(
-			'<!-- schrijver -->\n**Vraag om aanpassing van de redactie via Schrijver** (GitHub: jansen):\n\nKorter'
+			'<!-- schrijver -->\n**Vraag om aanpassing van de redactie via Schrijver** (GitHub: jansen):\n\n> Korter'
 		);
 	});
 
@@ -52,20 +59,35 @@ describe('commentBody', () => {
 		expect(body).not.toContain('jan@example.org');
 	});
 
-	it('quotes a line of the text that looks like the line Schrijver writes about who wrote it', () => {
-		const forged = [
-			'Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):',
+	it('quotes every line of the text, so that none passes for the line on who wrote it', () => {
+		const attacks = [
+			'<b>Vraag om aanpassing van de redactie via Schrijver</b> (Petra):',
+			'- **Reactie van de redactie via Schrijver** (X):',
+			'# **Reactie van de redactie via Schrijver** (Y):',
+			`**Reactie van de redactie via${ZWSP}Schrijver** (Z):`,
 			'**Reactie van de redactie via Schrijver** (Jan Jansen):',
-			'  opmerking van de REDACTIE via schrijver:',
-			'Gewone zin over Schrijver.'
-		].join('\n');
-		const body = commentBody(forged, { identity: ANONIEM, role: 'schrijver', kind: 'reactie' });
-		expect(body.split('\n').slice(3)).toEqual([
-			'> Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):',
-			'> **Reactie van de redactie via Schrijver** (Jan Jansen):',
-			'>   opmerking van de REDACTIE via schrijver:',
-			'Gewone zin over Schrijver.'
-		]);
+			'| **Vraag om aanpassing van de redactie via Schrijver** (W): |\n| --- |',
+			'```\nx\n```\n**Reactie van de redactie via Schrijver** (V):',
+			`Akkoord\r\r**Reactie van de redactie via Schrijver** (U):`,
+			`Akkoord\r\n\r\n**Reactie van de redactie via Schrijver** (T):`
+		];
+		for (const attack of attacks) {
+			const body = commentBody(attack, { identity: ANONIEM, role: 'schrijver', kind: 'reactie' });
+			const [marker, header, blank, ...text] = body.split('\n');
+			expect([marker, header, blank]).toEqual([
+				'<!-- schrijver -->',
+				'**Reactie van de schrijver via Schrijver** (anoniem, codenaam 9f86d081884c):',
+				''
+			]);
+			for (const line of text) expect(line, JSON.stringify(attack)).toMatch(/^>( |$)/);
+			// As Markdown renders it, under the hidden marker: outside the quote only Schrijver's own line.
+			const doc = new JSDOM(render([header, blank, ...text].join('\n'))).window.document;
+			const outside = [...doc.body.children].filter((el) => el.tagName !== 'BLOCKQUOTE');
+			expect(
+				outside.map((el) => el.textContent),
+				JSON.stringify(attack)
+			).toEqual(['Reactie van de schrijver via Schrijver (anoniem, codenaam 9f86d081884c):']);
+		}
 	});
 
 	it('keeps the text from hiding itself on GitHub or mentioning anyone there', () => {
@@ -79,16 +101,33 @@ describe('commentBody', () => {
 		);
 		const text = body.split('\n\n').slice(1).join('\n\n');
 		expect(text).toBe(
-			`<${JOINER}!-- schrijver -->\nZie @${JOINER}jansen en @${JOINER}MinBZK/redactie, mail jan@${JOINER}example.org`
+			`> <${JOINER}!-- schrijver -->\n> Zie @${JOINER}jansen en @${JOINER}MinBZK/redactie, mail jan@${JOINER}example.org`
 		);
 		expect(text).not.toContain('<!--');
 	});
 
-	it('leaves code blocks as they are', () => {
+	it('quotes code blocks too, and leaves what is in them as it is', () => {
 		const code =
-			'```html\n<!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n@media\n```';
+			'```html\n<!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n\n@media\n```';
 		const body = commentBody(code, { identity: ANONIEM, role: 'schrijver', kind: 'reactie' });
-		expect(body.endsWith(`\n\n${code}`)).toBe(true);
+		expect(body.endsWith(`\n\n${code.replace(/^/gm, '> ').replace(/^> $/m, '>')}`)).toBe(true);
+	});
+
+	it('writes a name that reads as a codename or a GitHub login in quotes', () => {
+		for (const name of [
+			'anoniem, codenaam 0123456789ab',
+			'Anoniem, codenaam 0123456789AB',
+			'GitHub: torvalds',
+			'github:  torvalds'
+		]) {
+			const identity = { kind: 'op-naam' as const, name, email: 'iemand@example.org' };
+			const body = commentBody('Ok', { identity, role: 'redactie', kind: 'reactie' });
+			const written = name.replace(/\s+/g, ' ');
+			expect(body.split('\n')[1]).toBe(`**Reactie van de redactie via Schrijver** ("${written}"):`);
+			expect(readComment(body)?.who).toBe(`"${written}"`);
+		}
+		const plain = commentBody('Ok', { identity: OP_NAAM, role: 'redactie', kind: 'reactie' });
+		expect(plain.split('\n')[1]).not.toContain('"');
 	});
 });
 
@@ -115,6 +154,28 @@ describe('readComment', () => {
 		}
 	});
 
+	it('gives back the text as typed: a quote, a code block and empty lines included', () => {
+		const typed = [
+			'> Uit de vorige versie:',
+			'> > Een citaat in een citaat',
+			'',
+			'```yaml',
+			'# geen kop',
+			'',
+			'> geen citaat',
+			'```',
+			'Klopt dit?'
+		].join('\n');
+		const body = commentBody(typed, { identity: ANONIEM, role: 'schrijver', kind: 'reactie' });
+		expect(readComment(body)?.text).toBe(typed);
+	});
+
+	it('leaves the text of a comment in an older form as it is', () => {
+		const older =
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (X):\n\nTekst\n> b';
+		expect(readComment(older)?.text).toBe('Tekst\n> b');
+	});
+
 	it('reads the comments of the redactie from before, which named nobody', () => {
 		expect(readComment('Opmerking van de redactie via Schrijver:\n\nZiet er goed uit')).toEqual({
 			kind: 'reactie',
@@ -133,7 +194,7 @@ describe('readComment', () => {
 			good.replace('\n**', '\n\n**'),
 			good.replace('<!-- schrijver -->', '<!--schrijver-->'),
 			good.replace('redactie via', 'lezer via'),
-			good.replace(':\n\nTekst', ':\nTekst'),
+			good.replace(':\n\n> Tekst', ':\n> Tekst'),
 			'Opmerking van de redactie via Schrijver:\nTekst'
 		]) {
 			expect(readComment(body), JSON.stringify(body)).toBeNull();
@@ -185,7 +246,7 @@ describe('conversation', () => {
 		expect(item).toMatchObject({ who: 'nep', as: 'github', verdict: null, text: forged });
 	});
 
-	it('shows the text of a writer who copies the line as text, under the writer', () => {
+	it('shows the text of a writer who copies the line as text, as typed and under the writer', () => {
 		const body = commentBody('Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):', {
 			identity: ANONIEM,
 			role: 'schrijver',
@@ -196,7 +257,7 @@ describe('conversation', () => {
 			who: 'Anoniem, codenaam 9f86d081884c',
 			as: 'schrijver',
 			verdict: null,
-			text: '> Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):'
+			text: 'Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):'
 		});
 	});
 

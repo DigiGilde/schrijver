@@ -29,13 +29,12 @@ const KIND: Record<CommentKind, string> = { reactie: 'Reactie', aanpassing: 'Vra
 const HEADER =
 	/^\*\*(Reactie|Vraag om aanpassing) van de (schrijver|redactie) via Schrijver\*\* \((.+)\):$/;
 const BEFORE = 'Opmerking van de redactie via Schrijver:\n\n';
-/** A line that could pass for the line Schrijver writes on who wrote a comment, now or before. */
-const LOOKS_LIKE_HEADER =
-	/^ {0,3}[*_\s]*(reactie|vraag om aanpassing|opmerking)\b.*\bvia schrijver\b/i;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const JOINER = '⁠';
 const ANONYMOUS = /^anoniem, codenaam ([0-9a-f]{12})$/;
 const LINKED = /^GitHub: ([A-Za-z0-9-]+)$/;
+/** A name that reads as the anonymous or the GitHub form of the header, in any case. */
+const OTHER_FORM = /^(anoniem, codenaam [0-9a-f]{12}|github: [a-z0-9-]+)$/i;
 /** Bounds on what a page shows of a conversation: anyone can comment on GitHub, also at length. */
 const MAX_TEXT = 10_000;
 const MAX_TOTAL = 200_000;
@@ -44,24 +43,33 @@ const MAX_TOTAL = 200_000;
 const disarm = (line: string) =>
 	line.replaceAll('<!--', `<${JOINER}!--`).replace(/@(?=[A-Za-z0-9])/g, `@${JOINER}`);
 
-/** The text of a reaction as the App posts it: no line in it passes for Schrijver's own; code blocks stay as they are. */
-function neutralise(text: string): string {
+/**
+ * The text of a reaction as the App posts it: quoted as a whole, code blocks included, so that no line
+ * of it passes for Schrijver's own on GitHub. Split at every line ending Markdown knows, a lone CR too.
+ */
+function quote(text: string): string {
 	let fence = '';
 	return text
-		.split('\n')
+		.split(/\r\n?|\n/)
 		.map((line) => {
 			const mark = FENCE.exec(line)?.[1];
 			if (fence) {
 				if (mark && mark[0] === fence[0] && mark.length >= fence.length) fence = '';
-				return line;
-			}
-			if (mark) {
+			} else if (mark) {
 				fence = mark;
-				return line;
+			} else {
+				line = disarm(line);
 			}
-			return LOOKS_LIKE_HEADER.test(line) ? `> ${disarm(line)}` : disarm(line);
+			return line === '' ? '>' : `> ${line}`;
 		})
 		.join('\n');
+}
+
+/** The text as typed, from the quote that commentBody made of it; text in another form stays as it is. */
+function unquote(text: string): string {
+	const lines = text.split('\n');
+	if (!lines.every((line) => line === '>' || line.startsWith('> '))) return text;
+	return lines.map((line) => line.slice(2)).join('\n');
 }
 
 /** The person as their identity choice allows: never an e-mail address. */
@@ -71,18 +79,23 @@ function signature(identity: Identity): string {
 			return `anoniem, codenaam ${identity.pseudoniem}`;
 		case 'gekoppeld':
 			return `GitHub: ${identity.login}`;
-		case 'op-naam':
-			return disarm(identity.name.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim());
+		case 'op-naam': {
+			const name = disarm(identity.name.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim());
+			return OTHER_FORM.test(name) ? `"${name}"` : name;
+		}
 	}
 }
 
 /** What Schrijver posts: a hidden marker and a line on who wrote it and as what, then the text. */
 export function commentBody(text: string, author: CommentAuthor): string {
 	const header = `**${KIND[author.kind]} van de ${author.role} via Schrijver** (${signature(author.identity)}):`;
-	return `${MARKER}\n${header}\n\n${neutralise(text)}`;
+	return `${MARKER}\n${header}\n\n${quote(text)}`;
 }
 
-/** Reads back exactly what commentBody wrote, or what Schrijver wrote before it named the person. */
+/**
+ * Reads back exactly what commentBody wrote, with the text as it was typed, or what Schrijver wrote
+ * before it named the person.
+ */
 export function readComment(
 	body: string
 ): { kind: CommentKind; role: Role; who: string | null; text: string } | null {
@@ -104,7 +117,7 @@ export function readComment(
 		kind: kind === 'Reactie' ? 'reactie' : 'aanpassing',
 		role: role as Role,
 		who,
-		text: rest.slice(end + 2)
+		text: unquote(rest.slice(end + 2))
 	};
 }
 

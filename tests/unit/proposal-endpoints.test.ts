@@ -309,9 +309,9 @@ describe('proposal endpoints', () => {
 			'Alleen de schrijver en de redactie kunnen hier reageren'
 		);
 		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
-			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\nAangepast',
-			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (anoniem, codenaam iemand):\n\nDank',
-			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (GitHub: jan):\n\nOk'
+			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\n> Aangepast',
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (anoniem, codenaam iemand):\n\n> Dank',
+			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (GitHub: jan):\n\n> Ok'
 		]);
 	});
 
@@ -336,7 +336,7 @@ describe('proposal endpoints', () => {
 		});
 		const [posted] = await forge.prComments('o/moza', 1);
 		expect(posted.body).toBe(
-			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\n> Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):\n\nAkkoord'
+			'<!-- schrijver -->\n**Reactie van de schrijver via Schrijver** (anoniem, codenaam auteur):\n\n> Vraag om aanpassing van de redactie via Schrijver (GitHub: baas):\n>\n> Akkoord'
 		);
 	});
 
@@ -359,7 +359,7 @@ describe('proposal endpoints', () => {
 		expect(pr.labels).toEqual(['preview', 'aanpassing gevraagd']);
 		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
 		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
-			'<!-- schrijver -->\n**Vraag om aanpassing van de redactie via Schrijver** (anoniem, codenaam redacteur):\n\nGraag korter'
+			'<!-- schrijver -->\n**Vraag om aanpassing van de redactie via Schrijver** (anoniem, codenaam redacteur):\n\n> Graag korter'
 		]);
 	});
 
