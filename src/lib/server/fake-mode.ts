@@ -125,7 +125,7 @@ export const PREVIEW_SITES: {
 		site: { id: 'oude-site', repoId: 4107, repo: OUD, standaardbranch: 'main' },
 		settings: {
 			...startingSettings('Oude site'),
-			omschrijving: 'Een site die nog de opzet van voor .schrijver/ heeft.'
+			omschrijving: 'Een site die nog de oude opzet heeft.'
 		},
 		admin: null
 	}

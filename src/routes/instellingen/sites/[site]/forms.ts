@@ -45,14 +45,11 @@ export type SettingsForm =
 const onOff = (value: FormDataEntryValue | null) =>
 	value === 'aan' ? true : value === 'uit' ? false : null;
 
-/** Null for a request that lacks the on/off fields the page always sends. */
-export function parseSettings(form: FormData): SettingsForm | null {
+/** The naam, omschrijving and adres of a site, as a form sends them, with what is wrong with each. */
+export function siteText(form: FormData) {
 	const naam = String(form.get('naam') ?? '').trim();
 	const omschrijving = String(form.get('omschrijving') ?? '').trim();
 	const adres = String(form.get('adres') ?? '').trim();
-	const mergen = onOff(form.get('mergen'));
-	const vierOgen = onOff(form.get('vierOgen'));
-
 	const fouten: Partial<Record<SettingsField, string>> = {};
 	if (naam === '') fouten.naam = 'Een naam is nodig.';
 	else if (naam.length > 100) fouten.naam = 'Een naam heeft hoogstens 100 tekens.';
@@ -63,6 +60,14 @@ export function parseSettings(form: FormData): SettingsForm | null {
 	else if (adres !== '' && !isWebAddress(adres)) {
 		fouten.adres = 'Een adres begint met https:// of http://, zoals https://example.org.';
 	}
+	return { naam, omschrijving, adres, fouten };
+}
+
+/** Null for a request that lacks the on/off fields the page always sends. */
+export function parseSettings(form: FormData): SettingsForm | null {
+	const { naam, omschrijving, adres, fouten } = siteText(form);
+	const mergen = onOff(form.get('mergen'));
+	const vierOgen = onOff(form.get('vierOgen'));
 	if (mergen === null || vierOgen === null) return null;
 	if (Object.keys(fouten).length > 0) return { ok: false, fouten };
 

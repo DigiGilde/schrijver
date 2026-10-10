@@ -302,7 +302,7 @@ describe('home page for the admins of a site with a problem', () => {
 		expect(await card('platform', 'oude-site')).toEqual({
 			id: 'oude-site',
 			naam: 'Oude site',
-			omschrijving: 'Een site die nog de opzet van voor .schrijver/ heeft.',
+			omschrijving: 'Een site die nog de oude opzet heeft.',
 			adres: undefined,
 			status: [],
 			beschikbaar: false,

@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 const port = Number(process.env.E2E_PORT ?? 4391);
 const issuerPort = port + 1;
 // These change the settings or the team of a site for everyone, so they run after the other specs.
-const SITE_CHANGES = /(beheer|samenvoegen-op-github)\.spec\.ts$/;
+const SITE_CHANGES = /(beheer|samenvoegen-op-github|site-toevoegen)\.spec\.ts$/;
 
 export default defineConfig({
 	testDir: 'tests/e2e',

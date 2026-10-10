@@ -44,8 +44,12 @@ test('settings: a platform admin finds every site under Beheer, and everyone the
 			'Je bent beheerder van Schrijver. Je beheert het team en de instellingen van elke site.'
 		)
 	).toBeVisible();
-	await expect(sites.getByRole('link')).toHaveCount(2);
+	// Oude site too: its files are not valid, which only its admins see.
+	await expect(sites.getByRole('link')).toHaveCount(3);
 	await expect(sites.getByRole('link', { name: 'Digi Handboek' })).toBeVisible();
+	await expect(sites.locator('nldd-list-item').filter({ hasText: 'Oude site' })).toContainText(
+		'De instellingen in de repository kloppen niet'
+	);
 	await expect(page.getByText('Je kenmerk bij SSO Rijk: platform')).toBeVisible();
 
 	await sites.getByRole('link', { name: 'MijnOverheid Zakelijk' }).click();
