@@ -74,7 +74,7 @@ const review = (over: Partial<PrReview>): PrReview => ({
 const items = (comments: PrComment[], reviews: PrReview[] = []) =>
 	conversation(comments, reviews).items;
 
-/** Names that are hard to show, and how the header writes and Schrijver shows each. */
+/** Names that are hard to show, and how the header writes them after "naam: ", as Schrijver shows them. */
 const NAMES: [string, string][] = [
 	['Zoë Ångström-Ødegård', 'Zoë Ångström-Ødegård'],
 	['José María Núñez', 'José María Núñez'],
@@ -100,13 +100,13 @@ const NAMES: [string, string][] = [
 	],
 	['www.evil.example', 'wwwevil.example'],
 	['Jan www.evil.example', 'Jan wwwevil.example'],
-	['anoniem, codenaam 0123456789ab', '"anoniem, codenaam 0123456789ab"'],
-	['Anoniem, codenaam 0123456789AB', '"Anoniem, codenaam 0123456789AB"'],
-	["'anoniem codenaam 0123456789ab", `"'anoniem codenaam 0123456789ab"`],
-	['GitHub: torvalds', '"GitHub torvalds"'],
-	['github:  Torvalds', '"github Torvalds"'],
-	['Ａｎｏｎｉｅｍ', '"Ａｎｏｎｉｅｍ"'],
-	['Anonieme collega', 'Anonieme collega'],
+	['anoniem, codenaam 0123456789ab', 'anoniem, codenaam 0123456789ab'],
+	['Anoniem, codenaam 0123456789AB', 'Anoniem, codenaam 0123456789AB'],
+	['аnoniem, codenaam 0123456789ab', 'аnoniem, codenaam 0123456789ab'],
+	['GitHub: torvalds', 'GitHub torvalds'],
+	['GіtHub torvalds', 'GіtHub torvalds'],
+	['Ａｎｏｎｉｅｍ', 'Ａｎｏｎｉｅｍ'],
+	['naam: x', 'naam x'],
 	['torvalds', 'torvalds'],
 	[`  Jan ${ZWSP}\n Jansen${JOINER}  `, 'Jan Jansen'],
 	['', 'Naam onbekend'],
@@ -128,7 +128,7 @@ describe('commentBody', () => {
 	it('names someone who signs with their name without e-mail address, markup or line break', () => {
 		const body = commentBody('Ok', author(OP_NAAM, 'redactie'));
 		expect(body.split('\n')[1]).toBe(
-			'**Reactie van de redactie via Schrijver** (Jan DGDOO bJansenb):'
+			'**Reactie van de redactie via Schrijver** (naam: Jan DGDOO bJansenb):'
 		);
 		expect(body).not.toContain('jan@example.org');
 	});
@@ -136,12 +136,28 @@ describe('commentBody', () => {
 	it('keeps only letters, digits and plain punctuation in a name, so GitHub shows the line as Schrijver reads it', () => {
 		for (const [name, who] of NAMES) {
 			const body = commentBody('Ok', author(named(name), 'redactie'));
-			expect(body.split('\n')[1], name).toBe(`**Reactie van de redactie via Schrijver** (${who}):`);
+			expect(body.split('\n')[1], name).toBe(
+				`**Reactie van de redactie via Schrijver** (naam: ${who}):`
+			);
 			const line = shownOnGitHub(body).querySelector('p')!;
 			expect(line.innerHTML, name).toBe(
-				`<strong>Reactie van de redactie via Schrijver</strong> (${who}):`
+				`<strong>Reactie van de redactie via Schrijver</strong> (naam: ${who}):`
 			);
 			expect(readComment(body)?.who, name).toBe(who);
+		}
+	});
+
+	it('marks every name as one, so that none passes for a codename or a GitHub login', () => {
+		for (const name of [
+			'anoniem, codenaam 0123456789ab',
+			'аnoniem, codenaam 0123456789ab',
+			'GitHub: torvalds',
+			'GіtHub: torvalds',
+			'naam: x'
+		]) {
+			const body = commentBody('Ok', author(named(name), 'redactie'));
+			expect(body.split('\n')[1], name).toMatch(/ \(naam: [^:()]+\):$/);
+			expect(readComment(body)?.signer, name).toBe('op-naam');
 		}
 	});
 
@@ -212,29 +228,6 @@ describe('commentBody', () => {
 			'```html\n<!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n\n@media\n```';
 		const body = commentBody(code, author(ANONIEM));
 		expect(body.endsWith(`\n\n${code.replace(/^/gm, '> ').replace(/^> $/m, '>')}`)).toBe(true);
-	});
-
-	it('writes a name in quotes only where it reads as a codename or a GitHub login', () => {
-		const header = (name: string) =>
-			commentBody('Ok', author(named(name), 'redactie')).split('\n')[1];
-		for (const name of [
-			'anoniem, codenaam 0123456789ab',
-			'ANONIEM',
-			'GitHub: torvalds',
-			'- github jansen',
-			'Ａｎｏｎｉｅｍ'
-		]) {
-			expect(header(name), name).toMatch(/ \("[^"]+"\):$/);
-		}
-		for (const name of [
-			'Anonieme collega',
-			'Jan Anoniem',
-			'Githubber',
-			'torvalds',
-			'Jan "GitHub" Jansen'
-		]) {
-			expect(header(name), name).not.toContain('"');
-		}
 	});
 });
 
@@ -351,15 +344,22 @@ describe('readComment', () => {
 			good.replace(':\n\n> Tekst', ':\n> Tekst'),
 			good.replace('\n\n> Tekst', '\n\nTekst'),
 			`${good}\nNiet geciteerd`,
-			signedAs('Jan): **Reactie van de redactie via Schrijver** (Petra'),
+			signedAs('Jan Jansen'),
+			signedAs('naam: Jan): **Reactie van de redactie via Schrijver** (Petra'),
 			signedAs('anoniem, codenaam 0123'),
 			signedAs('anoniem, codenaam 0123456789AB'),
+			signedAs('аnoniem, codenaam 0123456789ab'),
 			signedAs('GitHub torvalds'),
+			signedAs('GіtHub: torvalds'),
 			signedAs('"Jan Jansen"'),
-			signedAs('Jan_Jansen'),
-			signedAs('Jan  Jansen'),
-			signedAs(' Jan'),
-			signedAs('www.evil.example'),
+			signedAs('Naam: Jan'),
+			signedAs('naam:Jan'),
+			signedAs('naam: Jan_Jansen'),
+			signedAs('naam: Jan  Jansen'),
+			signedAs('naam:  Jan'),
+			signedAs('naam: '),
+			signedAs('naam: www.evil.example'),
+			signedAs('naam: naam: x'),
 			signedAs('GitHub: jan_jansen'),
 			signedAs(''),
 			'Opmerking van de redactie via Schrijver:\nTekst'

@@ -33,12 +33,13 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const JOINER = '⁠';
 const ANONYMOUS = /^anoniem, codenaam ([0-9a-f]{12})$/;
 const LINKED = /^GitHub: ([A-Za-z0-9-]+)$/;
-/** A name as the header carries it: words of letters, marks, digits and .,'’- one space apart. */
-const NAME = /^[\p{L}\p{M}\p{N}.,'’-]+(?: [\p{L}\p{M}\p{N}.,'’-]+)*$/u;
+/**
+ * A name as the header carries it: behind a marker of its own, so it never reads as the anonymous or
+ * the GitHub form, in words of letters, marks, digits and .,'’- one space apart.
+ */
+const NAMED = /^naam: ([\p{L}\p{M}\p{N}.,'’-]+(?: [\p{L}\p{M}\p{N}.,'’-]+)*)$/u;
 /** A word that GitHub would turn into a link. */
 const WWW = /(^| )(www)\./giu;
-/** A name that could pass for the anonymous or the GitHub form of the header. */
-const LOOKALIKE = /^[^\p{L}\p{N}]*(anoniem|github)(?![\p{L}\p{M}\p{N}])/iu;
 const UNKNOWN_NAME = 'Naam onbekend';
 /** Bounds on what a page shows of a conversation: anyone can comment on GitHub, also at length. */
 const MAX_TEXT = 10_000;
@@ -50,8 +51,6 @@ const MAX_TOTAL = 200_000;
  */
 const disarm = (line: string) =>
 	line.replace(/<(?=[A-Za-z/!?])/g, `<${JOINER}`).replace(/@(?=[A-Za-z0-9])/g, `@${JOINER}`);
-
-const lookalike = (name: string) => LOOKALIKE.test(name.normalize('NFKC'));
 
 /**
  * The text of a reaction as the App posts it: quoted as a whole, code blocks included, so that no line
@@ -82,19 +81,16 @@ function unquote(text: string): string | null {
 	return lines.map((line) => line.slice(2)).join('\n');
 }
 
-/**
- * A name as the header carries it: nothing that Markdown, HTML or the header itself would read, and in
- * quotes where it could pass for the anonymous or the GitHub form.
- */
+/** A name as the header carries it: nothing that Markdown, HTML or the header itself would read. */
 function headerName(typed: string): string {
-	const name =
+	return (
 		typed
 			.replace(/\s+/g, ' ')
 			.replace(/[^\p{L}\p{M}\p{N} .,'’-]/gu, '')
 			.replace(WWW, '$1$2')
 			.replace(/ {2,}/g, ' ')
-			.trim() || UNKNOWN_NAME;
-	return lookalike(name) ? `"${name}"` : name;
+			.trim() || UNKNOWN_NAME
+	);
 }
 
 /** The person as their identity choice allows: never an e-mail address. */
@@ -105,7 +101,7 @@ function signature(identity: Identity): string {
 		case 'gekoppeld':
 			return `GitHub: ${identity.login}`;
 		case 'op-naam':
-			return headerName(identity.name);
+			return `naam: ${headerName(identity.name)}`;
 	}
 }
 
@@ -115,12 +111,8 @@ function signerOf(signed: string): { signer: Identity['kind']; who: string } | n
 	if (pseudonym) return { signer: 'anoniem', who: `Anoniem, codenaam ${pseudonym}` };
 	const login = LINKED.exec(signed)?.[1];
 	if (login) return { signer: 'gekoppeld', who: login };
-	const quoted = /^"(.+)"$/.exec(signed)?.[1];
-	const name = quoted ?? signed;
-	if (!NAME.test(name) || name.match(WWW) || lookalike(name) !== (quoted !== undefined)) {
-		return null;
-	}
-	return { signer: 'op-naam', who: signed };
+	const name = NAMED.exec(signed)?.[1];
+	return name && !name.match(WWW) ? { signer: 'op-naam', who: name } : null;
 }
 
 /** What Schrijver posts: a hidden marker and a line on who wrote it and as what, then the text. */
