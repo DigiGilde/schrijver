@@ -187,6 +187,24 @@ describe('services', () => {
 		expect(reload).not.toHaveBeenCalled();
 	});
 
+	it('keeps reading after a retry that finds nothing left to read', async () => {
+		services.setForge(fake);
+		fake.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await services.initServices();
+		await services.reloadSite('moza-site');
+		expect(services.getConfigStore().site('moza-site')).toBeDefined();
+		await vi.advanceTimersByTimeAsync(60_000);
+
+		await fake.commit(
+			MOZA,
+			'main',
+			[{ path: '.schrijver/site.yaml', content: structureFile('kennisbank', 'site.yaml') }],
+			'm'
+		);
+		await services.reloadSite('moza-site');
+		expect(services.getConfigStore().site('moza-site')?.preview.soort).toBe('geen');
+	});
+
 	it('reads every site again every quarter of an hour, so a missed webhook cannot keep a site open', async () => {
 		fake.setPublic(MOZA, true);
 		services.setForge(fake);

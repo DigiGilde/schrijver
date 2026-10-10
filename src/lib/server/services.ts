@@ -42,6 +42,8 @@ let running: Promise<void> | null = null;
 const failedSites = new Set<string>();
 
 function drain(): Promise<void> {
+	// Without work the body below would finish before `running` is assigned, leaving it set for good.
+	if (!running && !wholeLoad && siteLoads.size === 0) return Promise.resolve();
 	running ??= (async () => {
 		try {
 			while (wholeLoad || siteLoads.size > 0) {
