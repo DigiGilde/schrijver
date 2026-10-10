@@ -97,8 +97,8 @@ export type AuditAction =
 	| 'invitation.expired';
 
 /**
- * Never an e-mail address: the target is a sub, an invitation id, the names of changed settings or,
- * for a site added or removed, its repository.
+ * Never an e-mail address: the target is a sub, an invitation id, the names of the changed settings
+ * or columns or, for a site added or removed, its repository.
  */
 export interface AuditEntry {
 	at: Date;
