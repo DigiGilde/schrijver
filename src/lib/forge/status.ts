@@ -50,6 +50,12 @@ export const FOUR_EYES = {
 export const waitsForReview = (status: Status): boolean =>
 	status === 'ingestuurd' || status === 'goedgekeurd';
 
+/** The proposals in a reader's "Te beoordelen"; their own ones only with `own`. */
+export const forReview = <P extends { status: Status; mine: boolean }>(
+	proposals: P[],
+	own: boolean
+): P[] => proposals.filter((p) => waitsForReview(p.status) && (own || !p.mine));
+
 /** What a proposal that GitHub cannot merge is told, on its page and when a merge is refused. */
 export const NOT_MERGEABLE =
 	'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.';

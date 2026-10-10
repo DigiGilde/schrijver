@@ -233,6 +233,24 @@ describe('home page status lines', () => {
 		]);
 	});
 
+	it('leave the own proposals out of the review line where four eyes hold', async () => {
+		await useTeams(store.sites(), {
+			'moza-site': { [EDITOR]: 'redactie', baas: 'beheerder' }
+		});
+		await proposal('moza-site', 'eigen-red-llll', { door: EDITOR, sent: true });
+		expect(await statusOf('moza-site', EDITOR)).toEqual(['Je hebt 1 open voorstel']);
+		await proposal('moza-site', 'ander-mmmm', { sent: true });
+		await proposal('moza-site', 'eigen-baas-nnnn', { door: 'baas', sent: true });
+		expect(await statusOf('moza-site', EDITOR)).toEqual([
+			'Je hebt 1 open voorstel',
+			'2 voorstellen wachten op beoordeling'
+		]);
+		expect(await statusOf('moza-site', 'baas')).toEqual([
+			'Je hebt 1 open voorstel',
+			'3 voorstellen wachten op beoordeling'
+		]);
+	});
+
 	it('keep the review line from everybody else', async () => {
 		await proposal('digi-handboek', 'ingestuurd-ffff', { sent: true });
 		await proposal('moza-site', 'ingestuurd-gggg', { sent: true });

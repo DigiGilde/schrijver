@@ -12,7 +12,8 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
-import { setConfigStore, setForge } from '../../src/lib/server/services';
+import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
+import { backToProposals } from '../../src/lib/server/site-tabs';
 import { load as loadPages } from '../../src/routes/sites/[site]/+page.server';
 import { load as loadProposals } from '../../src/routes/sites/[site]/voorstellen/+page.server';
 import { load as loadAbout } from '../../src/routes/sites/[site]/over/+page.server';
@@ -326,5 +327,71 @@ describe('about page', () => {
 
 	it('answers 404 for a site that does not exist', async () => {
 		await expect(about(WRITER, 'bestaat-niet')).rejects.toMatchObject({ status: 404 });
+	});
+});
+
+describe('Te beoordelen on a site with four eyes', () => {
+	const MOZA = 'MinBZK/moza-site';
+	const platform = { sub: 'opzet', platformAdmin: true };
+	const members = { 'moza-red': 'redactie', 'moza-baas': 'beheerder' } as const;
+
+	async function sentIn(slug: string, door: string) {
+		const branch = `schrijver/moza-site/${slug}`;
+		await forge.createBranch(MOZA, 'main', branch);
+		await forge.commit(MOZA, branch, [{ path: 'content/contact.md', content: slug }], slug);
+		const who = pseudonym(process.env.PSEUDONYM_SECRET!, door);
+		const pr = await forge.openDraftPr(
+			MOZA,
+			branch,
+			'main',
+			slug,
+			identityTrailer({ kind: 'anoniem', pseudoniem: who })
+		);
+		await forge.markReady(MOZA, pr.number);
+	}
+	const waiting = async (sub: string) => ({
+		pages: ((await loadPages(event(sub, 'moza-site', '') as never)) as PagesData).wachtend,
+		tab: (await loadProposals(
+			event(sub, 'moza-site', '/voorstellen') as never
+		)) as ProposalsData & { ownForReview: boolean },
+		back: await backToProposals(getConfigStore().site('moza-site')!, forge, new URL('http://x/'), {
+			session: session(sub),
+			prefs: { ...prefs, sub }
+		})
+	});
+
+	it('leaves the own proposals out for the redactie, and counts them for a site admin', async () => {
+		for (const [sub, role] of Object.entries(members)) {
+			const email = `${sub}@team.example`;
+			await team.recordLogin({ sub, name: sub, email, emailVerified: true });
+			await team.addByEmail('moza-site', email, role, 'opzet');
+		}
+		try {
+			await sentIn('eigen-red', 'moza-red');
+			const red = await waiting('moza-red');
+			expect(red.pages, 'only the own proposal waits').toBe(0);
+			expect(red.tab).toMatchObject({ wachtend: 0, ownForReview: false });
+			expect(red.back).toBe('/sites/moza-site/voorstellen');
+			expect((await waiting('moza-baas')).back).toBe(
+				'/sites/moza-site/voorstellen?filter=beoordelen'
+			);
+
+			await sentIn('eigen-baas', 'moza-baas');
+			await sentIn('ander', 'iemandanders');
+			expect((await waiting('moza-red')).pages).toBe(2);
+			const baas = await waiting('moza-baas');
+			expect(baas.pages, 'a site admin may merge an own proposal').toBe(3);
+			expect(baas.tab).toMatchObject({ wachtend: 3, ownForReview: true });
+
+			const settings = (await team.settings('moza-site'))!;
+			await team.saveSettings('moza-site', { ...settings, vierOgen: false }, 'baas');
+			try {
+				expect((await waiting('moza-red')).tab).toMatchObject({ wachtend: 3, ownForReview: true });
+			} finally {
+				await team.saveSettings('moza-site', settings, 'baas');
+			}
+		} finally {
+			for (const sub of Object.keys(members)) await team.removeMember('moza-site', sub, platform);
+		}
 	});
 });

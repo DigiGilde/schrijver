@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { afterNavigate, goto } from '$app/navigation';
 	import type { Proposal } from '$lib/forge/proposals';
-	import { STATUS, updatedText, waitsForReview } from '$lib/forge/status';
+	import { STATUS, forReview, updatedText } from '$lib/forge/status';
 
 	type Filter = 'mijn' | 'alle' | 'beoordelen';
 
@@ -9,13 +9,16 @@
 		siteId,
 		proposals,
 		filter,
-		editorial = false
+		editorial = false,
+		ownForReview = true
 	}: {
 		siteId: string;
 		proposals: Proposal[];
 		/** The filter from the address; choosing another one shows it at once, before the address has followed. */
 		filter: Filter;
 		editorial?: boolean;
+		/** The reader's own proposals are in "Te beoordelen": not where four eyes leave them to others. */
+		ownForReview?: boolean;
 	} = $props();
 
 	let gekozen = $state<Filter | null>(null);
@@ -34,9 +37,9 @@
 	};
 
 	const teBeoordelen = $derived(
-		proposals
-			.filter((p) => waitsForReview(p.status))
-			.sort((a, b) => Number(a.status !== 'ingestuurd') - Number(b.status !== 'ingestuurd'))
+		forReview(proposals, ownForReview).sort(
+			(a, b) => Number(a.status !== 'ingestuurd') - Number(b.status !== 'ingestuurd')
+		)
 	);
 	const shown = $derived(
 		huidig === 'mijn'

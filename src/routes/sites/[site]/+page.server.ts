@@ -7,11 +7,11 @@ import { siteSettings } from '$lib/auth/team-store';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
-import { waitsForReview } from '$lib/forge/status';
+import { forReview } from '$lib/forge/status';
 import { ForgeError } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
-import { proposalsAddress, siteHeader } from '$lib/server/site-tabs';
+import { ownForReview, proposalsAddress, siteHeader } from '$lib/server/site-tabs';
 
 const decoder = new TextDecoder();
 
@@ -88,11 +88,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		log.warn('proposals.list_failed', { site: site.id, ...errorFields(err) });
 	}
 
-	const editorial = await isEditorial(
-		site,
-		{ sub: session.sub, githubLogin: prefs.githubLogin },
-		forge
-	);
+	const user = { sub: session.sub, githubLogin: prefs.githubLogin };
+	const editorial = await isEditorial(site, user, forge);
 
 	// The user's own open proposal for a page in this folder, to return to instead of starting anew.
 	const continueByPage = new Map<string, string>();
@@ -111,6 +108,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			verderBewerken: continueByPage.get(prefix + page.path) ?? null
 		})),
 		wachtend:
-			editorial && proposals ? proposals.filter((p) => waitsForReview(p.status)).length : null
+			editorial && proposals
+				? forReview(proposals, await ownForReview(site, user, forge, proposals)).length
+				: null
 	};
 };

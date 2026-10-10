@@ -1,8 +1,12 @@
 import { isEditorial } from '$lib/auth/editorial';
+import { identitiesFor } from '$lib/auth/identity';
+import { canManageSite, type SiteUser } from '$lib/auth/roles';
 import type { SiteSettings } from '$lib/auth/team';
+import { siteSettings } from '$lib/auth/team-store';
 import type { SiteConfig } from '$lib/config/types';
-import { statusOf } from '$lib/forge/proposals';
-import { proposalsTabAddress, waitsForReview } from '$lib/forge/status';
+import { toProposal } from '$lib/forge/proposals';
+import { forReview, proposalsTabAddress, waitsForReview, type Status } from '$lib/forge/status';
+import type { Identity } from '$lib/forge/trailers';
 import type { Forge } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 
@@ -43,10 +47,31 @@ export function carriedFilter(value: string | null): Filter | null {
 	return filter === value ? filter : null;
 }
 
-async function waitingFor(site: SiteConfig, forge: Forge): Promise<number | null> {
+/**
+ * Whether the reader's own proposals belong in their "Te beoordelen": on a site with four eyes another
+ * member of the redactie decides on them, unless the reader is a site admin. Asked only when one waits.
+ */
+export async function ownForReview(
+	site: SiteConfig,
+	user: SiteUser,
+	forge: Forge,
+	proposals: { status: Status; mine: boolean }[]
+): Promise<boolean> {
+	if (!proposals.some((p) => p.mine && waitsForReview(p.status))) return true;
+	return !(await siteSettings(site)).vierOgen || (await canManageSite(site, user, forge));
+}
+
+async function waitingFor(
+	site: SiteConfig,
+	forge: Forge,
+	user: SiteUser,
+	mine: Identity[]
+): Promise<number | null> {
 	try {
-		const prs = await forge.listPrs(site.repo, 'open');
-		return prs.filter((pr) => waitsForReview(statusOf(pr))).length;
+		const proposals = (await forge.listPrs(site.repo, 'open')).map((pr) =>
+			toProposal(pr, [], site, mine)
+		);
+		return forReview(proposals, await ownForReview(site, user, forge, proposals)).length;
 	} catch (err) {
 		log.warn('proposals.list_failed', { site: site.id, ...errorFields(err) });
 		return null;
@@ -62,10 +87,10 @@ export async function backToProposals(
 ): Promise<string> {
 	const filter = carriedFilter(url.searchParams.get('filter'));
 	if (filter) return `/sites/${encodeURIComponent(site.id)}/voorstellen?filter=${filter}`;
-	const editorial = await isEditorial(
-		site,
-		{ sub: session.sub, githubLogin: prefs.githubLogin },
-		forge
+	const user = { sub: session.sub, githubLogin: prefs.githubLogin };
+	const editorial = await isEditorial(site, user, forge);
+	return proposalsTabAddress(
+		site.id,
+		editorial ? await waitingFor(site, forge, user, identitiesFor(prefs, session)) : null
 	);
-	return proposalsTabAddress(site.id, editorial ? await waitingFor(site, forge) : null);
 }

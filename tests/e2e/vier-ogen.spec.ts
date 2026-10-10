@@ -55,6 +55,22 @@ test('another editor may merge the approved proposal that the test user wrote', 
 	await expect(knop(page, 'Samenvoegen')).toBeVisible();
 });
 
+test('Te beoordelen leaves out the own proposals that four eyes keep from the reader', async ({
+	page
+}) => {
+	const list = page.locator('nldd-list[accessible-label="Te beoordelen"]');
+	const own = list.getByRole('link', { name: /^Toegankelijkheid: wie je kunt mailen/ });
+	await page.goto('/sites/moza-site/voorstellen?filter=beoordelen');
+	await expect(list.getByRole('link', { name: /^Weekly 23 september: de demo/ })).toBeVisible();
+	await expect(own).toHaveCount(0);
+	const count = await list.locator('nldd-list-item').count();
+	await expect(page.getByRole('radio', { name: `Te beoordelen (${count})` })).toBeChecked();
+
+	await als(page, 'derde');
+	await page.goto('/sites/moza-site/voorstellen?filter=beoordelen');
+	await expect(own).toBeVisible();
+});
+
 test('someone outside the redactie of the site is told that the editors decide', async ({
 	page
 }) => {

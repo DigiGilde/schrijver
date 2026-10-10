@@ -21,6 +21,7 @@
 					proposals={data.proposals}
 					filter={data.filter}
 					editorial={data.editorial}
+					ownForReview={data.ownForReview}
 				/>
 			{/if}
 		</nldd-simple-section>

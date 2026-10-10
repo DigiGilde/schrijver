@@ -4,10 +4,10 @@ import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
 import { siteSettings } from '$lib/auth/team-store';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
-import { waitsForReview } from '$lib/forge/status';
+import { forReview } from '$lib/forge/status';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
-import { filterOf, siteHeader } from '$lib/server/site-tabs';
+import { filterOf, ownForReview, siteHeader } from '$lib/server/site-tabs';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const site = getConfigStore().site(params.site);
@@ -29,21 +29,17 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		proposalsError = true;
 	}
 
-	const editorial = await isEditorial(
-		site,
-		{ sub: session.sub, githubLogin: prefs.githubLogin },
-		forge
-	);
+	const user = { sub: session.sub, githubLogin: prefs.githubLogin };
+	const editorial = await isEditorial(site, user, forge);
+	const own = editorial && !proposalsError && (await ownForReview(site, user, forge, proposals));
 
 	return {
 		site: siteHeader(await siteSettings(site)),
 		proposals,
 		proposalsError,
 		editorial,
-		wachtend:
-			editorial && !proposalsError
-				? proposals.filter((p) => waitsForReview(p.status)).length
-				: null,
+		ownForReview: own,
+		wachtend: editorial && !proposalsError ? forReview(proposals, own).length : null,
 		filter: filterOf(url.searchParams.get('filter'), editorial)
 	};
 };

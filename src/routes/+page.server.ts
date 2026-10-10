@@ -6,9 +6,10 @@ import { siteSettings } from '$lib/auth/team-store';
 import { addressText } from '$lib/config/site-address';
 import type { SiteConfig } from '$lib/config/types';
 import { toProposal } from '$lib/forge/proposals';
-import { waitsForReview } from '$lib/forge/status';
+import { forReview, waitsForReview } from '$lib/forge/status';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { ownForReview } from '$lib/server/site-tabs';
 
 /** The status lines are a courtesy: a slow forge must not hold up the start page. */
 const STATUS_TIMEOUT_MS = 2000;
@@ -23,13 +24,15 @@ async function statusLines(site: SiteConfig, { session, prefs }: User): Promise<
 		// Counting needs no file lists.
 		const proposals = prs.map((pr) => toProposal(pr, [], site, mine));
 		const open = proposals.filter((p) => p.mine).length;
-		const waiting = proposals.filter((p) => waitsForReview(p.status)).length;
+		const user = { sub: session.sub, githubLogin: prefs.githubLogin };
 		const editorial =
-			waiting > 0 &&
-			(await isEditorial(site, { sub: session.sub, githubLogin: prefs.githubLogin }, forge));
+			proposals.some((p) => waitsForReview(p.status)) && (await isEditorial(site, user, forge));
+		const waiting = editorial
+			? forReview(proposals, await ownForReview(site, user, forge, proposals)).length
+			: 0;
 		const lines: string[] = [];
 		if (open > 0) lines.push(`Je hebt ${open} open ${open === 1 ? 'voorstel' : 'voorstellen'}`);
-		if (editorial) {
+		if (waiting > 0) {
 			lines.push(
 				waiting === 1
 					? '1 voorstel wacht op beoordeling'
