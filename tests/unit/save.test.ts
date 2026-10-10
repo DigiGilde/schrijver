@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
 import {
 	hasImageWithoutAlt,
@@ -11,12 +9,10 @@ import {
 } from '../../src/lib/forge/save';
 import { ForgeError } from '../../src/lib/forge/types';
 import { trailersFromMessage, type Identity } from '../../src/lib/forge/trailers';
+import { digi, moza, schemaOf } from './sites-fixture';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-const schema = (name: string) =>
-	parseSchemaYaml(readFileSync(`tests/fixtures/config/schemas/${name}.yaml`, 'utf8'));
-const digiSchema = schema('digi-handboek');
-const mozaSchema = schema('moza-site');
+const digiSchema = schemaOf('digi-handboek');
+const mozaSchema = schemaOf('moza-site');
 const identity: Identity = { kind: 'anoniem', pseudoniem: 'abc123def456' };
 const PNG = Buffer.from(
 	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',

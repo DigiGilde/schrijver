@@ -8,12 +8,12 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 
 import { log } from '../../src/lib/log';
-import { seedFromConfig, type TeamStore } from '../../src/lib/auth/team';
+import type { TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
-import { seedSites, useTeamStore } from '../../src/lib/auth/team-store';
+import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { FakeForge } from '../../src/lib/forge/fake';
-import { buildFakeServices } from '../../src/lib/server/fake-mode';
-import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
+import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
+import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { actions, load } from '../../src/routes/instellingen/sites/[site]/+page.server';
 
 const DH = 'digi-handboek';
@@ -92,7 +92,8 @@ afterAll(() => {
 beforeEach(async () => {
 	team = new MemoryTeamStore();
 	useTeamStore(team);
-	await seedSites(getConfigStore().sites(), team);
+	for (const { site, settings } of PREVIEW_SITES) await team.addSite(site, settings, null, null);
+	await team.addByEmail(DH, 'naam@rijksoverheid.nl', 'redactie', 'platform');
 	for (const sub of ['baas', 'red', 'collega', 'platform']) {
 		await team.recordLogin({
 			sub,
@@ -166,11 +167,11 @@ describe('who may manage a site', () => {
 		expect(data.beheer.naam).toBe('MijnOverheid Zakelijk');
 	});
 
-	it('gives a configured site without settings its settings on the spot', async () => {
+	it('makes up no settings for a site that has none: a site gets them when it is added', async () => {
 		const empty = new MemoryTeamStore();
 		useTeamStore(empty);
-		await load(event('platform', MOZA));
-		expect((await empty.settings(MOZA))?.naam).toBe('MijnOverheid Zakelijk');
+		await expect(load(event('platform', MOZA))).rejects.toThrow('no settings for site moza-site');
+		expect(await empty.settings(MOZA)).toBeNull();
 		useTeamStore(team);
 	});
 });
@@ -369,8 +370,5 @@ describe('the settings of the site', () => {
 	it('keeps an empty description and address empty', async () => {
 		await act('instellingen', 'baas', DH, { ...SETTINGS, omschrijving: '', adres: '' });
 		expect(await team.settings(DH)).toMatchObject({ omschrijving: null, adres: null });
-		expect(seedFromConfig(getConfigStore().site(DH)!).values.adres).toBe(
-			'https://digihandboek.rijks.app/'
-		);
 	});
 });

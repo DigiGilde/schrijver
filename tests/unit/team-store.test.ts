@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { SiteSeed, TeamStore } from '../../src/lib/auth/team';
+import type { NewSite, SettingsValues, TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { createTeamStore } from '../../src/lib/auth/team-postgres';
 import {
@@ -25,17 +25,22 @@ const START = '2026-10-10T10:00:00.000Z';
 const DH = 'digi-handboek';
 const MOZA = 'moza-site';
 
-const seed = (siteId: string, redactie: string[] = []): SiteSeed => ({
-	siteId,
-	values: {
-		naam: siteId === DH ? 'Digi Handboek' : 'MijnOverheid Zakelijk',
-		omschrijving: null,
-		adres: 'https://example.org/',
-		mergenVanuitSchrijver: true,
-		vierOgen: true,
-		identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
-	},
-	redactie
+const REPO_IDS: Record<string, number> = { [DH]: 101, [MOZA]: 102 };
+
+const site = (id: string, repoId = REPO_IDS[id] ?? 999): NewSite => ({
+	id,
+	repoId,
+	repo: `Org/${id}`,
+	standaardbranch: 'main'
+});
+
+const values = (siteId: string): SettingsValues => ({
+	naam: siteId === DH ? 'Digi Handboek' : 'MijnOverheid Zakelijk',
+	omschrijving: null,
+	adres: 'https://example.org/',
+	mergenVanuitSchrijver: true,
+	vierOgen: true,
+	identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
 });
 
 const login = (sub: string, email: string, emailVerified = true, name = `Naam ${sub}`) => ({
@@ -65,8 +70,8 @@ function contract(make: () => Promise<Harness>) {
 		h = await make();
 		team = h.team;
 		h.at(START);
-		await team.seedSite(seed(DH));
-		await team.seedSite(seed(MOZA));
+		await team.addSite(site(DH), values(DH), null, null);
+		await team.addSite(site(MOZA), values(MOZA), null, null);
 	});
 
 	/** A site with these members, each signed in once. */
@@ -402,49 +407,161 @@ function contract(make: () => Promise<Harness>) {
 		});
 	});
 
-	describe('site settings', () => {
-		it('starts a site from its configuration, with invitations for its redactie', async () => {
+	describe('the sites', () => {
+		it('lists the sites, the oldest first, bound to their repository by its id', async () => {
+			h.at('2026-10-11T08:00:00.000Z');
+			await team.addSite(site('aaa-later', 103), values('aaa-later'), null, 'platform');
+			expect(await team.sites()).toEqual([
+				{
+					id: DH,
+					repoId: 101,
+					repo: `Org/${DH}`,
+					standaardbranch: 'main',
+					createdAt: new Date(START),
+					createdBy: null
+				},
+				expect.objectContaining({ id: MOZA, repoId: 102 }),
+				{
+					id: 'aaa-later',
+					repoId: 103,
+					repo: 'Org/aaa-later',
+					standaardbranch: 'main',
+					createdAt: new Date('2026-10-11T08:00:00.000Z'),
+					createdBy: 'platform'
+				}
+			]);
+		});
+
+		it('adds a site with its settings and a known user as its first beheerder', async () => {
+			await team.recordLogin(login('baas', 'baas@example.org', true, 'De Baas'));
 			expect(
-				await team.seedSite(
-					seed('nieuwe-site', [
-						'Een@Example.org',
-						'een@example.org',
-						'geen adres',
-						'twee@example.org'
-					])
-				)
-			).toBe(true);
-			expect(await team.settings('nieuwe-site')).toEqual({
-				siteId: 'nieuwe-site',
-				...seed('nieuwe-site').values,
+				await team.addSite(site('nieuw', 7), values('nieuw'), { sub: 'baas' }, 'platform')
+			).toEqual({ ok: true, admin: { kind: 'added', sub: 'baas', name: 'De Baas' } });
+			expect(await team.settings('nieuw')).toEqual({
+				siteId: 'nieuw',
+				...values('nieuw'),
 				updatedAt: new Date(START),
-				updatedBy: null
+				updatedBy: 'platform'
 			});
-			const invitations = await team.invitations('nieuwe-site');
-			expect(invitations.map((i) => [i.email, i.role, i.invitedBy]).sort()).toEqual([
-				['een@example.org', 'redactie', null],
-				['twee@example.org', 'redactie', null]
-			]);
-			expect((await team.audit('nieuwe-site')).map((a) => a.action).sort()).toEqual([
-				'invitation.created',
-				'invitation.created',
-				'settings.seeded'
-			]);
+			expect(await team.role('nieuw', 'baas')).toBe('beheerder');
+			expect(
+				(await team.audit('nieuw')).map((a) => [a.actorSub, a.action, a.target, a.role])
+			).toEqual(
+				expect.arrayContaining([
+					['platform', 'site.added', 'Org/nieuw', null],
+					['platform', 'member.added', 'baas', 'beheerder']
+				])
+			);
 		});
 
-		it('never overwrites settings or invites again once a site exists', async () => {
-			await team.saveSettings(DH, { ...seed(DH).values, naam: 'Handboek' }, 'baas');
-			expect(await team.seedSite(seed(DH, ['nieuw@example.org']))).toBe(false);
+		it('adds the first beheerder by address as addByEmail does: known at once, else invited', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			expect(
+				await team.addSite(site('een', 7), values('een'), { email: 'Jan@Example.org' }, 'platform')
+			).toMatchObject({ ok: true, admin: { kind: 'added', sub: 'jan' } });
+			expect(await team.role('een', 'jan')).toBe('beheerder');
+
+			const result = await team.addSite(
+				site('twee', 8),
+				values('twee'),
+				{ email: 'nieuw@example.org' },
+				'platform'
+			);
+			expect(result).toMatchObject({ ok: true, admin: { kind: 'invited', renewed: false } });
+			expect((await team.invitations('twee')).map((i) => [i.email, i.role, i.invitedBy])).toEqual([
+				['nieuw@example.org', 'beheerder', 'platform']
+			]);
+			await team.recordLogin(login('nieuw', 'nieuw@example.org'));
+			expect(await team.role('twee', 'nieuw')).toBe('beheerder');
+		});
+
+		it('refuses an id or a repository that another site has, and changes nothing', async () => {
+			await team.saveSettings(DH, { ...values(DH), naam: 'Handboek' }, 'baas');
+			const before = await team.audit();
+			expect(await team.addSite(site(DH, 555), values(DH), null, 'platform')).toEqual({
+				ok: false,
+				reason: 'id-taken'
+			});
+			expect(await team.addSite(site('ander', 101), values('ander'), null, 'platform')).toEqual({
+				ok: false,
+				reason: 'repo-taken'
+			});
 			expect((await team.settings(DH))?.naam).toBe('Handboek');
-			expect(await team.invitations(DH)).toEqual([]);
+			expect(await team.settings('ander')).toBeNull();
+			expect((await team.sites()).map((s) => s.id)).toEqual([DH, MOZA]);
+			expect(await team.audit()).toEqual(before);
 		});
 
+		it('adds nothing when the first beheerder is no known user', async () => {
+			await expect(
+				team.addSite(site('los', 9), values('los'), { sub: 'niemand' }, 'platform')
+			).rejects.toThrow();
+			expect((await team.sites()).map((s) => s.id)).toEqual([DH, MOZA]);
+			expect(await team.settings('los')).toBeNull();
+			expect(await team.audit('los')).toEqual([]);
+		});
+
+		it('removes a site with its settings, team, invitations and writing records', async () => {
+			await withTeam(DH, [['baas', 'beheerder']]);
+			await withTeam(MOZA, [['baas', 'redactie']]);
+			await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			await team.recordWriter(DH, 7, 'baas');
+			await team.recordWriter(MOZA, 7, 'baas');
+
+			expect(await team.removeSite(DH, 'platform')).toMatchObject({ id: DH, repoId: 101 });
+			expect((await team.sites()).map((s) => s.id)).toEqual([MOZA]);
+			expect(await team.settings(DH)).toBeNull();
+			expect(await team.members(DH)).toEqual([]);
+			expect(await team.invitations(DH)).toEqual([]);
+			expect(await team.writers(DH, 7)).toEqual([]);
+			expect(await team.sitesOf('baas')).toEqual([{ siteId: MOZA, role: 'redactie' }]);
+			expect(await team.writers(MOZA, 7)).toEqual(['baas']);
+			expect((await team.profile('baas'))?.email).toBe('baas@example.org');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'platform',
+				action: 'site.removed',
+				target: `Org/${DH}`,
+				role: null
+			});
+			expect(await team.removeSite(DH, 'platform')).toBeNull();
+
+			expect(await team.addSite(site(DH), values(DH), null, 'platform')).toEqual({
+				ok: true,
+				admin: null
+			});
+			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('follows a renamed repository and a new default branch, and writes it down', async () => {
+			expect(await team.moveSite(DH, 'Nieuw/handboek', 'trunk')).toEqual([
+				'repo',
+				'standaardbranch'
+			]);
+			expect((await team.sites())[0]).toMatchObject({
+				id: DH,
+				repoId: 101,
+				repo: 'Nieuw/handboek',
+				standaardbranch: 'trunk'
+			});
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: null,
+				action: 'site.moved',
+				target: 'repo,standaardbranch'
+			});
+			const before = (await team.audit(DH)).length;
+			expect(await team.moveSite(DH, 'Nieuw/handboek', 'trunk')).toEqual([]);
+			expect(await team.moveSite('onbekend', 'a/b', 'main')).toEqual([]);
+			expect(await team.audit(DH)).toHaveLength(before);
+		});
+	});
+
+	describe('site settings', () => {
 		it('saves settings and writes down which ones changed', async () => {
 			h.at('2026-10-12T08:00:00.000Z');
 			const changed = await team.saveSettings(
 				DH,
 				{
-					...seed(DH).values,
+					...values(DH),
 					naam: 'Handboek',
 					vierOgen: false,
 					identiteitToegestaan: ['op-naam']
@@ -566,7 +683,9 @@ function contract(make: () => Promise<Harness>) {
 		await team.addByEmail(DH, 'jan@example.org', 'beheerder', 'baas');
 		await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'jan');
 		await team.recordLogin(login('nieuw', 'nieuw@example.org'));
-		await team.seedSite(seed('derde', ['derde@example.org']));
+		await team.addSite(site('derde', 3), values('derde'), { email: 'derde@example.org' }, 'jan');
+		await team.addSite(site('vierde', 4), values('vierde'), { email: 'jan@example.org' }, 'jan');
+		await team.removeSite('derde', 'jan');
 		const text = JSON.stringify(await team.audit());
 		expect(text).not.toContain('@');
 	});
@@ -610,7 +729,7 @@ describe.skipIf(!url)('Postgres team store', () => {
 
 	describe('rules', () => {
 		contract(async () => {
-			await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, user_prefs`;
+			await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
 			let now = new Date(START);
 			return {
 				team: createTeamStore(sql, () => now),
@@ -624,7 +743,7 @@ describe.skipIf(!url)('Postgres team store', () => {
 	});
 
 	it('judges a user who has not signed in since the profile columns came by the last change', async () => {
-		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, user_prefs`;
+		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
 		const team = createTeamStore(sql, () => new Date(START));
 		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('oud', true, ${new Date('2025-01-01T00:00:00Z')})`;
 		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('bijgewerkt', true, ${new Date('2026-09-01T00:00:00Z')})`;

@@ -1,16 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import {
 	actorPseudonym,
 	effectiveKind,
 	identitiesFor,
 	identityFor
 } from '../../src/lib/auth/identity';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import type { Session } from '../../src/lib/auth/session';
-import { seedFromConfig, type IdentityKind } from '../../src/lib/auth/team';
+import type { IdentityKind } from '../../src/lib/auth/team';
 import type { UserPrefs } from '../../src/lib/auth/users';
 import { pseudonym } from '../../src/lib/forge/trailers';
+import { PREVIEW_SITES } from '../../src/lib/server/fake-mode';
 
 const session = (over: Partial<Session> = {}): Session => ({
 	sub: 'abc',
@@ -32,9 +31,7 @@ const prefs = (over: Partial<UserPrefs> = {}): UserPrefs => ({
 });
 
 /** The settings the two sites start with: Digi Handboek allows all three kinds, MOZa no name. */
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8')).map(
-	(site) => seedFromConfig(site).values
-);
+const [digi, moza] = PREVIEW_SITES.map((p) => p.settings);
 const allowing = (...kinds: IdentityKind[]) => ({ identiteitToegestaan: kinds });
 const all = allowing('anoniem', 'gekoppeld', 'op-naam');
 

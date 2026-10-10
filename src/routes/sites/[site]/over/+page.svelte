@@ -134,9 +134,9 @@
 				</p>
 				<p>
 					Deze gegevens kun je hier alleen lezen. Het team en de instellingen van de site regelen de
-					beheerders van de site in Schrijver. Hoe de site is opgebouwd, staat in de
-					configuratierepository{data.configuratie ? ` ${data.configuratie}` : ' van Schrijver'},
-					die niet openbaar is. Wijzigingen daarin gaan via de beheerders van Schrijver.
+					beheerders van de site in Schrijver. Hoe de site is opgebouwd, staat in de map <a
+						href={data.structuurUrl}>.schrijver op GitHub</a
+					>. Dat wijzig je met een voorstel in de repository van de site.
 				</p>
 			</nldd-rich-text>
 		</nldd-container>

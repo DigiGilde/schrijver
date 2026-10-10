@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { apiGuard } from '../../src/lib/server/security';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const state = vi.hoisted(() => ({ forge: null as unknown }));
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({ site: (id: string) => [digi, moza].find((s) => s.id === id) }),
@@ -12,6 +9,7 @@ vi.mock('../../src/lib/server/services', () => ({
 }));
 
 import { GET } from '../../src/routes/api/sites/[site]/bestand/+server';
+import { digi, moza } from './sites-fixture';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 let forge: FakeForge;

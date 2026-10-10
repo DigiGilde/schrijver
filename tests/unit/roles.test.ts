@@ -14,22 +14,10 @@ import {
 	platformAdmins,
 	siteRole
 } from '../../src/lib/auth/roles';
+import { startingSettings } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeamStore } from '../../src/lib/auth/team-store';
 import { log } from '../../src/lib/log';
-
-const seed = (siteId: string) => ({
-	siteId,
-	values: {
-		naam: siteId,
-		omschrijving: null,
-		adres: null,
-		mergenVanuitSchrijver: true,
-		vierOgen: true,
-		identiteitToegestaan: ['anoniem' as const]
-	},
-	redactie: []
-});
 
 describe('platform admins', () => {
 	const before = process.env.SCHRIJVER_BEHEERDERS;
@@ -69,7 +57,10 @@ describe('site roles', () => {
 		forge = new FakeForge();
 		team = new MemoryTeamStore();
 		useTeamStore(team);
-		for (const id of ['a', 'b', 'c']) await team.seedSite(seed(id));
+		for (const [i, id] of ['a', 'b', 'c'].entries()) {
+			const place = { id, repoId: i + 1, repo: `o/${id}`, standaardbranch: 'main' };
+			await team.addSite(place, startingSettings(id), null, null);
+		}
 		await team.recordLogin({ sub: 'baas', name: 'Baas', email: 'baas@x.nl', emailVerified: true });
 		await team.recordLogin({ sub: 'red', name: 'Red', email: 'red@x.nl', emailVerified: true });
 		await team.addByEmail('a', 'baas@x.nl', 'beheerder', 'x');

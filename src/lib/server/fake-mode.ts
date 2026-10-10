@@ -1,9 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { TeamStore } from '$lib/auth/team';
-import { seedSites, useMemoryStores } from '$lib/auth/team-store';
+import {
+	startingSettings,
+	type FirstAdmin,
+	type NewSite,
+	type SettingsValues,
+	type TeamStore
+} from '$lib/auth/team';
+import { MemoryTeamStore } from '$lib/auth/team-memory';
+import { useMemoryStores } from '$lib/auth/team-store';
 import type { UsersStore } from '$lib/auth/users';
-import { ConfigStore, type ConfigReader } from '$lib/config/load';
+import { ConfigStore } from '$lib/config/load';
 import { setConfigStore, setForge } from './services';
 import { commentBody } from '$lib/forge/conversation';
 import { FakeForge } from '$lib/forge/fake';
@@ -25,6 +32,16 @@ function seedFiles(corpus: string, prefix: string): Record<string, string> {
 	for (const file of walk(base)) {
 		if (!file.endsWith('.md')) continue;
 		files[`${prefix}/${relative(base, file).split('\\').join('/')}`] = readFileSync(file, 'utf8');
+	}
+	return files;
+}
+
+/** The files of a repository in tests/fixtures/sites/<name>, its `.schrijver/` folder included. */
+function fixtureFiles(name: string): Record<string, string> {
+	const base = resolve(ROOT, 'tests/fixtures/sites', name);
+	const files: Record<string, string> = {};
+	for (const file of walk(base)) {
+		files[relative(base, file).split('\\').join('/')] = readFileSync(file, 'utf8');
 	}
 	return files;
 }
@@ -68,6 +85,101 @@ async function seedDraft(forge: FakeForge, repo: string, path: string, title: st
 
 const DIGI = 'DigiGilde/handboek';
 const MOZA = 'MinBZK/moza-site';
+const OUD = 'DigiGilde/oude-site';
+
+/**
+ * The sites of the local preview, as a platform admin added them, with the settings they have now.
+ * Oude site still has the old fields in its `.schrijver/site.yaml`: only platform admins see it.
+ */
+export const PREVIEW_SITES: {
+	site: NewSite;
+	settings: SettingsValues;
+	admin: FirstAdmin | null;
+}[] = [
+	{
+		site: { id: 'digi-handboek', repoId: 4101, repo: DIGI, standaardbranch: 'main' },
+		settings: {
+			naam: 'Digi Handboek',
+			omschrijving: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+			adres: 'https://digihandboek.rijks.app/',
+			mergenVanuitSchrijver: true,
+			vierOgen: false,
+			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
+		},
+		admin: { email: 'test@example.org' }
+	},
+	{
+		site: { id: 'moza-site', repoId: 4102, repo: MOZA, standaardbranch: 'main' },
+		settings: {
+			naam: 'MijnOverheid Zakelijk',
+			omschrijving:
+				'Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.',
+			adres: 'https://mijnoverheidzakelijk.nl/',
+			mergenVanuitSchrijver: true,
+			vierOgen: true,
+			identiteitToegestaan: ['anoniem', 'gekoppeld']
+		},
+		admin: { email: 'collega@example.org' }
+	},
+	{
+		site: { id: 'oude-site', repoId: 4107, repo: OUD, standaardbranch: 'main' },
+		settings: {
+			...startingSettings('Oude site'),
+			omschrijving: 'Een site die nog de opzet van voor .schrijver/ heeft.'
+		},
+		admin: null
+	}
+];
+
+/**
+ * The repositories of the local preview: the pilot sites, Oude site, and four for "Site toevoegen":
+ * one that is ready, one without `.schrijver/`, one whose files are not valid, and one the App is not
+ * installed on.
+ */
+function seedRepos(forge: FakeForge): void {
+	forge.seedRepo(
+		DIGI,
+		'main',
+		{ ...withImages(seedFiles('digi-handboek', 'docs')), ...fixtureFiles('digi-handboek') },
+		{
+			id: 4101,
+			description: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+			homepage: 'https://digihandboek.rijks.app/'
+		}
+	);
+	forge.seedRepo(
+		MOZA,
+		'main',
+		{ ...seedFiles('moza-site', 'content'), ...fixtureFiles('moza-site') },
+		{
+			id: 4102,
+			description:
+				'Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.',
+			homepage: 'https://mijnoverheidzakelijk.nl/'
+		}
+	);
+	forge.setPublic(DIGI, true);
+	forge.setPublic(MOZA, true);
+	forge.requireReview(MOZA);
+	forge.seedRepo('DigiGilde/kennisbank', 'main', fixtureFiles('kennisbank'), {
+		id: 4103,
+		description: 'Wat het Digi Gilde weet over werken bij de overheid.',
+		homepage: 'https://kennisbank.example.org/'
+	});
+	forge.setPublic('DigiGilde/kennisbank', true);
+	forge.seedRepo(
+		'DigiGilde/nieuwsbrief',
+		'main',
+		{ 'README.md': '# Nieuwsbrief\n' },
+		{ id: 4104, description: 'De nieuwsbrief van het Digi Gilde.' }
+	);
+	forge.seedRepo('DigiGilde/intranet', 'main', fixtureFiles('intranet'), { id: 4105 });
+	forge.seedRepo('MinBZK/elders', 'main', fixtureFiles('kennisbank'), {
+		id: 4106,
+		installed: false
+	});
+	forge.seedRepo(OUD, 'main', fixtureFiles('oude-site'), { id: 4107 });
+}
 const COLLEAGUE = identityTrailer({ kind: 'anoniem', pseudoniem: '5ca1ab1e0000' });
 const EDITOR = { kind: 'op-naam' as const, name: 'Petra de Vries', email: 'petra@example.org' };
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
@@ -211,38 +323,23 @@ function testUserPseudonym(): string | null {
 	}
 }
 
-function fixtureReader(): ConfigReader {
-	const base = resolve(ROOT, 'tests/fixtures/config');
-	return {
-		async readFile(path) {
-			try {
-				return readFileSync(join(base, path), 'utf8');
-			} catch {
-				return null;
-			}
-		},
-		async listFiles(dir) {
-			try {
-				return walk(join(base, dir)).map((f) => relative(join(base, dir), f));
-			} catch {
-				return [];
-			}
-		}
-	};
-}
-
-export async function buildFakeServices(): Promise<{ forge: FakeForge; store: ConfigStore }> {
+/**
+ * The fake forge and the sites of the local preview, registered in `team` (a fresh store in memory
+ * unless given) by the platform admin.
+ */
+export async function buildFakeServices(
+	team: TeamStore = new MemoryTeamStore()
+): Promise<{ forge: FakeForge; store: ConfigStore; team: TeamStore }> {
 	const forge = new FakeForge();
-	forge.seedRepo('DigiGilde/handboek', 'main', withImages(seedFiles('digi-handboek', 'docs')));
-	forge.seedRepo('MinBZK/moza-site', 'main', seedFiles('moza-site', 'content'));
-	forge.setPublic('DigiGilde/handboek', true);
-	forge.setPublic('MinBZK/moza-site', true);
-	forge.requireReview('MinBZK/moza-site');
-	await seedDraft(forge, 'DigiGilde/handboek', 'docs/index.md', 'Voorbeeldvoorstel Digi Handboek');
-	await seedDraft(forge, 'MinBZK/moza-site', 'content/contact.md', 'Voorbeeldvoorstel MOZa-site');
-	const store = new ConfigStore(fixtureReader());
+	seedRepos(forge);
+	await seedDraft(forge, DIGI, 'docs/index.md', 'Voorbeeldvoorstel Digi Handboek');
+	await seedDraft(forge, MOZA, 'content/contact.md', 'Voorbeeldvoorstel MOZa-site');
+	for (const { site, settings, admin } of PREVIEW_SITES) {
+		await team.addSite(site, settings, admin, 'platform');
+	}
+	const store = new ConfigStore(team, () => forge);
 	await store.load();
-	return { forge, store };
+	return { forge, store, team };
 }
 
 /** Known colleagues of the local preview, each signed in once. */
@@ -255,7 +352,7 @@ const COLLEAGUES = [
 /**
  * Known colleagues: Tweede Collega as the beheerder of MOZa, Derde Collega in its redactie, and
  * Beheerder Schrijver on no team (the platform admin of the e2e run). Invitations make the test user
- * (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login.
+ * (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login; two more stay open.
  */
 export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<void> {
 	for (const { sub, name, email } of COLLEAGUES) {
@@ -268,18 +365,17 @@ export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<
 			onboarded: true
 		});
 	}
-	await team.addByEmail('moza-site', 'collega@example.org', 'beheerder', 'collega');
 	await team.addByEmail('moza-site', 'derde@example.org', 'redactie', 'collega');
 	await team.addByEmail('moza-site', 'test@example.org', 'redactie', 'collega');
-	await team.addByEmail('digi-handboek', 'test@example.org', 'beheerder', 'collega');
+	await team.addByEmail('moza-site', 'redactie@example.org', 'redactie', 'collega');
+	await team.addByEmail('digi-handboek', 'naam@rijksoverheid.nl', 'redactie', 'platform');
 }
 
 export async function initFakeServices(): Promise<void> {
-	const { forge, store } = await buildFakeServices();
+	const { users, team } = useMemoryStores();
+	const { forge, store } = await buildFakeServices(team);
 	await seedScenarios(forge, testUserPseudonym());
 	setForge(forge);
 	setConfigStore(store);
-	const { users, team } = useMemoryStores();
-	await seedSites(store.sites(), team);
 	await seedFakeTeam(users, team);
 }

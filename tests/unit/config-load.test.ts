@@ -1,117 +1,238 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { ConfigStore, UnknownSiteError, type ConfigReader } from '../../src/lib/config/load';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const fixture = (p: string) => readFileSync(`tests/fixtures/config/${p}`, 'utf8');
+vi.mock('../../src/lib/log', async (original) => ({
+	...(await original<typeof import('../../src/lib/log')>()),
+	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}));
 
-function memoryReader(files: Map<string, string>): ConfigReader {
-	return {
-		async readFile(path) {
-			return files.get(path) ?? null;
-		},
-		async listFiles(dir) {
-			return [...files.keys()].filter((p) => p.startsWith(`${dir}/`));
-		}
-	};
-}
+import { startingSettings, type NewSite } from '../../src/lib/auth/team';
+import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
+import {
+	ConfigStore,
+	NOT_INSTALLED,
+	OTHER_REPOSITORY,
+	UNREACHABLE,
+	UnknownSiteError
+} from '../../src/lib/config/load';
+import { FakeForge } from '../../src/lib/forge/fake';
+import { ForgeError } from '../../src/lib/forge/types';
+import { log } from '../../src/lib/log';
+import { structureFile } from './sites-fixture';
 
-function fixtureFiles() {
-	return new Map([
-		['sites.yaml', fixture('sites.yaml')],
-		['schemas/digi-handboek.yaml', fixture('schemas/digi-handboek.yaml')],
-		['schemas/moza-site.yaml', fixture('schemas/moza-site.yaml')],
-		['schrijfwijzer/moza-site.md', fixture('schrijfwijzer/moza-site.md')]
-	]);
+const MOZA = 'MinBZK/moza-site';
+const DIGI = 'DigiGilde/handboek';
+const OUD = 'DigiGilde/oude-site';
+
+const files = (site: string, names: string[]) =>
+	Object.fromEntries(names.map((name) => [`.schrijver/${name}`, structureFile(site, name)]));
+
+let forge: FakeForge;
+let team: MemoryTeamStore;
+let now: number;
+let store: ConfigStore;
+
+const site = (id: string, repoId: number, repo: string): NewSite => ({
+	id,
+	repoId,
+	repo,
+	standaardbranch: 'main'
+});
+
+beforeEach(async () => {
+	forge = new FakeForge();
+	forge.seedRepo(DIGI, 'main', files('digi-handboek', ['site.yaml', 'schema.yaml']), { id: 1 });
+	forge.seedRepo(
+		MOZA,
+		'main',
+		files('moza-site', ['site.yaml', 'schema.yaml', 'schrijfwijzer.md']),
+		{ id: 2 }
+	);
+	forge.seedRepo(OUD, 'main', files('oude-site', ['site.yaml']), { id: 3 });
+	team = new MemoryTeamStore();
+	await team.addSite(site('digi-handboek', 1, DIGI), startingSettings('Digi'), null, null);
+	await team.addSite(site('moza-site', 2, MOZA), startingSettings('MOZa'), null, null);
+	now = 1;
+	store = new ConfigStore(
+		team,
+		() => forge,
+		() => now++
+	);
+	vi.mocked(log.warn).mockClear();
+});
+
+async function change(repo: string, path: string, content: string) {
+	await forge.commit(repo, 'main', [{ path, content }], 'm');
 }
 
 describe('ConfigStore', () => {
-	it('loads sites, schemas and schrijfwijzers', async () => {
-		const store = new ConfigStore(memoryReader(fixtureFiles()), () => 42);
-		await store.load();
-		expect(store.sites().map((s) => s.id)).toEqual(['digi-handboek', 'moza-site']);
-		expect(store.site('moza-site')?.repo).toBe('MinBZK/moza-site');
-		expect(store.site('nope')).toBeUndefined();
-		expect(store.schema('moza-site')).toBeTruthy();
-		expect(store.schrijfwijzer('moza-site')).toBe(fixture('schrijfwijzer/moza-site.md'));
-		expect(store.schrijfwijzer('digi-handboek')).toBe('');
-		expect(store.state()).toEqual({ loadedAt: 42, lastError: null });
-	});
-
-	it('starts unloaded', () => {
-		const store = new ConfigStore(memoryReader(new Map()));
+	it('builds each site from the registry and the .schrijver/ files of its repository', async () => {
 		expect(store.sites()).toEqual([]);
 		expect(store.state()).toEqual({ loadedAt: null, lastError: null });
-	});
-
-	it('keeps the previous state when sites.yaml is broken', async () => {
-		const files = fixtureFiles();
-		let now = 1;
-		const store = new ConfigStore(memoryReader(files), () => now++);
-		await store.load();
-		files.set('sites.yaml', 'id: [unclosed');
 		await store.load();
 		expect(store.sites().map((s) => s.id)).toEqual(['digi-handboek', 'moza-site']);
-		const { loadedAt, lastError } = store.state();
-		expect(loadedAt).toBe(1);
-		expect(lastError).toContain('sites.yaml');
-		expect(lastError).not.toContain('\n');
-	});
-
-	it('names the field and what is wrong with it when sites.yaml does not validate', async () => {
-		const files = fixtureFiles();
-		files.set(
-			'sites.yaml',
-			fixture('sites.yaml').replace(
-				'adres: https://mijnoverheidzakelijk.nl/',
-				'adres: mijnoverheidzakelijk.nl'
-			)
-		);
-		const store = new ConfigStore(memoryReader(files));
-		await store.load();
-		expect(store.state().lastError).toBe(
-			'sites.yaml: 1.adres: must be a web address such as https://example.org (a starting value: once the site has its settings in Schrijver, those apply)'
-		);
-	});
-
-	it('keeps the previous state when a schema file is missing', async () => {
-		const files = fixtureFiles();
-		const store = new ConfigStore(memoryReader(files));
-		await store.load();
-		files.delete('schemas/moza-site.yaml');
-		await store.load();
-		expect(store.schema('moza-site')).toBeTruthy();
-		expect(store.state().lastError).toContain('schemas/moza-site.yaml');
-	});
-
-	it('keeps the previous state when the reader throws, and recovers', async () => {
-		const files = fixtureFiles();
-		let fail = false;
-		const base = memoryReader(files);
-		const store = new ConfigStore({
-			readFile: (p) => (fail ? Promise.reject(new Error('boom')) : base.readFile(p)),
-			listFiles: (d) => base.listFiles(d)
+		expect(store.site('moza-site')).toMatchObject({
+			id: 'moza-site',
+			repoId: 2,
+			repo: MOZA,
+			standaardbranch: 'main',
+			concepten: 'openbaar',
+			preview: { soort: 'bij-label', label: 'preview' }
 		});
+		expect(store.site('nope')).toBeUndefined();
+		expect(store.schema('moza-site').titel).toBe('veld:title');
+		expect(store.schrijfwijzer('moza-site')).toBe(structureFile('moza-site', 'schrijfwijzer.md'));
+		expect(store.schrijfwijzer('digi-handboek')).toBe('');
+		expect(store.state()).toEqual({ loadedAt: 1, lastError: null });
+		expect(store.statuses().map((s) => [s.site.id, s.available, s.errors])).toEqual([
+			['digi-handboek', true, []],
+			['moza-site', true, []]
+		]);
+	});
+
+	it('keeps a site whose files never were valid from editing, and names the problems', async () => {
+		await team.addSite(site('oude-site', 3, OUD), startingSettings('Oud'), null, null);
 		await store.load();
-		fail = true;
+		expect(store.site('oude-site')).toBeUndefined();
+		expect(store.sites().map((s) => s.id)).not.toContain('oude-site');
+		expect(() => store.schema('oude-site')).toThrow(UnknownSiteError);
+		expect(() => store.schrijfwijzer('oude-site')).toThrow(UnknownSiteError);
+		expect(store.status('oude-site')).toEqual({
+			site: expect.objectContaining({ id: 'oude-site', repoId: 3, repo: OUD }),
+			available: false,
+			errors: [
+				expect.stringMatching(/^\.schrijver\/site\.yaml: naam: hoort niet meer in dit bestand/),
+				expect.stringMatching(/^\.schrijver\/site\.yaml: review: /),
+				expect.stringMatching(/^\.schrijver\/site\.yaml: repo: /),
+				expect.stringMatching(/^\.schrijver\/site\.yaml: content\.schema: /),
+				'.schrijver/schema.yaml: ontbreekt'
+			]
+		});
+		expect(store.needsRetry()).toBe(false);
+	});
+
+	it('keeps the last valid structure after an invalid change, and says what is wrong', async () => {
 		await store.load();
+		await change(MOZA, '.schrijver/site.yaml', 'preview: { soort: bij-push }\n');
+		await store.reload('moza-site');
+		expect(store.site('moza-site')?.preview).toMatchObject({ soort: 'bij-label' });
+		expect(store.status('moza-site')).toMatchObject({
+			available: true,
+			errors: [
+				'.schrijver/site.yaml: content: ontbreekt',
+				'.schrijver/site.yaml: preview.url: is nodig, behalve bij soort: geen'
+			]
+		});
+
+		await change(MOZA, '.schrijver/site.yaml', structureFile('kennisbank', 'site.yaml'));
+		await store.reload('moza-site');
+		expect(store.site('moza-site')?.content.pad).toBe('inhoud');
+		expect(store.status('moza-site')?.errors).toEqual([]);
+	});
+
+	it('follows a renamed repository and a new default branch, and writes them down', async () => {
+		await store.load();
+		await forge.createBranch(MOZA, 'main', 'trunk');
+		forge.setDefaultBranch(MOZA, 'trunk');
+		forge.renameRepo(MOZA, 'MinBZK/moza');
+		await store.load();
+		expect(store.site('moza-site')).toMatchObject({
+			repo: 'MinBZK/moza',
+			standaardbranch: 'trunk'
+		});
+		expect((await team.sites()).find((s) => s.id === 'moza-site')).toMatchObject({
+			repo: 'MinBZK/moza',
+			standaardbranch: 'trunk'
+		});
+		expect((await team.audit('moza-site'))[0]).toMatchObject({
+			action: 'site.moved',
+			target: 'repo,standaardbranch'
+		});
+	});
+
+	it('works in no repository its name now leads to that is not its own, and keeps nothing', async () => {
+		await store.load();
+		forge.renameRepo(MOZA, 'MinBZK/moza-oud');
+		forge.seedRepo(MOZA, 'main', files('moza-site', ['site.yaml', 'schema.yaml']), { id: 99 });
+		await store.reload('moza-site');
+		expect(store.site('moza-site')).toBeUndefined();
+		expect(store.status('moza-site')).toMatchObject({
+			available: false,
+			errors: [OTHER_REPOSITORY(MOZA)]
+		});
+	});
+
+	it('says the App is not installed or GitHub cannot be reached, keeps the structure and asks to try again', async () => {
+		await store.load();
+		forge.setInstalled(MOZA, false);
+		await store.reload('moza-site');
+		expect(store.status('moza-site')).toMatchObject({
+			available: true,
+			errors: [NOT_INSTALLED(MOZA)]
+		});
+		expect(store.needsRetry()).toBe(true);
+
+		forge.setInstalled(MOZA, true);
+		forge.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await store.reload('moza-site');
+		expect(store.status('moza-site')?.errors).toEqual([UNREACHABLE]);
+		expect(log.warn).toHaveBeenCalledWith('config.site_unreachable', {
+			site: 'moza-site',
+			error: 'ForgeError',
+			status: 502
+		});
+
+		await store.reload('moza-site');
+		expect(store.status('moza-site')?.errors).toEqual([]);
+		expect(store.needsRetry()).toBe(false);
+	});
+
+	it('keeps what it had, and throws, when the registry cannot be read', async () => {
+		await store.load();
+		vi.spyOn(team, 'sites').mockRejectedValueOnce(new Error('database down'));
+		await expect(store.load()).rejects.toThrow('database down');
 		expect(store.sites()).toHaveLength(2);
-		expect(store.state().lastError).toContain('boom');
-		fail = false;
+		expect(store.state()).toEqual({
+			loadedAt: 1,
+			lastError: 'De lijst met sites kon niet worden gelezen.'
+		});
 		await store.load();
 		expect(store.state().lastError).toBeNull();
 	});
 
-	it('fails when sites.yaml is absent on first load', async () => {
-		const store = new ConfigStore(memoryReader(new Map()));
+	it('adds a site that joined the registry, and drops one that left it, on a reload', async () => {
 		await store.load();
-		expect(store.sites()).toEqual([]);
-		expect(store.state().lastError).toContain('sites.yaml');
+		await team.addSite(site('oude-site', 3, OUD), startingSettings('Oud'), null, null);
+		await store.reload('oude-site');
+		expect(store.statuses().map((s) => s.site.id)).toEqual([
+			'digi-handboek',
+			'moza-site',
+			'oude-site'
+		]);
+		await team.removeSite('moza-site', 'platform');
+		await store.reload('moza-site');
+		expect(store.status('moza-site')).toBeUndefined();
+		expect(store.site('moza-site')).toBeUndefined();
 	});
 
-	it('throws UnknownSiteError for unknown ids', async () => {
-		const store = new ConfigStore(memoryReader(fixtureFiles()));
+	it('reads at most four sites at a time', async () => {
+		for (let i = 0; i < 10; i++) {
+			const repo = `Org/site-${i}`;
+			forge.seedRepo(repo, 'main', files('kennisbank', ['site.yaml', 'schema.yaml']), {
+				id: 100 + i
+			});
+			await team.addSite(site(`site-${i}`, 100 + i, repo), startingSettings(repo), null, null);
+		}
+		let busy = 0;
+		let most = 0;
+		const lookup = forge.repository.bind(forge);
+		vi.spyOn(forge, 'repository').mockImplementation(async (repo) => {
+			most = Math.max(most, ++busy);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			busy--;
+			return lookup(repo);
+		});
 		await store.load();
-		expect(() => store.schema('nope')).toThrow(UnknownSiteError);
-		expect(() => store.schrijfwijzer('nope')).toThrow(UnknownSiteError);
+		expect(store.sites()).toHaveLength(12);
+		expect(most).toBe(4);
 	});
 });

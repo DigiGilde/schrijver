@@ -3,16 +3,8 @@ import type { PageServerLoad } from './$types';
 import { canManageSite } from '$lib/auth/roles';
 import { siteSettings, teamStore } from '$lib/auth/team-store';
 import { getRepoVisibility } from '$lib/server/repo-visibility';
-import { configRepoName, getConfigStore, getForge } from '$lib/server/services';
+import { getConfigStore, getForge } from '$lib/server/services';
 import { siteHeader } from '$lib/server/site-tabs';
-
-const configRepo = () => {
-	try {
-		return configRepoName();
-	} catch {
-		return null;
-	}
-};
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const site = getConfigStore().site(params.site);
@@ -25,6 +17,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canManageSite(site, { sub: session.sub, githubLogin: prefs.githubLogin }, getForge())
 	]);
 	const branch = site.standaardbranch;
+	const repoUrl = `https://github.com/${site.repo}/tree/${branch.split('/').map(encodeURIComponent).join('/')}`;
 	return {
 		site: siteHeader(settings),
 		// Everyone signed in reads this page: a name and a role, never an address, a sub or an invitation.
@@ -37,7 +30,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		voorbeeld: site.preview.soort,
 		repo: site.repo,
 		branch,
-		repoUrl: `https://github.com/${site.repo}/tree/${branch.split('/').map(encodeURIComponent).join('/')}`,
-		configuratie: configRepo()
+		repoUrl,
+		structuurUrl: `${repoUrl}/.schrijver`
 	};
 };

@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { crc32, deflateSync } from 'node:zlib';
 import { JSDOM } from 'jsdom';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
 import { stripMetadata } from '../../src/lib/content/fotogegevens';
 import {
 	MAX_IMAGE_BYTES,
@@ -15,6 +13,7 @@ import { save } from '../../src/lib/forge/save';
 import type { Identity } from '../../src/lib/forge/trailers';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { POST } from '../../src/routes/api/sites/[site]/afbeelding/+server';
+import { digi, moza, schemaOf } from './sites-fixture';
 
 /** Every function the module exports takes an image apart, so each call is a parse. */
 const parses = vi.hoisted(() => ({ count: 0 }));
@@ -696,8 +695,7 @@ describe('SVG metadata', () => {
 
 /* Where images come in: the upload, and the save that commits them */
 
-const sites = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-const digi = sites.find((s) => s.id === 'digi-handboek')!;
+const sites = [digi, moza];
 
 describe('POST /api/sites/[site]/afbeelding', () => {
 	beforeAll(() => {
@@ -759,9 +757,7 @@ describe('POST /api/sites/[site]/afbeelding', () => {
 });
 
 describe('save', () => {
-	const schema = parseSchemaYaml(
-		readFileSync('tests/fixtures/config/schemas/digi-handboek.yaml', 'utf8')
-	);
+	const schema = schemaOf('digi-handboek');
 	const identity: Identity = { kind: 'anoniem', pseudoniem: 'abc123def456' };
 	const foto = 'docs/afbeeldingen/docs/foto.jpg';
 

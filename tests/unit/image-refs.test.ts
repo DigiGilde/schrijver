@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import {
 	imageNameTails,
 	inImageFolder,
@@ -11,8 +9,8 @@ import {
 	resolveImageRef,
 	resolveSiteRootRef
 } from '../../src/lib/content/image-refs';
+import { digi, moza } from './sites-fixture';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const refs = (text: string, page: string) => [...referencedImages(text, page)].sort();
 
 describe('resolveImageRef', () => {

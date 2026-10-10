@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { parseSchemaYaml } from '../../src/lib/config/types';
 import {
 	draftKey,
 	filePreview,
@@ -22,11 +20,10 @@ import { actions, load as newPageLoad } from '../../src/routes/sites/[site]/nieu
 import { load as editorLoad } from '../../src/routes/sites/[site]/bewerken/[...pad]/+page.server';
 import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeams } from './team-fixture';
+import { schemaOf } from './sites-fixture';
 
-const schema = (name: string) =>
-	parseSchemaYaml(readFileSync(`tests/fixtures/config/schemas/${name}.yaml`, 'utf8'));
-const moza = schema('moza-site');
-const handboek = schema('digi-handboek');
+const moza = schemaOf('moza-site');
+const handboek = schemaOf('digi-handboek');
 const today = '2026-10-08';
 
 describe('isoDate', () => {

@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseSchemaYaml } from '../../src/lib/config/types';
 import {
 	applyForm,
 	buildForm,
@@ -13,11 +11,10 @@ import {
 	validateForm,
 	withValue
 } from '../../src/lib/content/schema-form';
+import { schemaOf } from './sites-fixture';
 
-const load = (n: string) =>
-	parseSchemaYaml(readFileSync(`tests/fixtures/config/schemas/${n}.yaml`, 'utf8'));
-const moza = load('moza-site');
-const handboek = load('digi-handboek');
+const moza = schemaOf('moza-site');
+const handboek = schemaOf('digi-handboek');
 
 describe('buildForm', () => {
 	it('excludes hidden fields', () => {

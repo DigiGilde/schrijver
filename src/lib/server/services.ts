@@ -1,6 +1,5 @@
-import { forgeConfigReader } from '$lib/config/forge-reader';
-import { ConfigStore } from '$lib/config/load';
-import type { SiteConfig } from '$lib/config/types';
+import { teamStore } from '$lib/auth/team-store';
+import { ConfigStore, type Registry } from '$lib/config/load';
 import { CachingForge } from '$lib/forge/cache';
 import { githubForgeFromEnv } from '$lib/forge/github';
 import type { Forge } from '$lib/forge/types';
@@ -10,13 +9,9 @@ const RETRY_MS = 60000;
 
 let configStore: ConfigStore | null = null;
 let forge: Forge | null = null;
-let inFlight: Promise<void> | null = null;
-let dirty = false;
 let stopped = false;
 let initPromise: Promise<void> | null = null;
-let initialised: Promise<void> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
-let afterLoad: ((sites: SiteConfig[]) => Promise<void>) | null = null;
 
 export function getConfigStore(): ConfigStore {
 	if (!configStore) throw new Error('config store not initialised');
@@ -36,79 +31,107 @@ export function setForge(f: Forge | null): void {
 	forge = f;
 }
 
-function parseConfigRepo(): { repo: string; ref: string } {
-	const raw = process.env.GITHUB_CONFIG_REPO ?? '';
-	const [repo, ref] = raw.split('@');
-	if (!repo || !repo.includes('/')) throw new Error('GITHUB_CONFIG_REPO must be owner/name[@ref]');
-	return { repo, ref: ref || 'main' };
-}
+// Loads run one at a time, so an older read never overwrites a newer one.
+let wholeLoad = false;
+const siteLoads = new Set<string>();
+let running: Promise<void> | null = null;
 
-export function configRepoName(): string {
-	return parseConfigRepo().repo;
-}
-
-/** Runs after every successful load; a failure is logged and the load retried. */
-export function whenConfigLoaded(listener: ((sites: SiteConfig[]) => Promise<void>) | null): void {
-	afterLoad = listener;
-}
-
-function loadOnce(): Promise<void> {
-	if (inFlight) {
-		dirty = true;
-		return inFlight;
-	}
-	inFlight = (async () => {
-		const store = getConfigStore();
-		let thrown: string | null = null;
+function drain(): Promise<void> {
+	running ??= (async () => {
 		try {
-			do {
-				dirty = false;
-				thrown = null;
-				try {
-					await store.load();
-				} catch (e) {
-					thrown = e instanceof Error ? e.message : String(e);
+			while (wholeLoad || siteLoads.size > 0) {
+				if (wholeLoad) {
+					wholeLoad = false;
+					siteLoads.clear();
+					await loadAll();
+				} else {
+					const [siteId] = siteLoads;
+					siteLoads.delete(siteId);
+					await loadSite(siteId);
 				}
-			} while (dirty);
-		} finally {
-			inFlight = null;
-		}
-		const error = thrown ?? store.state().lastError;
-		if (error) {
-			log.error('config.load_failed', { error });
-			scheduleRetry();
-		} else {
-			log.info('config.loaded');
-			try {
-				await afterLoad?.(store.sites());
-			} catch (err) {
-				log.error('config.after_load_failed', errorFields(err));
-				scheduleRetry();
 			}
+		} finally {
+			running = null;
 		}
 	})();
-	return inFlight;
+	return running;
+}
+
+async function loadAll(): Promise<void> {
+	const store = getConfigStore();
+	try {
+		await store.load();
+		const statuses = store.statuses();
+		log.info('config.loaded', {
+			sites: statuses.length,
+			available: statuses.filter((s) => s.available).length
+		});
+		for (const { site, errors } of statuses) {
+			if (errors.length > 0)
+				log.warn('config.site_invalid', { site: site.id, errors: errors.length });
+		}
+	} catch (err) {
+		log.error('config.load_failed', errorFields(err));
+	}
+	if (store.state().lastError !== null || store.needsRetry()) scheduleRetry();
+}
+
+async function loadSite(siteId: string): Promise<void> {
+	const store = getConfigStore();
+	try {
+		await store.reload(siteId);
+		const status = store.status(siteId);
+		log.info('config.site_loaded', {
+			site: siteId,
+			available: status?.available ?? false,
+			errors: status?.errors.length ?? 0
+		});
+	} catch (err) {
+		log.error('config.site_load_failed', { site: siteId, ...errorFields(err) });
+		scheduleRetry();
+		return;
+	}
+	if (store.needsRetry()) scheduleRetry();
 }
 
 function scheduleRetry(): void {
 	if (retryTimer || stopped) return;
 	retryTimer = setTimeout(() => {
 		retryTimer = null;
-		void loadOnce();
+		void reloadConfig();
 	}, RETRY_MS);
 	retryTimer.unref?.();
 }
 
+/** Reads the list of sites and every site's structure again. */
 export function reloadConfig(): Promise<void> {
-	return loadOnce();
+	wholeLoad = true;
+	return drain();
 }
 
-export function initServices(): Promise<void> {
+/** Reads one site's structure again: after a push to its default branch, or after adding or removing it. */
+export function reloadSite(siteId: string): Promise<void> {
+	siteLoads.add(siteId);
+	return drain();
+}
+
+/**
+ * Builds the sites from the registry in the database. `prepare` runs before every read of the
+ * registry; when it or the read fails, the load is tried again in a minute.
+ */
+export function initServices(prepare?: () => Promise<void>): Promise<void> {
 	initPromise ??= (async () => {
 		stopped = false;
-		const { repo, ref } = parseConfigRepo();
-		setConfigStore(new ConfigStore(forgeConfigReader(getForge(), repo, ref)));
-		await loadOnce();
+		const registry: Registry = {
+			async sites() {
+				await prepare?.();
+				return teamStore().sites();
+			},
+			moveSite: (siteId, repo, standaardbranch) =>
+				teamStore().moveSite(siteId, repo, standaardbranch)
+		};
+		setConfigStore(new ConfigStore(registry, getForge));
+		await reloadConfig();
 	})();
 	return initPromise;
 }

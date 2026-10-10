@@ -5,19 +5,22 @@ import {
 	changedSettings,
 	forgetBefore,
 	invitationExpiry,
+	movedColumns,
 	normaliseEmail,
-	seedAddresses,
 	sortMembers,
 	type Actor,
 	type AddResult,
+	type AddSiteResult,
 	type AuditEntry,
+	type FirstAdmin,
 	type Invitation,
 	type LoginProfile,
 	type Member,
+	type NewSite,
 	type Profile,
+	type RegisteredSite,
 	type Role,
 	type SettingsValues,
-	type SiteSeed,
 	type SiteSettings,
 	type TeamChange,
 	type TeamStore
@@ -31,6 +34,7 @@ type MemberRow = Omit<Member, 'name' | 'email'>;
  */
 export class MemoryTeamStore implements TeamStore {
 	private profiles = new Map<string, Profile>();
+	private registry = new Map<string, RegisteredSite>();
 	private siteSettings = new Map<string, SiteSettings>();
 	private memberRows = new Map<string, Map<string, MemberRow>>();
 	private invitationRows: Invitation[] = [];
@@ -109,43 +113,92 @@ export class MemoryTeamStore implements TeamStore {
 		return s ? { ...s, identiteitToegestaan: [...s.identiteitToegestaan] } : null;
 	}
 
-	async seedSite(seed: SiteSeed) {
-		if (this.siteSettings.has(seed.siteId)) return false;
+	async sites() {
+		return [...this.registry.values()]
+			.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))
+			.map((site) => ({ ...site }));
+	}
+
+	async addSite(
+		site: NewSite,
+		values: SettingsValues,
+		admin: FirstAdmin | null,
+		actor: string | null
+	): Promise<AddSiteResult> {
+		if (this.registry.has(site.id)) return { ok: false, reason: 'id-taken' };
+		if ([...this.registry.values()].some((s) => s.repoId === site.repoId)) {
+			return { ok: false, reason: 'repo-taken' };
+		}
+		if (admin && 'sub' in admin && !this.profiles.has(admin.sub)) throw new Error('unknown user');
 		const now = this.clock();
-		this.siteSettings.set(seed.siteId, {
-			...seed.values,
-			identiteitToegestaan: allowedKinds(seed.values.identiteitToegestaan),
-			siteId: seed.siteId,
+		this.registry.set(site.id, { ...site, createdAt: now, createdBy: actor });
+		this.siteSettings.set(site.id, {
+			...values,
+			identiteitToegestaan: allowedKinds(values.identiteitToegestaan),
+			siteId: site.id,
 			updatedAt: now,
-			updatedBy: null
+			updatedBy: actor
 		});
 		this.write(
-			{ actorSub: null, siteId: seed.siteId, action: 'settings.seeded', target: null, role: null },
+			{ actorSub: actor, siteId: site.id, action: 'site.added', target: site.repo, role: null },
 			now
 		);
-		for (const email of seedAddresses(seed.redactie)) {
-			const id = randomUUID();
-			this.invitationRows.push({
-				id,
-				siteId: seed.siteId,
-				email,
-				role: 'redactie',
-				invitedBy: null,
-				createdAt: now,
-				expiresAt: invitationExpiry(now)
-			});
-			this.write(
-				{
-					actorSub: null,
-					siteId: seed.siteId,
-					action: 'invitation.created',
-					target: id,
-					role: 'redactie'
-				},
-				now
-			);
+		if (!admin) return { ok: true, admin: null };
+		if ('email' in admin) {
+			return { ok: true, admin: this.addAddress(site.id, admin.email, 'beheerder', actor, now) };
 		}
-		return true;
+		this.team(site.id).set(admin.sub, {
+			sub: admin.sub,
+			role: 'beheerder',
+			addedBy: actor,
+			addedAt: now
+		});
+		this.write(
+			{
+				actorSub: actor,
+				siteId: site.id,
+				action: 'member.added',
+				target: admin.sub,
+				role: 'beheerder'
+			},
+			now
+		);
+		const name = this.profiles.get(admin.sub)?.name ?? null;
+		return { ok: true, admin: { kind: 'added', sub: admin.sub, name } };
+	}
+
+	async removeSite(siteId: string, actor: string) {
+		const site = this.registry.get(siteId);
+		if (!site) return null;
+		this.registry.delete(siteId);
+		this.siteSettings.delete(siteId);
+		this.memberRows.delete(siteId);
+		this.invitationRows = this.invitationRows.filter((i) => i.siteId !== siteId);
+		this.writerRows = this.writerRows.filter((w) => w.siteId !== siteId);
+		this.write(
+			{ actorSub: actor, siteId, action: 'site.removed', target: site.repo, role: null },
+			this.clock()
+		);
+		return { ...site };
+	}
+
+	async moveSite(siteId: string, repo: string, standaardbranch: string) {
+		const site = this.registry.get(siteId);
+		if (!site) return [];
+		const changed = movedColumns(site, { repo, standaardbranch });
+		if (changed.length === 0) return [];
+		Object.assign(site, { repo, standaardbranch });
+		this.write(
+			{
+				actorSub: null,
+				siteId,
+				action: 'site.moved',
+				target: changed.join(','),
+				role: null
+			},
+			this.clock()
+		);
+		return changed;
 	}
 
 	async saveSettings(siteId: string, values: SettingsValues, actor: string) {
@@ -193,8 +246,17 @@ export class MemoryTeamStore implements TeamStore {
 	}
 
 	async addByEmail(siteId: string, address: string, role: Role, actor: string): Promise<AddResult> {
+		return this.addAddress(siteId, address, role, actor, this.clock());
+	}
+
+	private addAddress(
+		siteId: string,
+		address: string,
+		role: Role,
+		actor: string | null,
+		now: Date
+	): AddResult {
 		const team = this.team(siteId);
-		const now = this.clock();
 		const email = normaliseEmail(address);
 		const known = [...this.profiles.values()].filter((p) => p.email === email);
 		if (known.length === 1) {

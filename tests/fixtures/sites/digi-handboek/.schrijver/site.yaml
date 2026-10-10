@@ -1,0 +1,9 @@
+content:
+  pad: docs
+  patroon: '**/*.md'
+  afbeeldingen:
+    pad: docs/afbeeldingen/{paginaslug}
+    verwijzing: relatief
+preview:
+  soort: bij-push
+  url: 'https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/'

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Session } from '../../src/lib/auth/session';
-import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
-import { seedSites, useTeamStore } from '../../src/lib/auth/team-store';
+import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { FakeForge } from '../../src/lib/forge/fake';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
+import { useTeams } from './team-fixture';
 import { load } from '../../src/routes/instellingen/+page.server';
 
 const session = (sub: string): Session => ({
@@ -46,9 +46,7 @@ afterAll(() => {
 });
 
 beforeEach(async () => {
-	const team = new MemoryTeamStore();
-	useTeamStore(team);
-	await seedSites(getConfigStore().sites(), team);
+	const team = await useTeams(getConfigStore().sites());
 	await team.recordLogin({
 		sub: 'baas',
 		name: 'B',

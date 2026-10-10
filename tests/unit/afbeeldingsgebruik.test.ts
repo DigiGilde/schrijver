@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const state = vi.hoisted(() => ({ forge: null as unknown }));
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({
@@ -20,6 +17,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 
 import { POST } from '../../src/routes/api/sites/[site]/afbeeldingsgebruik/+server';
 import { log } from '../../src/lib/log';
+import { digi, moza } from './sites-fixture';
 
 process.env.PSEUDONYM_SECRET = 'afbeeldingsgebruik-test-secret';
 

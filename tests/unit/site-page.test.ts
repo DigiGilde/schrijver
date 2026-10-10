@@ -71,7 +71,7 @@ interface AboutData {
 	repo: string;
 	branch: string;
 	repoUrl: string;
-	configuratie: string | null;
+	structuurUrl: string;
 	mergenVanuitSchrijver: boolean;
 }
 
@@ -106,7 +106,6 @@ let own: number;
 
 beforeAll(async () => {
 	process.env.PSEUDONYM_SECRET = 'site-page-test-secret';
-	process.env.GITHUB_CONFIG_REPO = 'example/config@main';
 	const services = await buildFakeServices();
 	forge = services.forge;
 	setForge(forge);
@@ -208,7 +207,7 @@ describe('about page', () => {
 		});
 	});
 
-	it('names the team, the signing choices, the preview and the repository', async () => {
+	it('names the team, the signing choices, the preview, the repository and its structure', async () => {
 		const data = await about(WRITER);
 		expect(data.redactie).toEqual([{ naam: 'Naam redacteur', beheerder: false }]);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
@@ -217,7 +216,7 @@ describe('about page', () => {
 		expect(data.repo).toBe('DigiGilde/handboek');
 		expect(data.branch).toBe('main');
 		expect(data.repoUrl).toBe('https://github.com/DigiGilde/handboek/tree/main');
-		expect(data.configuratie).toBe('example/config');
+		expect(data.structuurUrl).toBe('https://github.com/DigiGilde/handboek/tree/main/.schrijver');
 	});
 
 	it('offers only the choices the site allows, anoniem always among them', async () => {

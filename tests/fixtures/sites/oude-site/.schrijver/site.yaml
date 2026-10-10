@@ -1,0 +1,11 @@
+naam: Oude site
+repo: DigiGilde/oude-site
+content:
+  pad: docs
+  patroon: '**/*.md'
+  schema: oude-site
+review:
+  model: goedkeuring
+preview:
+  soort: bij-push
+  url: 'https://oude-site.example.org/pr-{nummer}/'

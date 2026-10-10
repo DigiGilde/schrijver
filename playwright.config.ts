@@ -40,7 +40,6 @@ export default defineConfig({
 				}),
 				PSEUDONYM_SECRET: 'e2e-pseudonym-secret',
 				SESSION_SECRET: 'e2e-session-secret-e2e-session-secret',
-				GITHUB_CONFIG_REPO: 'example/config',
 				GITHUB_APP_CLIENT_ID: 'Iv1.e2e',
 				OIDC_DISCOVERY_URL: `http://localhost:${issuerPort}/.well-known/openid-configuration`,
 				OIDC_CLIENT_ID: 'schrijver-e2e',

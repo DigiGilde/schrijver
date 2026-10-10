@@ -14,11 +14,12 @@ const prefs = {
 };
 
 const loaded = vi.hoisted(() => ({
-	listener: null as ((sites: unknown[]) => Promise<void>) | null
+	prepare: null as (() => Promise<void>) | null
 }));
 vi.mock('../../src/lib/server/services', () => ({
-	initServices: vi.fn(async () => undefined),
-	whenConfigLoaded: (listener: (sites: unknown[]) => Promise<void>) => (loaded.listener = listener)
+	initServices: vi.fn(async (prepare: () => Promise<void>) => {
+		loaded.prepare = prepare;
+	})
 }));
 vi.mock('../../src/lib/server/fake-mode', () => ({
 	initFakeServices: vi.fn(async () => undefined)
@@ -30,7 +31,6 @@ vi.mock('../../src/lib/auth/users', () => ({
 }));
 vi.mock('../../src/lib/auth/team-store', () => ({
 	recordLogin: vi.fn(async () => undefined),
-	seedSites: vi.fn(async () => undefined),
 	startRetention: vi.fn(),
 	teamStore: vi.fn(),
 	useMemoryStores: vi.fn()
@@ -40,7 +40,6 @@ import { handle, handleError } from '../../src/hooks.server';
 import { getPrefs } from '../../src/lib/auth/users';
 import {
 	recordLogin,
-	seedSites,
 	startRetention,
 	teamStore,
 	useMemoryStores
@@ -61,7 +60,8 @@ function run(
 	path: string,
 	cookie?: string,
 	headers: Record<string, string> = {},
-	cookies: Record<string, string> = {}
+	cookies: Record<string, string> = {},
+	using: Handle = handle
 ) {
 	const set = vi.fn();
 	const locals: Record<string, unknown> = {};
@@ -83,7 +83,7 @@ function run(
 		state: { tracing: { record_span: ({ fn }: { fn: (c: unknown) => unknown }) => fn({}) } }
 	};
 	const result = with_request_store(store as never, () =>
-		(handle as Handle)({ event, resolve } as unknown as Parameters<Handle>[0])
+		using({ event, resolve } as unknown as Parameters<Handle>[0])
 	);
 	return { result: Promise.resolve(result), locals, resolve, set };
 }
@@ -213,12 +213,22 @@ describe('handle', () => {
 });
 
 describe('people and settings in the database', () => {
-	it('seeds the configured sites after each load, and starts the retention', async () => {
+	it('starts the retention at the first request', async () => {
 		const { result } = run('/sites/x', sealSession(session(), secret));
 		await result;
 		expect(startRetention).toHaveBeenCalled();
-		await loaded.listener!([{ id: 'digi-handboek' }]);
-		expect(seedSites).toHaveBeenCalledWith([{ id: 'digi-handboek' }]);
+	});
+
+	it('applies the schema before the list of sites is read, and tries again after a failure', async () => {
+		vi.resetModules();
+		const fresh = await import('../../src/hooks.server');
+		const users = await import('../../src/lib/auth/users');
+		await run('/login', undefined, {}, {}, fresh.handle).result;
+		expect(users.applySchema).not.toHaveBeenCalled();
+		vi.mocked(users.applySchema).mockRejectedValueOnce(new Error('geen database'));
+		await expect(loaded.prepare!()).rejects.toThrow('geen database');
+		await loaded.prepare!();
+		expect(users.applySchema).toHaveBeenCalledTimes(2);
 	});
 });
 

@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import { ADJUSTMENT_LABEL, toProposal, previewUrl } from '../../src/lib/forge/proposals';
 import type { PrSummary, PrFile } from '../../src/lib/forge/types';
 import type { Identity } from '../../src/lib/forge/trailers';
+import { digi, moza } from './sites-fixture';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const TRAILER = 'Schrijver-Auteur: abcdef012345';
 const MINE: Identity[] = [{ kind: 'anoniem', pseudoniem: 'abcdef012345' }];
 

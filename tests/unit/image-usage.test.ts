@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { CachingForge } from '../../src/lib/forge/cache';
 import { imageUsage, mentionsByBlob, missingAfterMerge } from '../../src/lib/forge/image-usage';
 import type { FileChange, PrFile } from '../../src/lib/forge/types';
+import { digi, moza } from './sites-fixture';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const KAT = 'docs/afbeeldingen/privacy/kat.png';
 const HOND = 'docs/afbeeldingen/privacy/hond.png';

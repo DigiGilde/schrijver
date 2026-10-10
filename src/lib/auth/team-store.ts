@@ -1,7 +1,6 @@
-import type { SiteConfig } from '$lib/config/types';
 import { errorFields, log } from '$lib/log';
 import type { Session } from './session';
-import { seedFromConfig, type SiteSettings, type TeamStore } from './team';
+import type { SiteSettings, TeamStore } from './team';
 import { MemoryTeamStore } from './team-memory';
 import { createTeamStore } from './team-postgres';
 import { client, MemoryUsersStore, useUsersStore } from './users';
@@ -29,27 +28,17 @@ export function useMemoryStores(): { users: MemoryUsersStore; team: MemoryTeamSt
 	return memory;
 }
 
-/** Gives every configured site its settings; a site that gets them now also gets its first invitations. */
-export async function seedSites(sites: SiteConfig[], team: TeamStore = teamStore()): Promise<void> {
-	for (const site of sites) {
-		if (await team.seedSite(seedFromConfig(site))) log.info('team.site_seeded', { site: site.id });
-	}
-}
-
 /**
- * The settings of a configured site: naam, omschrijving, adres, merging, four eyes and the ways to
- * sign. A site that has none yet gets them from its configuration first.
+ * The settings of a site: naam, omschrijving, adres, merging, four eyes and the ways to sign. A site
+ * gets them when it is added, so none is an error.
  */
 export async function siteSettings(
-	site: SiteConfig,
+	site: { id: string },
 	team: TeamStore = teamStore()
 ): Promise<SiteSettings> {
 	const found = await team.settings(site.id);
-	if (found) return found;
-	await seedSites([site], team);
-	const seeded = await team.settings(site.id);
-	if (!seeded) throw new Error(`no settings for site ${site.id}`);
-	return seeded;
+	if (!found) throw new Error(`no settings for site ${site.id}`);
+	return found;
 }
 
 /**

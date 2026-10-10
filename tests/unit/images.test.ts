@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import {
 	ImageError,
 	MAX_IMAGE_BYTES,
@@ -11,10 +9,9 @@ import {
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { POST } from '../../src/routes/api/sites/[site]/afbeelding/+server';
+import { digi, moza } from './sites-fixture';
 
-const sites = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-const digi = sites.find((s) => s.id === 'digi-handboek')!;
-const moza = sites.find((s) => s.id === 'moza-site')!;
+const sites = [digi, moza];
 
 const PNG = Uint8Array.from(
 	Buffer.from(

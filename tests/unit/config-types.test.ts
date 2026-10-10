@@ -1,185 +1,169 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ZodError } from 'zod';
-import { parseSchemaYaml, parseSitesYaml } from '../../src/lib/config/types';
+import { parseSchemaFile, parseSiteFile } from '../../src/lib/config/types';
+import { structureFile } from './sites-fixture';
 
-const fixture = (p: string) => readFileSync(`tests/fixtures/config/${p}`, 'utf8');
+const DIGI = structureFile('digi-handboek', 'site.yaml');
+const MOZA = structureFile('moza-site', 'site.yaml');
 
-describe('parseSitesYaml', () => {
-	it('parses the fixture', () => {
-		const sites = parseSitesYaml(fixture('sites.yaml'));
-		expect(sites.map((s) => s.id)).toEqual(['digi-handboek', 'moza-site']);
-		expect(sites[1].preview).toMatchObject({ soort: 'bij-label', label: 'preview' });
-		expect(sites[1].content.uitsluiten).toEqual(['documenten/**']);
-	});
+const errorsOf = (parsed: { ok: boolean; errors?: string[] }) => (parsed.ok ? [] : parsed.errors);
 
-	it('applies defaults', () => {
-		const [site] = parseSitesYaml(`
-- id: x
-  naam: X
-  forge: github
-  repo: o/r
-  standaardbranch: main
-  content: { pad: docs, patroon: "**/*.md", schema: x }
-  review: { model: goedkeuring }
-  preview: { soort: geen }
-`);
-		expect(site.concepten).toBe('openbaar');
-		expect(site.seed).toEqual({
-			naam: 'X',
-			omschrijving: null,
-			adres: null,
-			mergenVanuitSchrijver: true,
-			vierOgen: true,
-			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
-			redactie: []
+describe('parseSiteFile', () => {
+	it('reads the fixtures of both pilot sites', () => {
+		const digi = parseSiteFile(DIGI);
+		const moza = parseSiteFile(MOZA);
+		expect(digi).toMatchObject({
+			ok: true,
+			value: {
+				concepten: 'openbaar',
+				content: { pad: 'docs', patroon: '**/*.md' },
+				preview: { soort: 'bij-push' }
+			}
 		});
-	});
-
-	it('keeps naam, omschrijving, adres, review and identiteit only as starting values', () => {
-		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
-		expect(digi.seed).toEqual({
-			naam: 'Digi Handboek',
-			omschrijving: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
-			adres: 'https://digihandboek.rijks.app/',
-			mergenVanuitSchrijver: true,
-			vierOgen: false,
-			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
-			redactie: ['naam@rijksoverheid.nl']
+		expect(moza).toMatchObject({
+			ok: true,
+			value: {
+				content: { uitsluiten: ['documenten/**'] },
+				preview: { soort: 'bij-label', label: 'preview' }
+			}
 		});
-		for (const key of ['naam', 'omschrijving', 'adres', 'review', 'identiteit'])
-			expect(moza, key).not.toHaveProperty(key);
-		expect(moza.seed).toMatchObject({
-			vierOgen: true,
-			identiteitToegestaan: ['anoniem', 'gekoppeld']
-		});
-	});
-
-	it('names a site after its id when the configuration gives no name', () => {
-		const text = fixture('sites.yaml').replace('  naam: Digi Handboek\n', '');
-		expect(parseSitesYaml(text)[0].seed.naam).toBe('digi-handboek');
-	});
-
-	it('says that a value which only starts the settings is one', () => {
-		const base = fixture('sites.yaml');
-		for (const text of [
-			base.replace('vier-ogen: false', 'vier-ogen: misschien'),
-			base.replace('toegestaan: [anoniem, gekoppeld]', 'toegestaan: [anoniem, iedereen]'),
-			base.replace('adres: https://digihandboek.rijks.app/', 'adres: digihandboek.rijks.app')
-		]) {
-			expect(() => parseSitesYaml(text)).toThrow(
-				'a starting value: once the site has its settings in Schrijver, those apply'
-			);
-		}
-	});
-
-	it('drops a trailing slash from content.pad', () => {
-		const sites = parseSitesYaml(fixture('sites.yaml').replace('pad: docs\n', 'pad: docs/\n'));
-		expect(sites[0].content.pad).toBe('docs');
-	});
-
-	it('refuses concepten: privé with a Dutch message', () => {
-		const text = fixture('sites.yaml').replace(
-			'- id: moza-site',
-			'- concepten: privé\n  id: moza-site'
-		);
-		expect(() => parseSitesYaml(text)).toThrow('concepten: privé wordt nog niet ondersteund');
-	});
-
-	it('refuses review.model: direct with a Dutch message', () => {
-		const text = fixture('sites.yaml').replace('model: goedkeuring', 'model: direct');
-		expect(() => parseSitesYaml(text)).toThrow('review.model: direct wordt nog niet ondersteund');
-	});
-
-	it('requires label for bij-label and {nummer} in url', () => {
-		const base = fixture('sites.yaml');
-		expect(() => parseSitesYaml(base.replace('    label: preview\n', ''))).toThrow(ZodError);
-		expect(() => parseSitesYaml(base.replace('pr-{nummer}', 'pr-1'))).toThrow(ZodError);
-	});
-
-	it('accepts a web address as the adres of a site, over https or http', () => {
-		const base = fixture('sites.yaml');
-		for (const adres of ['https://digihandboek.rijks.app/', 'http://example.org/pad?x=1#kop']) {
-			const text = base.replace('adres: https://digihandboek.rijks.app/', `adres: ${adres}`);
-			expect(parseSitesYaml(text)[0].seed.adres).toBe(adres);
-		}
-	});
-
-	it('refuses an adres that is not a web address', () => {
-		const base = fixture('sites.yaml');
-		for (const adres of [
-			'javascript:alert(1)',
-			'JavaScript:alert(1)',
-			'data:text/html,<p>x</p>',
-			'ftp://example.org',
-			'mailto:naam@example.org',
-			'https:example.org',
-			'example.org'
-		]) {
-			const text = base.replace(
-				'adres: https://digihandboek.rijks.app/',
-				`adres: ${JSON.stringify(adres)}`
-			);
-			expect(() => parseSitesYaml(text), adres).toThrow('must be a web address');
-		}
-	});
-
-	it('reads the Mermaid token colours of a site', () => {
-		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
-		expect(digi.mermaid).toBeUndefined();
-		expect(moza.mermaid?.tokens['--color-bg-light']).toEqual({
+		expect(moza.ok && moza.value.mermaid?.tokens['--color-bg-light']).toEqual({
 			licht: '#f0f7ff',
 			donker: '#172538'
 		});
+		expect(digi.ok && digi.value.mermaid).toBeUndefined();
 	});
 
-	it('accepts only hex colours and custom property names as Mermaid tokens', () => {
-		const base = fixture('sites.yaml');
-		expect(() => parseSitesYaml(base.replace("licht: '#e17000'", 'licht: oranje'))).toThrow(
-			'must be a hex colour'
-		);
-		expect(() => parseSitesYaml(base.replace('--color-text:', 'color-text:'))).toThrow(
-			'must be a custom property name'
-		);
-		expect(() =>
-			parseSitesYaml(base.replace("donker: '#ebeef2' }", "donker: '#ebeef2', hoog: '#fff' }"))
-		).toThrow(ZodError);
+	it('drops a trailing slash from content.pad', () => {
+		const parsed = parseSiteFile(DIGI.replace('pad: docs\n', 'pad: docs/\n'));
+		expect(parsed.ok && parsed.value.content.pad).toBe('docs');
 	});
 
-	it('rejects unknown keys', () => {
-		expect(() =>
-			parseSitesYaml(fixture('sites.yaml').replace('forge: github', 'forge: github\n  extra: 1'))
-		).toThrow(ZodError);
-	});
-});
-
-describe('parseSchemaYaml', () => {
-	it('parses both fixtures', () => {
-		const digi = parseSchemaYaml(fixture('schemas/digi-handboek.yaml'));
-		expect(digi.titel).toBe('uit-h1');
-		expect(digi.velden.hero.verborgen).toBe(true);
-		expect(digi.velden.description.verplicht).toBe(false);
-		const moza = parseSchemaYaml(fixture('schemas/moza-site.yaml'));
-		expect(moza.titel).toBe('veld:title');
-		expect(moza.velden.date['alleen-in']).toEqual(['weekly/**']);
-		expect('soorten' in moza['nieuwe-pagina']).toBe(true);
-	});
-
-	it('rejects an unknown field type with path velden.foo.type', () => {
-		try {
-			parseSchemaYaml(
-				'titel: uit-h1\nvelden:\n  foo: { type: kleur }\nnieuwe-pagina: { mappen: [a] }\n'
-			);
-			expect.unreachable();
-		} catch (e) {
-			expect(e).toBeInstanceOf(ZodError);
-			expect((e as ZodError).issues[0].path).toEqual(['velden', 'foo', 'type']);
+	it('names each field that moved to Schrijver, and where it is set now', () => {
+		const parsed = parseSiteFile(structureFile('oude-site', 'site.yaml'));
+		expect(errorsOf(parsed)).toEqual([
+			'naam: hoort niet meer in dit bestand. Je stelt het in bij Beheer van de site in Schrijver, onder Instellingen van de site.',
+			'review: hoort niet meer in dit bestand. Samenvoegen, vier ogen en de redactie stel je in bij Beheer van de site in Schrijver.',
+			'repo: hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository en welke standaardbranch het is.',
+			'content.schema: hoort niet meer in dit bestand. Het schema staat in .schrijver/schema.yaml.'
+		]);
+		for (const field of ['id', 'omschrijving', 'adres', 'identiteit', 'team', 'schrijfwijzer']) {
+			expect(errorsOf(parseSiteFile(`${field}: x\n${DIGI}`)), field).toEqual([
+				expect.stringMatching(new RegExp(`^${field}: hoort niet meer in dit bestand. `))
+			]);
 		}
 	});
 
-	it('rejects a titel that is neither uit-h1 nor veld:', () => {
-		expect(() =>
-			parseSchemaYaml('titel: iets\nvelden: {}\nnieuwe-pagina: { mappen: [a] }\n')
-		).toThrow(ZodError);
+	it('refuses concepten: privé in Dutch', () => {
+		expect(errorsOf(parseSiteFile(`concepten: privé\n${DIGI}`))).toEqual([
+			'concepten: privé wordt nog niet ondersteund'
+		]);
+	});
+
+	it('wants a label for bij-label, and a preview address with {nummer} on the web', () => {
+		expect(errorsOf(parseSiteFile(MOZA.replace('  label: preview\n', '')))).toEqual([
+			'preview.label: is nodig bij soort: bij-label'
+		]);
+		expect(errorsOf(parseSiteFile(DIGI.replace('pr-{nummer}', 'pr-1')))).toEqual([
+			'preview.url: moet {nummer} bevatten'
+		]);
+		for (const url of [
+			'javascript:alert({nummer})',
+			'data:text/html,{nummer}',
+			'ftp://example.org/{nummer}',
+			'{nummer}.example.org'
+		]) {
+			const text = DIGI.replace(
+				"'https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/'",
+				JSON.stringify(url)
+			);
+			expect(errorsOf(parseSiteFile(text)), url).toEqual([
+				'preview.url: moet een webadres zijn dat begint met https:// of http://'
+			]);
+		}
+		expect(
+			parseSiteFile(DIGI.replace('soort: bij-push', 'soort: geen').replace(/ {2}url: .*\n/, '')).ok
+		).toBe(true);
+	});
+
+	it('accepts only hex colours and custom property names as Mermaid tokens', () => {
+		expect(errorsOf(parseSiteFile(MOZA.replace("licht: '#e17000'", 'licht: oranje')))).toEqual([
+			'mermaid.tokens.--color-rijks-oranje.licht: moet een hexkleur zijn, zoals #f0f7ff'
+		]);
+		expect(errorsOf(parseSiteFile(MOZA.replace('--color-text:', 'color-text:')))).toEqual([
+			'mermaid.tokens.color-text: moet de naam van een custom property zijn, zoals --color-text'
+		]);
+	});
+
+	it('names an unknown field, a missing one and a wrong value in Dutch', () => {
+		expect(errorsOf(parseSiteFile(DIGI.replace('patroon:', 'extra: 1\n  patroon:')))).toEqual([
+			'content.extra: is geen veld dat Schrijver kent'
+		]);
+		expect(errorsOf(parseSiteFile(DIGI.replace("  patroon: '**/*.md'\n", '')))).toEqual([
+			'content.patroon: ontbreekt'
+		]);
+		expect(errorsOf(parseSiteFile(DIGI.replace('soort: bij-push', 'soort: altijd')))).toEqual([
+			'preview.soort: moet een van deze waarden zijn: bij-push, bij-label, geen'
+		]);
+		expect(errorsOf(parseSiteFile(DIGI.replace('pad: docs\n', 'pad: [docs]\n')))).toEqual([
+			'content.pad: moet tekst zijn'
+		]);
+	});
+
+	it('refuses a folder outside the repository', () => {
+		for (const pad of ['/docs', '../docs', 'docs/../..', 'docs\\\\x']) {
+			expect(errorsOf(parseSiteFile(DIGI.replace('pad: docs\n', `pad: '${pad}'\n`))), pad).toEqual([
+				'content.pad: moet een map in de repository zijn, zonder / vooraan en zonder ..'
+			]);
+		}
+	});
+
+	it('says where the YAML breaks, and that an empty file is no structure', () => {
+		expect(errorsOf(parseSiteFile('content: [kapot\n'))).toEqual([
+			expect.stringMatching(/^geen geldige YAML \(regel \d+\)$/)
+		]);
+		expect(errorsOf(parseSiteFile(`${DIGI}content: {}\n`))).toEqual([
+			expect.stringMatching(/^geen geldige YAML/)
+		]);
+		expect(errorsOf(parseSiteFile(''))).toEqual(['is leeg, of geen blok met velden']);
+		expect(errorsOf(parseSiteFile('- een lijst\n'))).toEqual(['is leeg, of geen blok met velden']);
+	});
+
+	it('refuses a file that would grow without bound through aliases', () => {
+		const bomb = [
+			'a: &a [x, x, x, x, x, x, x, x, x, x]',
+			...Array.from({ length: 12 }, (_, i) => {
+				const prev = i === 0 ? 'a' : `l${i - 1}`;
+				return `l${i}: &l${i} [*${prev}, *${prev}, *${prev}, *${prev}, *${prev}, *${prev}, *${prev}, *${prev}, *${prev}, *${prev}]`;
+			})
+		].join('\n');
+		expect(errorsOf(parseSiteFile(bomb))).toEqual([expect.stringMatching(/^geen geldige YAML/)]);
+	});
+});
+
+describe('parseSchemaFile', () => {
+	it('reads the schemas of both pilot sites', () => {
+		const digi = parseSchemaFile(structureFile('digi-handboek', 'schema.yaml'));
+		const moza = parseSchemaFile(structureFile('moza-site', 'schema.yaml'));
+		expect(digi.ok && digi.value.titel).toBe('uit-h1');
+		expect(digi.ok && digi.value.velden.hero.verborgen).toBe(true);
+		expect(digi.ok && digi.value.velden.description.verplicht).toBe(false);
+		expect(moza.ok && moza.value.titel).toBe('veld:title');
+		expect(moza.ok && moza.value.velden.date['alleen-in']).toEqual(['weekly/**']);
+		expect(moza.ok && 'soorten' in moza.value['nieuwe-pagina']).toBe(true);
+	});
+
+	it('names the field with an unknown type, by its path', () => {
+		expect(errorsOf(parseSchemaFile(structureFile('intranet', 'schema.yaml')))).toEqual([
+			'velden.kleur.type: moet een van deze waarden zijn: tekst, getal, ja-nee, datum, paginaverwijzing'
+		]);
+	});
+
+	it('says what a titel and nieuwe-pagina may be', () => {
+		expect(
+			errorsOf(parseSchemaFile('titel: iets\nvelden: {}\nnieuwe-pagina: { mappen: [a] }\n'))
+		).toEqual(['titel: moet uit-h1 zijn, of veld: met de naam van een veld, zoals veld:title']);
+		expect(
+			errorsOf(parseSchemaFile('titel: uit-h1\nvelden: {}\nnieuwe-pagina: { map: a }\n'))
+		).toEqual(['nieuwe-pagina: moet mappen hebben, of soorten met elk een naam']);
 	});
 });

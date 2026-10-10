@@ -7,15 +7,17 @@ import {
 	forgetBefore,
 	invitationExpiry,
 	isUuid,
+	movedColumns,
 	normaliseEmail,
-	seedAddresses,
 	sortMembers,
 	type Actor,
 	type AddResult,
+	type AddSiteResult,
 	type AuditAction,
 	type AuditEntry,
 	type IdentityKind,
 	type Invitation,
+	type RegisteredSite,
 	type Role,
 	type SettingsValues,
 	type SiteSettings,
@@ -24,6 +26,16 @@ import {
 } from './team';
 
 type Db = postgres.Sql | postgres.TransactionSql;
+
+interface SiteRow {
+	id: string;
+	/** A bigint, which the driver gives as text. */
+	repo_id: string;
+	repo: string;
+	standaardbranch: string;
+	created_at: Date;
+	created_by: string | null;
+}
 
 interface SettingsRow {
 	site_id: string;
@@ -56,6 +68,15 @@ interface AuditRow {
 	role: Role | null;
 }
 
+const toSite = (r: SiteRow): RegisteredSite => ({
+	id: r.id,
+	repoId: Number(r.repo_id),
+	repo: r.repo,
+	standaardbranch: r.standaardbranch,
+	createdAt: r.created_at,
+	createdBy: r.created_by
+});
+
 const toSettings = (r: SettingsRow): SiteSettings => ({
 	siteId: r.site_id,
 	naam: r.naam,
@@ -87,6 +108,69 @@ function audit(db: Db, entry: Omit<AuditEntry, 'at'>, at: Date) {
 async function nameOf(db: Db, sub: string): Promise<string | null> {
 	const [row] = await db<{ name: string | null }[]>`select name from user_prefs where sub = ${sub}`;
 	return row?.name ?? null;
+}
+
+/** Adds the one known user with this verified address, or else invites the address. */
+async function addAddress(
+	tx: postgres.TransactionSql,
+	siteId: string,
+	address: string,
+	role: Role,
+	actor: string | null,
+	now: Date
+): Promise<AddResult> {
+	const email = normaliseEmail(address);
+	const known = await tx<{ sub: string; name: string | null }[]>`
+		select sub, name from user_prefs where email = ${email} limit 2`;
+	if (known.length === 1) {
+		const [person] = known;
+		const added = await tx`
+			insert into site_members (site_id, sub, role, added_by, added_at)
+			values (${siteId}, ${person.sub}, ${role}, ${actor}, ${now})
+			on conflict (site_id, sub) do nothing
+			returning sub`;
+		if (added.length === 0) {
+			const [existing] = await tx<{ role: Role }[]>`
+				select role from site_members where site_id = ${siteId} and sub = ${person.sub}`;
+			return {
+				kind: 'already-member',
+				sub: person.sub,
+				name: person.name,
+				role: existing.role
+			};
+		}
+		await tx`delete from invitations where site_id = ${siteId} and email = ${email}`;
+		await audit(
+			tx,
+			{ actorSub: actor, siteId, action: 'member.added', target: person.sub, role },
+			now
+		);
+		return { kind: 'added', sub: person.sub, name: person.name };
+	}
+	const expiresAt = invitationExpiry(now);
+	const [existing] = await tx<{ id: string }[]>`
+		select id from invitations where site_id = ${siteId} and email = ${email} for update`;
+	const [invitation] = await tx<{ id: string }[]>`
+		insert into invitations (id, site_id, email, role, invited_by, created_at, expires_at)
+		values (${randomUUID()}, ${siteId}, ${email}, ${role}, ${actor}, ${now}, ${expiresAt})
+		on conflict (site_id, email) do update set
+			role = excluded.role,
+			invited_by = excluded.invited_by,
+			created_at = excluded.created_at,
+			expires_at = excluded.expires_at
+		returning id`;
+	await audit(
+		tx,
+		{
+			actorSub: actor,
+			siteId,
+			action: existing ? 'invitation.renewed' : 'invitation.created',
+			target: invitation.id,
+			role
+		},
+		now
+	);
+	return { kind: 'invited', id: invitation.id, renewed: !!existing, expiresAt };
 }
 
 /** The Postgres team store. The clock is a parameter so the tests can move time. */
@@ -154,48 +238,91 @@ export function createTeamStore(
 			return row ? toSettings(row) : null;
 		},
 
-		seedSite(seed) {
-			return sql.begin(async (tx) => {
+		async sites() {
+			const rows = await sql<SiteRow[]>`select * from sites order by created_at, id`;
+			return rows.map(toSite);
+		},
+
+		addSite(site, values: SettingsValues, admin, actor) {
+			return sql.begin(async (tx): Promise<AddSiteResult> => {
 				const now = clock();
-				const v = seed.values;
 				const inserted = await tx`
+					insert into sites (id, repo_id, repo, standaardbranch, created_at, created_by)
+					values (${site.id}, ${site.repoId}, ${site.repo}, ${site.standaardbranch}, ${now}, ${actor})
+					on conflict do nothing
+					returning id`;
+				if (inserted.length === 0) {
+					const [taken] = await tx`select 1 from sites where id = ${site.id}`;
+					return { ok: false, reason: taken ? 'id-taken' : 'repo-taken' };
+				}
+				await tx`
 					insert into site_settings
 						(site_id, naam, omschrijving, adres, mergen_vanuit_schrijver, vier_ogen,
 						 identiteit_toegestaan, updated_at, updated_by)
-					values (${seed.siteId}, ${v.naam}, ${v.omschrijving}, ${v.adres}, ${v.mergenVanuitSchrijver},
-						${v.vierOgen}, ${tx.array(allowedKinds(v.identiteitToegestaan))}, ${now}, null)
-					on conflict (site_id) do nothing
-					returning site_id`;
-				if (inserted.length === 0) return false;
+					values (${site.id}, ${values.naam}, ${values.omschrijving}, ${values.adres},
+						${values.mergenVanuitSchrijver}, ${values.vierOgen},
+						${tx.array(allowedKinds(values.identiteitToegestaan))}, ${now}, ${actor})`;
+				await audit(
+					tx,
+					{ actorSub: actor, siteId: site.id, action: 'site.added', target: site.repo, role: null },
+					now
+				);
+				if (!admin) return { ok: true, admin: null };
+				if ('email' in admin) {
+					return {
+						ok: true,
+						admin: await addAddress(tx, site.id, admin.email, 'beheerder', actor, now)
+					};
+				}
+				await tx`
+					insert into site_members (site_id, sub, role, added_by, added_at)
+					values (${site.id}, ${admin.sub}, 'beheerder', ${actor}, ${now})`;
 				await audit(
 					tx,
 					{
-						actorSub: null,
-						siteId: seed.siteId,
-						action: 'settings.seeded',
-						target: null,
-						role: null
+						actorSub: actor,
+						siteId: site.id,
+						action: 'member.added',
+						target: admin.sub,
+						role: 'beheerder'
 					},
 					now
 				);
-				for (const email of seedAddresses(seed.redactie)) {
-					const id = randomUUID();
-					await tx`
-						insert into invitations (id, site_id, email, role, invited_by, created_at, expires_at)
-						values (${id}, ${seed.siteId}, ${email}, 'redactie', null, ${now}, ${invitationExpiry(now)})`;
-					await audit(
-						tx,
-						{
-							actorSub: null,
-							siteId: seed.siteId,
-							action: 'invitation.created',
-							target: id,
-							role: 'redactie'
-						},
-						now
-					);
-				}
-				return true;
+				return {
+					ok: true,
+					admin: { kind: 'added', sub: admin.sub, name: await nameOf(tx, admin.sub) }
+				};
+			});
+		},
+
+		removeSite(siteId, actor) {
+			return sql.begin(async (tx) => {
+				const [row] = await tx<SiteRow[]>`delete from sites where id = ${siteId} returning *`;
+				if (!row) return null;
+				await audit(
+					tx,
+					{ actorSub: actor, siteId, action: 'site.removed', target: row.repo, role: null },
+					clock()
+				);
+				return toSite(row);
+			});
+		},
+
+		moveSite(siteId, repo, standaardbranch) {
+			return sql.begin(async (tx) => {
+				const [row] = await tx<SiteRow[]>`select * from sites where id = ${siteId} for update`;
+				if (!row) return [];
+				const changed = movedColumns(row, { repo, standaardbranch });
+				if (changed.length === 0) return [];
+				await tx`
+					update sites set repo = ${repo}, standaardbranch = ${standaardbranch}
+					where id = ${siteId}`;
+				await audit(
+					tx,
+					{ actorSub: null, siteId, action: 'site.moved', target: changed.join(','), role: null },
+					clock()
+				);
+				return changed;
 			});
 		},
 
@@ -280,61 +407,7 @@ export function createTeamStore(
 		},
 
 		addByEmail(siteId, address, role, actor) {
-			return sql.begin(async (tx): Promise<AddResult> => {
-				const now = clock();
-				const email = normaliseEmail(address);
-				const known = await tx<{ sub: string; name: string | null }[]>`
-					select sub, name from user_prefs where email = ${email} limit 2`;
-				if (known.length === 1) {
-					const [person] = known;
-					const added = await tx`
-						insert into site_members (site_id, sub, role, added_by, added_at)
-						values (${siteId}, ${person.sub}, ${role}, ${actor}, ${now})
-						on conflict (site_id, sub) do nothing
-						returning sub`;
-					if (added.length === 0) {
-						const [existing] = await tx<{ role: Role }[]>`
-							select role from site_members where site_id = ${siteId} and sub = ${person.sub}`;
-						return {
-							kind: 'already-member',
-							sub: person.sub,
-							name: person.name,
-							role: existing.role
-						};
-					}
-					await tx`delete from invitations where site_id = ${siteId} and email = ${email}`;
-					await audit(
-						tx,
-						{ actorSub: actor, siteId, action: 'member.added', target: person.sub, role },
-						now
-					);
-					return { kind: 'added', sub: person.sub, name: person.name };
-				}
-				const expiresAt = invitationExpiry(now);
-				const [existing] = await tx<{ id: string }[]>`
-					select id from invitations where site_id = ${siteId} and email = ${email} for update`;
-				const [invitation] = await tx<{ id: string }[]>`
-					insert into invitations (id, site_id, email, role, invited_by, created_at, expires_at)
-					values (${randomUUID()}, ${siteId}, ${email}, ${role}, ${actor}, ${now}, ${expiresAt})
-					on conflict (site_id, email) do update set
-						role = excluded.role,
-						invited_by = excluded.invited_by,
-						created_at = excluded.created_at,
-						expires_at = excluded.expires_at
-					returning id`;
-				await audit(
-					tx,
-					{
-						actorSub: actor,
-						siteId,
-						action: existing ? 'invitation.renewed' : 'invitation.created',
-						target: invitation.id,
-						role
-					},
-					now
-				);
-				return { kind: 'invited', id: invitation.id, renewed: !!existing, expiresAt };
-			});
+			return sql.begin((tx) => addAddress(tx, siteId, address, role, actor, clock()));
 		},
 
 		changeRole(siteId, sub, role, actor: Actor) {

@@ -3,7 +3,7 @@ import type { SiteConfig } from '$lib/config/types';
 
 export type ColourScheme = 'light' | 'dark';
 
-/** Per-site colours for `var(--token)` in a diagram: `mermaid.tokens` in sites.yaml. */
+/** Per-site colours for `var(--token)` in a diagram: `mermaid.tokens` in `.schrijver/site.yaml`. */
 export type DiagramTokens = NonNullable<SiteConfig['mermaid']>['tokens'];
 
 /** Stands in for a token the site does not define; it reads against both diagram backgrounds. */

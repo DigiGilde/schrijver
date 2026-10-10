@@ -1,9 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '../../src/lib/auth/session';
 import type { UserPrefs } from '../../src/lib/auth/users';
 import { ConfigStore } from '../../src/lib/config/load';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import type { FakeForge } from '../../src/lib/forge/fake';
 import { identityTrailer, pseudonym } from '../../src/lib/forge/trailers';
 import { ForgeError } from '../../src/lib/forge/types';
@@ -17,16 +15,21 @@ import { log } from '../../src/lib/log';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/+page.server';
+import { digi, moza } from './sites-fixture';
 import { useTeams } from './team-fixture';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-
-const failing = new ConfigStore({
-	readFile: async () => {
-		throw new Error('Not Found');
-	},
-	listFiles: async () => []
-});
+/** A store over a registry with these sites, or one that cannot be read. */
+const storeOf = (sites: (typeof digi)[] | 'kapot') =>
+	new ConfigStore(
+		{
+			sites: async () => {
+				if (sites === 'kapot') throw new Error('database down');
+				return sites.map((s) => ({ ...s, createdAt: new Date(0), createdBy: null }));
+			},
+			moveSite: async () => []
+		},
+		() => forge
+	);
 
 const session = (sub: string): Session => ({
 	sub,
@@ -103,49 +106,35 @@ afterEach(() => {
 
 describe('home page', () => {
 	it('reports a configuration that could not be loaded', async () => {
-		await failing.load();
+		const failing = storeOf('kapot');
+		await failing.load().catch(() => {});
 		setConfigStore(failing);
 		expect(await visit()).toEqual({ configNotLoaded: true, sites: [] });
 	});
 
 	it('says nothing before a first load was attempted', async () => {
-		setConfigStore(new ConfigStore({ readFile: async () => null, listFiles: async () => [] }));
+		setConfigStore(storeOf([digi]));
 		expect((await visit()).configNotLoaded).toBe(false);
 	});
 
 	it('still lists a single site', async () => {
-		const fixture = (path: string) => readFileSync(`tests/fixtures/config/${path}`, 'utf8');
-		const files: Record<string, string> = {
-			'sites.yaml': fixture('sites.yaml').split('\n- ')[0],
-			'schemas/digi-handboek.yaml': fixture('schemas/digi-handboek.yaml')
-		};
-		const single = new ConfigStore({
-			readFile: async (path) => files[path] ?? null,
-			listFiles: async () => []
-		});
+		const single = storeOf([digi]);
 		await single.load();
 		setConfigStore(single);
 		expect((await visit()).sites.map((s) => s.id)).toEqual(['digi-handboek']);
 	});
 
 	it('writes an address with a path, a query and a fragment as the site header does', async () => {
-		const fixture = (path: string) => readFileSync(`tests/fixtures/config/${path}`, 'utf8');
-		const files: Record<string, string> = {
-			'sites.yaml': fixture('sites.yaml')
-				.split('\n- ')[0]
-				.replace(
-					'https://digihandboek.rijks.app/',
-					'https://digihandboek.rijks.app/team/?utm=1#top'
-				),
-			'schemas/digi-handboek.yaml': fixture('schemas/digi-handboek.yaml')
-		};
-		const single = new ConfigStore({
-			readFile: async (path) => files[path] ?? null,
-			listFiles: async () => []
-		});
+		const team = await useTeams([digi]);
+		const settings = (await team.settings('digi-handboek'))!;
+		await team.saveSettings(
+			'digi-handboek',
+			{ ...settings, adres: 'https://digihandboek.rijks.app/team/?utm=1#top' },
+			'baas'
+		);
+		const single = storeOf([digi]);
 		await single.load();
 		setConfigStore(single);
-		await useTeams([]);
 		expect((await visit()).sites.map((s) => s.adres)).toEqual(['digihandboek.rijks.app/team']);
 	});
 
@@ -154,8 +143,18 @@ describe('home page', () => {
 		expect(
 			sites.map(({ id, naam, omschrijving, adres }) => [id, naam, omschrijving, adres])
 		).toEqual([
-			['digi-handboek', 'Digi Handboek', digi.seed.omschrijving, 'digihandboek.rijks.app'],
-			['moza-site', 'MijnOverheid Zakelijk', moza.seed.omschrijving, 'mijnoverheidzakelijk.nl']
+			[
+				'digi-handboek',
+				'Digi Handboek',
+				'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+				'digihandboek.rijks.app'
+			],
+			[
+				'moza-site',
+				'MijnOverheid Zakelijk',
+				'Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.',
+				'mijnoverheidzakelijk.nl'
+			]
 		]);
 	});
 

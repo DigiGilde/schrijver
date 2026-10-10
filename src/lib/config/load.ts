@@ -1,9 +1,13 @@
-import { ZodError } from 'zod';
-import { parseSchemaYaml, parseSitesYaml, type PageSchema, type SiteConfig } from './types';
+import { movedColumns, type RegisteredSite } from '$lib/auth/team';
+import type { Forge } from '$lib/forge/types';
+import { errorFields, log } from '$lib/log';
+import { checkRepository, type RepositoryCheck } from './structure';
+import type { PageSchema, SiteConfig } from './types';
 
-export interface ConfigReader {
-	readFile(path: string): Promise<string | null>;
-	listFiles(dir: string): Promise<string[]>;
+/** Where the list of sites lives: Schrijver's database. */
+export interface Registry {
+	sites(): Promise<RegisteredSite[]>;
+	moveSite(siteId: string, repo: string, standaardbranch: string): Promise<string[]>;
 }
 
 export class UnknownSiteError extends Error {
@@ -13,107 +17,184 @@ export class UnknownSiteError extends Error {
 	}
 }
 
-interface Snapshot {
-	sites: SiteConfig[];
-	schemas: Map<string, PageSchema>;
-	schrijfwijzers: Map<string, string>;
+/** How many sites read their structure at the same time. */
+const PARALLEL = 4;
+
+/** What Schrijver knows of a site in the registry, for its admins. */
+export interface SiteStatus {
+	/** As the registry has it, following GitHub when the repository moved. */
+	site: RegisteredSite;
+	/** Whether colleagues can work on it: it has a valid structure, from now or from before. */
+	available: boolean;
+	/** What is wrong now, in Dutch; empty when nothing is. */
+	errors: string[];
 }
 
-class LoadError extends Error {
-	constructor(file: string, cause: unknown) {
-		// A ZodError's message is its issues as JSON, so its first line would be "[".
-		const issue = cause instanceof ZodError ? cause.issues[0] : undefined;
-		const detail = issue
-			? [issue.path.join('.'), issue.message].filter(Boolean).join(': ')
-			: cause instanceof Error
-				? cause.message
-				: String(cause);
-		super(`${file}: ${detail.split('\n')[0]}`);
+interface Entry {
+	site: RegisteredSite;
+	/** The last valid structure: kept when a later change to the files is not valid. */
+	config: SiteConfig | null;
+	schema: PageSchema | null;
+	schrijfwijzer: string;
+	errors: string[];
+	/** GitHub could not be reached or shows nothing: worth trying again. */
+	retry: boolean;
+}
+
+export const NOT_INSTALLED = (repo: string) =>
+	`De Schrijver-app is niet geïnstalleerd op ${repo}, of die repository bestaat niet meer.`;
+export const OTHER_REPOSITORY = (repo: string) =>
+	`${repo} is op GitHub niet meer de repository van deze site. Schrijver werkt er niet in.`;
+export const UNREACHABLE =
+	'Schrijver kon GitHub niet bereiken. Het probeert het elke minuut opnieuw.';
+
+function problems(check: Exclude<RepositoryCheck, { ok: true }>, repo: string): string[] {
+	switch (check.reason) {
+		case 'not-installed':
+			return [NOT_INSTALLED(repo)];
+		case 'other-repository':
+			return [OTHER_REPOSITORY(repo)];
+		case 'unreachable':
+			return [UNREACHABLE];
+		case 'invalid':
+			return check.errors;
 	}
 }
 
+async function inParallel<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>) {
+	const out: R[] = new Array(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			out[i] = await fn(items[i]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+	return out;
+}
+
+/** The sites of Schrijver: the registry, plus the structure each site keeps in its own repository. */
 export class ConfigStore {
-	private snapshot: Snapshot = { sites: [], schemas: new Map(), schrijfwijzers: new Map() };
+	private entries = new Map<string, Entry>();
 	private loadedAt: number | null = null;
 	private lastError: string | null = null;
 
 	constructor(
-		private reader: ConfigReader,
+		private registry: Registry,
+		private forge: () => Forge,
 		private clock: () => number = Date.now
 	) {}
 
+	/** Reads the registry and every site's structure. Throws, keeping what it had, when the registry cannot be read. */
 	async load(): Promise<void> {
+		let registered: RegisteredSite[];
 		try {
-			this.snapshot = await this.read();
-			this.loadedAt = this.clock();
-			this.lastError = null;
+			registered = await this.registry.sites();
 		} catch (e) {
-			this.lastError = e instanceof Error ? e.message : String(e);
+			this.lastError = 'De lijst met sites kon niet worden gelezen.';
+			throw e;
 		}
+		const entries = await inParallel(registered, PARALLEL, (site) =>
+			this.check(site, this.entries.get(site.id))
+		);
+		this.entries = new Map(entries.map((entry) => [entry.site.id, entry]));
+		this.loadedAt = this.clock();
+		this.lastError = null;
 	}
 
-	private async required(path: string): Promise<string> {
-		let text: string | null;
-		try {
-			text = await this.reader.readFile(path);
-		} catch (e) {
-			throw new LoadError(path, e);
+	/** Reads one site again, as the registry has it now; a site that left the registry goes. */
+	async reload(siteId: string): Promise<void> {
+		const site = (await this.registry.sites()).find((s) => s.id === siteId);
+		if (!site) {
+			this.entries.delete(siteId);
+			return;
 		}
-		if (text === null) throw new LoadError(path, new Error('file not found'));
-		return text;
+		this.entries.set(siteId, await this.check(site, this.entries.get(siteId)));
 	}
 
-	private async read(): Promise<Snapshot> {
-		const sitesPath = 'sites.yaml';
-		const sitesText = await this.required(sitesPath);
-		let sites: SiteConfig[];
-		try {
-			sites = parseSitesYaml(sitesText);
-		} catch (e) {
-			throw new LoadError(sitesPath, e);
-		}
-
-		const schemas = new Map<string, PageSchema>();
-		const schrijfwijzers = new Map<string, string>();
-		for (const site of sites) {
-			const schemaPath = `schemas/${site.content.schema}.yaml`;
-			const schemaText = await this.required(schemaPath);
-			try {
-				schemas.set(site.id, parseSchemaYaml(schemaText));
-			} catch (e) {
-				throw new LoadError(schemaPath, e);
-			}
-			if (site.schrijfwijzer) {
-				const path = `schrijfwijzer/${site.schrijfwijzer}`;
-				let text: string | null;
+	private async check(site: RegisteredSite, previous?: Entry): Promise<Entry> {
+		const check = await checkRepository(this.forge(), site.repo, site.repoId);
+		if (check.ok) {
+			const { fullName: repo, defaultBranch: standaardbranch } = check.repo;
+			const current = { ...site, repo, standaardbranch };
+			if (movedColumns(site, current).length > 0) {
 				try {
-					text = await this.reader.readFile(path);
-				} catch (e) {
-					throw new LoadError(path, e);
+					await this.registry.moveSite(site.id, repo, standaardbranch);
+					log.info('config.site_moved', { site: site.id });
+				} catch (err) {
+					log.warn('config.site_move_failed', { site: site.id, ...errorFields(err) });
 				}
-				schrijfwijzers.set(site.id, text ?? '');
 			}
+			return {
+				site: current,
+				config: {
+					...check.structure.site,
+					id: site.id,
+					repoId: site.repoId,
+					repo,
+					standaardbranch
+				},
+				schema: check.structure.schema,
+				schrijfwijzer: check.structure.schrijfwijzer,
+				errors: [],
+				retry: false
+			};
 		}
-		return { sites, schemas, schrijfwijzers };
+		if (check.reason === 'unreachable') {
+			log.warn('config.site_unreachable', { site: site.id, ...errorFields(check.error) });
+		}
+		// A name that leads to another repository: nothing that was read for this site may be used.
+		const kept = check.reason === 'other-repository' ? undefined : previous;
+		const { repo, standaardbranch } = site;
+		return {
+			site,
+			config: kept?.config ? { ...kept.config, repo, standaardbranch } : null,
+			schema: kept?.schema ?? null,
+			schrijfwijzer: kept?.schrijfwijzer ?? '',
+			errors: problems(check, site.repo),
+			retry: check.reason === 'unreachable' || check.reason === 'not-installed'
+		};
 	}
 
+	/** The sites colleagues can work on, oldest first. */
 	sites(): SiteConfig[] {
-		return this.snapshot.sites;
+		return [...this.entries.values()].flatMap((entry) => (entry.config ? [entry.config] : []));
 	}
 
+	/** A site colleagues can work on; undefined for one without a valid structure. */
 	site(id: string): SiteConfig | undefined {
-		return this.snapshot.sites.find((s) => s.id === id);
+		return this.entries.get(id)?.config ?? undefined;
 	}
 
 	schema(siteId: string): PageSchema {
-		const schema = this.snapshot.schemas.get(siteId);
+		const schema = this.entries.get(siteId)?.schema;
 		if (!schema) throw new UnknownSiteError(siteId);
 		return schema;
 	}
 
 	schrijfwijzer(siteId: string): string {
-		if (!this.site(siteId)) throw new UnknownSiteError(siteId);
-		return this.snapshot.schrijfwijzers.get(siteId) ?? '';
+		const entry = this.entries.get(siteId);
+		if (!entry?.config) throw new UnknownSiteError(siteId);
+		return entry.schrijfwijzer;
+	}
+
+	/** Every site in the registry with what is wrong with it, for its admins. */
+	statuses(): SiteStatus[] {
+		return [...this.entries.values()].map((entry) => ({
+			site: { ...entry.site },
+			available: entry.config !== null,
+			errors: [...entry.errors]
+		}));
+	}
+
+	status(siteId: string): SiteStatus | undefined {
+		return this.statuses().find((status) => status.site.id === siteId);
+	}
+
+	/** Whether a site could not be read for a reason that may pass. */
+	needsRetry(): boolean {
+		return [...this.entries.values()].some((entry) => entry.retry);
 	}
 
 	state(): { loadedAt: number | null; lastError: string | null } {

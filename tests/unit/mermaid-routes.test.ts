@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({ site: (id: string) => [digi, moza].find((s) => s.id === id) })
 }));
 
 import { GET as iconen } from '../../src/routes/api/iconen/+server';
 import { GET as kleuren } from '../../src/routes/api/sites/[site]/mermaid/+server';
+import { digi, moza } from './sites-fixture';
 
 const user = { session: {}, prefs: {} };
 

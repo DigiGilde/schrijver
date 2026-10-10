@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 
 vi.mock('../../src/lib/log', async (original) => ({
 	...(await original<typeof import('../../src/lib/log')>()),
@@ -8,13 +6,12 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 
 import { log } from '../../src/lib/log';
-import { seedFromConfig } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import {
 	recordedWriters,
 	recordLogin,
 	recordWriter,
-	seedSites,
+	siteSettings,
 	startRetention,
 	stopRetention,
 	teamStore,
@@ -22,8 +19,16 @@ import {
 	useTeamStore
 } from '../../src/lib/auth/team-store';
 import { getPrefs } from '../../src/lib/auth/users';
+import { PREVIEW_SITES } from '../../src/lib/server/fake-mode';
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
+const [digi] = PREVIEW_SITES;
+
+/** A team store with Digi Handboek added, as the local preview has it. */
+async function withDigi() {
+	const team = new MemoryTeamStore();
+	await team.addSite(digi.site, digi.settings, null, null);
+	return team;
+}
 
 afterEach(() => {
 	stopRetention();
@@ -33,46 +38,24 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-describe('seeding from the configuration', () => {
-	it('takes the starting values of the configured site, four eyes too', () => {
-		expect(seedFromConfig(digi).values.vierOgen).toBe(false);
-		expect(seedFromConfig(moza)).toEqual({
-			siteId: 'moza-site',
-			values: {
-				naam: 'MijnOverheid Zakelijk',
-				omschrijving:
-					'Een overheidsbrede samenwerking om de dienstverlening voor ondernemers te verbeteren.',
-				adres: 'https://mijnoverheidzakelijk.nl/',
-				mergenVanuitSchrijver: true,
-				vierOgen: true,
-				identiteitToegestaan: ['anoniem', 'gekoppeld']
-			},
-			redactie: ['redactie@example.org']
+describe('the settings of a site', () => {
+	it('are the ones it got when it was added, and none are made up', async () => {
+		const team = await withDigi();
+		expect(await siteSettings({ id: 'digi-handboek' }, team)).toMatchObject({
+			siteId: 'digi-handboek',
+			...digi.settings
 		});
-	});
-
-	it('gives each site its settings and invitations once, and never overwrites them', async () => {
-		const team = new MemoryTeamStore();
-		await seedSites([digi, moza], team);
-		expect((await team.settings('digi-handboek'))?.naam).toBe('Digi Handboek');
-		expect((await team.invitations('digi-handboek')).map((i) => [i.email, i.role])).toEqual([
-			['naam@rijksoverheid.nl', 'redactie']
-		]);
-		expect(log.info).toHaveBeenCalledWith('team.site_seeded', { site: 'moza-site' });
-
-		await team.saveSettings('moza-site', { ...seedFromConfig(moza).values, naam: 'MOZa' }, 'x');
-		await team.revokeInvitation('moza-site', (await team.invitations('moza-site'))[0].id, 'x');
-		await seedSites([digi, moza], team);
-		expect((await team.settings('moza-site'))?.naam).toBe('MOZa');
-		expect(await team.invitations('moza-site')).toEqual([]);
+		await expect(siteSettings({ id: 'onbekend' }, team)).rejects.toThrow(
+			'no settings for site onbekend'
+		);
 	});
 });
 
 describe('the login', () => {
 	it('saves the profile and logs each claim by site and role only', async () => {
-		const team = new MemoryTeamStore();
+		const team = await withDigi();
+		await team.addByEmail('digi-handboek', 'naam@rijksoverheid.nl', 'redactie', 'platform');
 		useTeamStore(team);
-		await seedSites([digi], team);
 		await recordLogin({
 			sub: 'abc',
 			name: 'Naam',
@@ -93,9 +76,8 @@ describe('the login', () => {
 
 describe('the record of who writes', () => {
 	it('tells nobody recorded apart from a record that cannot be read', async () => {
-		const team = new MemoryTeamStore();
+		const team = await withDigi();
 		useTeamStore(team);
-		await seedSites([digi], team);
 		expect(await recordedWriters('digi-handboek', 4)).toEqual([]);
 		await team.recordLogin({
 			sub: 'jan',
@@ -117,9 +99,8 @@ describe('the record of who writes', () => {
 	});
 
 	it('logs a record that cannot be written, without the person, and goes on', async () => {
-		const team = new MemoryTeamStore();
+		const team = await withDigi();
 		useTeamStore(team);
-		await seedSites([digi], team);
 		await expect(recordWriter('digi-handboek', 4, 'onbekend')).resolves.toBeUndefined();
 		expect(log.warn).toHaveBeenCalledWith('proposal.writer_not_recorded', {
 			site: 'digi-handboek',

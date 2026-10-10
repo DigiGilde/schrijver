@@ -1,5 +1,3 @@
-import type { SiteConfig } from '$lib/config/types';
-
 /** A role on a site's team. Everyone signed in may propose; these two decide. */
 export type Role = 'beheerder' | 'redactie';
 export const ROLES: readonly Role[] = ['beheerder', 'redactie'];
@@ -53,14 +51,40 @@ export interface SiteSettings extends SettingsValues {
 	updatedBy: string | null;
 }
 
-/** What a configured site starts with: its settings, and the addresses that get the first invitations. */
-export interface SiteSeed {
-	siteId: string;
-	values: SettingsValues;
-	redactie: string[];
+/** A site in Schrijver, bound to its repository by GitHub's numeric id: names change. */
+export interface RegisteredSite {
+	/** The slug in the addresses of Schrijver, such as /sites/<id>. */
+	id: string;
+	repoId: number;
+	/** owner/name, as GitHub last gave it. */
+	repo: string;
+	standaardbranch: string;
+	createdAt: Date;
+	createdBy: string | null;
 }
 
+export type NewSite = Pick<RegisteredSite, 'id' | 'repoId' | 'repo' | 'standaardbranch'>;
+
+/** The first beheerder of a new site: a known user, or an address that is added or invited as addByEmail does. */
+export type FirstAdmin = { sub: string } | { email: string };
+
+export type AddSiteResult =
+	{ ok: true; admin: AddResult | null } | { ok: false; reason: 'id-taken' | 'repo-taken' };
+
+/** What a site in Schrijver starts with: samenvoegen in Schrijver, four eyes and every way to sign. */
+export const startingSettings = (naam: string): SettingsValues => ({
+	naam,
+	omschrijving: null,
+	adres: null,
+	mergenVanuitSchrijver: true,
+	vierOgen: true,
+	identiteitToegestaan: [...IDENTITY_KINDS]
+});
+
 export type AuditAction =
+	| 'site.added'
+	| 'site.removed'
+	| 'site.moved'
 	| 'settings.seeded'
 	| 'settings.changed'
 	| 'member.added'
@@ -72,7 +96,10 @@ export type AuditAction =
 	| 'invitation.claimed'
 	| 'invitation.expired';
 
-/** Never an e-mail address: the target is a sub, an invitation id or the names of changed settings. */
+/**
+ * Never an e-mail address: the target is a sub, an invitation id, the names of changed settings or,
+ * for a site added or removed, its repository.
+ */
 export interface AuditEntry {
 	at: Date;
 	actorSub: string | null;
@@ -118,12 +145,27 @@ export interface TeamStore {
 	recordLogin(profile: LoginProfile): Promise<{ siteId: string; role: Role }[]>;
 	profile(sub: string): Promise<Profile | null>;
 
-	settings(siteId: string): Promise<SiteSettings | null>;
+	/** The sites in Schrijver, the oldest first. */
+	sites(): Promise<RegisteredSite[]>;
 	/**
-	 * Creates the settings of a configured site, and its first invitations, unless the site has
-	 * settings already. Returns whether it did.
+	 * Adds a site with its settings and its first beheerder, all or nothing. Refuses an id or a
+	 * repository that another site has.
 	 */
-	seedSite(seed: SiteSeed): Promise<boolean>;
+	addSite(
+		site: NewSite,
+		values: SettingsValues,
+		admin: FirstAdmin | null,
+		actor: string | null
+	): Promise<AddSiteResult>;
+	/** Removes a site with its settings, team, invitations and writing records. */
+	removeSite(siteId: string, actor: string): Promise<RegisteredSite | null>;
+	/**
+	 * Follows a repository that GitHub renamed or moved, or whose default branch changed. Returns the
+	 * names of the columns that changed.
+	 */
+	moveSite(siteId: string, repo: string, standaardbranch: string): Promise<string[]>;
+
+	settings(siteId: string): Promise<SiteSettings | null>;
 	/** Returns the names of the settings that changed. */
 	saveSettings(siteId: string, values: SettingsValues, actor: string): Promise<string[]>;
 
@@ -205,17 +247,12 @@ export function changedSettings(before: SettingsValues, after: SettingsValues): 
 		.map(([, column]) => column);
 }
 
-/** What a site in the configuration starts with in the database. */
-export function seedFromConfig(site: SiteConfig): SiteSeed {
-	const { redactie, ...values } = site.seed;
-	return {
-		siteId: site.id,
-		values: { ...values, identiteitToegestaan: allowedKinds(values.identiteitToegestaan) },
-		redactie
-	};
+/** The columns of a registered site that differ between two places of its repository. */
+export function movedColumns(
+	before: Pick<RegisteredSite, 'repo' | 'standaardbranch'>,
+	after: Pick<RegisteredSite, 'repo' | 'standaardbranch'>
+): string[] {
+	return (['repo', 'standaardbranch'] as const).filter(
+		(column) => before[column] !== after[column]
+	);
 }
-
-/** The addresses that get a first invitation: valid ones, lower-cased, each once. */
-export const seedAddresses = (addresses: string[]) => [
-	...new Set(addresses.map(normaliseEmail).filter(isEmail))
-];

@@ -13,13 +13,31 @@ import { getConfigStore } from '../../src/lib/server/services';
 const invited = async (siteId: string) =>
 	(await teamStore().invitations(siteId)).map((i) => `${i.email} ${i.role}`).sort();
 
-describe('the team in the local preview', () => {
-	it('keeps people in memory, seeded from the configuration plus a second colleague', async () => {
+describe('the local preview', () => {
+	it('registers the pilot sites and Oude site, whose old files keep it from editing', async () => {
+		await initFakeServices();
+		expect((await teamStore().sites()).map((s) => [s.id, s.repoId, s.repo])).toEqual([
+			['digi-handboek', 4101, 'DigiGilde/handboek'],
+			['moza-site', 4102, 'MinBZK/moza-site'],
+			['oude-site', 4107, 'DigiGilde/oude-site']
+		]);
+		expect(
+			getConfigStore()
+				.sites()
+				.map((s) => s.id)
+		).toEqual(['digi-handboek', 'moza-site']);
+		expect(getConfigStore().status('oude-site')).toMatchObject({
+			available: false,
+			errors: expect.arrayContaining(['.schrijver/schema.yaml: ontbreekt'])
+		});
+		expect(await teamStore().members('oude-site')).toEqual([]);
+	});
+
+	it('keeps people in memory: the first beheerders, a second and a third colleague', async () => {
 		await initFakeServices();
 		const team = teamStore();
-		expect((await team.settings('digi-handboek'))?.naam).toBe(
-			getConfigStore().site('digi-handboek')?.seed.naam
-		);
+		expect((await team.settings('digi-handboek'))?.naam).toBe('Digi Handboek');
+		expect((await team.settings('digi-handboek'))?.vierOgen).toBe(false);
 		expect(await team.role('moza-site', 'collega')).toBe('beheerder');
 		expect(await team.role('moza-site', 'derde')).toBe('redactie');
 		expect(await team.sitesOf('platform')).toEqual([]);

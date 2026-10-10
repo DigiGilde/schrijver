@@ -427,16 +427,22 @@ test.describe('the Over page', () => {
 		);
 	});
 
-	test('names the repository and branch, and where the settings sit', async ({ page }) => {
+	test('names the repository and branch, and where the structure of the site sits', async ({
+		page
+	}) => {
 		await page.goto('/sites/digi-handboek/over');
 		const bestanden = part(page, 'Bestanden op GitHub');
 		await expect(
 			bestanden.getByRole('link', { name: 'DigiGilde/handboek, branch main' })
 		).toHaveAttribute('href', 'https://github.com/DigiGilde/handboek/tree/main');
-		await expect(bestanden).toContainText(
-			'configuratierepository example/config, die niet openbaar is.'
+		await expect(bestanden.getByRole('link', { name: '.schrijver op GitHub' })).toHaveAttribute(
+			'href',
+			'https://github.com/DigiGilde/handboek/tree/main/.schrijver'
 		);
-		await expect(bestanden.getByRole('link', { name: /example\/config/ })).toHaveCount(0);
+		await expect(bestanden).toContainText(
+			'Dat wijzig je met een voorstel in de repository van de site.'
+		);
+		await expect(bestanden).not.toContainText('configuratierepository');
 		await expect(bestanden).toContainText('met "Via GitHub"');
 	});
 

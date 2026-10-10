@@ -1,0 +1,6 @@
+titel: uit-h1
+velden:
+  samenvatting: { type: tekst, label: Samenvatting, hulp: 'Een of twee zinnen.' }
+nieuwe-pagina:
+  mappen: [artikelen]
+  bestandsnaam: uit-titel

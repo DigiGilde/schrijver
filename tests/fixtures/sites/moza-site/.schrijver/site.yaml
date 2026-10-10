@@ -1,0 +1,16 @@
+content:
+  pad: content
+  patroon: '**/*.md'
+  uitsluiten: ['documenten/**']
+  afbeeldingen:
+    pad: '{paginamap}/images'
+    verwijzing: relatief
+preview:
+  soort: bij-label
+  label: preview
+  url: 'https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl'
+mermaid:
+  tokens:
+    --color-bg-light: { licht: '#f0f7ff', donker: '#172538' }
+    --color-rijks-oranje: { licht: '#e17000', donker: '#e17000' }
+    --color-text: { licht: '#091629', donker: '#ebeef2' }

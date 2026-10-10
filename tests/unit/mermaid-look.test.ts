@@ -1,15 +1,14 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import {
 	UNKNOWN_TOKEN_COLOUR,
 	diagramBackground,
 	mermaidConfig,
 	resolveTokens
 } from '../../src/lib/content/mermaid-look';
+import { moza } from './sites-fixture';
 
-const [, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 const tokens = moza.mermaid!.tokens;
 
 function markdownFiles(dir: string): string[] {

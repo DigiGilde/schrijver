@@ -6,8 +6,18 @@ alter table user_prefs add column if not exists email text;
 alter table user_prefs add column if not exists last_login_at timestamptz;
 create index if not exists user_prefs_email on user_prefs (email);
 
+-- The sites in Schrijver, each bound to its repository by GitHub's numeric id: names change.
+create table if not exists sites (
+	id text primary key,
+	repo_id bigint not null unique,
+	repo text not null,
+	standaardbranch text not null,
+	created_at timestamptz not null default now(),
+	created_by text
+);
+
 create table if not exists site_settings (
-	site_id text primary key,
+	site_id text primary key references sites (id) on delete cascade,
 	naam text not null,
 	omschrijving text,
 	adres text,
@@ -17,6 +27,20 @@ create table if not exists site_settings (
 	updated_at timestamptz not null default now(),
 	updated_by text
 );
+
+-- Settings from before the registry belong to no site: they go, with their teams, and the settings
+-- follow the site from then on.
+do $$
+begin
+	if not exists (
+		select 1 from pg_constraint
+		where conrelid = 'site_settings'::regclass and confrelid = 'sites'::regclass
+	) then
+		delete from site_settings s where not exists (select 1 from sites where sites.id = s.site_id);
+		alter table site_settings
+			add constraint site_settings_site_id_fkey foreign key (site_id) references sites (id) on delete cascade;
+	end if;
+end $$;
 
 create table if not exists site_members (
 	site_id text not null references site_settings (site_id) on delete cascade,

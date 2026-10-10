@@ -1,0 +1,5 @@
+titel: uit-h1
+velden:
+  kleur: { type: kleur }
+nieuwe-pagina:
+  mappen: [nieuws]
