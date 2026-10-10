@@ -161,7 +161,13 @@
 			<Editor bind:this={editor} bind:value={body} onstate={(s) => (editorState = s)} {kop} />
 		</div>
 		{#if vergelijking}
-			<Vergelijking {pagina} {vergelijking} bind:kop={vergelijkingKop} />
+			<Vergelijking
+				{pagina}
+				{vergelijking}
+				bind:kop={vergelijkingKop}
+				onovernemen={() => assistent?.accept()}
+				onverwerpen={() => assistent?.dismiss()}
+			/>
 		{:else if weergave === 'voorbeeld'}
 			<section aria-label="Voorbeeld" tabindex="-1" bind:this={voorbeeld}>
 				<nldd-card>

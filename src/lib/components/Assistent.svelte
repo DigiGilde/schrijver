@@ -175,7 +175,7 @@
 		outcome = 'verworpen';
 	}
 
-	function dismiss() {
+	export function dismiss() {
 		const compared = !!pending?.comparison;
 		discard();
 		onDone(compared);
@@ -189,7 +189,7 @@
 		onDone(false);
 	}
 
-	function accept() {
+	export function accept() {
 		if (!pending || pending.action === 'samenvatting') return;
 		const { from, to, suggestion, original, comparison } = pending;
 		show(null);

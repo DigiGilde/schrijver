@@ -103,7 +103,7 @@ test('inserts a Mermaid scaffold and blocks saving without a description', async
 	await expect(page.locator('.foutmelding')).toBeFocused();
 });
 
-test('applies an assistant suggestion to the selection', async ({ page }) => {
+test('applies an assistant suggestion to the text that select all selected', async ({ page }) => {
 	await page.route('**/api/assistent', (route) =>
 		route.fulfill({
 			json: { replacement: 'Kort en krachtig.', explanation: 'Ingekort.' }
@@ -118,15 +118,16 @@ test('applies an assistant suggestion to the selection', async ({ page }) => {
 	const knop = page.getByRole('button', { name: 'Schrijfhulp' });
 	await knop.click();
 	await expect(knop).toHaveAttribute('aria-expanded', 'true');
-	await page.getByRole('button', { name: 'Korter' }).click();
-	await page.getByRole('button', { name: 'Overnemen' }).click();
+	const paneel = page.getByRole('complementary', { name: 'Schrijfhulp' });
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	await paneel.getByRole('button', { name: 'Overnemen' }).click();
 	await expect(editor).toContainText('Kort en krachtig.');
 	await expect(editor).not.toContainText('Het Digi Handboek');
 	await expect(editor).toBeFocused();
 
 	await page.keyboard.press('ControlOrMeta+a');
-	await page.getByRole('button', { name: 'Korter' }).click();
-	await page.getByRole('button', { name: 'Verwerpen' }).click();
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	await paneel.getByRole('button', { name: 'Verwerpen' }).click();
 	await expect(editor).toBeFocused();
 });
 

@@ -123,6 +123,110 @@ test('Verwerpen on a comparison brings the text back as it was, history and all'
 	await expect.poll(() => editorValue(page)).not.toContain('Getypt voor het voorstel');
 });
 
+/** The end of the comparison in the text column, where it asks to be taken or dropped like the panel does. */
+const slot = (page: Page) => page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Korter' });
+
+test('the comparison ends in Overnemen and Verwerpen, as the panel has them', async ({ page }) => {
+	const paneel = await openPanelHere(page);
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	const kolom = slot(page);
+	await expect(kolom.getByRole('button', { name: 'Overnemen' })).toBeVisible();
+	await expect(kolom.getByRole('button', { name: 'Verwerpen' })).toBeVisible();
+	await expect(paneel.getByRole('button', { name: 'Overnemen' })).toBeVisible();
+	await expect(paneel.getByRole('button', { name: 'Verwerpen' })).toBeVisible();
+
+	const diff = (await kolom.locator('section.diff').boundingBox())!;
+	const knop = (await kolom.getByRole('button', { name: 'Overnemen' }).boundingBox())!;
+	expect(knop.y, 'under the comparison').toBeGreaterThanOrEqual(diff.y + diff.height);
+	for (const naam of ['Overnemen', 'Verwerpen']) {
+		const knoppen = page.locator(`nldd-button[text="${naam}"]`);
+		await expect(knoppen).toHaveCount(2);
+		expect(await knoppen.nth(0).getAttribute('appearance'), 'the emphasis of the panel').toBe(
+			await knoppen.nth(1).getAttribute('appearance')
+		);
+	}
+});
+
+test('Overnemen under the comparison takes the suggestion and returns to the text', async ({
+	page
+}) => {
+	const paneel = await openPanelHere(page);
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
+
+	await slot(page).getByRole('button', { name: 'Overnemen' }).click();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toHaveCount(0);
+	await expect(editor(page)).toBeFocused();
+	await expect(editor(page)).not.toContainText('Over het Digi Gilde');
+	await expect(editor(page)).toContainText(
+		'We hebben deze centrale plek gemaakt zodat je snel de informatie vindt die je nodig hebt.'
+	);
+	await expect(paneel.getByRole('status')).toHaveText('Overgenomen');
+	await expect(page.getByRole('button', { name: 'Vet' })).toBeEnabled();
+	expect(await annotations(page), 'nothing stays marked').toBe(0);
+});
+
+test('Verwerpen under the comparison brings the text back as it was, history and all', async ({
+	page
+}) => {
+	const paneel = await openPanelHere(page);
+	await editor(page).click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type(' Getypt voor het voorstel');
+	const voor = await editorValue(page);
+
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
+	await slot(page).getByRole('button', { name: 'Verwerpen' }).click();
+	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toHaveCount(0);
+	await expect(editor(page)).toBeFocused();
+	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
+	await expect(page.getByRole('button', { name: 'Vet' })).toBeEnabled();
+	expect(await editorValue(page)).toBe(voor);
+	expect(await annotations(page), 'nothing stays marked').toBe(0);
+
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect.poll(() => editorValue(page)).not.toContain('Getypt voor het voorstel');
+});
+
+test('deciding under the comparison brings Voorbeeld back, as the panel does', async ({ page }) => {
+	const paneel = await openPanelHere(page);
+	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
+	const voorbeeld = page.getByRole('region', { name: 'Voorbeeld' });
+
+	for (const naam of ['Overnemen', 'Verwerpen']) {
+		await paneel.getByRole('button', { name: 'Korter' }).click();
+		await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
+		await slot(page).getByRole('button', { name: naam }).click();
+		await expect(voorbeeld).toBeVisible();
+		await expect(voorbeeld).toBeFocused();
+		await expect(page.getByRole('radio', { name: 'Voorbeeld' })).toBeChecked();
+		await expect(paneel.getByRole('status')).toHaveText(
+			naam === 'Overnemen' ? 'Overgenomen' : 'Verworpen'
+		);
+	}
+});
+
+test('the keyboard reaches Overnemen and Verwerpen at the end of the comparison', async ({
+	page
+}) => {
+	const paneel = await openPanelHere(page);
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	const kop = vergelijking(page, 'Voorstel van Schrijfhulp: Korter');
+	await expect(kop).toBeFocused();
+
+	const knop = slot(page).getByRole('button', { name: 'Overnemen' });
+	for (let i = 0; i < 30 && !(await knop.evaluate((el) => el.matches(':focus-within'))); i++) {
+		await page.keyboard.press('Tab');
+	}
+	await expect(knop).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(slot(page).getByRole('button', { name: 'Verwerpen' })).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(editor(page)).toBeFocused();
+	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
+});
+
 test('the comparison takes the place of Voorbeeld, which comes back as it was', async ({
 	page
 }) => {
@@ -369,6 +473,33 @@ test.describe('at 400 px', () => {
 		).toBe(true);
 
 		await paneel.getByRole('button', { name: 'Overnemen' }).click();
+		await expect(editor(page)).toBeFocused();
+		await expect(editor(page)).not.toContainText('Over het Digi Gilde');
+	});
+
+	test('the decision under the comparison fits the screen and ends in the text', async ({
+		page
+	}) => {
+		await answerHere(page);
+		await page.goto(url);
+		await expect(editor(page)).toContainText('Het Digi Handboek');
+		await page.evaluate(() => customElements.whenDefined('nldd-toolbar'));
+		await page.getByRole('button', { name: 'Meer' }).click();
+		await page.getByRole('menuitemcheckbox', { name: 'Schrijfhulp' }).click();
+		await page.locator('#schrijfhulp-paneel').getByRole('button', { name: 'Korter' }).click();
+		await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
+
+		const knop = slot(page).getByRole('button', { name: 'Overnemen' });
+		await knop.scrollIntoViewIfNeeded();
+		const box = (await knop.boundingBox())!;
+		expect(box.x, 'inside the screen').toBeGreaterThanOrEqual(0);
+		expect(box.x + box.width, 'inside the screen').toBeLessThanOrEqual(400);
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+			'no horizontal scroll'
+		).toBe(true);
+
+		await knop.click();
 		await expect(editor(page)).toBeFocused();
 		await expect(editor(page)).not.toContainText('Over het Digi Gilde');
 	});

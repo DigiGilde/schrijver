@@ -9,8 +9,10 @@
 		vergelijking: Comparison;
 		/** The heading, which takes the focus once the comparison is there. */
 		kop?: HTMLElement;
+		onovernemen: () => void;
+		onverwerpen: () => void;
 	};
-	let { pagina, vergelijking, kop = $bindable() }: Props = $props();
+	let { pagina, vergelijking, kop = $bindable(), onovernemen, onverwerpen }: Props = $props();
 	let titel: (HTMLElement & { updateComplete?: Promise<unknown> }) | undefined = $state();
 
 	// A heading in the slot of a title that has not rendered yet is not rendered either, and cannot take focus.
@@ -36,6 +38,13 @@
 				source={vergelijking.source}
 				status="modified"
 			/>
+			<nldd-spacer size="24"></nldd-spacer>
+			<nldd-button-group>
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button appearance="primary" text="Overnemen" onclick={onovernemen}></nldd-button>
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<nldd-button appearance="secondary" text="Verwerpen" onclick={onverwerpen}></nldd-button>
+			</nldd-button-group>
 		</nldd-container>
 	</nldd-card>
 </section>
