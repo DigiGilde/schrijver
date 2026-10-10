@@ -3,6 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import {
 	startingSettings,
 	type FirstAdmin,
+	type LoginProfile,
 	type NewSite,
 	type SettingsValues,
 	type TeamStore
@@ -213,14 +214,27 @@ async function seedProposal(
 	return pr.number;
 }
 
+/** A proposal of the scenarios that is still open, so Schrijver keeps the record of who wrote it. */
+export interface WrittenProposal {
+	siteId: string;
+	number: number;
+	/** By the signed-in test user; else by the colleague who wrote the anonymous ones. */
+	mine: boolean;
+}
+
 /**
  * A proposal for every state the proposal page tells apart, for the local preview and the e2e run.
- * `mine` signs the ones of the signed-in test user; without it those are left out.
+ * `mine` signs the ones of the signed-in test user; without it those are left out. Returns the open
+ * ones, for their writer records.
  */
-export async function seedScenarios(forge: FakeForge, mine: string | null): Promise<void> {
+export async function seedScenarios(
+	forge: FakeForge,
+	mine: string | null
+): Promise<WrittenProposal[]> {
+	const written: WrittenProposal[] = [];
 	const own = mine ? identityTrailer({ kind: 'anoniem', pseudoniem: mine }) : null;
 	if (own) {
-		await seedProposal(forge, DIGI, {
+		const buddy = await seedProposal(forge, DIGI, {
 			branch: 'schrijver/digi-handboek/onboarding-buddy',
 			title: 'Onboarding: begin bij je buddy',
 			trailer: own,
@@ -255,6 +269,11 @@ export async function seedScenarios(forge: FakeForge, mine: string | null): Prom
 			sent: true
 		});
 		forge.reviewOnGitHub(MOZA, contact, 'pietersen', 'approved', 'Akkoord.', daysAgo(1));
+		written.push(
+			{ siteId: 'digi-handboek', number: buddy, mine: true },
+			{ siteId: 'digi-handboek', number: asked, mine: true },
+			{ siteId: 'moza-site', number: contact, mine: true }
+		);
 	}
 
 	const team = await seedProposal(forge, DIGI, {
@@ -310,14 +329,48 @@ export async function seedScenarios(forge: FakeForge, mine: string | null): Prom
 		'commented',
 		'Ziet er goed uit. Klopt de datum in de tweede zin?'
 	);
+	written.push(
+		{ siteId: 'digi-handboek', number: team, mine: false },
+		{ siteId: 'moza-site', number: weekly, mine: false }
+	);
+	return written;
 }
 
-/** The pseudonym of the signed-in test user, when the local preview or the e2e run has one. */
-function testUserPseudonym(): string | null {
+/** The colleague of the local preview who wrote the anonymous proposals; on no team. */
+const WRITER = { sub: 'vierde', name: 'Vierde Collega', email: 'vierde@example.org' };
+
+/**
+ * Records who wrote the open proposals of the scenarios, as Schrijver does at every save: the test
+ * user `mine`, who has signed in, or Vierde Collega, who signs in here.
+ */
+export async function seedWriters(
+	team: TeamStore,
+	written: WrittenProposal[],
+	mine: string | null
+): Promise<void> {
+	await team.recordLogin({ ...WRITER, emailVerified: true });
+	for (const proposal of written) {
+		const sub = proposal.mine ? mine : WRITER.sub;
+		if (sub) await team.recordWriter(proposal.siteId, proposal.number, sub);
+	}
+}
+
+/** The signed-in test user of the local preview or the e2e run, with their pseudonym. */
+function testUser(): { login: LoginProfile; pseudoniem: string } | null {
 	try {
-		const sub = JSON.parse(process.env.SCHRIJVER_TEST_SESSION ?? '').sub;
+		const session = JSON.parse(process.env.SCHRIJVER_TEST_SESSION ?? '');
 		const secret = process.env.PSEUDONYM_SECRET;
-		return typeof sub === 'string' && sub && secret ? pseudonym(secret, sub) : null;
+		const sub = session?.sub;
+		if (typeof sub !== 'string' || !sub || !secret) return null;
+		return {
+			login: {
+				sub,
+				name: typeof session.name === 'string' ? session.name : '',
+				email: typeof session.email === 'string' ? session.email : '',
+				emailVerified: session.emailVerified === true
+			},
+			pseudoniem: pseudonym(secret, sub)
+		};
 	} catch {
 		return null;
 	}
@@ -374,8 +427,12 @@ export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<
 export async function initFakeServices(): Promise<void> {
 	const { users, team } = useMemoryStores();
 	const { forge, store } = await buildFakeServices(team);
-	await seedScenarios(forge, testUserPseudonym());
+	const tester = testUser();
+	const written = await seedScenarios(forge, tester?.pseudoniem ?? null);
 	setForge(forge);
 	setConfigStore(store);
 	await seedFakeTeam(users, team);
+	// Its first request signs the test user in too; a writer record needs the profile now.
+	if (tester) await team.recordLogin(tester.login);
+	await seedWriters(team, written, tester?.login.sub ?? null);
 }

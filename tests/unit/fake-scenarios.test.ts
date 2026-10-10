@@ -8,7 +8,12 @@ vi.mock('../../src/lib/log', async (original) => ({
 	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }));
 
-import { buildFakeServices, seedScenarios } from '../../src/lib/server/fake-mode';
+import {
+	buildFakeServices,
+	seedScenarios,
+	seedWriters,
+	type WrittenProposal
+} from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/sites/[site]/voorstellen/[nummer]/+page.server';
 import { useTeams } from './team-fixture';
@@ -20,6 +25,7 @@ const ANYONE = false;
 
 let forge: FakeForge;
 let sites: SiteConfig[];
+let written: WrittenProposal[];
 
 async function numberOf(repo: string, title: string): Promise<number> {
 	const pr = (await forge.listPrs(repo, 'all')).find((p) => p.title === title);
@@ -36,6 +42,13 @@ async function sentence(
 	const repo = site === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
 	const nummer = await numberOf(repo, title);
 	const team = await useTeams(sites, redactie ? { [site]: { [sub]: 'redactie' } } : {});
+	await team.recordLogin({
+		sub: 'lezer',
+		name: 'Lezer',
+		email: 'lezer@example.org',
+		emailVerified: true
+	});
+	await seedWriters(team, written, 'lezer');
 	const settings = (await team.settings(site))!;
 	await team.saveSettings(site, { ...settings, mergenVanuitSchrijver }, 'baas');
 	const data = (await load({
@@ -68,7 +81,7 @@ async function sentence(
 beforeAll(async () => {
 	process.env.PSEUDONYM_SECRET = 'fake-scenarios-test-secret';
 	const { forge: fake, store } = await buildFakeServices();
-	await seedScenarios(fake, pseudonym(process.env.PSEUDONYM_SECRET, 'lezer'));
+	written = await seedScenarios(fake, pseudonym(process.env.PSEUDONYM_SECRET, 'lezer'));
 	forge = fake;
 	setForge(forge);
 	setConfigStore(store);
@@ -141,6 +154,21 @@ describe('the fake fixtures of the local preview', () => {
 				mergenVanuitSchrijver: false
 			})
 		).toBe('Bij deze site gebeurt samenvoegen op GitHub.');
+	});
+
+	it('name the open proposals for the record of who wrote them, not the merged or closed ones', async () => {
+		const repo = (siteId: string) =>
+			siteId === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
+		const titles = await Promise.all(
+			written.map(async (w) => [(await forge.getPr(repo(w.siteId), w.number)).title, w.mine])
+		);
+		expect(titles).toEqual([
+			['Onboarding: begin bij je buddy', true],
+			['Over het handboek: wie de redactie is', true],
+			['Toegankelijkheid: wie je kunt mailen', true],
+			['Kennis: het team stelt zich voor', false],
+			['Weekly 23 september: de demo', false]
+		]);
 	});
 
 	it('leave out the proposals of the test user when there is none', async () => {
