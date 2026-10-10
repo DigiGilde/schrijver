@@ -178,7 +178,11 @@ describe('the fake fixtures of the local preview', () => {
 
 	it('name the open proposals for the record of who wrote them, not the merged or closed ones', async () => {
 		const repo = (siteId: string) =>
-			siteId === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
+			({
+				'digi-handboek': 'DigiGilde/handboek',
+				'moza-site': 'MinBZK/moza-site',
+				werkplaats: 'DigiGilde/intern'
+			})[siteId]!;
 		const titles = await Promise.all(
 			written.map(async (w) => [(await forge.getPr(repo(w.siteId), w.number)).title, w.mine])
 		);
@@ -190,7 +194,8 @@ describe('the fake fixtures of the local preview', () => {
 			['Weekly 23 september: de demo', false],
 			['Weekly 10 september: de agenda', false],
 			['Weekly 3 september: de terugblik', true],
-			['Facilitaire diensten: wie je belt', true]
+			['Facilitaire diensten: wie je belt', true],
+			['Werkplaats: het rooster van de week', false]
 		]);
 	});
 

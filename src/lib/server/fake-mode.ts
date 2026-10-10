@@ -87,10 +87,12 @@ async function seedDraft(forge: FakeForge, repo: string, path: string, title: st
 const DIGI = 'DigiGilde/handboek';
 const MOZA = 'MinBZK/moza-site';
 const OUD = 'DigiGilde/oude-site';
+const INTERN = 'DigiGilde/intern';
 
 /**
  * The sites of the local preview, as a platform admin added them, with the settings they have now.
  * Oude site still has the old fields in its `.schrijver/site.yaml`: only platform admins see it.
+ * Werkplaats is the private repository DigiGilde/intern: only its team sees it.
  */
 export const PREVIEW_SITES: {
 	site: NewSite;
@@ -131,13 +133,34 @@ export const PREVIEW_SITES: {
 			omschrijving: 'Een site die nog de oude opzet heeft.'
 		},
 		admin: null
+	},
+	{
+		site: { id: 'werkplaats', repoId: 4108, repo: INTERN, standaardbranch: 'main' },
+		settings: {
+			...startingSettings('Werkplaats'),
+			omschrijving: 'Wat het Digi Gilde alleen intern deelt.',
+			zichtbaarheid: 'team'
+		},
+		admin: { email: 'collega@example.org' }
 	}
 ];
 
+/** The start page of Werkplaats, with an image only its team may see. */
+const WERKPLAATS_INDEX = `---
+samenvatting: Wat het team van het Digi Gilde voorbereidt.
+---
+
+# Werkplaats
+
+Hier bereidt het team van het Digi Gilde voor wat nog niet openbaar is.
+
+![Organogram van het Digi Gilde](afbeeldingen/organogram.png)
+`;
+
 /**
- * The repositories of the local preview: the pilot sites, Oude site, and six for "Site toevoegen":
- * one that is ready, one without `.schrijver/`, one whose files are not valid, one the App is not
- * installed on, and two private ones that are ready.
+ * The repositories of the local preview: the pilot sites, Oude site, the private DigiGilde/intern of
+ * Werkplaats, and five for "Site toevoegen": one that is ready, one without `.schrijver/`, one whose
+ * files are not valid, one the App is not installed on, and a private one that is ready.
  */
 function seedRepos(forge: FakeForge): void {
 	forge.seedRepo(
@@ -184,10 +207,16 @@ function seedRepos(forge: FakeForge): void {
 		installed: false
 	});
 	forge.seedRepo(OUD, 'main', fixtureFiles('oude-site'), { id: 4107 });
-	forge.seedRepo('DigiGilde/intern', 'main', fixtureFiles('kennisbank'), {
-		id: 4108,
-		description: 'Wat het Digi Gilde alleen intern deelt.'
-	});
+	forge.seedRepo(
+		INTERN,
+		'main',
+		{
+			...fixtureFiles('kennisbank'),
+			'inhoud/index.md': WERKPLAATS_INDEX,
+			'inhoud/afbeeldingen/organogram.png': Buffer.from(SCHEMA_PNG, 'base64')
+		},
+		{ id: 4108, description: 'Wat het Digi Gilde alleen intern deelt.' }
+	);
 	forge.seedRepo('DigiGilde/besloten', 'main', fixtureFiles('kennisbank'), {
 		id: 4109,
 		description: 'Wat het team van het Digi Gilde samen schrijft.'
@@ -404,6 +433,19 @@ export async function seedScenarios(
 		);
 		written.push({ siteId: 'moza-site', number: onGitHub, mine: true });
 	}
+
+	written.push({
+		siteId: 'werkplaats',
+		number: await seedProposal(forge, INTERN, {
+			branch: 'schrijver/werkplaats/rooster',
+			title: 'Werkplaats: het rooster van de week',
+			trailer: COLLEAGUE,
+			path: 'inhoud/index.md',
+			text: 'Op maandag bespreken we het rooster van de week.',
+			sent: true
+		}),
+		mine: false
+	});
 	return written;
 }
 
@@ -474,9 +516,10 @@ const COLLEAGUES = [
 ];
 
 /**
- * Known colleagues: Tweede Collega as the beheerder of MOZa, Derde Collega in its redactie, and
- * Beheerder Schrijver on no team (the platform admin of the e2e run). Invitations make the test user
- * (test@example.org) beheerder of Digi Handboek and redactie of MOZa at its login; two more stay open.
+ * Known colleagues: Tweede Collega as the beheerder of MOZa and Werkplaats, Derde Collega in the
+ * redactie of MOZa and outside Werkplaats, and Beheerder Schrijver on no team (the platform admin of
+ * the e2e run). Invitations make the test user (test@example.org) beheerder of Digi Handboek, redactie
+ * of MOZa and bijdrager of Werkplaats at its login; two more stay open.
  */
 export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<void> {
 	for (const { sub, name, email } of COLLEAGUES) {
@@ -493,6 +536,7 @@ export async function seedFakeTeam(users: UsersStore, team: TeamStore): Promise<
 	await team.addByEmail('moza-site', 'test@example.org', 'redactie', 'collega');
 	await team.addByEmail('moza-site', 'redactie@example.org', 'redactie', 'collega');
 	await team.addByEmail('digi-handboek', 'naam@rijksoverheid.nl', 'redactie', 'platform');
+	await team.addByEmail('werkplaats', 'test@example.org', 'bijdrager', 'collega');
 }
 
 export async function initFakeServices(): Promise<void> {

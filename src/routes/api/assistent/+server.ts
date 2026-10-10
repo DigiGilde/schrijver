@@ -12,6 +12,7 @@ import {
 } from '$lib/assistant/vlam';
 import { UnknownSiteError } from '$lib/config/load';
 import { getConfigStore } from '$lib/server/services';
+import { mayOpen } from '$lib/server/site-access';
 
 const SiteId = z.string().min(1).max(100);
 const Body = z.discriminatedUnion('action', [
@@ -48,6 +49,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ message: 'Ongeldig verzoek' }, { status: 400 });
 	}
 	const req = parsed.data;
+	// Outside the site guard: a site the user may not see is one that does not exist.
+	if (!(await mayOpen(req.siteId, locals.user))) {
+		return json({ message: 'Onbekende site' }, { status: 404 });
+	}
 	let schrijfwijzer: string;
 	try {
 		schrijfwijzer = getConfigStore().schrijfwijzer(req.siteId);

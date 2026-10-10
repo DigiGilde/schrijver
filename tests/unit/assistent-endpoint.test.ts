@@ -7,17 +7,23 @@ vi.mock('../../src/lib/assistant/vlam', () => ({
 	suggest: vi.fn(async () => ({ replacement: 'r', explanation: 'e' })),
 	outline: vi.fn(async () => ({ title: 't', outline: '## o', explanation: 'e' }))
 }));
+const schrijfwijzer = vi.hoisted(() => vi.fn());
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({
 		schrijfwijzer: (id: string) => {
+			schrijfwijzer(id);
 			if (id === 'onbekend') throw new UnknownSiteError(id);
 			return 'sw';
 		}
 	})
 }));
+vi.mock('../../src/lib/server/site-access', () => ({
+	mayOpen: vi.fn(async (siteId: string) => siteId !== 'besloten')
+}));
 
 import { UnknownSiteError } from '../../src/lib/config/load';
 import * as vlam from '../../src/lib/assistant/vlam';
+import { mayOpen } from '../../src/lib/server/site-access';
 import { POST } from '../../src/routes/api/assistent/+server';
 
 const body = { siteId: 'moza', action: 'korter', text: 'tekst' };
@@ -56,6 +62,15 @@ describe('POST /api/assistent', () => {
 	});
 	it('404 on unknown site', async () => {
 		expect((await call({ body: { ...body, siteId: 'onbekend' } })).status).toBe(404);
+	});
+	it('404 on a site the user may not see, before its writing guide is read', async () => {
+		schrijfwijzer.mockClear();
+		const res = await call({ body: { ...body, siteId: 'besloten' } });
+		expect(res.status).toBe(404);
+		expect(await res.json()).toEqual({ message: 'Onbekende site' });
+		expect(mayOpen).toHaveBeenCalledWith('besloten', expect.anything());
+		expect(schrijfwijzer).not.toHaveBeenCalled();
+		expect(vlam.suggest).not.toHaveBeenCalled();
 	});
 	it('503 when VLAM is unavailable', async () => {
 		vi.mocked(vlam.suggest).mockRejectedValueOnce(

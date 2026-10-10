@@ -9,10 +9,11 @@ import type { SiteConfig } from '$lib/config/types';
 import { log } from '$lib/log';
 import { limitBeheerPost } from '$lib/server/security';
 import { getConfigStore, getForge, reloadSite } from '$lib/server/services';
+import { maySee, siteUser } from '$lib/server/site-access';
 import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './forms';
 
 /**
- * The site and the signed-in user, when the user may manage the site: a platform admin or a
+ * The site and the signed-in user, when the user may see and manage the site: a platform admin or a
  * beheerder of it. Anyone else gets the same 404 as for a site that does not exist. A site whose
  * files are not valid is managed here too.
  */
@@ -21,8 +22,12 @@ async function managed(event: RequestEvent, action: string) {
 	if (!user) redirect(303, '/login');
 	if (action !== 'load') limitBeheerPost(user.session.sub);
 	const status = getConfigStore().status(event.params.site ?? '');
-	const asker = { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
-	if (!status || !(await canManageSite(status.site, asker, getForge()))) {
+	const asker = siteUser(user);
+	if (
+		!status ||
+		!(await maySee(status, asker)) ||
+		!(await canManageSite(status.site, asker, getForge()))
+	) {
 		log.warn('beheer.refused', {
 			page: 'beheer',
 			site: status?.site.id ?? null,
@@ -72,9 +77,12 @@ type Managed = Awaited<ReturnType<typeof managed>>;
 const who = (change: { name: string | null }, self: boolean) =>
 	self ? 'Jij' : (change.name ?? 'Deze persoon');
 
-/** After a change to their own place in the team, someone who no longer manages the site leaves the page. */
+/** After a change to their own place in the team, someone who no longer manages or sees the site leaves the page. */
 async function leaveWhenNoLongerManaging(m: Managed, sub: string) {
-	if (sub === m.session.sub && !(await canManageSite(m.site, m.asker, getForge()))) {
+	if (
+		sub === m.session.sub &&
+		!((await maySee(m.status, m.asker)) && (await canManageSite(m.site, m.asker, getForge())))
+	) {
 		redirect(303, '/instellingen');
 	}
 }

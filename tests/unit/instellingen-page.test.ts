@@ -30,6 +30,7 @@ const visit = async (sub: string, githubLogin: string | null = null, query = '')
 		}
 	} as never)) as {
 		beheer: { platform: boolean; sites: { id: string; naam: string; klopNiet: boolean }[] };
+		sites: { naam: string; toegestaan: string[] }[];
 		kenmerk: string;
 		siteVerwijderd: boolean;
 	};
@@ -46,8 +47,10 @@ afterAll(() => {
 	useTeamStore(undefined);
 });
 
+let team: MemoryTeamStore;
+
 beforeEach(async () => {
-	const team = new MemoryTeamStore();
+	team = new MemoryTeamStore();
 	useTeamStore(team);
 	for (const { site, settings } of PREVIEW_SITES) await team.addSite(site, settings, null, null);
 	await team.recordLogin({
@@ -69,7 +72,8 @@ describe('Beheer on Instellingen', () => {
 			sites: [
 				{ id: 'digi-handboek', naam: 'Digi Handboek', klopNiet: false },
 				{ id: 'moza-site', naam: 'MOZa', klopNiet: false },
-				{ id: 'oude-site', naam: 'Oude site', klopNiet: true }
+				{ id: 'oude-site', naam: 'Oude site', klopNiet: true },
+				{ id: 'werkplaats', naam: 'Werkplaats', klopNiet: false }
 			]
 		});
 	});
@@ -93,10 +97,35 @@ describe('Beheer on Instellingen', () => {
 			sites: [
 				{ id: 'digi-handboek', naam: 'Digi Handboek', klopNiet: false },
 				{ id: 'moza-site', naam: 'MOZa', klopNiet: false },
-				{ id: 'oude-site', naam: 'Oude site', klopNiet: true }
+				{ id: 'oude-site', naam: 'Oude site', klopNiet: true },
+				{ id: 'werkplaats', naam: 'Werkplaats', klopNiet: false }
 			]
 		});
 		forge.permissionByLogin.delete('octo');
+	});
+
+	it('leaves out a site its admin may not see: on a public repository only the team counts', async () => {
+		forge.permissionByLogin.set('octo', 'admin');
+		const values = (await team.settings('digi-handboek'))!;
+		await team.saveSettings('digi-handboek', { ...values, zichtbaarheid: 'team' }, 'platform');
+		expect((await visit('iemand', 'octo')).beheer.sites.map((s) => s.id)).toEqual([
+			'moza-site',
+			'oude-site',
+			'werkplaats'
+		]);
+		forge.permissionByLogin.delete('octo');
+	});
+
+	it('names in Ondertekenen only the sites the user may see', async () => {
+		expect((await visit('iemand')).sites).toEqual([
+			{ naam: 'Digi Handboek', toegestaan: ['anoniem', 'gekoppeld', 'op-naam'] },
+			{ naam: 'MOZa', toegestaan: ['anoniem', 'gekoppeld'] }
+		]);
+		expect((await visit('platform')).sites.map((s) => s.naam)).toEqual([
+			'Digi Handboek',
+			'MOZa',
+			'Werkplaats'
+		]);
 	});
 
 	it('lists nothing for anyone else, and shows everyone their own sub', async () => {

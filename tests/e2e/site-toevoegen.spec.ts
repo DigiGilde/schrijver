@@ -5,7 +5,8 @@ import { als, alsTestgebruiker } from './als';
 /*
  * The local preview has three repositories that cannot be a site (MinBZK/elders without the App,
  * DigiGilde/nieuwsbrief without .schrijver/, DigiGilde/intranet with files that are not valid) and
- * DigiGilde/kennisbank that can. Adding it and removing it again leaves the sites as they were.
+ * two that can: DigiGilde/kennisbank, and DigiGilde/besloten, which is private. Adding them and
+ * removing them again leaves the sites as they were. DigiGilde/intern is the site Werkplaats.
  * Oude site is in Schrijver with old files: only platform admins see it. The platform admin is
  * Beheerder Schrijver (SCHRIJVER_BEHEERDERS=platform).
  */
@@ -66,6 +67,9 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 		'href',
 		/\/docs\/een-site-aansluiten\.md$/
 	);
+
+	await check(page, 'DigiGilde/intern');
+	await expect(status(page, 'DigiGilde/intern hoort al bij de site Werkplaats')).toHaveCount(1);
 
 	await check(page, 'DigiGilde/intranet');
 	await expect(
@@ -180,6 +184,53 @@ test('Site toevoegen adds a site, and Site verwijderen takes it out again', asyn
 	await expect(siteCard(page, 'Kennisbank')).toHaveCount(0);
 	expect((await page.goto('/sites/kennisbank'))?.status()).toBe(404);
 	expect((await page.goto('/instellingen/sites/kennisbank'))?.status()).toBe(404);
+});
+
+test('a private repository becomes a site that only its team sees', async ({ page }) => {
+	await als(page, 'platform');
+	await openAdd(page);
+	await check(page, 'DigiGilde/besloten');
+	await expect(page.getByRole('heading', { level: 2, name: 'Gegevens van de site' })).toBeVisible();
+	const form = stepTwo(page);
+	await expect(form.getByText('Alleen het team', { exact: true })).toBeVisible();
+	await expect(
+		form.getByText(
+			'DigiGilde/besloten is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+		)
+	).toBeVisible();
+	await expect(form.getByRole('radio', { name: 'Iedereen die inlogt' })).toHaveCount(0);
+	await expect(form.getByRole('radio', { name: 'Ik' })).toBeChecked();
+	await expect(
+		form.getByText(
+			'De beheerder regelt het team en de instellingen van de site. Alleen het team ziet de site: de beheerder voegt de anderen toe.'
+		)
+	).toBeVisible();
+	await form.getByRole('button', { name: 'Voeg site toe' }).click();
+	await expect(page).toHaveURL(/\/instellingen\/sites\/besloten\?toegevoegd=1$/);
+	await expect(
+		page.locator('form[action="?/instellingen"]').getByText('Alleen het team', { exact: true })
+	).toBeVisible();
+
+	await page.goto('/');
+	await expect(siteCard(page, 'Besloten')).toHaveAttribute('href', '/sites/besloten');
+	await als(page, 'derde');
+	await page.goto('/');
+	await expect(siteCard(page, 'MijnOverheid Zakelijk')).toBeVisible();
+	await expect(siteCard(page, 'Besloten')).toHaveCount(0);
+	expect((await page.goto('/sites/besloten'))?.status()).toBe(404);
+
+	await als(page, 'platform');
+	await page.goto('/instellingen/sites/besloten');
+	await page
+		.locator('nldd-box[background="critical"]')
+		.getByRole('button', { name: 'Verwijder site' })
+		.click();
+	await page
+		.locator('nldd-modal-dialog[text="Verwijder Besloten uit Schrijver?"]')
+		.getByRole('button', { name: 'Verwijder site' })
+		.click();
+	await expect(page).toHaveURL(/\/instellingen\?verwijderd=1$/);
+	expect((await page.goto('/sites/besloten'))?.status()).toBe(404);
 });
 
 test('a site whose files are not valid shows only its admins what is wrong', async ({ page }) => {

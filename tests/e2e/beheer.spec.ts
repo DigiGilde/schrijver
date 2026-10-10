@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { als, alsTestgebruiker } from './als';
 
 /*
  * The local preview seeds Digi Handboek with the test user as beheerder and an open invitation for
@@ -191,11 +192,12 @@ test('a site admin manages only their own sites; anyone else gets the page that 
 	await asCollega(page);
 	await page.goto('/instellingen');
 	await expect(
-		page.getByText('Je beheert het team en de instellingen van deze site.', { exact: true })
+		page.getByText('Je beheert het team en de instellingen van deze sites.', { exact: true })
 	).toBeVisible();
 	const sites = page.locator('nldd-list[accessible-label="Sites die je beheert"]');
-	await expect(sites.getByRole('link')).toHaveCount(1);
+	await expect(sites.getByRole('link')).toHaveCount(2);
 	await expect(sites.getByRole('link', { name: 'MijnOverheid Zakelijk' })).toBeVisible();
+	await expect(sites.getByRole('link', { name: 'Werkplaats' })).toBeVisible();
 	await expect(
 		page.getByText(
 			'Je kenmerk bij SSO Rijk: collega. Een beheerder van Schrijver kan je hierom vragen.'
@@ -272,6 +274,68 @@ test('a bijdrager is added like the other roles; where everyone sees the site, e
 	await sheet(page).getByRole('button', { name: 'Haal uit het team' }).click();
 	await confirmation(page).getByRole('button', { name: 'Haal uit het team' }).click();
 	await expect(row(page, 'Derde Collega')).toHaveCount(0);
+});
+
+test('Alleen het team closes a site to anyone outside its team, and Iedereen die inlogt opens it again', async ({
+	page
+}) => {
+	const choose = async (zichtbaar: string) => {
+		await open(page, DH);
+		const form = settingsForm(page);
+		await form.getByRole('radio', { name: zichtbaar }).click();
+		await form.getByRole('button', { name: 'Bewaar' }).click();
+		await expect(status(page, 'De instellingen van de site zijn bewaard.')).toHaveCount(1);
+		await expect(form.getByRole('radio', { name: zichtbaar })).toBeChecked();
+	};
+	await open(page, DH);
+	await expect(
+		settingsForm(page).getByRole('radio', { name: 'Iedereen die inlogt' })
+	).toBeChecked();
+	await choose('Alleen het team');
+	await expect(
+		page.locator('nldd-text').filter({ hasText: 'Alleen het team ziet de site.' })
+	).toBeVisible();
+	await expect(
+		addForm(page).getByText('Op deze site kan iedereen die inlogt al voorstellen maken.')
+	).toHaveCount(0);
+
+	await als(page, 'derde');
+	expect((await page.goto('/sites/digi-handboek'))?.status()).toBe(404);
+	await page.goto('/');
+	await expect(
+		page.getByRole('heading', { level: 2, name: 'MijnOverheid Zakelijk' })
+	).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2, name: 'Digi Handboek' })).toHaveCount(0);
+
+	await alsTestgebruiker(page);
+	await choose('Iedereen die inlogt');
+	await als(page, 'derde');
+	expect((await page.goto('/sites/digi-handboek'))?.status()).toBe(200);
+});
+
+test('on a private repository only the team sees the site, which its admins cannot change', async ({
+	page
+}) => {
+	await asCollega(page);
+	await open(page, '/instellingen/sites/werkplaats');
+	const form = settingsForm(page);
+	await expect(form.getByText('Alleen het team', { exact: true })).toBeVisible();
+	await expect(
+		form.getByText(
+			'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+		)
+	).toBeVisible();
+	await expect(form.getByRole('radio', { name: 'Iedereen die inlogt' })).toHaveCount(0);
+	await expect(row(page, 'Test Gebruiker')).toContainText('Bijdrager');
+	await expect(
+		page.getByText(
+			"Collega's met leesrechten op de repository op GitHub zien de site ook; met schrijfrechten horen ze bij de redactie, met beheerrechten zijn ze beheerder."
+		)
+	).toBeVisible();
+
+	await form.getByRole('button', { name: 'Bewaar' }).click();
+	await expect(status(page, 'De instellingen van de site zijn bewaard.')).toHaveCount(1);
+	await expect(form.getByText('Alleen het team', { exact: true })).toBeVisible();
 });
 
 test('the keyboard opens a member in the sheet and Escape brings the focus back to the row', async ({

@@ -9,6 +9,7 @@ import { toProposal } from '$lib/forge/proposals';
 import { forReview, waitsForReview } from '$lib/forge/status';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
+import { siteUser, visibleSites } from '$lib/server/site-access';
 import { ownForReview } from '$lib/server/site-tabs';
 
 /** The status lines are a courtesy: a slow forge must not hold up the start page. */
@@ -63,12 +64,14 @@ async function statusWithin(site: SiteConfig, user: User): Promise<string[]> {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const store = getConfigStore();
-	const statuses = store.statuses();
+	const all = store.statuses();
 	const user = locals.user;
+	const asker = user && siteUser(user);
+	const visible = asker ? await visibleSites(asker, all) : new Set<string>();
+	const statuses = all.filter((s) => visible.has(s.site.id));
 	// Only a site with a problem asks who manages it: its admins see the problem, and a site nobody
 	// can edit only them.
 	const troubled = statuses.filter((s) => s.errors.length > 0).map((s) => s.site);
-	const asker = user && { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
 	const beheerd = new Set(asker ? await managedSites(troubled, asker, getForge()) : []);
 	const shown = statuses.filter((s) => s.available || beheerd.has(s.site.id));
 	const [settings, status] = await Promise.all([
@@ -82,7 +85,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	]);
 	return {
 		// The detail is logged by the loader; everyone gets the same notice.
-		configNotLoaded: statuses.length === 0 && store.state().lastError !== null,
+		configNotLoaded: all.length === 0 && store.state().lastError !== null,
 		sites: shown.map((s, i) => ({
 			id: s.site.id,
 			naam: settings[i].naam,

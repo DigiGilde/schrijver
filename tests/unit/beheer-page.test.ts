@@ -209,6 +209,31 @@ describe('who may manage a site', () => {
 		expect(data).toMatchObject({ zichtbaarheid: 'iedereen', openbaar: true });
 	});
 
+	it('is for its team only, and whoever may read its private repository on GitHub, on a site only the team sees', async () => {
+		await team.addByEmail('werkplaats', 'baas@example.org', 'beheerder', 'platform');
+		const data = (await load(event('baas', 'werkplaats'))) as Record<string, unknown>;
+		expect(data).toMatchObject({ zichtbaarheid: 'team', openbaar: false });
+
+		forge.permissionByLogin.set('octo', 'admin');
+		try {
+			expect(((await load(event('octo', 'werkplaats'))) as { beheer: object }).beheer).toEqual({
+				id: 'werkplaats',
+				naam: 'Werkplaats'
+			});
+			const settings = (await team.settings(DH))!;
+			await team.saveSettings(DH, { ...settings, zichtbaarheid: 'team' }, 'baas');
+			expect(await thrown(load(event('octo', DH)) as Promise<unknown>)).toMatchObject({
+				status: 404
+			});
+			expect(log.warn).toHaveBeenCalledWith(
+				'beheer.refused',
+				expect.objectContaining({ site: DH, action: 'load' })
+			);
+		} finally {
+			forge.permissionByLogin.delete('octo');
+		}
+	});
+
 	it('lets someone whose linked GitHub account has admin permission manage the site', async () => {
 		forge.permissionByLogin.set('octo', 'admin');
 		try {
@@ -518,6 +543,9 @@ describe('the settings of the site', () => {
 			})
 		).toMatchObject({ actie: 'instellingen' });
 		expect((await team.settings('oude-site'))?.zichtbaarheid).toBe(before);
+		const { zichtbaarheid: _zichtbaarheid, ...rest } = SETTINGS;
+		await act('instellingen', 'platform', 'werkplaats', { ...rest, naam: 'Werkplaats' });
+		expect((await team.settings('werkplaats'))?.zichtbaarheid).toBe('team');
 	});
 });
 

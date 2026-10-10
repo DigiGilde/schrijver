@@ -284,9 +284,9 @@ describe('home page status lines', () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 
-	it('are left out without a signed-in user, and the forge is not asked', async () => {
+	it('are left out without a signed-in user, who sees no site, and the forge is not asked', async () => {
 		const listPrs = vi.spyOn(forge, 'listPrs');
-		expect((await visit(null)).sites.map((s) => s.status)).toEqual([[], []]);
+		expect((await visit(null)).sites).toEqual([]);
 		expect(listPrs).not.toHaveBeenCalled();
 	});
 });

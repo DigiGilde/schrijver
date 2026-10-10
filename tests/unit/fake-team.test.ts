@@ -14,18 +14,21 @@ const invited = async (siteId: string) =>
 	(await teamStore().invitations(siteId)).map((i) => `${i.email} ${i.role}`).sort();
 
 describe('the local preview', () => {
-	it('registers the pilot sites and Oude site, whose old files keep it from editing', async () => {
+	it('registers the pilot sites, Oude site, whose old files keep it from editing, and Werkplaats', async () => {
 		await initFakeServices();
 		expect((await teamStore().sites()).map((s) => [s.id, s.repoId, s.repo])).toEqual([
 			['digi-handboek', 4101, 'DigiGilde/handboek'],
 			['moza-site', 4102, 'MinBZK/moza-site'],
-			['oude-site', 4107, 'DigiGilde/oude-site']
+			['oude-site', 4107, 'DigiGilde/oude-site'],
+			['werkplaats', 4108, 'DigiGilde/intern']
 		]);
 		expect(
 			getConfigStore()
 				.sites()
 				.map((s) => s.id)
-		).toEqual(['digi-handboek', 'moza-site']);
+		).toEqual(['digi-handboek', 'moza-site', 'werkplaats']);
+		expect(getConfigStore().status('werkplaats')?.isPublic).toBe(false);
+		expect((await teamStore().settings('werkplaats'))?.zichtbaarheid).toBe('team');
 		expect(getConfigStore().status('oude-site')).toMatchObject({
 			available: false,
 			errors: expect.arrayContaining(['.schrijver/schema.yaml: ontbreekt'])
@@ -40,6 +43,8 @@ describe('the local preview', () => {
 		expect((await team.settings('digi-handboek'))?.vierOgen).toBe(false);
 		expect(await team.role('moza-site', 'collega')).toBe('beheerder');
 		expect(await team.role('moza-site', 'derde')).toBe('redactie');
+		expect(await team.role('werkplaats', 'collega')).toBe('beheerder');
+		expect(await team.role('werkplaats', 'derde')).toBeNull();
 		expect(await team.sitesOf('platform')).toEqual([]);
 		expect((await team.profile('platform'))?.name).toBe('Beheerder Schrijver');
 		expect((await getPrefs('collega')).onboarded).toBe(true);
@@ -63,6 +68,7 @@ describe('the local preview', () => {
 		});
 		expect(await team.role('digi-handboek', 'test')).toBe('beheerder');
 		expect(await team.role('moza-site', 'test')).toBe('redactie');
+		expect(await team.role('werkplaats', 'test')).toBe('bijdrager');
 		expect(await invited('digi-handboek')).toEqual(['naam@rijksoverheid.nl redactie']);
 	});
 });

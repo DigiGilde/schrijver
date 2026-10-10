@@ -1,7 +1,9 @@
 import { fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import { log } from '$lib/log';
 import { getConfigStore } from '$lib/server/services';
+import { visibleSites } from '$lib/server/site-access';
 import { actorPseudonym } from './identity';
+import type { SiteUser } from './roles';
 import { siteSettings } from './team-store';
 import { savePrefs, type UserPrefs } from './users';
 
@@ -31,11 +33,15 @@ export async function submitPrefs(event: RequestEvent, afterSave: 'redirect' | '
 	return { saved: true, identity };
 }
 
-/** Per site, which ways of signing it allows; the settings page explains the fallback. */
-export function siteRules(): Promise<{ naam: string; toegestaan: UserPrefs['identity'][] }[]> {
+/** Per site the user may see, which ways of signing it allows; the settings page explains the fallback. */
+export async function siteRules(
+	user: SiteUser
+): Promise<{ naam: string; toegestaan: UserPrefs['identity'][] }[]> {
+	const visible = await visibleSites(user);
 	return Promise.all(
 		getConfigStore()
 			.sites()
+			.filter((site) => visible.has(site.id))
 			.map(async (site) => {
 				const settings = await siteSettings(site);
 				return { naam: settings.naam, toegestaan: settings.identiteitToegestaan };

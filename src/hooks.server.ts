@@ -17,6 +17,7 @@ import { ACT_AS_COOKIE, actingAs, sessionAs } from '$lib/auth/dev-switch';
 import { recordLogin, startRetention, teamStore, useMemoryStores } from '$lib/auth/team-store';
 import { applySchema, getPrefs, savePrefs, type UserPrefs } from '$lib/auth/users';
 import { initServices } from '$lib/server/services';
+import { siteGuard } from '$lib/server/site-access';
 import {
 	apiGuard,
 	assertSafeEnvironment,
@@ -153,7 +154,7 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(securityHeaders, apiGuard, rateLimit, authHandle);
+export const handle = sequence(securityHeaders, apiGuard, rateLimit, authHandle, siteGuard);
 
 export const handleError: HandleServerError = ({ error, status }) => {
 	if (status === 404) return { message: 'Deze pagina bestaat niet' };

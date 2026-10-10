@@ -62,16 +62,17 @@ test('the cards sit side by side on a wide screen', async ({ page }) => {
 test('sites beyond the first page of the collection stay reachable', async ({ page }) => {
 	await page.goto('/');
 	await page.evaluate(() => customElements.whenDefined('nldd-collection'));
+	const cards = page.locator('nldd-collection > nldd-card');
+	const sites = await cards.count();
 	// The collection hides what exceeds max-items, and only show-load-more gives it back.
 	await page.locator('nldd-collection').evaluate((collection) => {
 		const card = collection.querySelector('nldd-card')!;
 		for (let i = 0; i < 24; i++) collection.append(card.cloneNode(true));
 	});
-	const cards = page.locator('nldd-collection > nldd-card');
-	await expect(cards).toHaveCount(26);
+	await expect(cards).toHaveCount(sites + 24);
 	await expect(cards.filter({ visible: true })).toHaveCount(24);
 	await page.getByRole('button', { name: 'Toon meer' }).click();
-	await expect(cards.filter({ visible: true })).toHaveCount(26);
+	await expect(cards.filter({ visible: true })).toHaveCount(sites + 24);
 });
 
 test.describe('on a narrow screen', () => {

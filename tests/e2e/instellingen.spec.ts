@@ -63,8 +63,9 @@ test('settings: a platform admin finds every site under Beheer, and everyone the
 		)
 	).toBeVisible();
 	// Oude site too: its files are not valid, which only its admins see.
-	await expect(sites.getByRole('link')).toHaveCount(3);
+	await expect(sites.getByRole('link')).toHaveCount(4);
 	await expect(sites.getByRole('link', { name: 'Digi Handboek' })).toBeVisible();
+	await expect(sites.getByRole('link', { name: 'Werkplaats' })).toBeVisible();
 	await expect(sites.locator('nldd-list-item').filter({ hasText: 'Oude site' })).toContainText(
 		'De structuur in .schrijver klopt niet'
 	);

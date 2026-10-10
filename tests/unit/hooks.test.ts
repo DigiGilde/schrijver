@@ -157,7 +157,7 @@ describe('handle', () => {
 
 	it('sets locals.user for a valid cookie', async () => {
 		const s = session();
-		const { result, locals, resolve } = run('/sites/x', sealSession(s, secret));
+		const { result, locals, resolve } = run('/help', sealSession(s, secret));
 		await result;
 		expect(resolve).toHaveBeenCalled();
 		expect(locals.user).toEqual({ session: s, prefs });
