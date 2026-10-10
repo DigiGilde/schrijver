@@ -29,7 +29,7 @@ describe('status texts', () => {
 	it('says in words where each status stands, without dash characters', () => {
 		for (const status of ALL) {
 			expect(STATUS[status].label).not.toBe('');
-			expect(STATUS[status].line).not.toMatch(/[–—]/);
+			expect(STATUS[status].line).not.toMatch(/[\u2013\u2014]/);
 		}
 		expect(STATUS.ingestuurd.line).toBe('Wacht op beoordeling door de redactie');
 		expect(STATUS.concept.line).toBe('Nog niet ingestuurd, alleen zichtbaar als voorstel');
@@ -285,6 +285,6 @@ describe('whatNow', () => {
 		for (const status of ALL)
 			for (const writer of flags)
 				for (const editor of flags)
-					expect(row({ status, writer, editor }).sentence).not.toMatch(/[–—]/);
+					expect(row({ status, writer, editor }).sentence).not.toMatch(/[\u2013\u2014]/);
 	});
 });
