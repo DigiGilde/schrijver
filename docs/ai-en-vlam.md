@@ -5,7 +5,7 @@ Transparency about the writing assistant ("Schrijfhulp") in Schrijver.
 ## What it does
 
 - Suggests changes to a selection or a page: a shorter sentence, a B1 rewrite, a fixed action or a free prompt.
-- Shows each suggestion as a word diff. The colleague chooses "Overnemen" or "Verwerpen".
+- Shows a suggestion for a selection as a word diff in the panel, and one for the whole text, a selection that takes in all of it included, as a comparison of the page in the text column. The colleague chooses "Overnemen" or "Verwerpen".
 - "Samenvatting" writes its suggestion only into the page's description field ("Gebruik als samenvatting"), never into the text.
 - On "Nieuwe pagina", "Maak een opzet" turns a description of the page (up to 2000 characters) into a suggested title and an outline in Markdown. The form shows both to check and edit; "Pagina maken" opens the editor with them as an unsaved draft in that browser. Nothing reaches the forge before "Concept bewaren".
 - Never writes into a page by itself. Nothing reaches the forge unless the colleague takes the suggestion and then saves.

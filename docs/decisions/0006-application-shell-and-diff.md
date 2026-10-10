@@ -29,3 +29,7 @@ The NLDD design system distinguishes two compositions: an application (panes, to
 - The app bar stays at the top on phones, where the application pattern prefers the bottom; with only a wordmark and a menu that costs little.
 - The "Voorbeeld" link left the proposal lists; it stays on the proposal page.
 - Also to report upstream: the save notification floats over the sticky bars for ten seconds, and Enter on a list row made of segments does nothing.
+
+## Note, 2026-10-10
+
+Two details of point 1 changed. The wordmark is the `file-text-pencil` icon in the accent block followed by the full word "Schrijver". On a site's pages the menu lists Sites, "Over `<site>`", Help and, under "Account", Instellingen and Uitloggen.
