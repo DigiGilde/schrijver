@@ -6,7 +6,8 @@ import {
 	mergeProposal,
 	pickReviewers,
 	sendIn,
-	sendInAgain
+	sendInAgain,
+	stillAsked
 } from '../../src/lib/forge/proposal-actions';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
@@ -187,13 +188,10 @@ describe('sendInAgain', () => {
 		]);
 	});
 
-	it('goes on past a reviewer GitHub refuses, logs it and says that request stands', async () => {
+	it('goes on past a reviewer GitHub refuses, logs it and names whose request stands', async () => {
 		const pr = await asked('jan', 'piet');
 		forge.failNext('rerequestReviewers', new ForgeError(422, 'GitHub weigerde de wijziging'));
-		expect(await sendInAgain(forge, site(), pr)).toEqual({
-			warning:
-				'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
-		});
+		expect(await sendInAgain(forge, site(), pr)).toEqual({ refused: ['jan'] });
 		expect(log.warn).toHaveBeenCalledWith('proposal.rerequest_failed', {
 			site: 'moza',
 			pr: pr.number,
@@ -203,6 +201,29 @@ describe('sendInAgain', () => {
 		const after = await forge.getPr('o/moza', pr.number);
 		expect(after.requestedReviewers).toEqual(['piet']);
 		expect(statusOf(after)).toBe('aanpassing-gevraagd');
+	});
+
+	it('names everyone GitHub would not ask again, whatever the reason', async () => {
+		const pr = await asked('jan', 'piet');
+		forge.leaveRepository('o/moza', 'piet');
+		forge.failNext('rerequestReviewers', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		expect(await sendInAgain(forge, site(), pr)).toEqual({ refused: ['jan', 'piet'] });
+		expect(statusOf(await forge.getPr('o/moza', pr.number))).toBe('aanpassing-gevraagd');
+	});
+
+	it('says, when GitHub would not ask them again, who still asks and who can lift it', () => {
+		expect(stillAsked(['bakker'])).toEqual({
+			message: 'Op GitHub vraagt bakker nog om een aanpassing',
+			warning:
+				'Schrijver kon bakker op GitHub niet opnieuw vragen om het voorstel te beoordelen. De vraag om aanpassing blijft staan tot bakker het voorstel op GitHub opnieuw beoordeelt, of tot iemand met rechten op GitHub de vraag daar weghaalt.'
+		});
+		expect(stillAsked(['bakker', 'jansen'])).toEqual({
+			message: 'Op GitHub vragen bakker en jansen nog om een aanpassing',
+			warning:
+				'Schrijver kon bakker en jansen op GitHub niet opnieuw vragen om het voorstel te beoordelen. De vragen om aanpassing blijven staan tot bakker en jansen het voorstel op GitHub opnieuw beoordelen, of tot iemand met rechten op GitHub de vragen daar weghaalt.'
+		});
+		for (const text of Object.values(stillAsked(['bakker'])))
+			expect(text).not.toMatch(/ingestuurd|review|[\u2013\u2014]/i);
 	});
 
 	it('takes off the label of a request made in Schrijver, and no label that is not there', async () => {

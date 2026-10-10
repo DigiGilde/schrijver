@@ -505,6 +505,23 @@ describe('proposal endpoints', () => {
 		expect((await call(opnieuwInsturen, { who: 'auteur' })).status).toBe(409);
 	});
 
+	it('says who still asks for changes when GitHub will not ask them again, not that it is sent in', async () => {
+		await call(insturen, { who: 'auteur' });
+		forge.reviewOnGitHub('o/moza', 1, 'bakker', 'changes_requested', 'Korter');
+		forge.leaveRepository('o/moza', 'bakker');
+		const res = await call(opnieuwInsturen, { who: 'auteur' });
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({
+			ok: true,
+			message: 'Op GitHub vraagt bakker nog om een aanpassing',
+			warning:
+				'Schrijver kon bakker op GitHub niet opnieuw vragen om het voorstel te beoordelen. De vraag om aanpassing blijft staan tot bakker het voorstel op GitHub opnieuw beoordeelt, of tot iemand met rechten op GitHub de vraag daar weghaalt.'
+		});
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.requestedReviewers).toEqual([]);
+		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
+	});
+
 	it('refuses comments on a closed proposal', async () => {
 		forge.prs.get(1)!.state = 'closed';
 		expect((await call(opmerking, { sub: 'red', body: { body: 'x' } })).status).toBe(409);

@@ -85,8 +85,9 @@
 			const result = await res.json().catch(() => null);
 			if (res.ok && result?.ok) {
 				ok = true;
+				// A warning may come with its own message: then what happened is not what was asked.
 				melding = result.warning
-					? { variant: 'warning', text: gelukt, detail: result.warning }
+					? { variant: 'warning', text: result.message ?? gelukt, detail: result.warning }
 					: { variant: 'success', text: gelukt };
 				await invalidateAll();
 			} else {

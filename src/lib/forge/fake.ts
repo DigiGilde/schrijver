@@ -67,6 +67,8 @@ export class FakeForge implements Forge {
 	/** Old names of renamed repositories: GitHub sends a request for one on to the new name. */
 	private movedTo = new Map<string, string>();
 	private reviewRequired = new Set<string>();
+	/** Repository and login of someone who left a repository: GitHub asks them for no review there. */
+	private left = new Set<string>();
 	private prRepo = new Map<number, string>();
 	private comments = new Map<number, Omit<PrComment, 'byApp'>[]>();
 	private reviews = new Map<number, PrReview[]>();
@@ -161,6 +163,11 @@ export class FakeForge implements Forge {
 	/** As branch protection that requires an approving review before a merge. */
 	requireReview(repo: string): void {
 		this.reviewRequired.add(repo);
+	}
+
+	/** As someone leaving the collaborators of a repository: GitHub then refuses to ask them for a review. */
+	leaveRepository(repo: string, login: string): void {
+		this.left.add(`${repo}\0${login.toLowerCase()}`);
 	}
 
 	/** A comment that someone posted on GitHub itself. */
@@ -576,6 +583,13 @@ export class FakeForge implements Forge {
 
 	private askReviewers(repo: string, number: number, logins: string[]): void {
 		const pr = this.pr(repo, number);
+		if (logins.some((login) => this.left.has(`${repo}\0${login.toLowerCase()}`))) {
+			throw new ForgeError(
+				422,
+				'GitHub weigerde de wijziging',
+				`Reviews may only be requested from collaborators. One or more of the users or teams you specified is not a collaborator of the ${repo} repository.`
+			);
+		}
 		this.touch(repo, number, {
 			requestedReviewers: [...new Set([...pr.requestedReviewers, ...logins])]
 		});

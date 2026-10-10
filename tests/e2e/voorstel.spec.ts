@@ -457,6 +457,37 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 				.getByRole('link', { name: /^Facilitaire diensten: wie je belt/ })
 		).toBeVisible();
 	});
+
+	test('says who still asks for an adjustment when GitHub will not ask them again', async ({
+		page
+	}) => {
+		await openSeeded(page, 'moza-site', 'Het team: wie er nieuw is');
+		const vraagt =
+			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.';
+		await expect(zin(page)).toHaveText(vraagt);
+		await knop(page, 'Stuur opnieuw in').click();
+		const banner = page.locator('nldd-banner[variant="warning"]');
+		await expect(banner).toHaveAttribute('text', 'Op GitHub vraagt bakker nog om een aanpassing');
+		await expect(banner).toContainText(
+			'Schrijver kon bakker op GitHub niet opnieuw vragen om het voorstel te beoordelen. De vraag om aanpassing blijft staan tot bakker het voorstel op GitHub opnieuw beoordeelt, of tot iemand met rechten op GitHub de vraag daar weghaalt.'
+		);
+		await expect(page.locator('p[role="status"]')).toHaveText(
+			'Op GitHub vraagt bakker nog om een aanpassing'
+		);
+		await expect(page.getByText('Het voorstel is opnieuw ingestuurd')).toHaveCount(0);
+		await expect(zin(page)).toHaveText(vraagt);
+		await expect(knop(page, 'Stuur opnieuw in')).toBeVisible();
+
+		// Not back with the redactie.
+		await als(page, 'derde');
+		await page.goto('/sites/moza-site/voorstellen?filter=beoordelen');
+		await expect(
+			page
+				.locator('nldd-list[accessible-label="Te beoordelen"]')
+				.getByRole('link', { name: /^Het team: wie er nieuw is/ })
+		).toHaveCount(0);
+		await alsTestgebruiker(page);
+	});
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {

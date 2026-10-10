@@ -365,6 +365,26 @@ describe('FakeForge', () => {
 		expect(await forge.getPr(REPO, pr.number)).toMatchObject({ requestedReviewers: ['jansen'] });
 	});
 
+	it('refuses, as GitHub does, to ask someone who left the repository for a review', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		forge.reviewOnGitHub(REPO, pr.number, 'Bakker', 'changes_requested', 'Korter');
+		forge.leaveRepository(REPO, 'bakker');
+		for (const ask of [forge.rerequestReviewers, forge.requestReviewers]) {
+			await expect(ask.call(forge, REPO, pr.number, ['Bakker'])).rejects.toMatchObject({
+				status: 422,
+				detail: expect.stringMatching(/^Reviews may only be requested from collaborators\./)
+			});
+		}
+		await forge.rerequestReviewers(REPO, pr.number, ['jansen']);
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({
+			changesRequestedBy: ['Bakker'],
+			requestedReviewers: ['jansen']
+		});
+		forge.leaveRepository('ander/repo', 'jansen');
+		await forge.requestReviewers(REPO, pr.number, ['jansen']);
+	});
+
 	it('says who opened a pull request and when it was merged', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');

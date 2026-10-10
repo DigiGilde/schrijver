@@ -157,22 +157,23 @@ export async function askForAdjustment(
 
 /**
  * Hands the proposal back to the editors: whoever asked for changes in a review on GitHub is asked to
- * review again. One reviewer GitHub refuses does not stop the others; their request then stands.
+ * review again. One reviewer GitHub refuses does not stop the others; their request then stands, and
+ * the result names them.
  */
 export async function sendInAgain(
 	forge: Forge,
 	site: SiteConfig,
 	pr: PrSummary
-): Promise<{ warning?: string }> {
+): Promise<{ refused?: string[] }> {
 	if (pr.labels.includes(ADJUSTMENT_LABEL)) {
 		await forge.removeLabel(site.repo, pr.number, ADJUSTMENT_LABEL);
 	}
-	let refused = false;
+	const refused: string[] = [];
 	for (const reviewer of pr.changesRequestedBy) {
 		try {
 			await forge.rerequestReviewers(site.repo, pr.number, [reviewer]);
 		} catch (err) {
-			refused = true;
+			refused.push(reviewer);
 			log.warn('proposal.rerequest_failed', { site: site.id, pr: pr.number, ...errorFields(err) });
 		}
 	}
@@ -185,12 +186,24 @@ export async function sendInAgain(
 			...errorFields(err)
 		});
 	}
-	return refused
-		? {
-				warning:
-					'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
-			}
-		: {};
+	return refused.length > 0 ? { refused } : {};
+}
+
+/**
+ * What the writer reads after "Stuur opnieuw in" when GitHub would not ask these reviewers again: the
+ * proposal is not back with the redactie, and who can lift the request on GitHub.
+ */
+export function stillAsked(logins: string[]): { message: string; warning: string } {
+	const names = new Intl.ListFormat('nl', { type: 'conjunction' }).format(logins);
+	const one = logins.length === 1;
+	return {
+		message: `Op GitHub ${one ? 'vraagt' : 'vragen'} ${names} nog om een aanpassing`,
+		warning: `Schrijver kon ${names} op GitHub niet opnieuw vragen om het voorstel te beoordelen. ${
+			one
+				? `De vraag om aanpassing blijft staan tot ${names} het voorstel op GitHub opnieuw beoordeelt, of tot iemand met rechten op GitHub de vraag daar weghaalt.`
+				: `De vragen om aanpassing blijven staan tot ${names} het voorstel op GitHub opnieuw beoordelen, of tot iemand met rechten op GitHub de vragen daar weghaalt.`
+		}`
+	};
 }
 
 const UNCHECKED =

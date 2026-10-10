@@ -196,6 +196,7 @@ describe('the fake fixtures of the local preview', () => {
 			['Weekly 10 september: de agenda', false],
 			['Weekly 3 september: de terugblik', true],
 			['Facilitaire diensten: wie je belt', true],
+			['Het team: wie er nieuw is', true],
 			['Werkplaats: het rooster van de week', false]
 		]);
 	});

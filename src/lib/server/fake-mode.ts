@@ -433,6 +433,25 @@ export async function seedScenarios(
 			daysAgo(1)
 		);
 		written.push({ siteId: 'moza-site', number: onGitHub, mine: true });
+		// The reviewer left the repository since: GitHub refuses to ask them again.
+		const left = await seedProposal(forge, MOZA, {
+			branch: 'schrijver/moza-site/het-team',
+			title: 'Het team: wie er nieuw is',
+			trailer: own,
+			path: 'content/handboek/jouw-start/het-team.md',
+			text: 'Sinds september werkt Sanne mee aan het portaal.',
+			sent: true
+		});
+		forge.reviewOnGitHub(
+			MOZA,
+			left,
+			'bakker',
+			'changes_requested',
+			'Noem ook haar rol in het team.',
+			daysAgo(1)
+		);
+		forge.leaveRepository(MOZA, 'bakker');
+		written.push({ siteId: 'moza-site', number: left, mine: true });
 	}
 
 	written.push({
