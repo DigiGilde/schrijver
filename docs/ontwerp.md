@@ -51,70 +51,46 @@ Out of scope for version one, named so nobody assumes them:
 
 ## 4. Site registry and schema
 
-Configuration lives in a **private** repository `schrijver-config`, following the ZAD pattern of code public, configuration private. The GitHub App reads it at start-up and on a push webhook. Changes to configuration go through a PR like everything else.
+The list of sites is a table in Schrijver's database, filled by platform admins with "Site toevoegen" under Instellingen. Each site is bound to its repository by GitHub's numeric id, because names change; Schrijver follows a renamed or moved repository and a new default branch. The structure of a site lives in the site's own repository, in `.schrijver/`, because it changes with the site's code and is changed by its developers through a pull request. Who works on a site and how (its name, its team, merging, four eyes, ways to sign) is set in Schrijver (decision 0008).
 
-### 4.1 `sites.yaml`
+Schrijver reads `.schrijver/` from the default branch of every site at start-up, and again on a push to that branch. A site whose files are missing or not valid cannot be edited and is shown to its admins with the problem; a later change that is not valid keeps the last valid structure and shows the problem to the admins. The fields are described in `docs/configuratie.md`.
+
+### 4.1 `.schrijver/site.yaml`
 
 ```yaml
-- id: digi-handboek
-  naam: Digi Handboek
-  forge: github
-  repo: DigiGilde/handboek
-  standaardbranch: main
-  content:
-    pad: docs
-    patroon: "**/*.md"
-    schema: digi-handboek
-    afbeeldingen:
-      pad: docs/afbeeldingen/{paginaslug}
-      verwijzing: relatief
-  review:
-    model: goedkeuring            # goedkeuring | direct
-    mergen-vanuit-schrijver: true
-    vier-ogen: true               # the writer does not merge their own proposal
-    redactie:
-      - naam@rijksoverheid.nl
-  identiteit:
-    toegestaan: [anoniem, gekoppeld, op-naam]
-  preview:
-    soort: bij-push               # Plak preview runs on every push to the PR
-    url: "https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/"
-  schrijfwijzer: digi-handboek.md
+# Digi Handboek (DigiGilde/handboek)
+content:
+  pad: docs
+  patroon: "**/*.md"
+  afbeeldingen:
+    pad: docs/afbeeldingen/{paginaslug}
+    verwijzing: relatief
+preview:
+  soort: bij-push               # Plak preview runs on every push to the PR
+  url: "https://plak.rijks.app/digigilde/handboek/_preview/pr-{nummer}/"
 
-- id: moza-site
-  naam: MOZa-site
-  forge: github
-  repo: MinBZK/moza-site
-  standaardbranch: main
-  content:
-    pad: content
-    patroon: "**/*.md"
-    schema: moza-site
-    uitsluiten: ["documenten/**"]
-    afbeeldingen:
-      pad: "{paginamap}/images"   # page bundle convention
-      verwijzing: relatief
-  review:
-    model: goedkeuring
-    mergen-vanuit-schrijver: true
-    redactie: [...]
-  identiteit:
-    toegestaan: [anoniem, gekoppeld]   # public repo: no real names by default
-  preview:
-    soort: bij-label
-    label: preview
-    url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
-  schrijfwijzer: moza-site.md
+# MOZa site (MinBZK/moza-site)
+content:
+  pad: content
+  patroon: "**/*.md"
+  uitsluiten: ["documenten/**"]
+  afbeeldingen:
+    pad: "{paginamap}/images"   # page bundle convention
+    verwijzing: relatief
+preview:
+  soort: bij-label
+  label: preview
+  url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
 ```
 
-`model: direct` means Send in merges immediately when GitHub allows it; the PR still exists for history.
+The review model is `goedkeuring`: "Insturen" asks for review, and merging happens in Schrijver or on GitHub, as the site's setting "Samenvoegen in Schrijver" says. Merging at once on "Insturen" (`direct`) is not offered in version one.
 
-**Who may do what.** Anyone signed in may propose on any site whose repository has the App installed. Editorial (`redactie`) is the union of the e-mail list in `sites.yaml` and users who linked a GitHub account in onboarding and have push permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With `review.vier-ogen` (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge (for now: a linked GitHub account with admin permission on the repository). Approving stays on GitHub (decisions 0005 and 0007).
+**Who may do what.** Anyone signed in may propose on any site in Schrijver. Editorial (`redactie`) is a member of the site's team in Schrijver, as beheerder or redactie, or someone who linked a GitHub account in onboarding and has write permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With "Vier ogen" (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge. Approving stays on GitHub (decisions 0005 and 0007).
 
-### 4.2 Schema per site (`schemas/<id>.yaml`)
+### 4.2 Schema per site (`.schrijver/schema.yaml`)
 
 ```yaml
-# schemas/digi-handboek.yaml
+# Digi Handboek
 titel: uit-h1                      # no title field; H1 is the title
 velden:
   description: { type: tekst, label: Samenvatting, hulp: "Een of twee zinnen." }
@@ -126,7 +102,7 @@ nieuwe-pagina:
   sjabloon: |
     # {titel}
 
-# schemas/moza-site.yaml
+# MOZa site
 titel: veld:title
 velden:
   title: { type: tekst, verplicht: true }
@@ -149,9 +125,9 @@ Field types in version one: `tekst`, `getal`, `ja-nee`, `datum`, `paginaverwijzi
 
 Schemas are hand-written in version one. Validation runs in the form before Save; a file that fails schema validation when opened (for example an existing page with a missing required field) still opens, with the missing field highlighted.
 
-### 4.3 Writing guide (`schrijfwijzer/<id>.md`)
+### 4.3 Writing guide (`.schrijver/schrijfwijzer.md`)
 
-Per-site style rules used as the assistant's system prompt and shown in the editor's help. MOZa's rules exist already (Dutch, B1, active voice, sentences under 20 words, "je", service names as one word) and are copied in, not referenced, so the config repo is self-contained.
+Per-site style rules used as the assistant's system prompt and shown in the editor's help, optional. MOZa's rules exist already (Dutch, B1, active voice, sentences under 20 words, "je", service names as one word) and are copied in, not referenced, so the guide is complete on its own.
 
 ## 5. Content model and round-trip
 
@@ -234,7 +210,7 @@ Version one:
 
 - The first save button is "Concept bewaren", and on a site with a public repository it carries the sentence "Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het instuurt." The editor shows a persistent dimmed "Openbaar concept" line on such sites.
 - Site preview builds only after Send-in: on MOZa the `preview` label is set at Send-in instead of first save; for Digi Handboek, propose a change to `preview.yml` so it skips draft PRs (`if: github.event.pull_request.draft == false`). Schrijver's own "Voorbeeld" covers the draft phase.
-- `sites.yaml` gets `concepten: openbaar | privé`. Version one supports `openbaar` only and refuses to start a site configured as `privé`, so the option is visible but honest.
+- `.schrijver/site.yaml` has `concepten: openbaar | privé`. Version one supports `openbaar` only and refuses a site configured as `privé`, so the option is visible but honest.
 
 Planned next step (`concepten: privé`):
 
@@ -273,14 +249,14 @@ If VLAM is unreachable the panel shows a notice; editing and saving are unaffect
 - OIDC against the project's Keycloak on ZAD (service `keycloak`, env `OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`), authorisation-code flow with PKCE. SSO Rijk is upstream of that realm.
 - Claims used: `sub` (pseudonym), `name` and `email` (identity choice "op naam" and the editorial e-mail check), `organization.name` (shown in the UI only). `email` is trusted only when `email_verified` is true; otherwise the user has no e-mail for editorial matching and cannot choose "op naam" (see decision 0003).
 - Session in an encrypted, HTTP-only cookie; no session table. Lifetime 8 hours, sliding.
-- Roles: `schrijver` (everyone signed in) and `redactie` per site (section 4.1). No admin UI; configuration is the config repo.
+- Roles: everyone signed in proposes; per site a team of beheerders and redactie, managed under Instellingen; platform admins (`SCHRIJVER_BEHEERDERS`) add and remove sites and manage every site (section 4.1, decision 0008).
 - Not using `authorization-wall`, because the app needs the claims itself.
 
 ## 10. Deployment and operations
 
 - One container, SvelteKit with the Node adapter, port 8080, non-root, `/healthz`.
 - ZAD component with services `keycloak`, `vlam`, `postgresql-database` (one table: user preferences keyed by `sub`: identity choice, GitHub login, GitHub user id) and `publish-on-web`.
-- Secrets via `user-env-vars`: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, `GITHUB_CONFIG_REPO`, `VLAM_KEY_PREPAID`, `PSEUDONYM_SECRET`, `SESSION_SECRET`.
+- Secrets via `user-env-vars`: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, `VLAM_KEY_PREPAID`, `PSEUDONYM_SECRET`, `SESSION_SECRET`.
 - Security headers set by the app (ZAD production ingress only sets HSTS): CSP without inline scripts except the design-system bundle hash, frame-ancestors none.
 - Workflow following the zad-actions pattern: build image to ghcr on push and PR, deploy to production on main, preview deployment per PR with label `preview`, cleanup on close.
 - Logging: structured JSON to stdout; each forge call logged with site, operation, PR number and outcome; no page content, no e-mail addresses (pseudonym only).
@@ -292,15 +268,15 @@ If VLAM is unreachable the panel shows a notice; editing and saving are unaffect
 - A page that fails to parse opens read-only with the reason and a link to the file on GitHub.
 - Preview build failed: shown as status with a link to the check run; Send-in stays possible, the editorial team sees the failed check.
 - VLAM down: side panel notice only.
-- Config repo unreadable at start-up: the app starts, shows "Configuratie niet geladen" to everyone and retries every minute; a stale copy from the previous load is used if present.
+- List of sites unreadable at start-up (the database): the app starts, shows "Configuratie niet geladen" to everyone and retries every minute; the sites from the previous load stay if present. A site whose `.schrijver/` cannot be read from GitHub is retried every minute and keeps its last valid structure.
 
 ## 12. Documentation
 
 Documentation is part of version one, not an afterthought, and lives in the Schrijver repository (English, per the team convention; UI strings Dutch):
 
 - `README.md`: what Schrijver is, the one-paragraph architecture, how to run it locally against a test repository, how to deploy.
-- `docs/configuratie.md`: the `sites.yaml` and schema formats with every field explained, and a worked example per site type (Astro collection, Hugo section).
-- `docs/een-site-aansluiten.md`: step by step for adding a site: install the App, write the schema, choose the review model, set up the preview URL, test the round-trip.
+- `docs/configuratie.md`: the files in `.schrijver/` with every field explained, and the site settings and team in Schrijver.
+- `docs/een-site-aansluiten.md`: step by step for adding a site: install the App, add `.schrijver/` with a worked example per site type (Astro collection, Hugo section), set up the preview URL, add the site with "Site toevoegen", set its team, test the round-trip.
 - `docs/identiteit-en-privacy.md`: the three identity choices, what ends up where, the pseudonym mechanism and secret rotation, what goes to VLAM.
 - `docs/decisions/`: short decision records, starting with `0001-editor.md` (NLDD text editor over a block editor, with the Milkdown fallback) and `0002-forge-as-state.md`.
 - `CONTRIBUTING.md` and a `CHANGELOG.md`.

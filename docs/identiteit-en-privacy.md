@@ -18,7 +18,7 @@ The choice is made in onboarding ("Hoe wil je je wijzigingen ondertekenen?"), ca
 
 In the code (`src/lib/forge/trailers.ts`) the `gekoppeld` name is the SSO name and the address is `${githubId}+${login}@users.noreply.github.com`. A commit message is the summary, a blank line and the trailer.
 
-`op-naam` is only available when the identity provider reports the e-mail address as verified (`email_verified`). Publication in a public repository is permanent (see [privacy.md](privacy.md#irreversible-publication)), so `op-naam` should only be allowed where the site configuration permits it.
+`op-naam` is only available when the identity provider reports the e-mail address as verified (`email_verified`). Publication in a public repository is permanent (see [privacy.md](privacy.md#irreversible-publication)), so `op-naam` should only be allowed where the site's settings permit it.
 
 ### Linking a GitHub account
 
@@ -58,7 +58,7 @@ Who is on a site's team, and the settings of a site, live in Schrijver's databas
 | Membership: site, `sub`, role (beheerder or redactie), who added them and when. | Who decides on proposals and who manages the site. | As long as the person is on the team. |
 | Invitation: site, the e-mail address the admin typed, role, who invited and when. | A colleague who has not signed in yet joins at their first login with that verified address. | 30 days, until it is claimed or revoked. An expired invitation is deleted. |
 | Audit row: time, who acted (`sub`), site, what happened, the target (a `sub`, an invitation id or the names of changed settings) and the role. Never an e-mail address. | Accountability: who changed a team, an invitation or a site setting. | Two years, also after the people in it left. |
-| Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is configured. |
+| Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is in Schrijver: removing a site removes its settings, team, invitations and writing records. |
 
 - The retention runs when Schrijver starts and once a day.
 - Schrijver sends no invitation e-mail; the admin tells the colleague.
@@ -73,5 +73,5 @@ Both pilot repositories are public. A draft pull request is readable by anyone o
 What Schrijver does about it:
 
 - On a site with a public repository, "Concept bewaren" says: "Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het instuurt." The editor shows a dimmed "Openbaar concept" line.
-- The site preview should build only after "Insturen": the `preview` label is set at "Insturen" (MOZa), and Digi Handboek's `preview.yml` skips draft pull requests. See [een-site-aansluiten.md](een-site-aansluiten.md#5-set-the-preview-url-pattern).
+- The site preview should build only after "Insturen": the `preview` label is set at "Insturen" (MOZa), and Digi Handboek's `preview.yml` skips draft pull requests. See [een-site-aansluiten.md](een-site-aansluiten.md#4-set-up-the-preview).
 - `concepten: privé` (drafts in a private repository) is planned and refused in version one.

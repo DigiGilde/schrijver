@@ -21,7 +21,6 @@ components:
       GITHUB_APP_CLIENT_SECRET: ''
       ORIGIN: ''
       GITHUB_WEBHOOK_SECRET: ''
-      GITHUB_CONFIG_REPO: ''
       VLAM_API_URL: ''
       VLAM_KEY_PREPAID: ''
       VLAM_MODEL: ''

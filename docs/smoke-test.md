@@ -1,6 +1,6 @@
 # Smoke test against real GitHub
 
-All automated tests run on the fake forge. Before the pilot, and after any change to `src/lib/forge/github.ts`, run this checklist once by hand against a throw-away repository with the real GitHub App. It covers what the fake cannot: App permissions, `markReady`, the squash merge with trailers, the webhook and the installation lookup for a private configuration repository.
+All automated tests run on the fake forge. Before the pilot, and after any change to `src/lib/forge/github.ts`, run this checklist once by hand against a throw-away repository with the real GitHub App. It covers what the fake cannot: App permissions, `markReady`, the squash merge with trailers, the webhook, the installation lookup and the repository's numeric id.
 
 Budget: about 30 minutes.
 
@@ -8,25 +8,31 @@ Budget: about 30 minutes.
 
 - [ ] Create a throw-away **public** repository, for example `<org>/schrijver-smoke`, with a `main` branch and a few pages: `docs/index.md` (with frontmatter `description: Test`) and `docs/kennis/pagina.md`.
 - [ ] Protect `main` the way a pilot site does (require a pull request; optionally one approving review) so the merge refusal path can be seen too.
-- [ ] Create a throw-away **private** configuration repository, for example `<org>/schrijver-smoke-config`, with `sites.yaml`, `schemas/smoke.yaml` and `schrijfwijzer/smoke.md`. Start from the Digi Handboek example in [configuratie.md](configuratie.md) and change:
-  - `id: smoke`, `repo: <org>/schrijver-smoke` (type it in different casing than GitHub shows, to exercise the case-insensitive compare), `content.pad: docs`;
-  - `review.model: goedkeuring`, `mergen-vanuit-schrijver: true`, your own verified e-mail address under `redactie` (it becomes an invitation; your first login puts you in the redactie);
-  - `preview.soort: geen`.
-- [ ] Use the production GitHub App or, better, a separate test App with the same permissions ([een-site-aansluiten.md](een-site-aansluiten.md), step 1). Install it on both repositories only.
+- [ ] Add `.schrijver/site.yaml`, `.schrijver/schema.yaml` and `.schrijver/schrijfwijzer.md` to `main` of that repository. Start from the Digi Handboek example in [een-site-aansluiten.md](een-site-aansluiten.md#3-add-schrijver-to-the-repository), which already uses `content.pad: docs`, and set `preview.soort: geen` without a `url`.
+- [ ] Create a second throw-away repository, for example `<org>/schrijver-smoke-leeg`, with one page and no `.schrijver/`.
+- [ ] Use the production GitHub App or, better, a separate test App with the same permissions ([een-site-aansluiten.md](een-site-aansluiten.md), step 1). Install it on both throw-away repositories only.
 - [ ] Point the App's webhook at a URL that reaches your Schrijver (for a local run a tunnel, or skip the webhook checks).
 
 ## 2. Configure and start Schrijver
 
-- [ ] Fill `.env` from `.env.example`: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, `GITHUB_CONFIG_REPO=<org>/schrijver-smoke-config`, `ORIGIN`, `SESSION_SECRET`, `PSEUDONYM_SECRET` (both at least 32 bytes), `DATABASE_SERVER_FULL`, the `OIDC_*` values of a realm you can sign in to, and the `VLAM_*` values if you test the assistant.
+- [ ] Fill `.env` from `.env.example`: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, `ORIGIN`, `SESSION_SECRET`, `PSEUDONYM_SECRET` (both at least 32 bytes), `DATABASE_SERVER_FULL`, the `OIDC_*` values of a realm you can sign in to, and the `VLAM_*` values if you test the assistant.
 - [ ] Do not set `SCHRIJVER_FAKE_FORGE` or `SCHRIJVER_TEST_SESSION`.
 - [ ] Start it: the container (`podman compose up --build`, see [dev/README.md](../dev/README.md)) or `set -a; . ./.env; set +a; npm run dev`.
-- [ ] The log shows `config.loaded`, not `config.load_failed`. The home page lists the site and shows no "Configuratie niet geladen" banner.
+- [ ] The log shows `config.loaded` with `"sites":0`, not `config.load_failed`. The home page says "Nog geen sites" and shows no "Configuratie niet geladen" banner.
 
 ## 2a. Identity and team
 
 - [ ] Sign in and open Instellingen. Note the value after "Je kenmerk bij SSO Rijk": your `sub`. Sign out, sign in again in another browser, and expect the same value.
 - [ ] In the Keycloak realm that ZAD provides for Schrijver, check that this `sub` comes from SSO Rijk's persistent NameID (format `urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`), not from an e-mail address, a username that can change or a transient NameID. If the realm settings are not visible to you, ask the ZAD team. Everything in Schrijver's team management rests on this value staying the same for a person.
-- [ ] Set `SCHRIJVER_BEHEERDERS` to your `sub` and restart. Instellingen now says "Je bent beheerder van Schrijver" and lists every configured site under Beheer; "Beheer van smoke" shows you in the team (from the invitation for your address) and the settings, with "Vier ogen" as `vier-ogen` in `sites.yaml` set it at the first start.
+- [ ] Set `SCHRIJVER_BEHEERDERS` to your `sub` and restart. Instellingen now says "Je bent beheerder van Schrijver" and offers "Site toevoegen".
+
+## 2b. Add the site
+
+- [ ] "Site toevoegen", then a repository the App is not installed on: expect "De Schrijver-app staat niet op ..." with a link to the App's installation page on GitHub. This is `GET /repos/{owner}/{repo}/installation` answering 404, and `GET /app` giving the page.
+- [ ] `<org>/schrijver-smoke-leeg`: expect "... heeft nog geen map .schrijver." with the link to the documentation.
+- [ ] `<org>/schrijver-smoke`, typed in different casing than GitHub shows, or as its address on GitHub: expect step 2 with the name as GitHub writes it, the id `schrijver-smoke`, the repository's description and homepage, and "Ik" as first beheerder. Change the id to `smoke` and add the site.
+- [ ] Expect "Beheer van <naam>" with "<naam> staat nu in Schrijver.", you as beheerder, "Vier ogen" and "Samenvoegen in Schrijver" on, and under Structuur the summary of `.schrijver/` with a link to it on GitHub. In the database, `sites` holds the repository's numeric id (compare `GET /repos/{owner}/{repo}`), and `audit_log` holds `site.added` and `member.added`.
+- [ ] Try `<org>/schrijver-smoke` once more: expect "... hoort al bij de site ...".
 
 ## 3. Run the flow
 
@@ -53,13 +59,16 @@ Budget: about 30 minutes.
 - [ ] After "Insturen" the pull request is **no longer a draft**. If it still is a draft with the line `Schrijver-Status: ingestuurd` in its body, `markReady` was refused: note the App's permissions, because GitHub will not merge a draft (open point in [ontwerp.md](ontwerp.md), section 15).
 - [ ] The squash commit on `main` carries the title `<title> (#N)` and the `Schrijver-Auteur` trailer once.
 - [ ] With "Gekoppeld" (link your GitHub account in `/instellingen` first) a second proposal's commits carry `Co-authored-by: ... <id+login@users.noreply.github.com>`; check that GitHub shows your avatar on the commit.
-- [ ] Webhook: push a change to `docs/index.md` on GitHub; within seconds Schrijver shows the new text (no 60-second wait). Push a change to `sites.yaml`; the log shows `config.loaded`.
+- [ ] Webhook: push a change to `docs/index.md` on GitHub; within seconds Schrijver shows the new text (no 60-second wait).
+- [ ] Push a change to `.schrijver/site.yaml` on `main`, for example `uitsluiten: ['kennis/**']`: the log shows `config.site_loaded` and the page list drops `kennis/`. Push a change that is not valid, for example a `preview.url` without `{nummer}`: the start page card says "De instellingen in de repository kloppen niet" (to you, not to a colleague who is no admin), the beheer page names `.schrijver/site.yaml: preview.url: ...`, and editing still works with the last valid structure. Push the fix and see the problem go.
+- [ ] Rename the repository on GitHub and push to `main`: the log shows `webhook.site_moved`, `sites.repo` holds the new name, `audit_log` a `site.moved` row, and the site works as before.
 - [ ] The logs contain no e-mail addresses and no page text.
 
 ## 5. Clean up
 
 - [ ] Close or merge every pull request the run made and delete the `schrijver/smoke/...` branches.
+- [ ] As platform admin, remove the site under "Site verwijderen" on its beheer page. Expect the confirmation to say what goes and what stays, then "De site is uit Schrijver verwijderd." In the database the rows of `smoke` are gone from `sites`, `site_settings`, `site_members`, `invitations` and `proposal_writers`, and `audit_log` holds `site.removed`; the repository and its pull requests are still on GitHub.
 - [ ] Uninstall the App from both repositories, or delete the test App.
-- [ ] Archive or delete the two throw-away repositories.
+- [ ] Archive or delete the throw-away repositories.
 - [ ] Remove the smoke user's row from the preferences table if the database is shared.
 - [ ] Note the outcome (date, App, what failed) in the pull request that triggered the run.
