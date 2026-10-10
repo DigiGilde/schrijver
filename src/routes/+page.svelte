@@ -17,8 +17,8 @@
 		{/if}
 		{#if data.sites.length === 0}
 			<nldd-inline-dialog
-				text="Nog geen sites"
-				supporting-text="Vraag een beheerder van Schrijver om je site toe te voegen."
+				text="Je ziet nog geen site"
+				supporting-text="Sommige sites ziet alleen hun team: mis je zo'n site, vraag dan een beheerder van die site om je toe te voegen. Een nieuwe site voegt een beheerder van Schrijver toe."
 			></nldd-inline-dialog>
 		{:else}
 			<nldd-collection item-width="320px" show-load-more>

@@ -29,10 +29,12 @@ function screen(component: Component<any>, props: Record<string, unknown> = {}) 
 }
 
 describe('the start page', () => {
-	it('sends a colleague without sites to a beheerder of Schrijver, who adds the site', () => {
+	it('tells a colleague who sees no site where one may be, and who adds a new one', () => {
 		const document = screen(Startpagina, { data: { configNotLoaded: false, sites: [] } });
-		expect(document.querySelector('nldd-inline-dialog')?.getAttribute('supporting-text')).toBe(
-			'Vraag een beheerder van Schrijver om je site toe te voegen.'
+		const leeg = document.querySelector('nldd-inline-dialog')!;
+		expect(leeg.getAttribute('text')).toBe('Je ziet nog geen site');
+		expect(leeg.getAttribute('supporting-text')).toBe(
+			"Sommige sites ziet alleen hun team: mis je zo'n site, vraag dan een beheerder van die site om je toe te voegen. Een nieuwe site voegt een beheerder van Schrijver toe."
 		);
 	});
 

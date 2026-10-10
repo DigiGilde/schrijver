@@ -19,7 +19,7 @@ Budget: about 30 minutes.
 - [ ] Fill `.env` from `.env.example`: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET`, `ORIGIN`, `SESSION_SECRET`, `PSEUDONYM_SECRET` (both at least 32 bytes), `DATABASE_SERVER_FULL`, the `OIDC_*` values of a realm you can sign in to, and the `VLAM_*` values if you test the assistant.
 - [ ] Do not set `SCHRIJVER_FAKE_FORGE` or `SCHRIJVER_TEST_SESSION`.
 - [ ] Start it: the container (`podman compose up --build`, see [dev/README.md](../dev/README.md)) or `set -a; . ./.env; set +a; npm run dev`.
-- [ ] The log shows `config.loaded` with `"sites":0`, not `config.load_failed`. The home page says "Nog geen sites" and shows no "Sites niet geladen" banner.
+- [ ] The log shows `config.loaded` with `"sites":0`, not `config.load_failed`. The home page says "Je ziet nog geen site" and shows no "Sites niet geladen" banner.
 
 ## 2a. Identity and team
 
