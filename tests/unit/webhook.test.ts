@@ -13,6 +13,7 @@ vi.mock('$lib/log', () => ({
 
 const reloadSite = vi.fn(async (_siteId: string) => {});
 const reloadConfig = vi.fn(async () => {});
+const forgetVisibility = vi.fn((_siteId: string) => {});
 const fake = new FakeForge();
 const forge = new CachingForge(fake);
 const invalidate = vi.spyOn(forge, 'invalidate');
@@ -20,7 +21,8 @@ const invalidate = vi.spyOn(forge, 'invalidate');
 vi.mock('$lib/server/services', () => ({
 	reloadSite: (siteId: string) => reloadSite(siteId),
 	reloadConfig: () => reloadConfig(),
-	getForge: () => forge
+	getForge: () => forge,
+	getConfigStore: () => ({ forgetVisibility })
 }));
 
 const { log } = await import('$lib/log');
@@ -50,6 +52,7 @@ beforeEach(async () => {
 	process.env.GITHUB_WEBHOOK_SECRET = SECRET;
 	reloadSite.mockClear();
 	reloadConfig.mockClear();
+	forgetVisibility.mockClear();
 	invalidate.mockClear();
 	vi.mocked(log.error).mockClear();
 	team = new MemoryTeamStore();
@@ -244,12 +247,19 @@ describe('github webhook', () => {
 			expect(invalidate).toHaveBeenCalledWith(SITE);
 		});
 
-		it('reads a site again whose repository is made private or public, so the guard follows', async () => {
-			await call('repository', changed('privatized'));
-			await call('repository', changed('publicized'));
+		it('closes a site at once whose repository is made private or public, and reads it again', async () => {
+			for (const action of ['privatized', 'publicized']) {
+				reloadSite.mockImplementationOnce(async () => {
+					expect(forgetVisibility).toHaveBeenCalledWith('site');
+				});
+				await call('repository', changed(action));
+			}
+			expect(forgetVisibility.mock.calls).toEqual([['site'], ['site']]);
 			expect(reloadSite.mock.calls).toEqual([['site'], ['site']]);
 			expect(invalidate).toHaveBeenCalledWith(SITE);
 			expect((await team.sites())[0]).toMatchObject({ repo: SITE });
+			await call('repository', changed('renamed', { full_name: 'Org/nieuw' }));
+			expect(forgetVisibility).toHaveBeenCalledTimes(2);
 		});
 
 		it('reads a site again whose repository is deleted, so its admins see why', async () => {

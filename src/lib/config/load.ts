@@ -82,6 +82,8 @@ export class ConfigStore {
 	private entries = new Map<string, Entry>();
 	private loadedAt: number | null = null;
 	private lastError: string | null = null;
+	/** Per site, how often its visibility was forgotten: a read that began before cannot tell it. */
+	private forgotten = new Map<string, number>();
 
 	constructor(
 		private registry: Registry,
@@ -99,7 +101,7 @@ export class ConfigStore {
 			throw e;
 		}
 		const entries = await inParallel(registered, PARALLEL, (site) =>
-			this.check(site, this.entries.get(site.id))
+			this.read(site, this.entries.get(site.id))
 		);
 		this.entries = new Map(entries.map((entry) => [entry.site.id, entry]));
 		this.loadedAt = this.clock();
@@ -113,7 +115,23 @@ export class ConfigStore {
 			this.entries.delete(siteId);
 			return;
 		}
-		this.entries.set(siteId, await this.check(site, this.entries.get(siteId)));
+		this.entries.set(siteId, await this.read(site, this.entries.get(siteId)));
+	}
+
+	/**
+	 * Forgets whether a site's repository is public, as when GitHub says it was made private or public:
+	 * until it is read again, only the site's team sees it.
+	 */
+	forgetVisibility(siteId: string): void {
+		this.forgotten.set(siteId, (this.forgotten.get(siteId) ?? 0) + 1);
+		const entry = this.entries.get(siteId);
+		if (entry) this.entries.set(siteId, { ...entry, isPublic: null });
+	}
+
+	private async read(site: RegisteredSite, previous?: Entry): Promise<Entry> {
+		const forgotten = this.forgotten.get(site.id) ?? 0;
+		const entry = await this.check(site, previous);
+		return (this.forgotten.get(site.id) ?? 0) === forgotten ? entry : { ...entry, isPublic: null };
 	}
 
 	private async check(site: RegisteredSite, previous?: Entry): Promise<Entry> {

@@ -3,7 +3,7 @@ import { movedColumns } from '$lib/auth/team';
 import { teamStore } from '$lib/auth/team-store';
 import { CachingForge } from '$lib/forge/cache';
 import { errorFields, log } from '$lib/log';
-import { getForge, reloadConfig, reloadSite } from '$lib/server/services';
+import { getConfigStore, getForge, reloadConfig, reloadSite } from '$lib/server/services';
 import type { RequestHandler } from './$types';
 
 function validSignature(secret: string | undefined, body: Buffer, header: string | null): boolean {
@@ -78,6 +78,8 @@ async function repositoryChanged(
 	const team = teamStore();
 	const site = (await team.sites()).find((s) => s.repoId === repository.id);
 	if (!site) return;
+	if (action === 'privatized' || action === 'publicized')
+		getConfigStore().forgetVisibility(site.id);
 	const forge = getForge();
 	if (forge instanceof CachingForge) forge.invalidate(site.repo);
 	const { full_name: repo, default_branch: branch } = repository;

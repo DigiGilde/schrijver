@@ -253,10 +253,15 @@ describe('the site guard', () => {
 
 	it('closes a site to everyone but its team as soon as its repository turns private', async () => {
 		expect((await guard('/sites/digi-handboek')).resolve).toHaveBeenCalledOnce();
+		// What GitHub's privatized and publicized events do, before the site is read again.
 		forge.setPublic('DigiGilde/handboek', false);
+		store.forgetVisibility('digi-handboek');
+		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();
 		await store.reload('digi-handboek');
 		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();
 		forge.setPublic('DigiGilde/handboek', true);
+		store.forgetVisibility('digi-handboek');
+		expect((await guard('/sites/digi-handboek')).resolve).not.toHaveBeenCalled();
 		await store.reload('digi-handboek');
 		expect((await guard('/sites/digi-handboek')).resolve).toHaveBeenCalledOnce();
 	});
