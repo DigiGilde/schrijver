@@ -12,11 +12,11 @@ Processing inventory, register draft, DPIA advice and open statements. How ident
 | Team of a site (name, role; address for its admins) | Show colleagues who decides; let admins manage the team; decide who sees a site only its team sees | 6(1)(e) | While on the team; see [team management](identiteit-en-privacy.md#team-management) | "Over `<site>`": names and roles of the redactie to everyone who may see the site; addresses only on the site's beheer page; see [E-mail addresses shown to colleagues](#e-mail-addresses-shown-to-colleagues) |
 | Organisation name | UI display | 6(1)(e) | Session | Cookie |
 | Pseudonym (HMAC-SHA256, 12 hex) | Anonymous attribution, "my proposals" | 6(1)(e) | Permanent in git history and PR bodies | Public repositories; personal data (pseudonymised, art. 4(5)) |
-| GitHub login and id | Link, `gekoppeld`, editorial check, reviewer pool | 6(1)(a) | `user_prefs` until unlink | Postgres; public in the `gekoppeld` trailer; sent to GitHub in permission checks |
+| GitHub login and id | Link, `gekoppeld`, editorial and admin check, who sees a site only its team sees (read permission on a private repository), reviewer pool | 6(1)(a) | `user_prefs` until unlink | Postgres; public in the `gekoppeld` trailer; sent to GitHub in permission checks |
 | Identity choice, onboarding flag | Apply the choice | 6(1)(e) | As `user_prefs` | Postgres |
 | Page text, frontmatter, images | The product | 6(1)(e); content owner responsible | From the first save | GitHub from the first "Bewaar": public for a public repository, for a private one only those GitHub lets read it; in Schrijver whoever may see the site ([who reads a site](identiteit-en-privacy.md#who-reads-a-site-in-schrijver)). Photo metadata (location, time, camera, names) does not go along: the server removes it from every image on upload and again on save; only an orientation stays, so a turned photo shows upright |
 | PR body, title, review comments | Review, "my proposals" | 6(1)(e) | While the PR exists | GitHub, as the page text; in Schrijver whoever may see the site |
-| Log fields | Operation, security | 6(1)(e), (f) for security | Unknown (ZAD) | ZAD logging: site, PR, branch, event, status, token counts, error text; no `sub` |
+| Log fields | Operation, security | 6(1)(e), (f) for security | Unknown (ZAD) | ZAD logging: site, PR, branch, event, status, token counts, the actor's pseudonym, and the kind and status of an error, not its message (a failed GitHub link logs Schrijver's own reason); no `sub` or address |
 | VLAM payload | Writing suggestions | 6(1)(e) | Unknown (SSC-ICT) | Page text, instruction, writing guide; no identity |
 | Browser drafts (`localStorage`) | Safety net | 6(1)(e) | Until the page is saved or the user logs out of Schrijver; no expiry otherwise | Unencrypted in the browser profile, including images |
 | OAuth state and verifier cookies | Login and link flow | 6(1)(e) | 10 minutes | Cookie |
@@ -37,7 +37,7 @@ Commits, pull requests and squash commits in public repositories are copied by f
 
 Two displays put a work e-mail address in front of people who did not choose to share it. Neither is public: both sit behind sign-in with SSO Rijk.
 
-- **Team addresses.** The beheer page of a site shows the addresses of its team members and open invitations to the site's admins. "Over `<site>`", which everyone who may see the site can open, shows only the names and roles of its redactie, no addresses.
+- **Team addresses.** The beheer page of a site shows the addresses of its team members and open invitations to the site's admins who may see the site: its beheerders, the platform admins, and anyone whose linked GitHub account has admin permission on the repository. On a private repository that can be someone outside the team. "Over `<site>`", which everyone who may see the site can open, shows only the names and roles of its redactie, no addresses.
 - **The user's own address.** The layout puts the signed-in user's own e-mail address in the data of every page, for the account menu in the app bar. It is part of the HTML source of every page that user opens.
 
 Minimisation: an address is stored only when the identity provider verified it, or when an admin invites it; an invitation that is not claimed goes after 30 days.

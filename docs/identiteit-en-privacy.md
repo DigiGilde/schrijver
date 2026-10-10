@@ -39,7 +39,7 @@ Never sent: name, e-mail address, `sub`, pseudonym or GitHub login. The request 
 
 ## What is logged
 
-Logs are JSON on stdout. Forge calls and assistant requests are logged with site, operation or action, pull request number, outcome and token counts. Not logged: page content, e-mail addresses, tokens and secrets. Authentication failures are logged with a reason only.
+Logs are JSON on stdout. Forge calls and assistant requests are logged with site, operation or action, pull request number, outcome and token counts. What a user does or is refused carries their pseudonym (`actor`), among them saves, proposal actions, team changes, a change of their choice at Ondertekenen or of their linked GitHub account, every refused proposal action or beheer request, every request under a site they may not see, and a refusal by a rate limit. An error is logged by its kind and status, not its message. Not logged: page content, e-mail addresses, `sub`, tokens and secrets. Authentication failures are logged with a reason only.
 
 ## What is stored
 
@@ -64,7 +64,7 @@ The list of sites, who is on a site's team and the settings of a site live in Sc
 
 - The retention runs when Schrijver starts and once a day.
 - Schrijver sends no invitation e-mail; the admin tells the colleague.
-- No e-mail address or `sub` goes into a URL, and no `sub` into the data of a page or a form other than the user's own: the beheer page knows a member by a key per site and member. The team page shows names, addresses and roles to the site's beheerders and the platform admins only; "Over `<site>`" shows everyone who may see the site the names of its redactie and who is beheerder, never an address, and no bijdrager. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
+- No e-mail address or `sub` goes into a URL, and no `sub` into the data of a page or a form other than the user's own: the beheer page knows a member by a key per site and member. The team page shows names, addresses and roles to the site's admins only, if they may see the site: its beheerders, the platform admins, and anyone whose linked GitHub account has admin permission on the repository, which on a private repository can be someone outside the team; "Over `<site>`" shows everyone who may see the site the names of its redactie and who is beheerder, never an address, and no bijdrager. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
 - Platform admins are subs in the environment variable `SCHRIJVER_BEHEERDERS`, not in the database.
 - Logged for team changes, for every refused beheer request or proposal action, and for every request refused because the user may not see the site (`site.refused`): the event, site, role or status and the actor's pseudonym; never an address or a `sub`.
 
@@ -73,7 +73,7 @@ The list of sites, who is on a site's team and the settings of a site live in Sc
 Schrijver reads GitHub with the rights of its App, not with the colleague's, so Schrijver itself decides who reads a site's pages, its proposals, their changes and their conversation ([decision 0009](decisions/0009-sites-only-the-team-can-see.md)):
 
 - **A site everyone sees** ("Iedereen die inlogt", only with a public repository): everyone who signs in, as anyone can on GitHub.
-- **A site only its team sees** ("Alleen het team", always with a private repository): the platform admins, the members of its team in any role and, for a private repository, colleagues whose linked GitHub account may read the repository. Anyone else gets the page that does not exist, as for a site that does not exist, and does not find the site on the start page or under Instellingen.
+- **A site only its team sees** ("Alleen het team": always for a private repository, and a choice of its admins for a public one): the platform admins, the members of its team in any role and, for a private repository, colleagues whose linked GitHub account may read the repository. Anyone else gets the page that does not exist, as for a site that does not exist, and does not find the site on the start page or under Instellingen.
 
 What GitHub shows stays as GitHub decides: a public repository is readable by anyone there, whoever Schrijver shows the site to.
 
