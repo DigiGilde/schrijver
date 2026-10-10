@@ -139,11 +139,16 @@ export interface TeamStore {
 	invitations(siteId: string): Promise<Invitation[]>;
 	revokeInvitation(siteId: string, id: string, actor: string): Promise<Invitation | null>;
 
+	/** Records that Schrijver committed to a proposal for this user; the first time stays. */
+	recordWriter(siteId: string, number: number, sub: string): Promise<void>;
+	/** The users Schrijver committed to a proposal for, the first one first. */
+	writers(siteId: string, number: number): Promise<string[]>;
+
 	/** Newest first. */
 	audit(siteId?: string): Promise<AuditEntry[]>;
 	/**
-	 * Deletes expired invitations, the profile and preferences of users not seen for twelve months
-	 * who are on no team, and audit rows older than two years.
+	 * Deletes expired invitations, the profile, preferences and writing records of users not seen
+	 * for twelve months who are on no team, and audit rows older than two years.
 	 */
 	retention(): Promise<RetentionResult>;
 }

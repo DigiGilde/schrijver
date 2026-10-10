@@ -35,6 +35,7 @@ export class MemoryTeamStore implements TeamStore {
 	private memberRows = new Map<string, Map<string, MemberRow>>();
 	private invitationRows: Invitation[] = [];
 	private auditRows: AuditEntry[] = [];
+	private writerRows: { siteId: string; number: number; sub: string; firstAt: Date }[] = [];
 	private clock: () => Date;
 	private users?: { forget(sub: string): void };
 
@@ -302,6 +303,22 @@ export class MemoryTeamStore implements TeamStore {
 		return { ...invitation };
 	}
 
+	async recordWriter(siteId: string, number: number, sub: string) {
+		if (!this.siteSettings.has(siteId)) throw new Error(`unknown site ${siteId}`);
+		if (!this.profiles.has(sub)) throw new Error('unknown user');
+		const known = this.writerRows.some(
+			(w) => w.siteId === siteId && w.number === number && w.sub === sub
+		);
+		if (!known) this.writerRows.push({ siteId, number, sub, firstAt: this.clock() });
+	}
+
+	async writers(siteId: string, number: number) {
+		return this.writerRows
+			.filter((w) => w.siteId === siteId && w.number === number)
+			.sort((a, b) => a.firstAt.getTime() - b.firstAt.getTime() || a.sub.localeCompare(b.sub))
+			.map((w) => w.sub);
+	}
+
 	async audit(siteId?: string) {
 		return this.auditRows
 			.map((entry, order) => ({ entry, order }))
@@ -336,6 +353,8 @@ export class MemoryTeamStore implements TeamStore {
 			this.profiles.delete(p.sub);
 			this.users?.forget(p.sub);
 		}
+		const gone = new Set(forgotten.map((p) => p.sub));
+		this.writerRows = this.writerRows.filter((w) => !gone.has(w.sub));
 
 		const auditCutoff = auditBefore(now);
 		const before = this.auditRows.length;

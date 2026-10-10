@@ -471,6 +471,50 @@ function contract(make: () => Promise<Harness>) {
 		});
 	});
 
+	describe('who writes in a proposal', () => {
+		it('records each writer once, keeps the first time, and lists the first first', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			h.at('2026-10-10T11:00:00.000Z');
+			await team.recordWriter(DH, 7, 'piet');
+			h.at('2026-10-10T12:00:00.000Z');
+			await team.recordWriter(DH, 7, 'jan');
+			expect(await team.writers(DH, 7)).toEqual(['jan', 'piet']);
+		});
+
+		it('keeps proposals and sites apart, and knows nobody for a proposal without', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			await team.recordWriter(MOZA, 7, 'piet');
+			await team.recordWriter(DH, 8, 'piet');
+			expect(await team.writers(DH, 7)).toEqual(['jan']);
+			expect(await team.writers(MOZA, 7)).toEqual(['piet']);
+			expect(await team.writers(DH, 8)).toEqual(['piet']);
+			expect(await team.writers(DH, 9)).toEqual([]);
+		});
+
+		it('records nobody for a site or a user it does not know', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await expect(team.recordWriter('onbekend', 1, 'jan')).rejects.toThrow();
+			await expect(team.recordWriter(DH, 1, 'niemand')).rejects.toThrow();
+			expect(await team.writers(DH, 1)).toEqual([]);
+		});
+
+		it('forgets what a forgotten user wrote, and keeps the others', async () => {
+			h.at('2025-09-01T10:00:00.000Z');
+			await team.recordLogin(login('weg', 'weg@example.org'));
+			await team.recordWriter(DH, 3, 'weg');
+			h.at('2026-10-01T10:00:00.000Z');
+			await team.recordLogin(login('blijft', 'blijft@example.org'));
+			await team.recordWriter(DH, 3, 'blijft');
+			h.at(START);
+			expect((await team.retention()).users).toBe(1);
+			expect(await team.writers(DH, 3)).toEqual(['blijft']);
+		});
+	});
+
 	describe('retention', () => {
 		it('deletes expired invitations and writes that down', async () => {
 			const invited = await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
@@ -566,7 +610,7 @@ describe.skipIf(!url)('Postgres team store', () => {
 
 	describe('rules', () => {
 		contract(async () => {
-			await sql`truncate audit_log, invitations, site_members, site_settings, user_prefs`;
+			await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, user_prefs`;
 			let now = new Date(START);
 			return {
 				team: createTeamStore(sql, () => now),
@@ -580,7 +624,7 @@ describe.skipIf(!url)('Postgres team store', () => {
 	});
 
 	it('judges a user who has not signed in since the profile columns came by the last change', async () => {
-		await sql`truncate audit_log, invitations, site_members, site_settings, user_prefs`;
+		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, user_prefs`;
 		const team = createTeamStore(sql, () => new Date(START));
 		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('oud', true, ${new Date('2025-01-01T00:00:00Z')})`;
 		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('bijgewerkt', true, ${new Date('2026-09-01T00:00:00Z')})`;

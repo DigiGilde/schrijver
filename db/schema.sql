@@ -51,3 +51,12 @@ create table if not exists audit_log (
 	role text
 );
 create index if not exists audit_log_at on audit_log (at);
+
+-- Who wrote in a proposal: each user Schrijver committed to it for, from their first commit on.
+create table if not exists proposal_writers (
+	site_id text not null references site_settings (site_id) on delete cascade,
+	number integer not null,
+	sub text not null references user_prefs (sub) on delete cascade,
+	first_at timestamptz not null default now(),
+	primary key (site_id, number, sub)
+);

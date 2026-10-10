@@ -399,6 +399,21 @@ export function createTeamStore(
 			});
 		},
 
+		async recordWriter(siteId, number, sub) {
+			await sql`
+				insert into proposal_writers (site_id, number, sub, first_at)
+				values (${siteId}, ${number}, ${sub}, ${clock()})
+				on conflict (site_id, number, sub) do nothing`;
+		},
+
+		async writers(siteId, number) {
+			const rows = await sql<{ sub: string }[]>`
+				select sub from proposal_writers
+				where site_id = ${siteId} and number = ${number}
+				order by first_at, sub`;
+			return rows.map((r) => r.sub);
+		},
+
 		async audit(siteId) {
 			const rows = await sql<AuditRow[]>`
 				select at, actor_sub, site_id, action, target, role from audit_log
