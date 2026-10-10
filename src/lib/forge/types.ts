@@ -167,8 +167,6 @@ export interface Forge {
 	/** The account the App acts as on GitHub, such as `schrijver[bot]`; null when GitHub does not say. */
 	appLogin(): Promise<string | null>;
 	collaboratorPermission(repo: string, login: string): Promise<'admin' | 'write' | 'read' | 'none'>;
-	/** Whether the repository is publicly readable. */
-	isPublic(repo: string): Promise<boolean>;
 	/** The repository, when the App is installed on it; null when it is not, or GitHub knows no such repository. */
 	repository(repo: string): Promise<RepoInfo | null>;
 	/** Where an owner installs the App on a repository; null when GitHub does not say. */

@@ -68,6 +68,8 @@ interface AboutData {
 	kanBeheren: boolean;
 	ondertekenen: string[];
 	conceptenOpenbaar: boolean;
+	zichtbaarheid: string;
+	repoOpenbaar: boolean | null;
 	voorbeeld: string;
 	repo: string;
 	branch: string;
@@ -111,7 +113,10 @@ beforeAll(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
-	team = await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
+	team = await useTeams(services.store.sites(), {
+		'digi-handboek': { [EDITOR]: 'redactie' },
+		werkplaats: { [EDITOR]: 'redactie', pen: 'bijdrager' }
+	});
 	sentIn = await proposal('ingestuurd-aaaa', { sent: true });
 	concept = await proposal('concept-bbbb', { sent: false });
 	own = await proposal('eigen-cccc', { sent: false, mine: true });
@@ -305,13 +310,39 @@ describe('about page', () => {
 		}
 	});
 
-	it('says drafts are public only when the repository is', async () => {
+	it('says drafts are public only when the repository is, as Schrijver last read it', async () => {
 		expect((await about(WRITER)).conceptenOpenbaar).toBe(true);
 		forge.setPublic(REPO, false);
 		try {
+			expect((await about(WRITER)).conceptenOpenbaar).toBe(true);
+			await getConfigStore().reload('digi-handboek');
 			expect((await about(WRITER)).conceptenOpenbaar).toBe(false);
 		} finally {
 			forge.setPublic(REPO, true);
+			await getConfigStore().reload('digi-handboek');
+		}
+	});
+
+	it('says who sees a site only its team sees, and lists no bijdrager as redactie', async () => {
+		expect(await about(WRITER)).toMatchObject({ zichtbaarheid: 'iedereen', repoOpenbaar: true });
+		const werkplaats = await about(EDITOR, 'werkplaats');
+		expect(werkplaats).toMatchObject({
+			zichtbaarheid: 'team',
+			repoOpenbaar: false,
+			conceptenOpenbaar: false
+		});
+		expect(werkplaats.redactie).toEqual([{ naam: 'Naam redacteur', beheerder: false }]);
+
+		const settings = (await team.settings('digi-handboek'))!;
+		await team.saveSettings('digi-handboek', { ...settings, zichtbaarheid: 'team' }, 'baas');
+		try {
+			expect(await about(WRITER)).toMatchObject({
+				zichtbaarheid: 'team',
+				repoOpenbaar: true,
+				conceptenOpenbaar: true
+			});
+		} finally {
+			await team.saveSettings('digi-handboek', settings, 'baas');
 		}
 	});
 

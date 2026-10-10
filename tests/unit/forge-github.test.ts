@@ -965,21 +965,4 @@ describe('GitHubForge', () => {
 		);
 		expect(await forge().installUrl()).toBeNull();
 	});
-
-	it('reads repository visibility and fails safe to public on 404', async () => {
-		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ private: true })));
-		expect(await forge().isPublic('o/r')).toBe(false);
-		server.use(http.get(`${API}/repos/o/r`, () => HttpResponse.json({ private: false })));
-		expect(await forge().isPublic('o/r')).toBe(true);
-		server.use(
-			http.get(`${API}/repos/o/r`, () =>
-				HttpResponse.json({ message: 'Not Found' }, { status: 404 })
-			)
-		);
-		expect(await forge().isPublic('o/r')).toBe(true);
-		server.use(
-			http.get(`${API}/repos/o/r`, () => HttpResponse.json({ message: 'x' }, { status: 500 }))
-		);
-		await expect(forge().isPublic('o/r')).rejects.toBeInstanceOf(ForgeError);
-	});
 });

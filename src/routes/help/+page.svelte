@@ -129,6 +129,10 @@
 				aan het team dat Schrijver beheert.
 			</p>
 			<p>
+				Sommige sites ziet alleen hun team: mis je zo'n site, vraag dan een beheerder van die site
+				om je toe te voegen.
+			</p>
+			<p>
 				Meer over <a
 					href="https://github.com/DigiGilde/schrijver/blob/main/docs/toegankelijkheid.md"
 					>toegankelijkheid van Schrijver</a

@@ -6,7 +6,6 @@ import { buildForm, newPagePath } from '$lib/content/schema-form';
 import { statusOf } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import type { Status } from '$lib/forge/status';
-import { getRepoVisibility } from '$lib/server/repo-visibility';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { startFrontmatter, templateFor } from '../../nieuw/new-page';
 
@@ -29,6 +28,8 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 	const repoPath = root === '' ? pad : `${root}/${pad}`;
 	const forge = getForge();
 	const { naam } = await siteSettings(site);
+	// As Schrijver last read the repository; the notice on public drafts errs towards showing.
+	const isPublic = store.status(site.id)?.isPublic !== false;
 
 	if (query.get('nieuw') === '1') {
 		const schema = store.schema(site.id);
@@ -63,7 +64,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 			prNumber: null as number | null,
 			voorstel: null as Status | null,
 			nieuw: { soort, folder, title },
-			isPublic: await getRepoVisibility(site.repo),
+			isPublic,
 			loadedAt: Date.now(),
 			readOnly: null,
 			body: sjabloon.replaceAll('{titel}', title),
@@ -120,7 +121,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		prNumber,
 		voorstel,
 		nieuw: null as { soort: string | null; folder: string; title: string } | null,
-		isPublic: await getRepoVisibility(site.repo),
+		isPublic,
 		loadedAt: Date.now()
 	};
 

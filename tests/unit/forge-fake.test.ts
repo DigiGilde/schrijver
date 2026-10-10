@@ -445,7 +445,7 @@ describe('FakeForge', () => {
 
 	it('setPublic is stored per repo', async () => {
 		forge.setPublic(REPO, true);
-		expect(await forge.isPublic(REPO)).toBe(true);
+		expect((await forge.repository(REPO))?.isPublic).toBe(true);
 	});
 
 	it('describes a repository by its id, whatever the casing of its name', async () => {

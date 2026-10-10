@@ -605,16 +605,6 @@ export class GitHubForge implements Forge {
 		}
 	}
 
-	async isPublic(repo: string): Promise<boolean> {
-		try {
-			const data = await this.request(repo, 'GET /repos/{owner}/{repo}');
-			return !data.private;
-		} catch (e) {
-			if (e instanceof ForgeError && e.status === 404) return true;
-			throw e;
-		}
-	}
-
 	private async summarize(repo: string, pr: Json): Promise<PrSummary> {
 		const [reviews, checks] = await Promise.all([
 			this.request(repo, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {

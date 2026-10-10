@@ -80,6 +80,28 @@
 			</nldd-rich-text>
 		</nldd-container>
 
+		{#if data.zichtbaarheid === 'team'}
+			<nldd-container gap="12">
+				<nldd-title size="3" heading-level="2" text="Zichtbaar voor"></nldd-title>
+				<nldd-rich-text>
+					<p>
+						Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers.
+					</p>
+					{#if data.repoOpenbaar === false}
+						<p>
+							Wie de repository op GitHub mag lezen, ziet de site ook, als die een GitHub-account
+							aan Schrijver heeft gekoppeld.
+						</p>
+					{:else if data.repoOpenbaar}
+						<p>
+							De repository op GitHub is wel openbaar: daar kan iedereen de pagina's en de
+							voorstellen lezen.
+						</p>
+					{/if}
+				</nldd-rich-text>
+			</nldd-container>
+		{/if}
+
 		<nldd-container gap="12">
 			<nldd-title size="3" heading-level="2" text="Ondertekenen"></nldd-title>
 			<nldd-rich-text>
@@ -109,7 +131,7 @@
 				{:else}
 					<p>
 						Concepten zijn niet openbaar. De repository van deze site is niet openbaar: een concept
-						is alleen te lezen voor wie toegang heeft tot de repository op GitHub.
+						lezen alleen het team in Schrijver en wie de repository op GitHub mag lezen.
 					</p>
 				{/if}
 			</nldd-rich-text>

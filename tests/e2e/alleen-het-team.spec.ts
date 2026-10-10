@@ -107,3 +107,32 @@ test('someone outside its team gets the page that does not exist, everywhere und
 	await expect(page.getByRole('heading', { level: 1, name: 'Pagina niet gevonden' })).toBeVisible();
 	expect((await page.goto('/sites/moza-site'))?.status()).toBe(200);
 });
+
+test('the Over page says who sees the site, and Help that some sites only a team sees', async ({
+	page
+}) => {
+	await page.goto(`${SITE}/over`);
+	await expect(page.getByRole('heading', { level: 2, name: 'Zichtbaar voor' })).toBeVisible();
+	await expect(
+		page.getByText(
+			'Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers.'
+		)
+	).toBeVisible();
+	await expect(
+		page.getByText(
+			'Wie de repository op GitHub mag lezen, ziet de site ook, als die een GitHub-account aan Schrijver heeft gekoppeld.'
+		)
+	).toBeVisible();
+	await expect(page.getByText(/^Concepten zijn niet openbaar\./)).toBeVisible();
+	await expect(page.getByText(/^Concepten zijn openbaar\./)).toHaveCount(0);
+
+	await page.goto('/sites/digi-handboek/over');
+	await expect(page.getByRole('heading', { level: 2, name: 'Zichtbaar voor' })).toHaveCount(0);
+
+	await page.goto('/help');
+	await expect(
+		page.getByText(
+			"Sommige sites ziet alleen hun team: mis je zo'n site, vraag dan een beheerder van die site om je toe te voegen."
+		)
+	).toBeVisible();
+});

@@ -113,10 +113,6 @@ export class FakeForge implements Forge {
 		this.repo(repo).isPublic = isPublic;
 	}
 
-	async isPublic(repo: string): Promise<boolean> {
-		return this.repo(repo).isPublic;
-	}
-
 	/** As renaming or moving a repository on GitHub: the old name leads to the new one. */
 	renameRepo(from: string, to: string): void {
 		const state = this.repo(from);
