@@ -123,13 +123,14 @@ test('Verwerpen on a comparison brings the text back as it was, history and all'
 	await expect.poll(() => editorValue(page)).not.toContain('Getypt voor het voorstel');
 });
 
-/** The end of the comparison in the text column, where it asks to be taken or dropped like the panel does. */
-const slot = (page: Page) => page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Korter' });
+/** The comparison for Korter in the text column, which ends in its own Overnemen and Verwerpen. */
+const vergelijkingKolom = (page: Page) =>
+	page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Korter' });
 
 test('the comparison ends in Overnemen and Verwerpen, as the panel has them', async ({ page }) => {
 	const paneel = await openPanelHere(page);
 	await paneel.getByRole('button', { name: 'Korter' }).click();
-	const kolom = slot(page);
+	const kolom = vergelijkingKolom(page);
 	await expect(kolom.getByRole('button', { name: 'Overnemen' })).toBeVisible();
 	await expect(kolom.getByRole('button', { name: 'Verwerpen' })).toBeVisible();
 	await expect(paneel.getByRole('button', { name: 'Overnemen' })).toBeVisible();
@@ -154,7 +155,7 @@ test('Overnemen under the comparison takes the suggestion and returns to the tex
 	await paneel.getByRole('button', { name: 'Korter' }).click();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
 
-	await slot(page).getByRole('button', { name: 'Overnemen' }).click();
+	await vergelijkingKolom(page).getByRole('button', { name: 'Overnemen' }).click();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toHaveCount(0);
 	await expect(editor(page)).toBeFocused();
 	await expect(editor(page)).not.toContainText('Over het Digi Gilde');
@@ -177,7 +178,7 @@ test('Verwerpen under the comparison brings the text back as it was, history and
 
 	await paneel.getByRole('button', { name: 'Korter' }).click();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
-	await slot(page).getByRole('button', { name: 'Verwerpen' }).click();
+	await vergelijkingKolom(page).getByRole('button', { name: 'Verwerpen' }).click();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toHaveCount(0);
 	await expect(editor(page)).toBeFocused();
 	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
@@ -197,7 +198,7 @@ test('deciding under the comparison brings Voorbeeld back, as the panel does', a
 	for (const naam of ['Overnemen', 'Verwerpen']) {
 		await paneel.getByRole('button', { name: 'Korter' }).click();
 		await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
-		await slot(page).getByRole('button', { name: naam }).click();
+		await vergelijkingKolom(page).getByRole('button', { name: naam }).click();
 		await expect(voorbeeld).toBeVisible();
 		await expect(voorbeeld).toBeFocused();
 		await expect(page.getByRole('radio', { name: 'Voorbeeld' })).toBeChecked();
@@ -215,13 +216,13 @@ test('the keyboard reaches Overnemen and Verwerpen at the end of the comparison'
 	const kop = vergelijking(page, 'Voorstel van Schrijfhulp: Korter');
 	await expect(kop).toBeFocused();
 
-	const knop = slot(page).getByRole('button', { name: 'Overnemen' });
+	const knop = vergelijkingKolom(page).getByRole('button', { name: 'Overnemen' });
 	for (let i = 0; i < 30 && !(await knop.evaluate((el) => el.matches(':focus-within'))); i++) {
 		await page.keyboard.press('Tab');
 	}
 	await expect(knop).toBeFocused();
 	await page.keyboard.press('Tab');
-	await expect(slot(page).getByRole('button', { name: 'Verwerpen' })).toBeFocused();
+	await expect(vergelijkingKolom(page).getByRole('button', { name: 'Verwerpen' })).toBeFocused();
 	await page.keyboard.press('Enter');
 	await expect(editor(page)).toBeFocused();
 	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
@@ -232,7 +233,7 @@ test('the comparison names the page by its title, with its path and the changes 
 }) => {
 	const paneel = await openPanelHere(page);
 	await paneel.getByRole('button', { name: 'Korter' }).click();
-	const kolom = slot(page);
+	const kolom = vergelijkingKolom(page);
 	await expect(kolom.getByRole('heading', { name: 'Het Digi Handboek', level: 3 })).toBeVisible();
 	await expect(kolom.getByText('docs/index.md · 1 wijziging', { exact: true })).toBeVisible();
 	await expect(
@@ -526,7 +527,7 @@ test.describe('at 400 px', () => {
 		await page.locator('#schrijfhulp-paneel').getByRole('button', { name: 'Korter' }).click();
 		await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
 
-		const knop = slot(page).getByRole('button', { name: 'Overnemen' });
+		const knop = vergelijkingKolom(page).getByRole('button', { name: 'Overnemen' });
 		await knop.scrollIntoViewIfNeeded();
 		const box = (await knop.boundingBox())!;
 		expect(box.x, 'inside the screen').toBeGreaterThanOrEqual(0);
