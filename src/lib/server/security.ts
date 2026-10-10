@@ -1,5 +1,7 @@
 import { error, type Handle, type RequestEvent } from '@sveltejs/kit';
+import { actorPseudonym } from '$lib/auth/identity';
 import { SESSION_COOKIE, openSession, sessionSecret } from '$lib/auth/session';
+import { log } from '$lib/log';
 
 export const CSP =
 	"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
@@ -100,29 +102,53 @@ const RULES: { test: RegExp; name: string; limit: number; method?: string }[] = 
 	{ test: /^\/api\/sites\/[^/]+\/bestand$/, name: 'bestand', limit: 600, method: 'GET' }
 ];
 
-function clientKey(event: RequestEvent): string {
+/** Who a request counts for: the user's sub when there is a session, else the address. */
+function client(event: RequestEvent): { key: string; sub: string | null } {
 	const user = event.locals?.user;
-	if (user) return `sub:${user.session.sub}`;
+	if (user) return { key: `sub:${user.session.sub}`, sub: user.session.sub };
 	const token = event.cookies.get(SESSION_COOKIE);
 	if (token) {
 		try {
 			const session = openSession(token, sessionSecret());
-			if (session) return `sub:${session.sub}`;
+			if (session) return { key: `sub:${session.sub}`, sub: session.sub };
 		} catch {
 			// no usable secret: fall back to the address
 		}
 	}
-	return `ip:${event.getClientAddress()}`;
+	return { key: `ip:${event.getClientAddress()}`, sub: null };
+}
+
+/**
+ * Logs a refusal by a rate limit once per window per bucket: the rule and the actor's pseudonym. A
+ * bucket counted by address logs the rule only.
+ */
+function refusalLog(windowMs: number, now: () => number) {
+	const logged = new Map<string, number>();
+	return {
+		refused(rule: string, bucket: string, sub: string | null): void {
+			const t = now();
+			const last = logged.get(bucket);
+			if (last !== undefined && last > t - windowMs) return;
+			logged.set(bucket, t);
+			log.warn('rate_limited', sub === null ? { rule } : { rule, actor: actorPseudonym({ sub }) });
+		},
+		sweep(): void {
+			const cutoff = now() - windowMs;
+			for (const [bucket, t] of logged) if (t <= cutoff) logged.delete(bucket);
+		}
+	};
 }
 
 export function createRateLimit(now: () => number = Date.now): Handle & { sweep(): void } {
 	const buckets = new Map<string, number[]>();
+	const refusals = refusalLog(WINDOW_MS, now);
 
 	const sweep = () => {
 		const cutoff = now() - WINDOW_MS;
 		for (const [k, hits] of buckets) {
 			if (hits.every((t) => t <= cutoff)) buckets.delete(k);
 		}
+		refusals.sweep();
 	};
 	setInterval(sweep, WINDOW_MS).unref();
 
@@ -134,11 +160,13 @@ export function createRateLimit(now: () => number = Date.now): Handle & { sweep(
 				? undefined
 				: RULES.find((r) => r.test.test(path) && (!r.method || r.method === method));
 		if (!rule) return resolve(event);
-		const key = `${rule.name}:${clientKey(event)}`;
+		const who = client(event);
+		const key = `${rule.name}:${who.key}`;
 		const t = now();
 		const hits = (buckets.get(key) ?? []).filter((h) => h > t - WINDOW_MS);
 		if (hits.length >= rule.limit) {
 			buckets.set(key, hits);
+			refusals.refused(rule.name, key, who.sub);
 			const retry = Math.max(1, Math.ceil((hits[0] + WINDOW_MS - t) / 1000));
 			return json(429, 'Te veel aanvragen, probeer het zo opnieuw', {
 				'retry-after': String(retry)
@@ -153,12 +181,21 @@ export function createRateLimit(now: () => number = Date.now): Handle & { sweep(
 
 export const rateLimit: Handle = createRateLimit();
 
-/** Counts events per key in a sliding window; `take` returns false once the limit is reached. */
-export function createWindowCounter(limit: number, windowMs: number, now: () => number = Date.now) {
+/**
+ * Counts events per key in a sliding window; `take` returns false once the limit is reached. With a
+ * rule the keys are subs, and a refusal is logged once per window per key.
+ */
+export function createWindowCounter(
+	limit: number,
+	windowMs: number,
+	{ now = Date.now, rule }: { now?: () => number; rule?: string } = {}
+) {
 	const hits = new Map<string, number[]>();
+	const refusals = refusalLog(windowMs, now);
 	setInterval(() => {
 		const cutoff = now() - windowMs;
 		for (const [k, times] of hits) if (times.every((t) => t <= cutoff)) hits.delete(k);
+		refusals.sweep();
 	}, windowMs).unref();
 	return {
 		take(key: string): boolean {
@@ -166,6 +203,7 @@ export function createWindowCounter(limit: number, windowMs: number, now: () => 
 			const recent = (hits.get(key) ?? []).filter((h) => h > t - windowMs);
 			if (recent.length >= limit) {
 				hits.set(key, recent);
+				if (rule) refusals.refused(rule, key, key);
 				return false;
 			}
 			recent.push(t);
@@ -184,14 +222,18 @@ export function newProposalsPerHour(env: Env = process.env): number {
 	return devBypassesAllowed(env) && Number.isInteger(raised) && raised > 0 ? raised : 20;
 }
 
-export const newProposalLimit = createWindowCounter(newProposalsPerHour(), 3600_000);
+export const newProposalLimit = createWindowCounter(newProposalsPerHour(), 3600_000, {
+	rule: 'nieuwe-voorstellen'
+});
 
 /**
  * Posts per user per minute to the beheer pages and Site toevoegen; loading a page does not count.
  * Counted in the actions: there the user is known, and a refusal reaches the page as SvelteKit's error.
  */
 export const BEHEER_POSTS_PER_MINUTE = 30;
-export const beheerPostLimit = createWindowCounter(BEHEER_POSTS_PER_MINUTE, WINDOW_MS);
+export const beheerPostLimit = createWindowCounter(BEHEER_POSTS_PER_MINUTE, WINDOW_MS, {
+	rule: 'beheer'
+});
 
 /** Refuses a post to a beheer page or Site toevoegen beyond the limit of its user. */
 export function limitBeheerPost(sub: string): void {

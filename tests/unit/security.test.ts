@@ -1,15 +1,35 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Handle } from '@sveltejs/kit';
+import { pseudonym } from '../../src/lib/forge/trailers';
 import {
+	BEHEER_POSTS_PER_MINUTE,
 	CSP,
 	apiGuard,
 	assertSafeEnvironment,
 	createRateLimit,
 	devBypassesAllowed,
 	imageScanLimit,
+	limitBeheerPost,
+	newProposalLimit,
 	newProposalsPerHour,
 	securityHeaders
 } from '../../src/lib/server/security';
+
+const SECRET = 'security-test-secret';
+
+/** The lines logged while `run` ran, for one event, without their time. */
+async function logged(event: string, run: () => Promise<void> | void) {
+	const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+	try {
+		await run();
+		return write.mock.calls
+			.map(([line]) => JSON.parse(String(line)))
+			.filter((line) => line.event === event)
+			.map(({ t: _t, ...line }) => line);
+	} finally {
+		write.mockRestore();
+	}
+}
 
 function ev(path: string, headers: Record<string, string> = {}, ip = '1.2.3.4', method = 'POST') {
 	return {
@@ -175,6 +195,32 @@ describe('rateLimit', () => {
 		expect((await call(h, image('/api/sites/x/opslaan')).res).status).toBe(200);
 	});
 
+	it('logs a refusal once per window and bucket: the rule and the pseudonym, never an address', async () => {
+		process.env.PSEUDONYM_SECRET = SECRET;
+		let t = 1_000_000;
+		const h = createRateLimit(() => t);
+		const asUser = (sub: string) => ({
+			...ev('/api/assistent'),
+			locals: { user: { session: { sub } } }
+		});
+		const lines = await logged('rate_limited', async () => {
+			for (let i = 0; i < 20; i++) await call(h, asUser('jan')).res;
+			for (let i = 0; i < 3; i++) expect((await call(h, asUser('jan')).res).status).toBe(429);
+			for (let i = 0; i < 22; i++) await call(h, ev('/api/assistent', {}, '9.9.9.9')).res;
+			for (let i = 0; i < 11; i++) await call(h, ev('/api/sites/x/voorstellen/7/opmerking')).res;
+			t += 60_001;
+			for (let i = 0; i < 21; i++) await call(h, asUser('jan')).res;
+		});
+		const jan = pseudonym(SECRET, 'jan');
+		expect(lines).toEqual([
+			{ level: 'warn', event: 'rate_limited', rule: 'assistent', actor: jan },
+			{ level: 'warn', event: 'rate_limited', rule: 'assistent' },
+			{ level: 'warn', event: 'rate_limited', rule: 'gesprek' },
+			{ level: 'warn', event: 'rate_limited', rule: 'assistent', actor: jan }
+		]);
+		expect(JSON.stringify(lines)).not.toMatch(/9\.9\.9\.9|1\.2\.3\.4|"jan"/);
+	});
+
 	it('does not limit other paths and sweeps stale buckets', async () => {
 		let t = 0;
 		const h = createRateLimit(() => t);
@@ -239,6 +285,44 @@ describe('newProposalsPerHour', () => {
 				value
 			).toBe(20);
 		expect(newProposalsPerHour({ NODE_ENV: 'development' })).toBe(20);
+	});
+});
+
+describe('the limits counted where the user is known', () => {
+	it('log a refused post to a beheer page once per minute per user, by pseudonym', async () => {
+		process.env.PSEUDONYM_SECRET = SECRET;
+		const lines = await logged('rate_limited', () => {
+			for (let i = 0; i < BEHEER_POSTS_PER_MINUTE; i++) limitBeheerPost('beheer-veel');
+			for (let i = 0; i < 2; i++)
+				expect(() => limitBeheerPost('beheer-veel')).toThrow(
+					expect.objectContaining({ status: 429 })
+				);
+		});
+		expect(lines).toEqual([
+			{
+				level: 'warn',
+				event: 'rate_limited',
+				rule: 'beheer',
+				actor: pseudonym(SECRET, 'beheer-veel')
+			}
+		]);
+	});
+
+	it('log a refused new proposal once per hour per user, by pseudonym', async () => {
+		process.env.PSEUDONYM_SECRET = SECRET;
+		const lines = await logged('rate_limited', () => {
+			for (let i = 0; i < newProposalsPerHour(); i++) newProposalLimit.take('schrijft-veel');
+			expect(newProposalLimit.take('schrijft-veel')).toBe(false);
+			expect(newProposalLimit.take('schrijft-veel')).toBe(false);
+		});
+		expect(lines).toEqual([
+			{
+				level: 'warn',
+				event: 'rate_limited',
+				rule: 'nieuwe-voorstellen',
+				actor: pseudonym(SECRET, 'schrijft-veel')
+			}
+		]);
 	});
 });
 
