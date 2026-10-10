@@ -2,16 +2,19 @@ import {
 	allowedKinds,
 	isEmail,
 	isRole,
+	isVisibility,
 	normaliseEmail,
 	type Role,
-	type SettingsValues
+	type SettingsValues,
+	type Visibility
 } from '$lib/auth/team';
 import { isWebAddress } from '$lib/config/site-address';
 
 /** How a role reads in a sentence: "is nu beheerder", "is nu lid van de redactie". */
 export const ROLE_IN_SENTENCE: Record<Role, string> = {
 	beheerder: 'beheerder',
-	redactie: 'lid van de redactie'
+	redactie: 'lid van de redactie',
+	bijdrager: 'bijdrager'
 };
 
 export const NO_EMAIL_SENT = 'Schrijver stuurt geen e-mail: laat het je collega zelf weten.';
@@ -63,12 +66,19 @@ export function siteText(form: FormData) {
 	return { naam, omschrijving, adres, fouten };
 }
 
-/** Null for a request that lacks the on/off fields the page always sends. */
-export function parseSettings(form: FormData): SettingsForm | null {
+/**
+ * Null for a request that lacks the choices the page always sends. Who sees the site comes from the
+ * form, unless it is `fixed`.
+ */
+export function parseSettings(
+	form: FormData,
+	fixed: Visibility | null = null
+): SettingsForm | null {
 	const { naam, omschrijving, adres, fouten } = siteText(form);
 	const mergen = onOff(form.get('mergen'));
 	const vierOgen = onOff(form.get('vierOgen'));
-	if (mergen === null || vierOgen === null) return null;
+	const zichtbaarheid = fixed ?? form.get('zichtbaarheid');
+	if (mergen === null || vierOgen === null || !isVisibility(zichtbaarheid)) return null;
 	if (Object.keys(fouten).length > 0) return { ok: false, fouten };
 
 	return {
@@ -79,7 +89,8 @@ export function parseSettings(form: FormData): SettingsForm | null {
 			adres: adres || null,
 			mergenVanuitSchrijver: mergen,
 			vierOgen,
-			identiteitToegestaan: allowedKinds(form.getAll('ondertekenen').map(String))
+			identiteitToegestaan: allowedKinds(form.getAll('ondertekenen').map(String)),
+			zichtbaarheid
 		}
 	};
 }

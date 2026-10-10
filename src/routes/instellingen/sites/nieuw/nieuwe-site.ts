@@ -1,9 +1,11 @@
 import {
 	isEmail,
+	isVisibility,
 	normaliseEmail,
 	startingSettings,
 	type FirstAdmin,
-	type SettingsValues
+	type SettingsValues,
+	type Visibility
 } from '$lib/auth/team';
 import { isWebAddress } from '$lib/config/site-address';
 import type { RepoInfo } from '$lib/forge/types';
@@ -47,7 +49,10 @@ export function suggestedId(repo: string, taken: Set<string>): string {
 	return id;
 }
 
-/** What step 2 starts with: an id, and a name, description and address from GitHub. */
+/**
+ * What step 2 starts with: an id, a name, description and address from GitHub, and who sees the site:
+ * everyone who signs in, unless the repository is not public.
+ */
 export function suggestion(repo: RepoInfo, taken: Set<string>) {
 	const words = repo.fullName
 		.split('/')[1]
@@ -60,7 +65,8 @@ export function suggestion(repo: RepoInfo, taken: Set<string>) {
 		omschrijving: (repo.description ?? '').trim().slice(0, 300),
 		adres: homepage.length <= 500 && isWebAddress(homepage) ? homepage : '',
 		beheerder: 'ik' as 'ik' | 'collega',
-		email: ''
+		email: '',
+		zichtbaarheid: (repo.isPublic ? 'iedereen' : 'team') as Visibility
 	};
 }
 
@@ -70,24 +76,29 @@ export type Weigering =
 	| { soort: 'niet-geinstalleerd'; repo: string; installeren: string | null }
 	| { soort: 'onbereikbaar' }
 	| { soort: 'al-aangesloten'; repo: string; site: { id: string; naam: string } }
-	| { soort: 'prive'; repo: string }
 	| { soort: 'klopt-niet'; repo: string; fouten: string[]; zonderMap: boolean };
 
-export type NewSiteField = SettingsField | 'id' | 'email';
+export type NewSiteField = SettingsField | 'id' | 'email' | 'zichtbaarheid';
 export type NewSiteValues = ReturnType<typeof suggestion>;
 
 export type NewSiteForm =
 	| { ok: true; id: string; values: SettingsValues; admin: 'ik' | { email: string } }
 	| { ok: false; fouten: Partial<Record<NewSiteField, string>>; waarden: NewSiteValues };
 
-/** Step 2 as the form sends it, checked on the server. */
-export function parseNewSite(form: FormData, taken: Set<string>): NewSiteForm {
+/**
+ * Step 2 as the form sends it, checked on the server. A repository that is not public is seen by its
+ * team only, whatever the form says.
+ */
+export function parseNewSite(form: FormData, taken: Set<string>, isPublic: boolean): NewSiteForm {
 	const { naam, omschrijving, adres, fouten } = siteText(form);
 	const id = String(form.get('id') ?? '').trim();
 	const beheerder = form.get('beheerder') === 'collega' ? 'collega' : 'ik';
 	const typed = String(form.get('email') ?? '');
 	const email = normaliseEmail(typed);
+	const chosen = isPublic ? form.get('zichtbaarheid') : 'team';
 	const errors: Partial<Record<NewSiteField, string>> = { ...fouten };
+	if (!isVisibility(chosen)) errors.zichtbaarheid = 'Kies wie de site ziet.';
+	const zichtbaarheid: Visibility = isVisibility(chosen) ? chosen : 'iedereen';
 
 	if (id === '') errors.id = 'Een naam in het adres is nodig.';
 	else if (id.length > SITE_ID_MAX)
@@ -108,7 +119,7 @@ export function parseNewSite(form: FormData, taken: Set<string>): NewSiteForm {
 		return {
 			ok: false,
 			fouten: errors,
-			waarden: { id, naam, omschrijving, adres, beheerder, email: typed }
+			waarden: { id, naam, omschrijving, adres, beheerder, email: typed, zichtbaarheid }
 		};
 	}
 	return {
@@ -117,7 +128,8 @@ export function parseNewSite(form: FormData, taken: Set<string>): NewSiteForm {
 		values: {
 			...startingSettings(naam),
 			omschrijving: omschrijving || null,
-			adres: adres || null
+			adres: adres || null,
+			zichtbaarheid
 		},
 		admin: beheerder === 'ik' ? 'ik' : { email }
 	};

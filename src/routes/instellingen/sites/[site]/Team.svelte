@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { tick } from 'svelte';
-	import type { Role } from '$lib/auth/team';
+	import type { Role, Visibility } from '$lib/auth/team';
 	import type { PageData } from './$types';
 	import type { Resultaat } from './forms';
 	import LidSheet from './LidSheet.svelte';
@@ -12,10 +12,18 @@
 		leden: Lid[];
 		uitnodigingen: PageData['uitnodigingen'];
 		resultaat: Resultaat | null;
+		/** Who sees the site now. */
+		zichtbaarheid: Visibility;
+		/** Whether its repository is public, as Schrijver last read it. */
+		openbaar: boolean | null;
 	};
-	let { site, leden, uitnodigingen, resultaat }: Props = $props();
+	let { site, leden, uitnodigingen, resultaat, zichtbaarheid, openbaar }: Props = $props();
 
-	const ROL: Record<Role, string> = { beheerder: 'Beheerder', redactie: 'Redactie' };
+	const ROL: Record<Role, string> = {
+		beheerder: 'Beheerder',
+		redactie: 'Redactie',
+		bijdrager: 'Bijdrager'
+	};
 	const datum = new Intl.DateTimeFormat('nl-NL', {
 		day: 'numeric',
 		month: 'long',
@@ -66,8 +74,11 @@
 			<nldd-title size="3" heading-level="2" text="Team"></nldd-title>
 		</div>
 		<nldd-text
-			>Het team beslist over de voorstellen voor deze site. Beheerders beheren ook het team en de
-			instellingen.</nldd-text
+			>De redactie beslist over de voorstellen voor deze site. Beheerders doen dat ook en beheren
+			het team en de instellingen. Bijdragers maken voorstellen, maar beslissen er niet over.{zichtbaarheid ===
+			'team'
+				? ' Alleen het team ziet de site.'
+				: ''}</nldd-text
 		>
 		<!-- One persistent live region: a banner inserted together with its text is not reliably announced. -->
 		<p class="sr-only" role="status">{melding}</p>
@@ -125,8 +136,9 @@
 			{/each}
 		</nldd-list>
 		<nldd-text color="secondary"
-			>Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met
-			beheerrechten daar zijn ze beheerder.</nldd-text
+			>{openbaar === false
+				? "Collega's met leesrechten op de repository op GitHub zien de site ook; met schrijfrechten horen ze bij de redactie, met beheerrechten zijn ze beheerder."
+				: "Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."}</nldd-text
 		>
 		<form
 			method="post"
@@ -186,6 +198,10 @@
 				<nldd-form-field label="Rol">
 					<nldd-radio-button-group name="rol" required>
 						<nldd-radio-button-field
+							value="bijdrager"
+							label="Bijdrager: maakt voorstellen, beslist er niet over"
+						></nldd-radio-button-field>
+						<nldd-radio-button-field
 							value="redactie"
 							label="Redactie: beslist over voorstellen"
 							checked
@@ -195,6 +211,11 @@
 							label="Beheerder: beslist over voorstellen en beheert het team en de instellingen"
 						></nldd-radio-button-field>
 					</nldd-radio-button-group>
+					{#if zichtbaarheid === 'iedereen'}
+						<nldd-form-field-help-text
+							>Op deze site kan iedereen die inlogt al voorstellen maken.</nldd-form-field-help-text
+						>
+					{/if}
 				</nldd-form-field>
 				<nldd-form-actions>
 					<nldd-button-group>
@@ -215,7 +236,13 @@
 	</nldd-container>
 </nldd-container>
 
-<LidSheet bind:this={sheet} site={site.naam} onverwijderd={() => kop?.focus()} />
+<LidSheet
+	bind:this={sheet}
+	site={site.naam}
+	{zichtbaarheid}
+	{openbaar}
+	onverwijderd={() => kop?.focus()}
+/>
 
 <style>
 	.kop:focus {

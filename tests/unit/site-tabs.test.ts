@@ -66,6 +66,7 @@ describe('siteHeader', () => {
 			mergenVanuitSchrijver: true,
 			vierOgen: false,
 			identiteitToegestaan: ['anoniem' as const],
+			zichtbaarheid: 'iedereen' as const,
 			updatedAt: new Date(),
 			updatedBy: 'baas'
 		};

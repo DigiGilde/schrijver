@@ -1,6 +1,10 @@
-/** A role on a site's team. Everyone signed in may propose; these two decide. */
-export type Role = 'beheerder' | 'redactie';
-export const ROLES: readonly Role[] = ['beheerder', 'redactie'];
+/** A role on a site's team, the highest first. Beheerder and redactie decide; a bijdrager only writes. */
+export type Role = 'beheerder' | 'redactie' | 'bijdrager';
+export const ROLES: readonly Role[] = ['beheerder', 'redactie', 'bijdrager'];
+
+/** Who sees a site in Schrijver: everyone who signs in, or only its team. */
+export type Visibility = 'iedereen' | 'team';
+export const VISIBILITIES: readonly Visibility[] = ['iedereen', 'team'];
 
 export type IdentityKind = 'anoniem' | 'gekoppeld' | 'op-naam';
 export const IDENTITY_KINDS: readonly IdentityKind[] = ['anoniem', 'gekoppeld', 'op-naam'];
@@ -45,6 +49,8 @@ export interface SettingsValues {
 	mergenVanuitSchrijver: boolean;
 	vierOgen: boolean;
 	identiteitToegestaan: IdentityKind[];
+	/** As the site's admins chose it; a repository that is not public is seen by the team only. */
+	zichtbaarheid: Visibility;
 }
 
 export interface SiteSettings extends SettingsValues {
@@ -73,14 +79,18 @@ export type FirstAdmin = { sub: string } | { email: string };
 export type AddSiteResult =
 	{ ok: true; admin: AddResult | null } | { ok: false; reason: 'id-taken' | 'repo-taken' };
 
-/** What a site in Schrijver starts with: samenvoegen in Schrijver, four eyes and every way to sign. */
+/**
+ * What a site in Schrijver starts with: samenvoegen in Schrijver, four eyes, every way to sign, and
+ * seen by everyone who signs in.
+ */
 export const startingSettings = (naam: string): SettingsValues => ({
 	naam,
 	omschrijving: null,
 	adres: null,
 	mergenVanuitSchrijver: true,
 	vierOgen: true,
-	identiteitToegestaan: [...IDENTITY_KINDS]
+	identiteitToegestaan: [...IDENTITY_KINDS],
+	zichtbaarheid: 'iedereen'
 });
 
 export type AuditAction =
@@ -210,6 +220,12 @@ export const isUuid = (id: string) => UUID.test(id);
 
 export const isRole = (value: unknown): value is Role => ROLES.includes(value as Role);
 
+/** Whether a role ranks above another; a claimed invitation raises a role, never lowers it. */
+export const outranks = (role: Role, other: Role) => ROLES.indexOf(role) < ROLES.indexOf(other);
+
+export const isVisibility = (value: unknown): value is Visibility =>
+	VISIBILITIES.includes(value as Visibility);
+
 /** Anoniem is always allowed; the kinds keep their fixed order. */
 export function allowedKinds(kinds: readonly string[]): IdentityKind[] {
 	return IDENTITY_KINDS.filter((k) => k === 'anoniem' || kinds.includes(k));
@@ -231,7 +247,7 @@ export const auditBefore = (now: Date) => monthsBefore(now, AUDIT_YEARS * 12);
 /** Writer records from before this moment are deleted, whatever became of their proposal. */
 export const writersBefore = (now: Date) => new Date(now.getTime() - WRITER_DAYS * 24 * 3600_000);
 
-/** Beheerders first, then by name or address. */
+/** Beheerders first, then the redactie, then the bijdragers, each by name or address. */
 export function sortMembers(members: Member[]): Member[] {
 	const key = (m: Member) => (m.name ?? m.email ?? '').toLocaleLowerCase('nl');
 	return [...members].sort(
@@ -247,7 +263,8 @@ export function changedSettings(before: SettingsValues, after: SettingsValues): 
 		['adres', 'adres'],
 		['mergenVanuitSchrijver', 'mergen_vanuit_schrijver'],
 		['vierOgen', 'vier_ogen'],
-		['identiteitToegestaan', 'identiteit_toegestaan']
+		['identiteitToegestaan', 'identiteit_toegestaan'],
+		['zichtbaarheid', 'zichtbaarheid']
 	];
 	return columns
 		.filter(([key]) => JSON.stringify(before[key]) !== JSON.stringify(after[key]))

@@ -90,7 +90,8 @@ const SETTINGS = {
 	adres: 'https://example.org/',
 	mergen: 'aan',
 	vierOgen: 'aan',
-	ondertekenen: ['gekoppeld', 'op-naam']
+	ondertekenen: ['gekoppeld', 'op-naam'],
+	zichtbaarheid: 'iedereen'
 };
 
 beforeAll(async () => {
@@ -200,7 +201,12 @@ describe('who may manage a site', () => {
 		expect(data.uitnodigingen).toEqual([
 			expect.objectContaining({ email: 'naam@rijksoverheid.nl', rol: 'redactie' })
 		]);
-		expect(data.instellingen).toMatchObject({ naam: 'Digi Handboek', vierOgen: false });
+		expect(data.instellingen).toMatchObject({
+			naam: 'Digi Handboek',
+			vierOgen: false,
+			zichtbaarheid: 'iedereen'
+		});
+		expect(data).toMatchObject({ zichtbaarheid: 'iedereen', openbaar: true });
 	});
 
 	it('lets someone whose linked GitHub account has admin permission manage the site', async () => {
@@ -478,6 +484,40 @@ describe('the settings of the site', () => {
 	it('keeps an empty description and address empty', async () => {
 		await act('instellingen', 'baas', DH, { ...SETTINGS, omschrijving: '', adres: '' });
 		expect(await team.settings(DH)).toMatchObject({ omschrijving: null, adres: null });
+	});
+
+	it('saves who sees the site, and logs which setting changed', async () => {
+		vi.mocked(log.info).mockClear();
+		await act('instellingen', 'baas', DH, { ...SETTINGS, zichtbaarheid: 'team' });
+		expect((await team.settings(DH))?.zichtbaarheid).toBe('team');
+		expect(log.info).toHaveBeenCalledWith('team.settings_saved', {
+			site: DH,
+			changed: expect.arrayContaining(['zichtbaarheid']),
+			actor: expect.any(String)
+		});
+		expect((await team.audit(DH))[0]).toMatchObject({
+			action: 'settings.changed',
+			target: expect.stringContaining('zichtbaarheid')
+		});
+		const { zichtbaarheid: _zichtbaarheid, ...rest } = SETTINGS;
+		expect(await act('instellingen', 'baas', DH, rest)).toMatchObject({
+			status: 400,
+			data: { fout: 'Ongeldige aanvraag.' }
+		});
+	});
+
+	it('leaves who sees the site alone while its repository is not public', async () => {
+		const before = (await team.settings('oude-site'))!.zichtbaarheid;
+		const data = (await load(event('platform', 'oude-site'))) as Record<string, unknown>;
+		expect(data).toMatchObject({ zichtbaarheid: 'team', openbaar: false });
+		expect(
+			await act('instellingen', 'platform', 'oude-site', {
+				...SETTINGS,
+				naam: 'Oude site',
+				zichtbaarheid: before === 'team' ? 'iedereen' : 'team'
+			})
+		).toMatchObject({ actie: 'instellingen' });
+		expect((await team.settings('oude-site'))?.zichtbaarheid).toBe(before);
 	});
 });
 

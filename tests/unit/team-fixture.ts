@@ -23,6 +23,7 @@ export const settingsOf = (siteId: string, values: Partial<SettingsValues> = {})
 		mergenVanuitSchrijver: true,
 		vierOgen: true,
 		identiteitToegestaan: [...IDENTITY_KINDS],
+		zichtbaarheid: 'iedereen',
 		...values
 	}
 });

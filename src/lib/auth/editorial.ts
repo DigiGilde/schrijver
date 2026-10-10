@@ -4,8 +4,9 @@ import { errorFields, log } from '../log';
 import { siteRole, type SiteUser } from './roles';
 
 /**
- * Whether the user decides on the proposals of the site: a member of its team, or someone whose
- * linked GitHub account may write to its repository. No when a lookup fails.
+ * Whether the user decides on the proposals of the site: a beheerder or a member of the redactie of
+ * its team, or someone whose linked GitHub account may write to its repository. A bijdrager does
+ * not. No when a lookup fails.
  */
 export async function isEditorial(
 	site: Pick<SiteConfig, 'id' | 'repo'>,
@@ -13,7 +14,8 @@ export async function isEditorial(
 	forge: Forge
 ): Promise<boolean> {
 	try {
-		if ((await siteRole(site.id, user.sub)) !== null) return true;
+		const role = await siteRole(site.id, user.sub);
+		if (role === 'beheerder' || role === 'redactie') return true;
 		if (user.githubLogin === null) return false;
 		const permission = await forge.collaboratorPermission(site.repo, user.githubLogin);
 		return permission === 'admin' || permission === 'write';

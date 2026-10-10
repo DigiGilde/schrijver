@@ -63,7 +63,7 @@
 					</ul>
 				{:else}
 					<p>
-						De redactie beslist over de voorstellen. In het team van deze site staat nog niemand.
+						De redactie beslist over de voorstellen. Bij deze site staat nog niemand in de redactie.
 					</p>
 				{/if}
 				<p>Een vraag aan de redactie stel je in het gesprek bij je voorstel.</p>

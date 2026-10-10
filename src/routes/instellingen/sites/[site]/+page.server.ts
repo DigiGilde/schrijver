@@ -4,6 +4,7 @@ import { actorPseudonym, memberKey } from '$lib/auth/identity';
 import { canManageSite, isPlatformAdmin } from '$lib/auth/roles';
 import { isRole, type TeamChange } from '$lib/auth/team';
 import { siteSettings, teamStore } from '$lib/auth/team-store';
+import { whoSees } from '$lib/auth/visibility';
 import type { SiteConfig } from '$lib/config/types';
 import { log } from '$lib/log';
 import { limitBeheerPost } from '$lib/server/security';
@@ -36,6 +37,12 @@ async function managed(event: RequestEvent, action: string) {
 	const actor = { sub: user.session.sub, platformAdmin: isPlatformAdmin(user.session.sub) };
 	return { site, status, settings, session: user.session, asker, team, actor };
 }
+
+/** Who sees the site, and whether its admins choose it: only while its repository is public. */
+const visibility = (m: Managed) => ({
+	zichtbaarheid: whoSees(m.status.isPublic, m.settings.zichtbaarheid),
+	openbaar: m.status.isPublic
+});
 
 const PREVIEW: Record<SiteConfig['preview']['soort'], string> = {
 	'bij-push': 'Bij elke keer bewaren',
@@ -103,7 +110,8 @@ function refused(
 }
 
 export const load: PageServerLoad = async (event) => {
-	const { site, status, settings, session, team, actor } = await managed(event, 'load');
+	const m = await managed(event, 'load');
+	const { site, status, settings, session, team, actor } = m;
 	const [members, invitations] = await Promise.all([
 		team.members(site.id),
 		team.invitations(site.id)
@@ -119,13 +127,15 @@ export const load: PageServerLoad = async (event) => {
 			samenvatting: structure(site.id)
 		},
 		magVerwijderen: actor.platformAdmin,
+		...visibility(m),
 		instellingen: {
 			naam: settings.naam,
 			omschrijving: settings.omschrijving ?? '',
 			adres: settings.adres ?? '',
 			mergenVanuitSchrijver: settings.mergenVanuitSchrijver,
 			vierOgen: settings.vierOgen,
-			identiteitToegestaan: settings.identiteitToegestaan
+			identiteitToegestaan: settings.identiteitToegestaan,
+			zichtbaarheid: settings.zichtbaarheid
 		},
 		leden: members.map((m) => ({
 			sleutel: memberKey(site.id, m.sub),
@@ -268,7 +278,9 @@ export const actions: Actions = {
 
 	instellingen: async (event) => {
 		const m = await managed(event, 'instellingen');
-		const parsed = parseSettings(await event.request.formData());
+		// While the repository is not public the choice is not the admins': what they chose before stays.
+		const fixed = m.status.isPublic === true ? null : m.settings.zichtbaarheid;
+		const parsed = parseSettings(await event.request.formData(), fixed);
 		if (!parsed) return fail(400, { actie: 'instellingen', fout: 'Ongeldige aanvraag.' });
 		if (!parsed.ok) {
 			return fail(400, {

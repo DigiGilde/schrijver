@@ -105,7 +105,8 @@ export const PREVIEW_SITES: {
 			adres: 'https://digihandboek.rijks.app/',
 			mergenVanuitSchrijver: true,
 			vierOgen: false,
-			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
+			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+			zichtbaarheid: 'iedereen'
 		},
 		admin: { email: 'test@example.org' }
 	},
@@ -118,7 +119,8 @@ export const PREVIEW_SITES: {
 			adres: 'https://mijnoverheidzakelijk.nl/',
 			mergenVanuitSchrijver: true,
 			vierOgen: true,
-			identiteitToegestaan: ['anoniem', 'gekoppeld']
+			identiteitToegestaan: ['anoniem', 'gekoppeld'],
+			zichtbaarheid: 'iedereen'
 		},
 		admin: { email: 'collega@example.org' }
 	},
@@ -133,9 +135,9 @@ export const PREVIEW_SITES: {
 ];
 
 /**
- * The repositories of the local preview: the pilot sites, Oude site, and five for "Site toevoegen":
+ * The repositories of the local preview: the pilot sites, Oude site, and six for "Site toevoegen":
  * one that is ready, one without `.schrijver/`, one whose files are not valid, one the App is not
- * installed on, and a private one.
+ * installed on, and two private ones that are ready.
  */
 function seedRepos(forge: FakeForge): void {
 	forge.seedRepo(
@@ -185,6 +187,10 @@ function seedRepos(forge: FakeForge): void {
 	forge.seedRepo('DigiGilde/intern', 'main', fixtureFiles('kennisbank'), {
 		id: 4108,
 		description: 'Wat het Digi Gilde alleen intern deelt.'
+	});
+	forge.seedRepo('DigiGilde/besloten', 'main', fixtureFiles('kennisbank'), {
+		id: 4109,
+		description: 'Wat het team van het Digi Gilde samen schrijft.'
 	});
 }
 const COLLEAGUE = identityTrailer({ kind: 'anoniem', pseudoniem: '5ca1ab1e0000' });

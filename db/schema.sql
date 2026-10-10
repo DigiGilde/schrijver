@@ -28,6 +28,10 @@ create table if not exists site_settings (
 	updated_by text
 );
 
+-- Who sees the site in Schrijver; a repository that is not public is seen by the team only.
+alter table site_settings add column if not exists zichtbaarheid text not null default 'iedereen'
+	check (zichtbaarheid in ('iedereen', 'team'));
+
 -- Settings from before the registry belong to no site: they go, with their teams, and the settings
 -- follow the site from then on.
 do $$
@@ -45,7 +49,7 @@ end $$;
 create table if not exists site_members (
 	site_id text not null references site_settings (site_id) on delete cascade,
 	sub text not null references user_prefs (sub),
-	role text not null check (role in ('beheerder', 'redactie')),
+	role text not null check (role in ('beheerder', 'redactie', 'bijdrager')),
 	added_by text,
 	added_at timestamptz not null default now(),
 	primary key (site_id, sub)
@@ -56,13 +60,36 @@ create table if not exists invitations (
 	id uuid primary key,
 	site_id text not null references site_settings (site_id) on delete cascade,
 	email text not null,
-	role text not null check (role in ('beheerder', 'redactie')),
+	role text not null check (role in ('beheerder', 'redactie', 'bijdrager')),
 	invited_by text,
 	created_at timestamptz not null default now(),
 	expires_at timestamptz not null,
 	unique (site_id, email)
 );
 create index if not exists invitations_email on invitations (email);
+
+-- The third role, bijdrager: a role check from before it is replaced.
+do $$
+begin
+	if not exists (
+		select 1 from pg_constraint
+		where conrelid = 'site_members'::regclass and conname = 'site_members_role_check'
+		and pg_get_constraintdef(oid) like '%bijdrager%'
+	) then
+		alter table site_members drop constraint if exists site_members_role_check;
+		alter table site_members add constraint site_members_role_check
+			check (role in ('beheerder', 'redactie', 'bijdrager'));
+	end if;
+	if not exists (
+		select 1 from pg_constraint
+		where conrelid = 'invitations'::regclass and conname = 'invitations_role_check'
+		and pg_get_constraintdef(oid) like '%bijdrager%'
+	) then
+		alter table invitations drop constraint if exists invitations_role_check;
+		alter table invitations add constraint invitations_role_check
+			check (role in ('beheerder', 'redactie', 'bijdrager'));
+	end if;
+end $$;
 
 -- Who changed a team, an invitation or a site setting. Never an e-mail address.
 create table if not exists audit_log (

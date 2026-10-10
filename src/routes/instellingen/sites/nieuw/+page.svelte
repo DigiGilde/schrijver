@@ -31,8 +31,6 @@
 				return 'Schrijver kon GitHub niet bereiken.';
 			case 'al-aangesloten':
 				return `${w.repo} hoort al bij de site ${w.site.naam}.`;
-			case 'prive':
-				return `${w.repo} is niet openbaar.`;
 			case 'klopt-niet':
 				return w.zonderMap
 					? `${w.repo} heeft nog geen map .schrijver.`
@@ -56,8 +54,10 @@
 	let formulier: HTMLFormElement | undefined = $state();
 	let bezig = $state(false);
 	let keuze = $state<'ik' | 'collega'>('ik');
+	let zichtbaar = $state<'iedereen' | 'team'>('iedereen');
 	$effect(() => {
 		keuze = waarden?.beheerder ?? 'ik';
+		zichtbaar = waarden?.zichtbaarheid ?? 'iedereen';
 	});
 
 	afterNavigate(async ({ type }) => {
@@ -71,6 +71,9 @@
 	const gekozen = (event: Event) =>
 		(keuze =
 			(event as CustomEvent<{ value: string }>).detail.value === 'collega' ? 'collega' : 'ik');
+	const gekozenZichtbaar = (event: Event) =>
+		(zichtbaar =
+			(event as CustomEvent<{ value: string }>).detail.value === 'team' ? 'team' : 'iedereen');
 </script>
 
 <svelte:head><title>Site toevoegen · Schrijver</title></svelte:head>
@@ -113,11 +116,6 @@
 								bij <a href="/instellingen/sites/{encodeURIComponent(weigering.site.id)}"
 									>Beheer van {weigering.site.naam}</a
 								>.
-							</p>
-						{:else if weigering.soort === 'prive'}
-							<p>
-								Schrijver werkt alleen met openbare repositories: iedereen die inlogt, kan in
-								Schrijver de pagina's en voorstellen lezen.
 							</p>
 						{:else if weigering.soort === 'klopt-niet'}
 							{#if !weigering.zonderMap}
@@ -253,6 +251,40 @@
 							>Waar de site staat, zoals https://example.org.</nldd-form-field-help-text
 						>
 					</nldd-form-field>
+					<nldd-form-field label="Zichtbaar voor">
+						{#if data.stap === 2 && data.openbaar}
+							<nldd-radio-button-group
+								name="zichtbaarheid"
+								required
+								invalid={fouten.zichtbaarheid ? true : undefined}
+								onchange={gekozenZichtbaar}
+							>
+								<nldd-radio-button-field
+									value="iedereen"
+									label="Iedereen die inlogt"
+									checked={zichtbaar === 'iedereen' || undefined}
+								></nldd-radio-button-field>
+								<nldd-radio-button-field
+									value="team"
+									label="Alleen het team"
+									checked={zichtbaar === 'team' || undefined}
+								></nldd-radio-button-field>
+							</nldd-radio-button-group>
+							{#if fouten.zichtbaarheid}
+								<nldd-form-field-help-text>{fouten.zichtbaarheid}</nldd-form-field-help-text>
+							{/if}
+							<nldd-form-field-help-text
+								>Het team zijn de beheerders, de redactie en de bijdragers. Op GitHub blijft de
+								repository openbaar.</nldd-form-field-help-text
+							>
+						{:else}
+							<nldd-text>Alleen het team</nldd-text>
+							<nldd-form-field-help-text
+								>{data.repo} is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie de
+								repository op GitHub mag lezen.</nldd-form-field-help-text
+							>
+						{/if}
+					</nldd-form-field>
 					<nldd-form-field label="Eerste beheerder">
 						<nldd-radio-button-group name="beheerder" required onchange={gekozen}>
 							<nldd-radio-button-field value="ik" label="Ik" checked={keuze === 'ik' || undefined}
@@ -264,7 +296,10 @@
 							></nldd-radio-button-field>
 						</nldd-radio-button-group>
 						<nldd-form-field-help-text
-							>De beheerder regelt het team en de instellingen van de site.</nldd-form-field-help-text
+							>De beheerder regelt het team en de instellingen van de site.{data.stap === 2 &&
+							(!data.openbaar || zichtbaar === 'team')
+								? ' Alleen het team ziet de site: de beheerder voegt de anderen toe.'
+								: ''}</nldd-form-field-help-text
 						>
 					</nldd-form-field>
 					{#if keuze === 'collega'}

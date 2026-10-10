@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { NewSite, SettingsValues, TeamStore } from '../../src/lib/auth/team';
+import type { NewSite, Role, SettingsValues, TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { createTeamStore } from '../../src/lib/auth/team-postgres';
 import {
@@ -40,7 +40,8 @@ const values = (siteId: string): SettingsValues => ({
 	adres: 'https://example.org/',
 	mergenVanuitSchrijver: true,
 	vierOgen: true,
-	identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
+	identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+	zichtbaarheid: 'iedereen'
 });
 
 const login = (sub: string, email: string, emailVerified = true, name = `Naam ${sub}`) => ({
@@ -75,7 +76,7 @@ function contract(make: () => Promise<Harness>) {
 	});
 
 	/** A site with these members, each signed in once. */
-	async function withTeam(siteId: string, members: [string, 'beheerder' | 'redactie'][]) {
+	async function withTeam(siteId: string, members: [string, Role][]) {
 		for (const [sub, role] of members) {
 			await team.recordLogin(login(sub, `${sub}@example.org`));
 			const added = await team.addByEmail(siteId, `${sub}@example.org`, role, 'opzet');
@@ -152,6 +153,22 @@ function contract(make: () => Promise<Harness>) {
 			expect(await team.role(DH, 'jan')).toBe('beheerder');
 			expect(await team.role(MOZA, 'jan')).toBe('beheerder');
 		});
+
+		it('raises a bijdrager by a claim, and never makes anyone bijdrager by one', async () => {
+			await withTeam(DH, [['jan', 'bijdrager']]);
+			await withTeam(MOZA, [['jan', 'redactie']]);
+			await team.recordLogin(login('jan', 'jan-nieuw@example.org'));
+			await team.addByEmail(DH, 'jan-oud@example.org', 'redactie', 'baas');
+			await team.addByEmail(MOZA, 'jan-oud@example.org', 'bijdrager', 'baas');
+			expect(await team.recordLogin(login('jan', 'jan-oud@example.org'))).toEqual(
+				expect.arrayContaining([
+					{ siteId: DH, role: 'redactie' },
+					{ siteId: MOZA, role: 'bijdrager' }
+				])
+			);
+			expect(await team.role(DH, 'jan')).toBe('redactie');
+			expect(await team.role(MOZA, 'jan')).toBe('redactie');
+		});
 	});
 
 	describe('adding by e-mail address', () => {
@@ -204,6 +221,29 @@ function contract(make: () => Promise<Harness>) {
 				role: 'redactie'
 			});
 			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('adds and invites a bijdrager as it does the other roles', async () => {
+			await team.recordLogin(login('collega', 'collega@example.org'));
+			expect(await team.addByEmail(DH, 'collega@example.org', 'bijdrager', 'baas')).toMatchObject({
+				kind: 'added',
+				sub: 'collega'
+			});
+			expect(await team.role(DH, 'collega')).toBe('bijdrager');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				action: 'member.added',
+				target: 'collega',
+				role: 'bijdrager'
+			});
+			const invited = await team.addByEmail(DH, 'nieuw@example.org', 'bijdrager', 'baas');
+			expect(invited.kind).toBe('invited');
+			expect((await team.invitations(DH)).map((i) => [i.email, i.role])).toEqual([
+				['nieuw@example.org', 'bijdrager']
+			]);
+			expect(await team.recordLogin(login('nieuw', 'nieuw@example.org'))).toEqual([
+				{ siteId: DH, role: 'bijdrager' }
+			]);
+			expect(await team.role(DH, 'nieuw')).toBe('bijdrager');
 		});
 
 		it('invites when two known users share the address', async () => {
@@ -297,6 +337,32 @@ function contract(make: () => Promise<Harness>) {
 			expect(await team.audit(DH)).toHaveLength(before);
 		});
 
+		it('makes a member bijdrager and back, and keeps the last beheerder from becoming one', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['jan', 'redactie']
+			]);
+			expect(await team.changeRole(DH, 'jan', 'bijdrager', admin('baas'))).toMatchObject({
+				ok: true,
+				previous: 'redactie'
+			});
+			expect(await team.role(DH, 'jan')).toBe('bijdrager');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				action: 'member.role_changed',
+				target: 'jan',
+				role: 'bijdrager'
+			});
+			expect(await team.changeRole(DH, 'jan', 'redactie', admin('baas'))).toMatchObject({
+				ok: true,
+				previous: 'bijdrager'
+			});
+			expect(await team.changeRole(DH, 'baas', 'bijdrager', admin('baas'))).toMatchObject({
+				ok: false,
+				reason: 'last-admin'
+			});
+			expect(await team.role(DH, 'baas')).toBe('beheerder');
+		});
+
 		it('lets a platform admin make the last beheerder redactie', async () => {
 			await withTeam(DH, [['baas', 'beheerder']]);
 			expect((await team.changeRole(DH, 'baas', 'redactie', platform('schrijver'))).ok).toBe(true);
@@ -363,14 +429,16 @@ function contract(make: () => Promise<Harness>) {
 	});
 
 	describe('members and invitations', () => {
-		it('lists beheerders first, then by name', async () => {
+		it('lists beheerders first, then the redactie, then the bijdragers, each by name', async () => {
 			await team.recordLogin(login('b', 'b@example.org', true, 'Bram'));
 			await team.recordLogin(login('a', 'a@example.org', true, 'Anna'));
 			await team.recordLogin(login('c', 'c@example.org', true, 'Cor'));
+			await team.recordLogin(login('d', 'd@example.org', true, 'Aart'));
 			await team.addByEmail(DH, 'b@example.org', 'redactie', 'x');
 			await team.addByEmail(DH, 'c@example.org', 'beheerder', 'x');
+			await team.addByEmail(DH, 'd@example.org', 'bijdrager', 'x');
 			await team.addByEmail(DH, 'a@example.org', 'redactie', 'x');
-			expect((await team.members(DH)).map((m) => m.name)).toEqual(['Cor', 'Anna', 'Bram']);
+			expect((await team.members(DH)).map((m) => m.name)).toEqual(['Cor', 'Anna', 'Bram', 'Aart']);
 		});
 
 		it('answers the role on a site and the sites of a user', async () => {
@@ -586,6 +654,26 @@ function contract(make: () => Promise<Harness>) {
 			expect(await team.saveSettings(DH, (await team.settings(DH))!, 'baas')).toEqual([]);
 			expect(await team.audit(DH)).toHaveLength(before);
 		});
+
+		it('keeps who sees the site, from when it is added, and writes a change down', async () => {
+			await team.addSite(
+				site('besloten', 7),
+				{ ...values('besloten'), zichtbaarheid: 'team' },
+				null,
+				'platform'
+			);
+			expect((await team.settings('besloten'))?.zichtbaarheid).toBe('team');
+			expect((await team.settings(DH))?.zichtbaarheid).toBe('iedereen');
+			expect(await team.saveSettings(DH, { ...values(DH), zichtbaarheid: 'team' }, 'baas')).toEqual(
+				['zichtbaarheid']
+			);
+			expect((await team.settings(DH))?.zichtbaarheid).toBe('team');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'settings.changed',
+				target: 'zichtbaarheid'
+			});
+		});
 	});
 
 	describe('who writes in a proposal', () => {
@@ -769,6 +857,37 @@ describe.skipIf(!url)('Postgres team store', () => {
 				}
 			};
 		});
+	});
+
+	it('applies over a schema from before the bijdrager role and the choice of who sees a site', async () => {
+		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
+		await sql.unsafe(`
+			alter table site_members drop constraint site_members_role_check;
+			alter table site_members add constraint site_members_role_check check (role in ('beheerder', 'redactie'));
+			alter table invitations drop constraint invitations_role_check;
+			alter table invitations add constraint invitations_role_check check (role in ('beheerder', 'redactie'));
+			alter table site_settings drop column zichtbaarheid;
+		`);
+		await sql`insert into user_prefs (sub, email) values ('jan', 'jan@example.org')`;
+		await sql`insert into sites (id, repo_id, repo, standaardbranch) values (${DH}, 101, 'Org/dh', 'main')`;
+		await sql`insert into site_settings (site_id, naam) values (${DH}, 'Digi Handboek')`;
+		await expect(
+			sql`insert into site_members (site_id, sub, role) values (${DH}, 'jan', 'bijdrager')`
+		).rejects.toThrow();
+
+		await sql.unsafe(ddl);
+		const team = createTeamStore(sql, () => new Date(START));
+		expect((await team.settings(DH))?.zichtbaarheid).toBe('iedereen');
+		expect((await team.addByEmail(DH, 'jan@example.org', 'bijdrager', 'baas')).kind).toBe('added');
+		expect((await team.addByEmail(DH, 'nieuw@example.org', 'bijdrager', 'baas')).kind).toBe(
+			'invited'
+		);
+		await expect(
+			sql`update site_settings set zichtbaarheid = 'niemand' where site_id = ${DH}`
+		).rejects.toThrow();
+		await expect(
+			sql`update site_members set role = 'lezer' where site_id = ${DH}`
+		).rejects.toThrow();
 	});
 
 	it('judges a user who has not signed in since the profile columns came by the last change', async () => {

@@ -37,7 +37,11 @@ const settingsForm = (page: Page) => page.locator('form[action="?/instellingen"]
 const status = (page: Page, text: string) =>
 	page.locator('p[role="status"]').filter({ hasText: text });
 
-async function add(page: Page, email: string, rol: 'Redactie' | 'Beheerder' = 'Redactie') {
+async function add(
+	page: Page,
+	email: string,
+	rol: 'Bijdrager' | 'Redactie' | 'Beheerder' = 'Redactie'
+) {
 	await addForm(page).getByRole('textbox', { name: 'E-mailadres' }).fill(email);
 	await addForm(page)
 		.getByRole('radio', { name: new RegExp(`^${rol}:`) })
@@ -247,6 +251,29 @@ test('the settings of the site are checked on the server and saved', async ({ pa
 	).toBeVisible();
 });
 
+test('a bijdrager is added like the other roles; where everyone sees the site, everyone makes proposals', async ({
+	page
+}) => {
+	await open(page, DH);
+	await expect(
+		addForm(page).getByText('Op deze site kan iedereen die inlogt al voorstellen maken.')
+	).toBeVisible();
+	await add(page, 'derde@example.org', 'Bijdrager');
+	await expect(status(page, 'Derde Collega hoort nu bij het team, als bijdrager.')).toHaveCount(1);
+	await expect(row(page, 'Derde Collega')).toContainText('Bijdrager');
+
+	await member(page, 'Derde Collega').click();
+	await expect(sheet(page).getByRole('radio', { name: /^Bijdrager:/ })).toBeChecked();
+	await expect(
+		sheet(page).getByText(
+			'Derde Collega kan dan nog steeds voorstellen maken, zoals iedereen die inlogt.'
+		)
+	).toBeVisible();
+	await sheet(page).getByRole('button', { name: 'Haal uit het team' }).click();
+	await confirmation(page).getByRole('button', { name: 'Haal uit het team' }).click();
+	await expect(row(page, 'Derde Collega')).toHaveCount(0);
+});
+
 test('the keyboard opens a member in the sheet and Escape brings the focus back to the row', async ({
 	page
 }) => {
@@ -262,16 +289,16 @@ test('the keyboard opens a member in the sheet and Escape brings the focus back 
 
 /**
  * The same exceptions as tests/e2e/axe.spec.ts: pseudo-elements and the sticky header that axe
- * cannot resolve. In the sheet axe takes two wrapped texts for partly covered, though nothing
- * covers them: the second role's label (measured by hand, light / dark mode: 11.3:1 / 11.4:1) and
- * the text in the zone for leaving the team (9.7:1 / 12.3:1).
+ * cannot resolve. On the page and in the sheet axe takes two wrapped texts for partly covered,
+ * though nothing covers them: the label of the last role, Beheerder (measured by hand, light / dark
+ * mode: 11.3:1 / 11.4:1), and the text in the zone for leaving the team (9.7:1 / 12.3:1).
  */
 const allowedContrast = [
 	/^(nldd-top-title-bar|\.optisch),nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/,
 	/^nldd-status-bar,\.status-bar__text$/,
 	/^\.woord$/,
 	/^(nldd-button|\.menuknop),\.button__text$/,
-	/^#nldd-field-input-[\w-]+ > nldd-radio-button-field\[aria-posinset="2"\],\.radio-button-field__label$/,
+	/^#nldd-field-input-[\w-]+ > nldd-radio-button-field\[aria-posinset="3"\](\[aria-setsize="3"\]\[name="rol"\])?,\.radio-button-field__label$/,
 	/^nldd-rich-text > \.svelte-\w+$/
 ];
 

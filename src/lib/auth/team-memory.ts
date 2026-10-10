@@ -7,6 +7,7 @@ import {
 	invitationExpiry,
 	movedColumns,
 	normaliseEmail,
+	outranks,
 	sortMembers,
 	writersBefore,
 	type Actor,
@@ -87,8 +88,8 @@ export class MemoryTeamStore implements TeamStore {
 					addedBy: invitation.invitedBy,
 					addedAt: now
 				});
-			} else if (invitation.role === 'beheerder') {
-				existing.role = 'beheerder';
+			} else if (outranks(invitation.role, existing.role)) {
+				existing.role = invitation.role;
 			}
 			this.write(
 				{
@@ -211,7 +212,8 @@ export class MemoryTeamStore implements TeamStore {
 			adres: values.adres,
 			mergenVanuitSchrijver: values.mergenVanuitSchrijver,
 			vierOgen: values.vierOgen,
-			identiteitToegestaan: allowedKinds(values.identiteitToegestaan)
+			identiteitToegestaan: allowedKinds(values.identiteitToegestaan),
+			zichtbaarheid: values.zichtbaarheid
 		};
 		const changed = changedSettings(current, next);
 		if (changed.length === 0) return [];

@@ -77,12 +77,17 @@ describe('the suggestion for step 2', () => {
 			omschrijving: 'Wat we weten.',
 			adres: 'https://kennis.example/',
 			beheerder: 'ik',
-			email: ''
+			email: '',
+			zichtbaarheid: 'iedereen'
 		});
 		expect(suggestion(repo({ homepage: 'javascript:alert(1)' }), new Set()).adres).toBe('');
 		expect(
 			suggestion(repo({ description: 'x'.repeat(400), homepage: null }), new Set())
 		).toMatchObject({ omschrijving: 'x'.repeat(300), adres: '' });
+	});
+
+	it('lets only the team see a site whose repository is not public', () => {
+		expect(suggestion(repo({ isPublic: false }), new Set()).zichtbaarheid).toBe('team');
 	});
 });
 
@@ -92,10 +97,16 @@ describe('parseNewSite', () => {
 		for (const [k, v] of Object.entries(fields)) body.append(k, v);
 		return body;
 	};
-	const VALID = { id: 'kennisbank', naam: 'Kennisbank', omschrijving: '', adres: '' };
+	const VALID = {
+		id: 'kennisbank',
+		naam: 'Kennisbank',
+		omschrijving: '',
+		adres: '',
+		zichtbaarheid: 'iedereen'
+	};
 
-	it('gives the starting settings, and the first beheerder', () => {
-		expect(parseNewSite(form({ ...VALID, beheerder: 'ik' }), new Set())).toEqual({
+	it('gives the starting settings, who sees the site, and the first beheerder', () => {
+		expect(parseNewSite(form({ ...VALID, beheerder: 'ik' }), new Set(), true)).toEqual({
 			ok: true,
 			id: 'kennisbank',
 			values: {
@@ -104,13 +115,33 @@ describe('parseNewSite', () => {
 				adres: null,
 				mergenVanuitSchrijver: true,
 				vierOgen: true,
-				identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam']
+				identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+				zichtbaarheid: 'iedereen'
 			},
 			admin: 'ik'
 		});
 		expect(
-			parseNewSite(form({ ...VALID, beheerder: 'collega', email: ' Naam@Example.org ' }), new Set())
+			parseNewSite(
+				form({ ...VALID, beheerder: 'collega', email: ' Naam@Example.org ' }),
+				new Set(),
+				true
+			)
 		).toMatchObject({ ok: true, admin: { email: 'naam@example.org' } });
+		expect(
+			parseNewSite(form({ ...VALID, zichtbaarheid: 'team', beheerder: 'ik' }), new Set(), true)
+		).toMatchObject({ ok: true, values: { zichtbaarheid: 'team' } });
+	});
+
+	it('lets only the team see a private repository, whatever the form says', () => {
+		for (const zichtbaarheid of ['iedereen', 'team', 'iets anders']) {
+			expect(
+				parseNewSite(form({ ...VALID, zichtbaarheid, beheerder: 'ik' }), new Set(), false)
+			).toMatchObject({ ok: true, values: { zichtbaarheid: 'team' } });
+		}
+		expect(parseNewSite(form({ ...VALID, beheerder: 'ik' }), new Set(), false)).toMatchObject({
+			ok: true,
+			values: { zichtbaarheid: 'team' }
+		});
 	});
 
 	it('says in Dutch what is wrong with each field, and keeps what was typed', () => {
@@ -138,15 +169,22 @@ describe('parseNewSite', () => {
 			[
 				{ beheerder: 'collega', email: 'geen adres' },
 				{ email: 'Een e-mailadres heeft de vorm naam@organisatie.nl.' }
-			]
+			],
+			[{ zichtbaarheid: 'niemand' }, { zichtbaarheid: 'Kies wie de site ziet.' }]
 		];
 		for (const [fields, fouten] of cases) {
-			const parsed = parseNewSite(form({ ...VALID, ...fields }), new Set(['digi-handboek']));
+			const parsed = parseNewSite(form({ ...VALID, ...fields }), new Set(['digi-handboek']), true);
 			expect(parsed, JSON.stringify(fields)).toMatchObject({ ok: false, fouten });
 		}
 		expect(
-			parseNewSite(form({ ...VALID, id: 'Fout!', beheerder: 'collega', email: 'x' }), new Set())
-		).toMatchObject({ waarden: { id: 'Fout!', beheerder: 'collega', email: 'x' } });
+			parseNewSite(
+				form({ ...VALID, id: 'Fout!', beheerder: 'collega', email: 'x', zichtbaarheid: 'team' }),
+				new Set(),
+				true
+			)
+		).toMatchObject({
+			waarden: { id: 'Fout!', beheerder: 'collega', email: 'x', zichtbaarheid: 'team' }
+		});
 	});
 });
 
@@ -221,6 +259,7 @@ const KENNISBANK = {
 	naam: 'Kennisbank',
 	omschrijving: 'Wat het Digi Gilde weet.',
 	adres: 'https://kennisbank.example.org/',
+	zichtbaarheid: 'iedereen',
 	beheerder: 'ik'
 };
 
@@ -312,13 +351,13 @@ describe('step 1', () => {
 		});
 	});
 
-	it('refuses a private repository, whose pages everyone who signs in would read', async () => {
-		expect((await step('platform', 'digigilde/intern')).weigering).toEqual({
-			soort: 'prive',
-			repo: 'DigiGilde/intern'
+	it('leads a private repository to step 2, where only its team sees the site', async () => {
+		expect(await step('platform', 'digigilde/besloten')).toMatchObject({
+			stap: 2,
+			repo: 'DigiGilde/besloten',
+			openbaar: false,
+			voorstel: { id: 'besloten', zichtbaarheid: 'team' }
 		});
-		forge.setPublic('DigiGilde/intern', true);
-		expect(await step('platform', 'DigiGilde/intern')).toMatchObject({ stap: 2 });
 	});
 
 	it('names what is wrong with .schrijver, or that it is not there', async () => {
@@ -343,13 +382,15 @@ describe('step 1', () => {
 			stap: 2,
 			repo: 'DigiGilde/kennisbank',
 			branch: 'main',
+			openbaar: true,
 			voorstel: {
 				id: 'kennisbank',
 				naam: 'Kennisbank',
 				omschrijving: 'Wat het Digi Gilde weet over werken bij de overheid.',
 				adres: 'https://kennisbank.example.org/',
 				beheerder: 'ik',
-				email: ''
+				email: '',
+				zichtbaarheid: 'iedereen'
 			}
 		});
 	});
@@ -421,12 +462,25 @@ describe('step 2', () => {
 			status: 409,
 			data: { weigering: { soort: 'al-aangesloten' } }
 		});
-		forge.setPublic('DigiGilde/kennisbank', false);
-		expect(await add('platform', KENNISBANK)).toMatchObject({
-			status: 409,
-			data: { weigering: { soort: 'prive', repo: 'DigiGilde/kennisbank' } }
-		});
 		expect((await team.sites()).map((s) => s.id)).not.toContain('kennisbank');
+	});
+
+	it('adds a private repository that only its team sees, with its first beheerder', async () => {
+		forge.setPublic('DigiGilde/kennisbank', false);
+		expect(
+			await thrown(add('platform', { ...KENNISBANK, zichtbaarheid: 'iedereen' }))
+		).toMatchObject({ status: 303 });
+		expect(await team.settings('kennisbank')).toMatchObject({ zichtbaarheid: 'team' });
+		expect(await team.role('kennisbank', 'platform')).toBe('beheerder');
+		expect(getConfigStore().status('kennisbank')).toMatchObject({
+			available: true,
+			isPublic: false
+		});
+	});
+
+	it('lets the platform admin choose who sees a site whose repository is public', async () => {
+		await thrown(add('platform', { ...KENNISBANK, zichtbaarheid: 'team' }));
+		expect(await team.settings('kennisbank')).toMatchObject({ zichtbaarheid: 'team' });
 	});
 
 	it('refuses fields that are not right, and an id that is taken', async () => {

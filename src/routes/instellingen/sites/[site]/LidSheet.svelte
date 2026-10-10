@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { Visibility } from '$lib/auth/team';
 	import { pageReady } from '$lib/client/page-ready.svelte';
 	import type { PageData } from './$types';
 
@@ -7,10 +8,14 @@
 	type Props = {
 		/** The name of the site, as its settings have it. */
 		site: string;
+		/** Who sees the site now. */
+		zichtbaarheid: Visibility;
+		/** Whether its repository is public, as Schrijver last read it. */
+		openbaar: boolean | null;
 		/** After a removal the member's row is gone; the page puts the focus elsewhere. */
 		onverwijderd: () => void;
 	};
-	let { site, onverwijderd }: Props = $props();
+	let { site, zichtbaarheid, openbaar, onverwijderd }: Props = $props();
 
 	/* The sheet holds a title bar with a collapse anchor. */
 	const pagina = pageReady();
@@ -56,6 +61,23 @@
 			onverwijderd();
 		}
 	}
+
+	/** What leaving the team means for this member, on this site. */
+	const gevolg = $derived.by(() => {
+		if (!lid) return '';
+		const jij = lid.jij;
+		if (zichtbaarheid === 'team') {
+			const ziet = jij ? `Je ziet ${site} dan niet meer` : `${naam} ziet ${site} dan niet meer`;
+			if (openbaar !== false) return `${ziet} in Schrijver.`;
+			return `${ziet} in Schrijver, tenzij ${jij ? 'je' : 'die'} de repository op GitHub mag lezen.`;
+		}
+		if (lid.rol === 'bijdrager') {
+			return `${jij ? 'Je kunt' : `${naam} kan`} dan nog steeds voorstellen maken, zoals iedereen die inlogt.`;
+		}
+		return jij
+			? `Je beslist dan niet meer over voorstellen van ${site}, tenzij je schrijfrechten hebt op de repository op GitHub.`
+			: `${naam} beslist dan niet meer over voorstellen van ${site}, tenzij die schrijfrechten heeft op de repository op GitHub.`;
+	});
 
 	function haalWeg() {
 		bevestigen = false;
@@ -121,6 +143,11 @@
 									<nldd-form-field label="Rol">
 										<nldd-radio-button-group name="rol" required>
 											<nldd-radio-button-field
+												value="bijdrager"
+												label="Bijdrager: maakt voorstellen, beslist er niet over"
+												checked={lid.rol === 'bijdrager' || undefined}
+											></nldd-radio-button-field>
+											<nldd-radio-button-field
 												value="redactie"
 												label="Redactie: beslist over voorstellen"
 												checked={lid.rol === 'redactie' || undefined}
@@ -131,6 +158,11 @@
 												checked={lid.rol === 'beheerder' || undefined}
 											></nldd-radio-button-field>
 										</nldd-radio-button-group>
+										{#if zichtbaarheid === 'iedereen'}
+											<nldd-form-field-help-text
+												>Op deze site kan iedereen die inlogt al voorstellen maken.</nldd-form-field-help-text
+											>
+										{/if}
 									</nldd-form-field>
 									<nldd-form-actions>
 										<nldd-button-group>
@@ -149,11 +181,7 @@
 								<nldd-container padding="16" gap="8">
 									<nldd-title size="5" heading-level="2" text="Uit het team halen"></nldd-title>
 									<nldd-rich-text>
-										<p>
-											{lid.jij
-												? `Je beslist dan niet meer over voorstellen van ${site}, tenzij je schrijfrechten hebt op de repository op GitHub.`
-												: `${naam} beslist dan niet meer over voorstellen van ${site}, tenzij die schrijfrechten heeft op de repository op GitHub.`}
-										</p>
+										<p>{gevolg}</p>
 									</nldd-rich-text>
 									<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 									<nldd-button

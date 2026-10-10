@@ -16,7 +16,7 @@ describe('isEditorial', () => {
 	beforeEach(async () => {
 		forge = new FakeForge();
 		team = await useTeams([settingsOf('moza'), settingsOf('ander')], {
-			moza: { baas: 'beheerder', red: 'redactie' },
+			moza: { baas: 'beheerder', red: 'redactie', pen: 'bijdrager' },
 			ander: { elders: 'redactie' }
 		});
 	});
@@ -32,6 +32,14 @@ describe('isEditorial', () => {
 		expect(await isEditorial(site, { sub: 'red', githubLogin: null }, forge)).toBe(true);
 		expect(await isEditorial(site, { sub: 'elders', githubLogin: null }, forge)).toBe(false);
 		expect(await isEditorial(site, { sub: 'vreemd', githubLogin: null }, forge)).toBe(false);
+	});
+
+	it('never counts a bijdrager, unless GitHub lets them write', async () => {
+		expect(await isEditorial(site, { sub: 'pen', githubLogin: null }, forge)).toBe(false);
+		forge.permissionByLogin.set('pen', 'read');
+		expect(await isEditorial(site, { sub: 'pen', githubLogin: 'pen' }, forge)).toBe(false);
+		forge.permissionByLogin.set('pen', 'write');
+		expect(await isEditorial(site, { sub: 'pen', githubLogin: 'pen' }, forge)).toBe(true);
 	});
 
 	it('no longer counts an e-mail address, of the configuration or of an invitation', async () => {

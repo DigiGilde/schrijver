@@ -4,8 +4,13 @@
 	import type { PageData } from './$types';
 	import type { Resultaat } from './forms';
 
-	type Props = { instellingen: PageData['instellingen']; resultaat: Resultaat | null };
-	let { instellingen, resultaat }: Props = $props();
+	type Props = {
+		instellingen: PageData['instellingen'];
+		/** Whether the repository is public, as Schrijver last read it: only then is there a choice. */
+		openbaar: boolean | null;
+		resultaat: Resultaat | null;
+	};
+	let { instellingen, openbaar, resultaat }: Props = $props();
 
 	/* nldd-switch-field does not take part in the form; the hidden fields below carry its state. */
 	// svelte-ignore state_referenced_locally
@@ -91,6 +96,33 @@
 				<nldd-form-field-help-text
 					>Waar de site staat, zoals https://example.org.</nldd-form-field-help-text
 				>
+			</nldd-form-field>
+			<nldd-form-field label="Zichtbaar voor">
+				{#if openbaar === true}
+					<nldd-radio-button-group name="zichtbaarheid" required>
+						<nldd-radio-button-field
+							value="iedereen"
+							label="Iedereen die inlogt"
+							checked={instellingen.zichtbaarheid === 'iedereen' || undefined}
+						></nldd-radio-button-field>
+						<nldd-radio-button-field
+							value="team"
+							label="Alleen het team"
+							checked={instellingen.zichtbaarheid === 'team' || undefined}
+						></nldd-radio-button-field>
+					</nldd-radio-button-group>
+					<nldd-form-field-help-text
+						>Het team zijn de beheerders, de redactie en de bijdragers. Op GitHub blijft de
+						repository openbaar.</nldd-form-field-help-text
+					>
+				{:else}
+					<nldd-text>Alleen het team</nldd-text>
+					<nldd-form-field-help-text
+						>{openbaar === false
+							? 'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+							: 'Schrijver weet nog niet of de repository op GitHub openbaar is. Tot dan ziet alleen het team de site.'}</nldd-form-field-help-text
+					>
+				{/if}
 			</nldd-form-field>
 			<nldd-form-field>
 				<nldd-switch-field

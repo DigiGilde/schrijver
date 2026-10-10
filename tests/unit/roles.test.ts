@@ -67,6 +67,8 @@ describe('site roles', () => {
 		await team.addByEmail('c', 'baas@x.nl', 'beheerder', 'x');
 		await team.addByEmail('b', 'baas@x.nl', 'redactie', 'x');
 		await team.addByEmail('a', 'red@x.nl', 'redactie', 'x');
+		await team.recordLogin({ sub: 'pen', name: 'Pen', email: 'pen@x.nl', emailVerified: true });
+		await team.addByEmail('a', 'pen@x.nl', 'bijdrager', 'x');
 	});
 	afterEach(() => {
 		useTeamStore(undefined);
@@ -85,6 +87,7 @@ describe('site roles', () => {
 		expect(await canManageSite(site('a'), as('baas'), forge)).toBe(true);
 		expect(await canManageSite(site('b'), as('baas'), forge)).toBe(false);
 		expect(await canManageSite(site('a'), as('red'), forge)).toBe(false);
+		expect(await canManageSite(site('a'), as('pen'), forge)).toBe(false);
 		expect(await canManageSite(site('a'), as('vreemd'), forge)).toBe(false);
 	});
 

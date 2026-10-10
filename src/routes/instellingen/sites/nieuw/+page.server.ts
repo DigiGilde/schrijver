@@ -36,8 +36,8 @@ type Inspection =
 	{ ok: true; repo: RepoInfo; taken: Set<string> } | { ok: false; weigering: Weigering };
 
 /**
- * Whether a repository can become a site: its name, the App on it, no site on it yet, public, and
- * valid `.schrijver/` files on its default branch. A lookup on GitHub that fails refuses.
+ * Whether a repository can become a site: its name, the App on it, no site on it yet, and valid
+ * `.schrijver/` files on its default branch. A lookup on GitHub that fails refuses.
  */
 async function inspect(typed: string): Promise<Inspection> {
 	const name = repositoryName(typed);
@@ -67,10 +67,6 @@ async function inspect(typed: string): Promise<Inspection> {
 			}
 		};
 	}
-	// Everyone who signs in reads a site's pages and proposals in Schrijver.
-	if (!check.repo.isPublic) {
-		return { ok: false, weigering: { soort: 'prive', repo: check.repo.fullName } };
-	}
 	if (!check.ok) {
 		return {
 			ok: false,
@@ -96,6 +92,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		stap: 2 as const,
 		repo: repo.fullName,
 		branch: repo.defaultBranch,
+		openbaar: repo.isPublic,
 		voorstel: suggestion(repo, taken)
 	};
 };
@@ -107,7 +104,7 @@ export const actions: Actions = {
 		const inspection = await inspect(String(form.get('repo') ?? ''));
 		if (!inspection.ok) return fail(409, { weigering: inspection.weigering });
 		const { repo, taken } = inspection;
-		const parsed = parseNewSite(form, taken);
+		const parsed = parseNewSite(form, taken, repo.isPublic);
 		if (!parsed.ok) return fail(400, { fouten: parsed.fouten, waarden: parsed.waarden });
 
 		const added = await teamStore().addSite(
@@ -118,7 +115,7 @@ export const actions: Actions = {
 		);
 		// Someone else took this id or this repository a moment ago.
 		if (!added.ok && added.reason === 'id-taken') {
-			const again = parseNewSite(form, new Set([...taken, parsed.id]));
+			const again = parseNewSite(form, new Set([...taken, parsed.id]), repo.isPublic);
 			if (!again.ok) return fail(400, { fouten: again.fouten, waarden: again.waarden });
 		}
 		if (!added.ok) {

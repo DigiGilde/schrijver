@@ -46,9 +46,17 @@
 				{/if}
 			</nldd-container>
 		{/if}
-		<Team site={data.beheer} leden={data.leden} uitnodigingen={data.uitnodigingen} {resultaat} />
+		<Team
+			site={data.beheer}
+			leden={data.leden}
+			uitnodigingen={data.uitnodigingen}
+			zichtbaarheid={data.zichtbaarheid}
+			openbaar={data.openbaar}
+			{resultaat}
+		/>
 		<SiteInstellingen
 			instellingen={data.instellingen}
+			openbaar={data.openbaar}
 			resultaat={resultaat?.actie === 'instellingen' ? resultaat : null}
 		/>
 		<Structuur structuur={data.structuur} />

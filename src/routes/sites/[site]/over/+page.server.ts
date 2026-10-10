@@ -21,7 +21,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	return {
 		site: siteHeader(settings),
 		// Everyone signed in reads this page: a name and a role, never an address, a sub or an invitation.
-		redactie: members.map((m) => ({ naam: m.name, beheerder: m.role === 'beheerder' })),
+		redactie: members
+			.filter((m) => m.role !== 'bijdrager')
+			.map((m) => ({ naam: m.name, beheerder: m.role === 'beheerder' })),
 		kanBeheren,
 		mergenVanuitSchrijver: settings.mergenVanuitSchrijver,
 		// Anoniem is always possible: a choice the site does not allow falls back towards it.

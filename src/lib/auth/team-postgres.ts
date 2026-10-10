@@ -7,8 +7,10 @@ import {
 	forgetBefore,
 	invitationExpiry,
 	isUuid,
+	isVisibility,
 	movedColumns,
 	normaliseEmail,
+	ROLES,
 	sortMembers,
 	writersBefore,
 	type Actor,
@@ -46,6 +48,7 @@ interface SettingsRow {
 	mergen_vanuit_schrijver: boolean;
 	vier_ogen: boolean;
 	identiteit_toegestaan: string[];
+	zichtbaarheid: string;
 	updated_at: Date;
 	updated_by: string | null;
 }
@@ -86,6 +89,7 @@ const toSettings = (r: SettingsRow): SiteSettings => ({
 	mergenVanuitSchrijver: r.mergen_vanuit_schrijver,
 	vierOgen: r.vier_ogen,
 	identiteitToegestaan: allowedKinds(r.identiteit_toegestaan) as IdentityKind[],
+	zichtbaarheid: isVisibility(r.zichtbaarheid) ? r.zichtbaarheid : 'team',
 	updatedAt: r.updated_at,
 	updatedBy: r.updated_by
 });
@@ -202,6 +206,7 @@ export function createTeamStore(
 						email = excluded.email,
 						last_login_at = excluded.last_login_at`;
 				if (!email) return [];
+				const ranks = tx.array([...ROLES]);
 				const open = await tx<InvitationRow[]>`
 					delete from invitations where email = ${email} and expires_at > ${now}
 					returning *`;
@@ -210,7 +215,7 @@ export function createTeamStore(
 						insert into site_members (site_id, sub, role, added_by, added_at)
 						values (${invitation.site_id}, ${login.sub}, ${invitation.role}, ${invitation.invited_by}, ${now})
 						on conflict (site_id, sub) do update set role = excluded.role
-						where excluded.role = 'beheerder'`;
+						where array_position(${ranks}, excluded.role) < array_position(${ranks}, site_members.role)`;
 					await audit(
 						tx,
 						{
@@ -259,10 +264,11 @@ export function createTeamStore(
 				await tx`
 					insert into site_settings
 						(site_id, naam, omschrijving, adres, mergen_vanuit_schrijver, vier_ogen,
-						 identiteit_toegestaan, updated_at, updated_by)
+						 identiteit_toegestaan, zichtbaarheid, updated_at, updated_by)
 					values (${site.id}, ${values.naam}, ${values.omschrijving}, ${values.adres},
 						${values.mergenVanuitSchrijver}, ${values.vierOgen},
-						${tx.array(allowedKinds(values.identiteitToegestaan))}, ${now}, ${actor})`;
+						${tx.array(allowedKinds(values.identiteitToegestaan))}, ${values.zichtbaarheid},
+						${now}, ${actor})`;
 				await audit(
 					tx,
 					{ actorSub: actor, siteId: site.id, action: 'site.added', target: site.repo, role: null },
@@ -338,7 +344,8 @@ export function createTeamStore(
 					adres: values.adres,
 					mergenVanuitSchrijver: values.mergenVanuitSchrijver,
 					vierOgen: values.vierOgen,
-					identiteitToegestaan: allowedKinds(values.identiteitToegestaan)
+					identiteitToegestaan: allowedKinds(values.identiteitToegestaan),
+					zichtbaarheid: values.zichtbaarheid
 				};
 				const changed = changedSettings(toSettings(row), next);
 				if (changed.length === 0) return [];
@@ -351,6 +358,7 @@ export function createTeamStore(
 						mergen_vanuit_schrijver = ${next.mergenVanuitSchrijver},
 						vier_ogen = ${next.vierOgen},
 						identiteit_toegestaan = ${tx.array(next.identiteitToegestaan)},
+						zichtbaarheid = ${next.zichtbaarheid},
 						updated_at = ${now},
 						updated_by = ${actor}
 					where site_id = ${siteId}`;

@@ -3,9 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { als, alsTestgebruiker } from './als';
 
 /*
- * The local preview has four repositories that cannot be a site (MinBZK/elders without the App,
- * DigiGilde/nieuwsbrief without .schrijver/, DigiGilde/intranet with files that are not valid,
- * DigiGilde/intern that is private) and one that can: DigiGilde/kennisbank. Adding it and removing it again leaves the sites as they were.
+ * The local preview has three repositories that cannot be a site (MinBZK/elders without the App,
+ * DigiGilde/nieuwsbrief without .schrijver/, DigiGilde/intranet with files that are not valid) and
+ * DigiGilde/kennisbank that can. Adding it and removing it again leaves the sites as they were.
  * Oude site is in Schrijver with old files: only platform admins see it. The platform admin is
  * Beheerder Schrijver (SCHRIJVER_BEHEERDERS=platform).
  */
@@ -66,12 +66,6 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 		'href',
 		/\/docs\/een-site-aansluiten\.md$/
 	);
-
-	await check(page, 'DigiGilde/intern');
-	await expect(status(page, 'DigiGilde/intern is niet openbaar.')).toHaveCount(1);
-	await expect(
-		page.getByText('Schrijver werkt alleen met openbare repositories: iedereen die inlogt')
-	).toBeVisible();
 
 	await check(page, 'DigiGilde/intranet');
 	await expect(
