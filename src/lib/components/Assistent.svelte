@@ -39,7 +39,7 @@
 		{ action: 'korter', label: 'Korter' },
 		{ action: 'b1', label: 'Naar B1' },
 		{ action: 'actiever', label: 'Actiever' },
-		{ action: 'kopjes', label: 'Kopjes voorstellen' },
+		{ action: 'kopjes', label: 'Kopjes toevoegen' },
 		{ action: 'samenvatting', label: 'Samenvatting' }
 	];
 

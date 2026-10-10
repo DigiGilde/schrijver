@@ -56,7 +56,7 @@ In the local preview (`SCHRIJVER_FAKE_FORGE=1` with `NODE_ENV` development or te
 
 - "Korter" keeps the text up to the end of its first sentence, with any heading before it.
 - "Samenvatting" gives the first sentence of the text without its headings.
-- "Naar B1", "Actiever", "Kopjes voorstellen" and "Eigen opdracht" put one word in capitals.
+- "Naar B1", "Actiever", "Kopjes toevoegen" and "Eigen opdracht" put one word in capitals.
 - "Maak een opzet" takes the title from the start of the description (at most eight words) and returns a fixed outline with the description under its first heading.
 
 Every explanation starts with "Testantwoord, geen AI:", and nothing leaves the machine. Production never answers this way: the fake sits behind the same development guard as the other bypasses, and without `VLAM_API_URL` production answers 503 as before.

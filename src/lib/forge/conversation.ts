@@ -199,7 +199,7 @@ function verdictOf(review: PrReview): string | null {
 		case 'approved':
 			return `Goedgekeurd op GitHub door ${review.login}`;
 		case 'changes_requested':
-			return `Vraagt om aanpassing op GitHub: ${review.login}`;
+			return 'Vraagt op GitHub om een aanpassing';
 		case 'dismissed':
 			return `Beoordeling van ${review.login} op GitHub is ingetrokken`;
 		case 'commented':

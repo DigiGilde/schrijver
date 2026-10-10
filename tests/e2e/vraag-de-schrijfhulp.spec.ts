@@ -401,7 +401,7 @@ test('an answer that arrives after the panel was closed shows no comparison', as
 	await expect(editor(page)).toContainText('Over het Digi Gilde');
 });
 
-for (const actie of ['Korter', 'Naar B1', 'Actiever', 'Kopjes voorstellen']) {
+for (const actie of ['Korter', 'Naar B1', 'Actiever', 'Kopjes toevoegen']) {
 	test(`${actie} on the whole text names itself above the comparison`, async ({ page }) => {
 		const paneel = await openPanelHere(page);
 		await paneel.getByRole('button', { name: actie }).click();

@@ -397,7 +397,7 @@ describe('conversation', () => {
 		);
 		expect(list.map((i) => [i.id, i.who, i.as, i.verdict, i.text])).toEqual([
 			['c11', 'jansen', 'github', null, 'Op GitHub gezegd'],
-			['r20', 'pietersen', 'github', 'Vraagt om aanpassing op GitHub: pietersen', 'Liever B1'],
+			['r20', 'pietersen', 'github', 'Vraagt op GitHub om een aanpassing', 'Liever B1'],
 			['c10', 'jansen', 'redactie', 'Vraagt om een aanpassing', 'Graag korter'],
 			['r21', 'pietersen', 'github', 'Goedgekeurd op GitHub door pietersen', '']
 		]);

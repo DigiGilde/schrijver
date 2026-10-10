@@ -88,7 +88,7 @@
 	let huidigPr = $state(prNumber);
 	// svelte-ignore state_referenced_locally
 	let nieuwePagina = $state(nieuw);
-	let bewaard = $state<{ nummer: number; url: string; verwijderd: string[] } | null>(null);
+	let bewaard = $state<{ nummer: number; verwijderd: string[] } | null>(null);
 	const ingestuurd = $derived(voorstel !== null && voorstel !== 'concept');
 	const KLAAR = 'Klaar? Kies "Stuur opnieuw in" op de pagina van het voorstel.';
 	const bewaardTekst = (nummer: number) =>
@@ -255,7 +255,7 @@
 				repoPath = result.path;
 				basis = tekstVan(huidig);
 				const verwijderd = verwijderen.map(naamVan);
-				bewaard = { nummer: result.prNumber, url: result.url, verwijderd };
+				bewaard = { nummer: result.prNumber, verwijderd };
 				elders = blijven;
 				const adres = voorstelAdres(result.path, result.branch, result.prNumber);
 				// Not a shallow replaceState: SvelteKit would then still open the old address on Back.
@@ -354,15 +354,6 @@
 	</div>
 {/if}
 
-{#snippet naarVoorstel(nummer: number)}
-	<nldd-button
-		slot="actions"
-		appearance="secondary"
-		text="Voorstel bekijken"
-		href={`/sites/${siteId}/voorstellen/${nummer}`}
-	></nldd-button>
-{/snippet}
-
 {#if bewaard}
 	<nldd-notification
 		variant="success"
@@ -380,19 +371,12 @@
 			if (hadFocus) focusEditor(false);
 		}}
 	>
-		{#if voorstel === 'aanpassing-gevraagd'}
-			{@render naarVoorstel(bewaard.nummer)}
-		{/if}
 		<nldd-button
 			slot="actions"
 			appearance="secondary"
-			text="Voorstel bekijken op GitHub"
-			href={bewaard.url}
-			target="_blank"
+			text="Voorstel bekijken"
+			href={`/sites/${siteId}/voorstellen/${bewaard.nummer}`}
 		></nldd-button>
-		{#if voorstel !== 'aanpassing-gevraagd'}
-			{@render naarVoorstel(bewaard.nummer)}
-		{/if}
 	</nldd-notification>
 {/if}
 

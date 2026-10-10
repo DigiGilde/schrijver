@@ -427,7 +427,8 @@
 				{/if}
 				{#if imagesLost}
 					<nldd-text color="secondary" size="sm" role="status">
-						Afbeeldingen konden niet lokaal worden bewaard; voeg ze opnieuw toe na een herlaad
+						De browser kon de afbeeldingen niet onthouden. Voeg ze opnieuw toe als je de pagina
+						opnieuw laadt.
 					</nldd-text>
 				{/if}
 			</div>

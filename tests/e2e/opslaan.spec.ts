@@ -93,7 +93,7 @@ test('a proposal that was sent in is named, not called a concept, and points to 
 		await melding
 			.locator('nldd-button[slot="actions"]')
 			.evaluateAll((knoppen) => knoppen.map((knop) => knop.getAttribute('text')))
-	).toEqual(['Voorstel bekijken', 'Voorstel bekijken op GitHub']);
+	).toEqual(['Voorstel bekijken']);
 	await expect(
 		page.locator('p[role="status"]').filter({ hasText: 'Bewaard in voorstel' })
 	).toHaveText(`Bewaard in voorstel #${nummer}. ${klaar}`);

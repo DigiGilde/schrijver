@@ -440,7 +440,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(zin(page)).toHaveText(
 			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.'
 		);
-		await expect(gesprek(page).first()).toContainText('Vraagt om aanpassing op GitHub: pietersen');
+		await expect(gesprek(page).first()).toContainText('Vraagt op GitHub om een aanpassing');
 		await knop(page, 'Stuur opnieuw in').click();
 		await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
 		await expect(zin(page)).toHaveText(

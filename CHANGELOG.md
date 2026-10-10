@@ -26,7 +26,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Proposal changes in colour: a block diff of the rendered page with word marks and the labels "Nieuw", "Verwijderd", "Was" and "Wordt", unchanged context dimmed, in the views "Wijzigingen", "Hele pagina" and "Markdown"; compared with the version the proposal started from, so a later change on the site does not show as undone; images of both versions show; a change too large to compare points to GitHub instead of tying up the server.
 - Sites, pages and proposals as NLDD lists; the folders of a site in a sidebar that becomes a sheet on narrow screens.
 - VLAM writing assistant with fixed actions and a free prompt; suggestions only, never direct edits.
-- Schrijfhulp in a panel built from NLDD parts that sticks beside the text while it fits. A suggestion for a selection shows in the panel; one for the whole text shows as a comparison in the text column, with "Overnemen" and "Verwerpen" under it. In the local preview without VLAM it gives answers marked as test answers.
+- Schrijfhulp in a panel built from NLDD parts that sticks beside the text while it fits. A suggestion for a selection shows in the panel; one for the whole text shows as a comparison in the text column, with "Neem suggestie over" and "Verwerp suggestie" under it. In the local preview without VLAM it gives answers marked as test answers.
 - "Nieuwe pagina" at reading width with the file name as you type, and "Maak een opzet", which turns a description into a title and an outline; the editor opens with the outline as an unsaved draft and says it comes from Schrijfhulp.
 - Pseudonymous authorship through an HMAC of the SSO subject.
 - "Verder bewerken" on a proposal and in the proposal lists reopens the editor on the proposal's branch, so a later session saves into the same pull request.
@@ -52,5 +52,5 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 ### Not in version one
 
 - `concepten: privé` (drafts in a private repository) is refused.
-- Merging at once on "Insturen".
+- Merging at once on "Stuur in".
 - Menus and navigation, moving, renaming and deleting pages, a Forgejo adapter.

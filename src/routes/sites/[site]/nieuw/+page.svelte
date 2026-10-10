@@ -101,7 +101,7 @@
 		});
 		return readDraft(key)
 			? null
-			: 'De opzet kon niet in deze browser worden bewaard. Kopieer hem, of maak het veld leeg om zonder opzet verder te gaan.';
+			: 'De browser kon de opzet niet onthouden. Kopieer hem, of maak het veld leeg om zonder opzet verder te gaan.';
 	}
 
 	const verstuur: SubmitFunction = () => {

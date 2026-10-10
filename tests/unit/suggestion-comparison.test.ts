@@ -13,9 +13,7 @@ import { sourceDiff } from '../../src/lib/content/source-diff';
 describe('comparisonTitle', () => {
 	it('names the action', () => {
 		expect(comparisonTitle('Korter')).toBe('Suggestie van Schrijfhulp: Korter');
-		expect(comparisonTitle('Kopjes voorstellen')).toBe(
-			'Suggestie van Schrijfhulp: Kopjes voorstellen'
-		);
+		expect(comparisonTitle('Kopjes toevoegen')).toBe('Suggestie van Schrijfhulp: Kopjes toevoegen');
 	});
 
 	it('has no action to name for an own instruction', () => {

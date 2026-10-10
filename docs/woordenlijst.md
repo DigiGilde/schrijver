@@ -94,7 +94,7 @@ A sentence that points at a control quotes its label with straight double quotes
 ## Named exceptions
 
 - **The editor toolbar** names commands, like the design system's own editor: "Vet", "Cursief", "Inspringen", "Uitspringen", "Tabel invoegen", "Horizontale lijn invoegen", "Mermaid-diagram invoegen", "Afbeelding invoegen".
-- **The Schrijfhulp chips** are quick actions with names of their own: "Korter", "Naar B1", "Actiever", "Kopjes voorstellen", "Samenvatting". What they give back is a "suggestie".
+- **The Schrijfhulp chips** are quick actions with names of their own: "Korter", "Naar B1", "Actiever", "Kopjes toevoegen", "Samenvatting". What they give back is a "suggestie".
 - **The words of the changes view**: "Nieuw", "Verwijderd", "Was" and "Wordt" are visible only; a screen reader hears "Toegevoegd", "Verwijderd", "Oude tekst" and "Nieuwe tekst".
 
 ## Not renamed
