@@ -433,6 +433,14 @@ describe('what now', () => {
 		expect((await open('digi-handboek', digi)).watNu.sentence).toMatch(
 			/Klaar\? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar\.$/
 		);
+		expect(
+			(await open('digi-handboek', digi, { sub: EDITOR })).watNu,
+			'no button for the editors'
+		).toEqual({
+			sentence: 'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
+			actions: [],
+			primary: null
+		});
 	});
 
 	it('tells anyone else that the editors decide', async () => {

@@ -228,14 +228,14 @@ describe('whatNow', () => {
 		}
 	});
 
-	it('says the writer is adjusting the proposal, and lets an editor send it in again', () => {
-		const asked = { status: 'aanpassing-gevraagd' as const };
-		expect(row(asked)).toEqual({
-			sentence: 'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
-			actions: [],
-			primary: null
-		});
-		expect(row({ ...asked, editor: true }).actions).toEqual(['opnieuw-insturen']);
+	it('says the writer is adjusting the proposal, and gives the editors no button for that step', () => {
+		for (const editor of [false, true]) {
+			expect(row({ status: 'aanpassing-gevraagd', editor })).toEqual({
+				sentence: 'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
+				actions: [],
+				primary: null
+			});
+		}
 	});
 
 	it('says when a proposal was merged and offers the site', () => {

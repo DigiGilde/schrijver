@@ -193,10 +193,7 @@ export function whatNow(
 				[...edit, 'opnieuw-insturen'],
 				edit[0] ?? 'opnieuw-insturen'
 			);
-		return say(
-			'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
-			s.editor ? ['opnieuw-insturen'] : []
-		);
+		return say('De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.');
 	}
 	if (s.editor && s.blocked)
 		return say(`${FOUR_EYES[s.blocked]} Een ander lid van de redactie beslist.`, edit);
