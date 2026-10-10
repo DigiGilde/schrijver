@@ -20,6 +20,7 @@
 			"url": "http://localhost:4393/sites/digi-handboek/voorstellen/1",
 			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
 		},
+		"http://localhost:4393/sites/digi-handboek/over",
 		"http://localhost:4393/help",
 		{
 			"url": "http://localhost:4393/instellingen",
