@@ -1,12 +1,19 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { isSiteAdmin } from '$lib/auth/admin';
 import { identitiesFor, identityFor } from '$lib/auth/identity';
-import { canAct } from '$lib/forge/proposal-actions';
-import { isSentIn, toProposal } from '$lib/forge/proposals';
+import type { SiteConfig } from '$lib/config/types';
+import { parsePage } from '$lib/content/frontmatter';
+import { pageTitle } from '$lib/content/schema-form';
 import { sourceDiff } from '$lib/content/source-diff';
+import { authorName, authorship, fourEyes } from '$lib/forge/authorship';
+import { conversation } from '$lib/forge/conversation';
+import { appAccount, canAct, type ActingUser } from '$lib/forge/proposal-actions';
+import { ADJUSTMENT_LABEL, toProposal } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
-import { identityFromPrBody } from '$lib/forge/trailers';
-import { ForgeError } from '$lib/forge/types';
+import { FOUR_EYES, dateText, stepOf, whatNow } from '$lib/forge/status';
+import { ForgeError, type Forge } from '$lib/forge/types';
+import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { backToProposals } from '$lib/server/site-tabs';
 
@@ -15,26 +22,58 @@ const IMAGE = /\.(png|jpe?g|webp|svg|gif|avif)$/i;
 /** Bounds on one page view: how many pages are compared, and how large a page may be to be compared at all. */
 const MAX_DIFF_PAGES = 20;
 const MAX_PAGE_BYTES = 500_000;
+/** The line on the other files names at most this many. */
+const MAX_OTHER_FILES = 20;
 const TE_GROOT = Symbol('te groot');
+const DONE = { added: 'toegevoegd', modified: 'gewijzigd', removed: 'verwijderd' } as const;
+
+const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+async function loadConversation(forge: Forge, site: SiteConfig, nummer: number) {
+	try {
+		const [comments, reviews] = await Promise.all([
+			forge.prComments(site.repo, nummer),
+			forge.prReviews(site.repo, nummer)
+		]);
+		const { items, complete } = conversation(comments, reviews);
+		return { items, volledig: complete };
+	} catch (err) {
+		log.warn('proposal.conversation_failed', { site: site.id, pr: nummer, ...errorFields(err) });
+		return null;
+	}
+}
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
-	const site = getConfigStore().site(params.site);
+	const store = getConfigStore();
+	const site = store.site(params.site);
 	const nummer = Number(params.nummer);
 	if (!site || !Number.isInteger(nummer) || nummer <= 0) error(404, 'Voorstel niet gevonden');
 	const forge = getForge();
 	const { session, prefs } = locals.user!;
-	const identity = identityFor(prefs, session, site);
-	const identities = identitiesFor(prefs, session);
+	const user: ActingUser = {
+		sub: session.sub,
+		identities: identitiesFor(prefs, session),
+		email: session.email,
+		emailVerified: session.emailVerified,
+		githubLogin: prefs.githubLogin,
+		identityKind: identityFor(prefs, session, site).kind
+	};
 
 	try {
 		const pr = await forge.getPr(site.repo, nummer);
 		const files = await forge.prFiles(site.repo, nummer);
-		const proposal = toProposal(pr, files, site, identities);
+		const proposal = toProposal(pr, files, site, user.identities);
 		const fromFork = !sameRepo(pr.headRepo, site.repo);
+		const outside = fromFork || pr.baseRef !== site.standaardbranch;
+		const schema = store.schema(site.id);
 		const text = async (ref: string, path: string) => {
 			const file = await forge.readFile(site.repo, ref, path, { maxBytes: MAX_PAGE_BYTES });
 			if (file?.tooLarge) return TE_GROOT;
 			return file ? decoder.decode(file.content) : null;
+		};
+		const titleOf = (path: string, source: string | null) => {
+			const page = source === null ? null : parsePage(source);
+			return page?.ok ? pageTitle(schema, page.frontmatter, page.body, path) : fileName(path);
 		};
 		// Read the head by commit, so what is shown is exactly what a pinned merge would merge.
 		const head = pr.headSha || pr.headRef;
@@ -43,76 +82,130 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			: files
 					.filter((f) => proposal.pages.includes(f.path))
 					.sort((a, b) => a.path.localeCompare(b.path));
-		const diffs = await Promise.all(
-			pages.slice(0, MAX_DIFF_PAGES).map(async (f) => {
-				const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
-				const after = f.status === 'removed' ? null : await text(head, f.path);
-				if (before === TE_GROOT || after === TE_GROOT) {
+		const [diffs, acts, app, gesprek, terug] = await Promise.all([
+			Promise.all(
+				pages.slice(0, MAX_DIFF_PAGES).map(async (f) => {
+					const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
+					const after = f.status === 'removed' ? null : await text(head, f.path);
+					if (before === TE_GROOT || after === TE_GROOT) {
+						return {
+							path: f.path,
+							titel: fileName(f.path),
+							status: f.status,
+							teGroot: true,
+							before: null,
+							after: null,
+							source: []
+						};
+					}
 					return {
 						path: f.path,
+						titel: titleOf(f.path, after ?? before),
 						status: f.status,
-						teGroot: true,
-						before: null,
-						after: null,
-						source: []
+						teGroot: false,
+						before,
+						after,
+						source: sourceDiff(before, after)
 					};
-				}
-				return {
-					path: f.path,
-					status: f.status,
-					teGroot: false,
-					before,
-					after,
-					source: sourceDiff(before, after)
-				};
-			})
-		);
-		const changedFiles = files
+				})
+			),
+			canAct(user, site, pr, forge),
+			appAccount(forge),
+			loadConversation(forge, site, nummer),
+			backToProposals(site, forge, url, locals.user!)
+		]);
+		const titles = new Map(diffs.map((d) => [d.path, d.titel]));
+		const titleFor = (path: string) => titles.get(path) ?? fileName(path);
+
+		const status = proposal.status;
+		const deciding =
+			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
+		let blocked: keyof typeof FOUR_EYES | null = null;
+		if (deciding && site.review['vier-ogen']) {
+			const commits = await forge.prCommits(site.repo, nummer).catch(() => null);
+			const reason = commits ? fourEyes(authorship(pr, commits, user, app)) : 'onbekend';
+			if (reason && !(await isSiteAdmin(site, user, forge))) blocked = reason;
+		}
+		let approvalMissing = false;
+		if (deciding && !blocked && site.review['mergen-vanuit-schrijver']) {
+			const decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
+				log.warn('proposal.review_decision_failed', {
+					site: site.id,
+					pr: nummer,
+					...errorFields(err)
+				});
+				return null;
+			});
+			approvalMissing = decision === 'review_required' || decision === 'changes_requested';
+		}
+		const verderBewerken =
+			acts.owner || acts.editorial
+				? proposal.verderBewerken.map((link) => ({ ...link, titel: titleFor(link.page) }))
+				: [];
+
+		const day = dateText(pr.updatedAt);
+		const ondertitel = [
+			proposal.pages.length === 1
+				? `Voor de pagina ${titleFor(proposal.pages[0])}`
+				: proposal.pages.length > 1
+					? `Voor ${proposal.pages.length} pagina's`
+					: null,
+			`van ${acts.owner ? 'jou' : authorName(pr, app)}`,
+			day ? `bijgewerkt ${day}` : null
+		]
+			.filter((part) => part !== null)
+			.join(' · ');
+
+		const others = files
+			.filter((f) => !proposal.pages.includes(f.path))
+			.sort((a, b) => a.path.localeCompare(b.path))
 			.map((f) => ({
-				path: f.path,
-				status: f.status,
-				kind: proposal.pages.includes(f.path)
-					? 'pagina'
-					: IMAGE.test(f.path)
-						? 'afbeelding'
-						: 'ander'
-			}))
-			.sort((a, b) => a.path.localeCompare(b.path));
-		const acts = await canAct(
-			{
-				sub: session.sub,
-				identities,
-				email: session.email,
-				emailVerified: session.emailVerified,
-				githubLogin: prefs.githubLogin,
-				identityKind: identity.kind
-			},
-			site,
-			pr,
-			forge
-		);
+				soort: IMAGE.test(f.path) ? 'afbeelding' : 'bestand',
+				naam: fileName(f.path),
+				status: DONE[f.status]
+			}));
+
 		return {
-			site: { id: site.id, naam: site.naam },
-			terug: await backToProposals(site, forge, url, locals.user!),
-			redactie: site.review.redactie,
-			mergeInSchrijver: site.review['mergen-vanuit-schrijver'],
+			site: { id: site.id, naam: site.naam, adres: site.adres ?? null },
+			terug,
 			proposal,
+			ondertitel: ondertitel[0].toUpperCase() + ondertitel.slice(1),
+			stap: stepOf(status),
+			watNu: whatNow({
+				status,
+				writer: acts.owner,
+				editor: acts.editorial,
+				blocked,
+				outside,
+				mergeInSchrijver: site.review['mergen-vanuit-schrijver'],
+				approvalMissing,
+				adjustmentLabel: pr.labels.includes(ADJUSTMENT_LABEL),
+				canEdit: verderBewerken.length > 0,
+				mergedAt: pr.mergedAt ?? null,
+				siteAddress: !!site.adres
+			}),
+			voorbeeld: proposal.previewUrl
+				? {
+						url: proposal.previewUrl,
+						stand:
+							proposal.checks === 'pending'
+								? ('bezig' as const)
+								: proposal.checks === 'failure'
+									? ('mislukt' as const)
+									: ('klaar' as const)
+					}
+				: null,
+			verderBewerken,
 			diffs,
 			nietVergeleken: Math.max(pages.length - MAX_DIFF_PAGES, 0),
-			changedFiles,
+			andereBestanden: others.slice(0, MAX_OTHER_FILES),
+			nogMeerBestanden: Math.max(others.length - MAX_OTHER_FILES, 0),
 			fromFork,
 			headSha: pr.headSha,
-			viaGithub: identityFromPrBody(pr.body) === null,
 			githubUrl: pr.url,
 			notMergeable: pr.state === 'open' && pr.mergeable === false,
-			verderBewerken: acts.owner || acts.editorial ? proposal.verderBewerken : [],
-			canSendIn: pr.state === 'open' && !isSentIn(pr) && (acts.owner || acts.editorial),
-			canComment: pr.state === 'open' && acts.editorial,
-			canMerge:
-				pr.state === 'open' &&
-				isSentIn(pr) &&
-				acts.editorial &&
-				site.review['mergen-vanuit-schrijver']
+			gesprek,
+			kanReageren: pr.state === 'open' && (acts.owner || acts.editorial)
 		};
 	} catch (e) {
 		if (e instanceof ForgeError && e.status === 404) error(404, 'Voorstel niet gevonden');

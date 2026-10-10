@@ -81,6 +81,17 @@ export function authorship(
 	return { own, along: anyOf(along) };
 }
 
+/** Who made a proposal, as others may read it: the GitHub login, the name, or an anonymous colleague. */
+export function authorName(pr: PrSummary, app: string | null): string {
+	if (app !== null && pr.author && !same(pr.author, app)) return pr.author;
+	const line = identityFromPrBody(pr.body)?.trim() ?? '';
+	if (PSEUDONYM.test(line)) return 'een anonieme collega';
+	const linked = /<\d+\+([^@<>\s]+)@users\.noreply\.github\.com>$/.exec(line)?.[1];
+	if (LINKED.test(line) && linked) return linked;
+	const named = NAMED.test(line) ? /^Co-authored-by: ([^<>]+) </.exec(line)?.[1].trim() : null;
+	return named || 'een onbekende collega';
+}
+
 /** Why four eyes keeps the reader from merging: wrote it, wrote along, or Schrijver cannot tell. */
 export function fourEyes(writing: Writing): 'zelf' | 'mee' | 'onbekend' | null {
 	if (writing.own === true) return 'zelf';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authorship, fourEyes, signedBy } from '../../src/lib/forge/authorship';
+import { authorName, authorship, fourEyes, signedBy } from '../../src/lib/forge/authorship';
 import type { Identity } from '../../src/lib/forge/trailers';
 import type { PrCommit, PrSummary } from '../../src/lib/forge/types';
 
@@ -100,6 +100,19 @@ describe('authorship', () => {
 		const other = commit('Bewerk\n\nSchrijver-Auteur: 111111111111');
 		expect(authorship(pr({}), Array(249).fill(other), ALL, APP).along).toBe(false);
 		expect(authorship(pr({}), Array(250).fill(other), ALL, APP).along).toBeNull();
+	});
+});
+
+describe('authorName', () => {
+	it('names the writer as their signature allows, and a proposal made on GitHub by its login', () => {
+		const signed = (line: string) => authorName(pr({ body: `Voorgesteld.\n\n${line}` }), APP);
+		expect(signed('Schrijver-Auteur: 9f86d081884c')).toBe('een anonieme collega');
+		expect(signed('Co-authored-by: jansen <7+jansen@users.noreply.github.com>')).toBe('jansen');
+		expect(signed('Co-authored-by: Jan Jansen <jan@example.org>')).toBe('Jan Jansen');
+		expect(authorName(pr({ body: 'Zonder' }), APP)).toBe('een onbekende collega');
+		expect(authorName(pr({ author: 'pietersen', body: 'Op GitHub' }), APP)).toBe('pietersen');
+		const forged = pr({ author: 'pietersen', body: 'x\n\nCo-authored-by: Jan <jan@example.org>' });
+		expect(authorName(forged, APP)).toBe('pietersen');
 	});
 });
 

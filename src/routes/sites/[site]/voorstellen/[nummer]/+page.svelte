@@ -1,48 +1,67 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Diff from '$lib/components/Diff.svelte';
 	import Pagina from '$lib/components/Pagina.svelte';
-	import { STATUS, STEPS, nextStep, stepOf, whoDecides } from '$lib/forge/status';
+	import { markdownToHtml } from '$lib/content/markdown-preview';
+	import type { ConversationItem } from '$lib/forge/conversation';
+	import { STEPS, momentText, type Action } from '$lib/forge/status';
 
 	let { data } = $props();
 
 	type Melding = { variant: 'success' | 'warning' | 'critical'; text: string; detail?: string };
 
-	const BESTAND: Record<string, string> = {
-		added: 'toegevoegd',
-		modified: 'gewijzigd',
-		removed: 'verwijderd'
+	const ALS: Record<ConversationItem['as'], string> = {
+		schrijver: 'Schrijver van dit voorstel',
+		redactie: 'Redactie',
+		github: 'Op GitHub',
+		app: 'Automatisch bericht'
 	};
-	const CHECKS: Record<string, string> = {
-		none: 'Geen controles',
-		pending: 'Het voorbeeld wordt gebouwd',
-		success: 'Het voorbeeld is gebouwd',
-		failure: 'Het bouwen van het voorbeeld is mislukt'
-	};
-
-	const stand = $derived(STATUS[data.proposal.status]);
-	const stap = $derived(stepOf(data.proposal.status));
-	const wie = $derived(whoDecides(data.proposal.status, data.redactie, data.mergeInSchrijver));
 
 	let busy = $state(false);
 	let melding = $state<Melding | null>(null);
-	let opmerking = $state('');
-	let opmerkingFout = $state<string | null>(null);
 	/* One persistent live region: a banner inserted together with its text is not reliably announced. */
 	let status = $state('');
+	let zin = $state<HTMLElement>();
+	let veld = $state<HTMLElement>();
+	let reactie = $state('');
+	let soort = $state<'reactie' | 'aanpassing'>('reactie');
+	let fout = $state<string | null>(null);
+	let weergave = $state<Record<string, string>>({});
+	let lijst = $state<HTMLElement>();
 
-	const verderTekst = (page: string) =>
-		data.verderBewerken.length === 1
-			? 'Verder bewerken'
-			: `Verder bewerken: ${page.slice(page.lastIndexOf('/') + 1)}`;
-	/* A menu item has no target: the overflow twin of a link that opens a new tab opens it itself. */
-	const openInTab = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
+	const items = $derived(data.gesprek?.items ?? []);
 
-	async function stuur(actie: string, gelukt: string, body: unknown = {}) {
-		if (busy) return;
+	/* Rendered in the browser: the sanitiser needs a DOM. Until then the text shows as it is. */
+	$effect(() => {
+		weergave = Object.fromEntries(items.map((item) => [item.id, markdownToHtml(item.text)]));
+	});
+
+	$effect(() => {
+		void weergave;
+		if (lijst) inNieuwTabblad(lijst);
+	});
+
+	/* A link in a reaction must not replace the page, where a reaction may be half written. */
+	function inNieuwTabblad(root: HTMLElement) {
+		for (const link of root.querySelectorAll<HTMLAnchorElement>(
+			'.reactie a[href]:not([href^="#"]):not([target])'
+		)) {
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			const melding = document.createElement('span');
+			melding.className = 'sr-only';
+			melding.textContent = ' (opent in nieuw tabblad)';
+			link.append(melding);
+		}
+	}
+
+	async function stuur(actie: string, gelukt: string, body: unknown = {}): Promise<boolean> {
+		if (busy) return false;
 		busy = true;
 		melding = null;
 		status = 'Bezig';
+		let ok = false;
 		try {
 			const res = await fetch(
 				`/api/sites/${data.site.id}/voorstellen/${data.proposal.number}/${actie}`,
@@ -54,10 +73,10 @@
 			);
 			const result = await res.json().catch(() => null);
 			if (res.ok && result?.ok) {
+				ok = true;
 				melding = result.warning
 					? { variant: 'warning', text: gelukt, detail: result.warning }
 					: { variant: 'success', text: gelukt };
-				if (actie === 'opmerking') opmerking = '';
 				await invalidateAll();
 			} else {
 				melding = {
@@ -76,115 +95,176 @@
 			busy = false;
 			status = melding?.text ?? '';
 		}
+		return ok;
 	}
+
+	/* The buttons of a step disappear once it is taken: the focus goes to what is expected now. */
+	async function zet(actie: string, gelukt: string, body: unknown = {}) {
+		if (await stuur(actie, gelukt, body)) {
+			await tick();
+			zin?.focus();
+		}
+	}
+
+	async function vraagOmAanpassing() {
+		soort = 'aanpassing';
+		fout = null;
+		await tick();
+		veld?.focus();
+	}
+
+	async function terugNaarReactie() {
+		soort = 'reactie';
+		fout = null;
+		await tick();
+		veld?.focus();
+	}
+
+	async function plaats(event: SubmitEvent) {
+		event.preventDefault();
+		const aanpassing = soort === 'aanpassing';
+		fout = reactie.trim()
+			? null
+			: aanpassing
+				? 'Schrijf eerst wat er anders moet'
+				: 'Schrijf eerst je reactie';
+		if (fout) {
+			status = fout;
+			return;
+		}
+		const gelukt = aanpassing
+			? await stuur('aanpassing', 'Je vraag om aanpassing is geplaatst', { body: reactie })
+			: await stuur('opmerking', 'Je reactie is geplaatst', { body: reactie });
+		if (!gelukt) return;
+		reactie = '';
+		soort = 'reactie';
+		if (aanpassing) {
+			await tick();
+			zin?.focus();
+		}
+	}
+
+	const appearance = (actie: Action) => (actie === data.watNu.primary ? 'primary' : 'secondary');
 </script>
 
 <svelte:head><title>{data.proposal.title} · {data.site.naam} · Schrijver</title></svelte:head>
 
-<Pagina titel={data.proposal.title} terug={{ href: data.terug, tekst: data.site.naam }}>
-	<nldd-container gap="24">
-		<nldd-container layout="wrap" gap="12" vertical-alignment="center">
-			<nldd-badge text={stand.label} color={stand.color}></nldd-badge>
-			{#if data.viaGithub}<nldd-tag text="Via GitHub"></nldd-tag>{/if}
-			<nldd-text color="secondary">{CHECKS[data.proposal.checks]}</nldd-text>
-		</nldd-container>
+{#snippet knop(actie: Action)}
+	{#if actie === 'insturen'}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Insturen"
+			loading={busy || undefined}
+			onclick={() => zet('insturen', 'Het voorstel is ingestuurd')}
+		></nldd-button>
+	{:else if actie === 'verder-bewerken' && data.verderBewerken.length === 1}
+		<nldd-button
+			appearance={appearance(actie)}
+			start-icon="pencil"
+			text="Verder bewerken"
+			href={data.verderBewerken[0].href}
+		></nldd-button>
+	{:else if actie === 'verder-bewerken'}
+		<nldd-button
+			appearance={appearance(actie)}
+			start-icon="pencil"
+			text="Verder bewerken"
+			expandable
+		>
+			<nldd-menu slot="popup">
+				{#each data.verderBewerken as link (link.page)}
+					<nldd-menu-item text={link.titel} href={link.href}></nldd-menu-item>
+				{/each}
+			</nldd-menu>
+		</nldd-button>
+	{:else if actie === 'opnieuw-insturen'}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Opnieuw insturen"
+			loading={busy || undefined}
+			onclick={() => zet('opnieuw-insturen', 'Het voorstel is opnieuw ingestuurd')}
+		></nldd-button>
+	{:else if actie === 'samenvoegen'}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Samenvoegen"
+			loading={busy || undefined}
+			onclick={() => zet('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
+		></nldd-button>
+	{:else if actie === 'vraag-om-aanpassing'}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Vraag om aanpassing"
+			onclick={vraagOmAanpassing}
+		></nldd-button>
+	{:else if actie === 'goedkeuren-op-github'}
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Goedkeuren op GitHub"
+			href="{data.githubUrl}/files"
+			target="_blank"
+		></nldd-button>
+	{:else if actie === 'beoordelen-op-github'}
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Beoordelen op GitHub"
+			href="{data.githubUrl}/files"
+			target="_blank"
+		></nldd-button>
+	{:else if actie === 'bekijk-de-site' && data.site.adres}
+		<nldd-button
+			appearance={appearance(actie)}
+			text="Bekijk de site"
+			href={data.site.adres}
+			target="_blank"
+		></nldd-button>
+	{/if}
+{/snippet}
 
-		<nldd-container gap="12">
-			{#if stap}
-				<nldd-step-bar accessible-label="Voortgang van dit voorstel">
-					{#each STEPS as naam (naam)}
-						<nldd-step-bar-item text={naam} status={naam === stap ? 'current' : undefined}
-						></nldd-step-bar-item>
-					{/each}
-				</nldd-step-bar>
-			{/if}
-			<nldd-text>{nextStep(data.proposal.status, data.proposal.mine)}</nldd-text>
-			{#if wie}
-				<nldd-text color="secondary">{wie}</nldd-text>
-			{/if}
-			<nldd-link href="/sites/{data.site.id}/over" text="Zo komt een wijziging op de site"
-			></nldd-link>
-		</nldd-container>
-
-		<nldd-toolbar label="Acties voor dit voorstel">
-			{#if data.canSendIn}
-				<nldd-toolbar-item slot="start" priority="3">
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button
-						appearance="primary"
-						text="Insturen"
-						loading={busy || undefined}
-						onclick={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						text="Insturen"
-						onselect={() => stuur('insturen', 'Het voorstel is ingestuurd')}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/if}
-			{#if data.canMerge}
-				<nldd-toolbar-item slot="start" priority="3">
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button
-						appearance="primary"
-						text="Samenvoegen"
-						loading={busy || undefined}
-						onclick={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						text="Samenvoegen"
-						onselect={() => stuur('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/if}
-			{#each data.verderBewerken as link (link.page)}
-				<nldd-toolbar-item slot="start" priority="2">
-					<nldd-button
-						appearance="secondary"
-						start-icon="pencil"
-						text={verderTekst(link.page)}
-						href={link.href}
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						icon="pencil"
-						text={verderTekst(link.page)}
-						href={link.href}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/each}
-			{#if data.proposal.previewUrl}
-				{@const voorbeeld = data.proposal.previewUrl}
-				<nldd-toolbar-item slot="end" priority="1">
-					<nldd-button
-						appearance="secondary"
-						text="Bekijk het voorbeeld"
-						href={voorbeeld}
-						target="_blank"
-					></nldd-button>
-					<nldd-menu-item
-						slot="overflow"
-						text="Bekijk het voorbeeld"
-						onselect={() => openInTab(voorbeeld)}
-					></nldd-menu-item>
-				</nldd-toolbar-item>
-			{/if}
-			<nldd-toolbar-item slot="end" priority="1">
-				<nldd-button
-					appearance="secondary"
-					text="Bekijk op GitHub"
-					href={data.githubUrl}
-					target="_blank"
-				></nldd-button>
-				<nldd-menu-item
-					slot="overflow"
-					text="Bekijk op GitHub"
-					onselect={() => openInTab(data.githubUrl)}
-				></nldd-menu-item>
-			</nldd-toolbar-item>
-		</nldd-toolbar>
+<Pagina
+	titel={data.proposal.title}
+	ondertitel={data.ondertitel}
+	terug={{ href: data.terug, tekst: data.site.naam }}
+>
+	<nldd-container gap="16">
+		<nldd-box>
+			<nldd-container padding="24" sm-padding="16" gap="16">
+				{#if data.stap}
+					<nldd-step-bar accessible-label="Voortgang van dit voorstel">
+						{#each STEPS as naam (naam)}
+							<nldd-step-bar-item text={naam} status={naam === data.stap ? 'current' : undefined}
+							></nldd-step-bar-item>
+						{/each}
+					</nldd-step-bar>
+				{/if}
+				<nldd-text class="zin" tabindex="-1" bind:this={zin}>{data.watNu.sentence}</nldd-text>
+				{#if data.watNu.actions.length > 0 || data.voorbeeld?.stand === 'klaar'}
+					<nldd-button-group>
+						{#each data.watNu.actions as actie (actie)}
+							{@render knop(actie)}
+						{/each}
+						{#if data.voorbeeld?.stand === 'klaar'}
+							<nldd-button
+								appearance="secondary"
+								text="Bekijk het voorbeeld"
+								href={data.voorbeeld.url}
+								target="_blank"
+							></nldd-button>
+						{/if}
+					</nldd-button-group>
+				{/if}
+				{#if data.voorbeeld?.stand === 'bezig'}
+					<nldd-text color="secondary">Het voorbeeld wordt gebouwd</nldd-text>
+				{:else if data.voorbeeld?.stand === 'mislukt'}
+					<nldd-text color="secondary">Het voorbeeld is niet gelukt</nldd-text>
+				{/if}
+				<nldd-link href="/help#voorstellen" size="sm" text="Hoe werkt dit?"></nldd-link>
+			</nldd-container>
+		</nldd-box>
 
 		<p class="sr-only" role="status">{status}</p>
 
@@ -207,121 +287,152 @@
 				text="Dit voorstel kan niet automatisch worden samengevoegd; de pagina is intussen op de hoofdbranch gewijzigd"
 			></nldd-banner>
 		{/if}
-
-		{#if data.canComment || data.canMerge}
-			<nldd-link href="{data.githubUrl}/files" target="_blank" text="Beoordelen op GitHub"
-			></nldd-link>
-		{/if}
-
-		{#if data.proposal.status === 'ingestuurd' || data.proposal.status === 'goedgekeurd' || data.proposal.status === 'aanpassing-gevraagd'}
-			<nldd-text color="secondary">
-				Terug naar concept zetten kan niet vanuit Schrijver. Doe dat op GitHub via "Convert to
-				draft".
-			</nldd-text>
-		{/if}
 	</nldd-container>
 
 	{#snippet vervolg()}
 		<nldd-simple-section>
-			<nldd-title slot="header" size="3" heading-level="2" text="Wijzigingen"></nldd-title>
-			<nldd-container gap="24">
-				{#if data.changedFiles.length > 0}
-					<table class="bestanden">
-						<caption>Alle gewijzigde bestanden</caption>
-						<thead>
-							<tr><th scope="col">Bestand</th><th scope="col">Status</th></tr>
-						</thead>
-						<tbody>
-							{#each data.changedFiles as f (f.path)}
-								<tr>
-									<td>
-										{f.path}
-										{#if f.kind !== 'pagina'}
-											<br /><nldd-link
-												href="{data.githubUrl}/files"
-												target="_blank"
-												text="Bestand {BESTAND[f.status]}, bekijk op GitHub"
-											></nldd-link>
-										{/if}
-									</td>
-									<td>{BESTAND[f.status]}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				{/if}
+			<nldd-title slot="header" size="3" heading-level="2" text="Wat er verandert"></nldd-title>
+			<nldd-container gap="32">
 				{#if data.fromFork}
-					<nldd-text>Dit voorstel komt uit een fork. Beoordeel de wijzigingen op GitHub.</nldd-text>
-				{:else if data.diffs.length === 0}
+					<nldd-text>
+						De wijzigingen van dit voorstel staan buiten de repository van de site.
+						<nldd-link href="{data.githubUrl}/files" target="_blank" text="Bekijk ze op GitHub"
+						></nldd-link>
+					</nldd-text>
+				{:else if data.diffs.length === 0 && data.andereBestanden.length === 0}
 					<nldd-text>Dit voorstel wijzigt geen pagina's.</nldd-text>
-				{:else}
-					<nldd-container gap="32">
-						{#each data.diffs as d (d.path)}
-							<Diff
-								path={d.path}
-								before={d.before}
-								after={d.after}
-								source={d.source}
-								status={d.status}
-								teGroot={d.teGroot}
-							/>
-						{/each}
-						{#if data.nietVergeleken > 0}
-							<nldd-text>
-								{data.nietVergeleken === 1
-									? 'Nog 1 pagina is hier niet vergeleken.'
-									: `Nog ${data.nietVergeleken} pagina's zijn hier niet vergeleken.`} Bekijk ze op GitHub.
-							</nldd-text>
-						{/if}
-					</nldd-container>
+				{/if}
+				{#each data.diffs as d (d.path)}
+					<Diff
+						path={d.path}
+						titel={d.titel}
+						before={d.before}
+						after={d.after}
+						source={d.source}
+						status={d.status}
+						teGroot={d.teGroot}
+						githubUrl="{data.githubUrl}/files"
+					/>
+				{/each}
+				{#if data.nietVergeleken > 0}
+					<nldd-text>
+						{data.nietVergeleken === 1
+							? 'Nog 1 pagina is hier niet vergeleken.'
+							: `Nog ${data.nietVergeleken} pagina's zijn hier niet vergeleken.`}
+						<nldd-link href="{data.githubUrl}/files" target="_blank" text="Bekijk ze op GitHub"
+						></nldd-link>
+					</nldd-text>
+				{/if}
+				{#if data.andereBestanden.length > 0}
+					<nldd-text class="bestanden"
+						>{data.diffs.length > 0 || data.fromFork ? 'Ook in dit voorstel' : 'In dit voorstel'}:
+						{#each data.andereBestanden as f, i (i)}{i > 0 ? ', ' : ''}{f.soort}
+							<nldd-link href="{data.githubUrl}/files" target="_blank" text={f.naam}></nldd-link>
+							{f.status}{/each}{#if data.nogMeerBestanden > 0}, en nog {data.nogMeerBestanden}
+							{data.nogMeerBestanden === 1 ? 'bestand' : 'bestanden'}{/if}.</nldd-text
+					>
 				{/if}
 			</nldd-container>
 		</nldd-simple-section>
 
-		{#if data.canComment}
-			<nldd-simple-section>
-				<nldd-title slot="header" size="3" heading-level="2" text="Opmerking"></nldd-title>
-				<nldd-form>
-					<form
-						onsubmit={(e) => {
-							e.preventDefault();
-							opmerkingFout = opmerking.trim() ? null : 'Schrijf eerst een opmerking';
-							if (opmerkingFout) {
-								status = opmerkingFout;
-								return;
-							}
-							void stuur('opmerking', 'Je opmerking is geplaatst', { body: opmerking });
-						}}
-					>
-						<nldd-form-field label="Opmerking">
-							<nldd-multi-line-text-field
-								rows="4"
-								maxlength="5000"
-								value={opmerking}
-								invalid={opmerkingFout !== null || undefined}
-								oninput={(e: Event) => {
-									opmerking = (e.currentTarget as HTMLInputElement).value;
-									opmerkingFout = null;
-								}}
-							></nldd-multi-line-text-field>
-							{#if opmerkingFout}
-								<nldd-form-field-help-text>{opmerkingFout}</nldd-form-field-help-text>
-							{/if}
-						</nldd-form-field>
-						<nldd-form-actions>
-							<nldd-button-group>
-								<nldd-button
-									appearance="secondary"
-									type="submit"
-									text="Opmerking plaatsen"
-									loading={busy || undefined}
-								></nldd-button>
-							</nldd-button-group>
-						</nldd-form-actions>
-					</form>
-				</nldd-form>
-			</nldd-simple-section>
-		{/if}
+		<nldd-simple-section>
+			<nldd-title slot="header" size="3" heading-level="2" text="Gesprek"></nldd-title>
+			<nldd-container gap="24">
+				{#if data.gesprek === null}
+					<nldd-text>
+						Het gesprek kon niet worden geladen.
+						<nldd-link href={data.githubUrl} target="_blank" text="Lees het op GitHub"></nldd-link>
+					</nldd-text>
+				{:else if items.length === 0}
+					<nldd-text color="secondary">Nog geen reacties.</nldd-text>
+				{:else}
+					<ol class="gesprek" bind:this={lijst}>
+						{#each items as item (item.id)}
+							<li>
+								<nldd-container gap="8">
+									<nldd-identity text={item.who}>
+										<span slot="supporting-text"
+											>{ALS[item.as]} · <time datetime={item.at}>{momentText(item.at)}</time></span
+										>
+									</nldd-identity>
+									{#if item.verdict}
+										<nldd-text weight="bold">{item.verdict}</nldd-text>
+									{/if}
+									{#if item.text && weergave[item.id]}
+										<nldd-rich-text class="reactie" spacing="tight"
+											>{@html weergave[item.id]}</nldd-rich-text
+										>
+									{:else if item.text}
+										<nldd-text class="ruw">{item.text}</nldd-text>
+									{/if}
+									{#if item.url}
+										<nldd-link
+											href={item.url}
+											target="_blank"
+											size="sm"
+											text={item.text.endsWith('…') ? 'Lees de rest op GitHub' : 'Bekijk op GitHub'}
+										></nldd-link>
+									{/if}
+								</nldd-container>
+							</li>
+						{/each}
+					</ol>
+					{#if !data.gesprek.volledig}
+						<nldd-text>
+							Het gesprek is langer dan Schrijver hier toont.
+							<nldd-link href={data.githubUrl} target="_blank" text="Lees het op GitHub"
+							></nldd-link>
+						</nldd-text>
+					{/if}
+				{/if}
+
+				{#if data.kanReageren}
+					<nldd-form>
+						<form onsubmit={plaats}>
+							<nldd-form-field label="Je reactie">
+								<nldd-multi-line-text-field
+									bind:this={veld}
+									rows="4"
+									maxlength="5000"
+									value={reactie}
+									invalid={fout !== null || undefined}
+									oninput={(e: Event) => {
+										reactie = (e.currentTarget as HTMLInputElement).value;
+										fout = null;
+									}}
+								></nldd-multi-line-text-field>
+								{#if fout}
+									<nldd-form-field-help-text>{fout}</nldd-form-field-help-text>
+								{:else if soort === 'aanpassing'}
+									<nldd-form-field-help-text
+										>Schrijf wat er anders moet. De schrijver leest het hier en past het voorstel
+										aan.</nldd-form-field-help-text
+									>
+								{/if}
+							</nldd-form-field>
+							<nldd-form-actions>
+								<nldd-button-group>
+									<nldd-button
+										appearance={soort === 'aanpassing' ? 'primary' : 'secondary'}
+										type="submit"
+										text={soort === 'aanpassing' ? 'Vraag om aanpassing' : 'Plaats reactie'}
+										loading={busy || undefined}
+									></nldd-button>
+									{#if soort === 'aanpassing'}
+										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+										<nldd-button appearance="secondary" text="Annuleer" onclick={terugNaarReactie}
+										></nldd-button>
+									{/if}
+								</nldd-button-group>
+							</nldd-form-actions>
+						</form>
+					</nldd-form>
+				{/if}
+
+				<nldd-link href={data.githubUrl} target="_blank" size="sm" text="Dit voorstel op GitHub"
+				></nldd-link>
+			</nldd-container>
+		</nldd-simple-section>
 	{/snippet}
 </Pagina>
 
@@ -330,7 +441,8 @@
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}
-	.sr-only {
+	.sr-only,
+	.reactie :global(.sr-only) {
 		position: absolute;
 		width: 1px;
 		height: 1px;
@@ -338,20 +450,18 @@
 		clip-path: inset(50%);
 		white-space: nowrap;
 	}
-	.bestanden {
-		border-collapse: collapse;
-		width: fit-content;
-		max-width: 100%;
+	.gesprek {
+		display: grid;
+		gap: 24px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
-	.bestanden caption {
-		text-align: start;
-		font-weight: bold;
-	}
-	.bestanden th,
-	.bestanden td {
-		text-align: start;
-		padding: 4px 12px 4px 0;
+	.ruw {
+		white-space: pre-wrap;
 		overflow-wrap: anywhere;
-		vertical-align: top;
+	}
+	.bestanden {
+		overflow-wrap: anywhere;
 	}
 </style>
