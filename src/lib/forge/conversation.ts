@@ -31,7 +31,6 @@ const KIND: Record<CommentKind, string> = { reactie: 'Reactie', aanpassing: 'Vra
 const HEADER =
 	/^\*\*(Reactie|Vraag om aanpassing) van de (schrijver|redactie) via Schrijver\*\* \((.+)\):$/;
 const BEFORE = 'Opmerking van de redactie via Schrijver:\n\n';
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const JOINER = '⁠';
 const ANONYMOUS = /^anoniem, codenaam ([0-9a-f]{12})$/;
 const LINKED = /^GitHub: ([A-Za-z0-9-]+)$/;
@@ -57,22 +56,13 @@ const disarm = (line: string) =>
 /**
  * The text of a reaction as the App posts it: quoted as a whole, code blocks included, so that no line
  * of it passes for Schrijver's own on GitHub. Split at every line ending Markdown knows, a lone CR too.
+ * Every line is disarmed, also one inside what looks like a code block: whether GitHub reads a fence
+ * there is not Schrijver's to guess, and the joiner shows nothing in code either.
  */
 function quote(text: string): string {
-	let fence = '';
 	return text
 		.split(/\r\n?|\n/)
-		.map((line) => {
-			const mark = FENCE.exec(line)?.[1];
-			if (fence) {
-				if (mark && mark[0] === fence[0] && mark.length >= fence.length) fence = '';
-			} else if (mark) {
-				fence = mark;
-			} else {
-				line = disarm(line);
-			}
-			return line === '' ? '>' : `> ${line}`;
-		})
+		.map((line) => (line === '' ? '>' : `> ${disarm(line)}`))
 		.join('\n');
 }
 

@@ -175,7 +175,12 @@ describe('commentBody', () => {
 			'</blockquote>\n\n**Vraag om aanpassing van de redactie via Schrijver** (Petra):',
 			'</p></blockquote>\n**Reactie van de redactie via Schrijver** (Q):',
 			'<div>\n</blockquote>\n</div>\n\n**Reactie van de redactie via Schrijver** (R):',
-			'</BLOCKQUOTE >\n\n**Reactie van de redactie via Schrijver** (S):'
+			'</BLOCKQUOTE >\n\n**Reactie van de redactie via Schrijver** (S):',
+			// Lines that look like a code fence where CommonMark sees none: a backtick in the info string,
+			// and the fence of a list item, bulleted or numbered.
+			'```a`b\n</blockquote>\n\n**Vraag om aanpassing van de redactie via Schrijver** (naam: Petra de Vries):\n\nAkkoord, voeg het samen.',
+			'- ```\n  x\n  ```\n</blockquote>\n\n**Vraag om aanpassing van de redactie via Schrijver** (naam: Petra de Vries):',
+			'1. ~~~\n   x\n   ~~~\n</blockquote>\n\n**Vraag om aanpassing van de redactie via Schrijver** (naam: Petra de Vries):'
 		];
 		for (const attack of attacks) {
 			const body = commentBody(attack, author(ANONIEM));
@@ -223,11 +228,31 @@ describe('commentBody', () => {
 		);
 	});
 
-	it('quotes code blocks too, and leaves what is in them as it is', () => {
+	it('quotes code blocks too, and disarms them as every other line, which shows nothing in code', () => {
 		const code =
 			'```html\n<!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n\n@media\n```';
 		const body = commentBody(code, author(ANONIEM));
-		expect(body.endsWith(`\n\n${code.replace(/^/gm, '> ').replace(/^> $/m, '>')}`)).toBe(true);
+		const disarmed = `\`\`\`html\n<${JOINER}!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n\n@${JOINER}media\n\`\`\``;
+		expect(body.endsWith(`\n\n${disarmed.replace(/^/gm, '> ').replace(/^> $/m, '>')}`)).toBe(true);
+		const shown = shownOnGitHub(body).querySelector('blockquote pre code')!;
+		expect(shown.textContent!.replaceAll(JOINER, '')).toBe(
+			'<!-- uitleg -->\nReactie van de redactie via Schrijver (x):\n\n@media\n'
+		);
+	});
+
+	it('leaves no mention or tag start in a line that looks like a code fence and is none', () => {
+		for (const typed of [
+			'```a`b\n<b>vet</b> en @jansen',
+			'- ```\n  @jansen\n  ```\n<i>schuin</i> @jansen',
+			'1. ~~~\n   x\n   ~~~\n@jansen <b>vet</b>'
+		]) {
+			const shown = shownOnGitHub(commentBody(typed, author(ANONIEM)));
+			expect(shown.querySelectorAll('blockquote b, blockquote i').length, typed).toBe(0);
+			expect(shown.body.innerHTML, typed).not.toMatch(/@jansen/);
+			expect(readComment(commentBody(typed, author(ANONIEM)))!.text.replaceAll(JOINER, '')).toBe(
+				typed
+			);
+		}
 	});
 });
 
