@@ -281,7 +281,7 @@ test('an image in the text shows in the comparison, as in Voorbeeld', async ({ p
 		)
 	});
 	await dialog.getByLabel('Alt-tekst').fill('Een pixel');
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	await expect(editor(page)).toContainText('![Een pixel](');
 
 	await page.getByRole('button', { name: 'Schrijfhulp' }).click();

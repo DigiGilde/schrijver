@@ -30,7 +30,7 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 		.setInputFiles({ name: 'pixel.png', mimeType: 'image/png', buffer: PNG });
 	await expect(dialog.getByText('pixel.png (1 kB)')).toBeVisible();
 
-	const invoegen = dialog.getByRole('button', { name: 'Invoegen' });
+	const invoegen = dialog.getByRole('button', { name: 'Voeg afbeelding in' });
 	await invoegen.click();
 	await expect(dialog.getByText('Vul een alt-tekst in').first()).toBeVisible();
 	await expect(dialog.getByLabel('Alt-tekst')).toBeFocused();
@@ -44,7 +44,7 @@ test('inserts an image with alt text and sends it along on save', async ({ page 
 	await expect(plaatje).toHaveAttribute('src', /^data:image\/png;base64,/);
 
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.images).toHaveLength(1);
 	expect(sent.images[0].path).toMatch(/^docs\/afbeeldingen\/.+pixel\.png$/);
@@ -72,7 +72,7 @@ test('shows a server error inside the dialog and closes on Escape', async ({ pag
 		buffer: Buffer.from('geen afbeelding')
 	});
 	await dialog.getByLabel('Alt-tekst').fill('Nep');
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	await expect(dialog.getByRole('alert')).toContainText('bestandstype');
 	await page.keyboard.press('Escape');
 	await expect(dialog).not.toHaveAttribute('open', /.*/);
@@ -96,7 +96,7 @@ test('inserts a Mermaid scaffold and blocks saving without a description', async
 
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.type('```mermaid\nflowchart LR\n  A --> B\n```');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const melding = page.getByRole('alert').filter({ hasText: 'accDescr' });
 	await expect(melding).toContainText('regel 1');
 	await expect(melding).toHaveAttribute('variant', 'critical');
@@ -164,7 +164,7 @@ const pickPng = async (page: import('@playwright/test').Page, alt: string) => {
 		.locator('input[type=file]')
 		.setInputFiles({ name: 'pixel.png', mimeType: 'image/png', buffer: PNG });
 	await dialog.getByLabel('Alt-tekst').fill(alt);
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	await expect(dialog).not.toHaveAttribute('open', /.*/);
 };
 
@@ -175,7 +175,7 @@ test('opens the dialog with an empty file picker the second time', async ({ page
 	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
 	const dialog = page.locator('nldd-modal-dialog');
 	await expect(dialog.getByText('pixel.png')).toHaveCount(0);
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	await expect(dialog.getByText('Kies eerst een afbeelding').first()).toBeVisible();
 });
 
@@ -188,11 +188,11 @@ test('keeps pending images with the draft across a reload', async ({ page }) => 
 		.toContain('"images":[{');
 
 	await page.reload();
-	await page.getByRole('button', { name: 'Herstellen' }).click();
+	await page.getByRole('button', { name: 'Herstel', exact: true }).click();
 	await expect(page.getByText('Afbeeldingen worden meegestuurd bij het bewaren')).toBeVisible();
 
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.images).toHaveLength(1);
 	expect(sent.body).toContain('![Bewaard](');
@@ -360,7 +360,7 @@ async function insert(page: Page, dialog: Locator, shrink: boolean) {
 	if (shrink) await option(dialog).check();
 	await dialog.getByLabel('Alt-tekst').fill('Een foto');
 	const response = page.waitForResponse(uploadUrl);
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	const data = (await (await response).json()) as {
 		repoPath: string;
 		markdownRef: string;

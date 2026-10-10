@@ -33,6 +33,19 @@ describe('parsePage', () => {
 		expect(page).toMatchObject({ ok: false, reason: 'unterminated' });
 	});
 
+	it('says in Dutch what is wrong with the properties, without the word frontmatter', () => {
+		const messages = [
+			parsePage('+++\ntitle = "x"\n+++\nBody\n'),
+			parsePage('---\nfoo: 1\nBody\n'),
+			parsePage('---\n- a\n- b\n---\nBody\n')
+		].map((page) => (page.ok ? '' : page.message));
+		expect(messages).toEqual([
+			'Eigenschappen in TOML worden niet ondersteund',
+			'Na de eigenschappen ontbreekt een regel met ---',
+			'De eigenschappen zijn geen lijst met namen en waarden'
+		]);
+	});
+
 	it('reads fields and keeps a leading blank line in the body', () => {
 		const page = ok('---\ntitle: "A"\n---\n\nBody');
 		expect(page.frontmatter).toEqual({ title: 'A' });

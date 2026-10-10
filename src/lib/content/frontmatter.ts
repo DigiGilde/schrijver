@@ -41,7 +41,7 @@ function parseText(text: string): ParsedPage {
 	const newlineAtEnd = text.endsWith('\n');
 
 	if (/^\+\+\+\r?(\n|$)/.test(text)) {
-		return { ok: false, reason: 'toml', message: 'TOML frontmatter is not supported' };
+		return { ok: false, reason: 'toml', message: 'Eigenschappen in TOML worden niet ondersteund' };
 	}
 
 	const opening = text.startsWith('---\r\n') ? 5 : text.startsWith('---\n') ? 4 : 0;
@@ -62,7 +62,11 @@ function parseText(text: string): ParsedPage {
 		if (newline === -1) break;
 		lineStart = newline + 1;
 	}
-	return { ok: false, reason: 'unterminated', message: 'Frontmatter has no closing --- line' };
+	return {
+		ok: false,
+		reason: 'unterminated',
+		message: 'Na de eigenschappen ontbreekt een regel met ---'
+	};
 }
 
 function parseYaml(rawFrontmatter: string, body: string, newlineAtEnd: boolean): ParsedPage {
@@ -72,7 +76,11 @@ function parseYaml(rawFrontmatter: string, body: string, newlineAtEnd: boolean):
 	}
 	const value = doc.toJS() ?? {};
 	if (typeof value !== 'object' || Array.isArray(value)) {
-		return { ok: false, reason: 'yaml-error', message: 'Frontmatter is not a mapping' };
+		return {
+			ok: false,
+			reason: 'yaml-error',
+			message: 'De eigenschappen zijn geen lijst met namen en waarden'
+		};
 	}
 	return { ok: true, frontmatter: value, rawFrontmatter, body, newlineAtEnd };
 }

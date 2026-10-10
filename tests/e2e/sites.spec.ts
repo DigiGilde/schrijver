@@ -237,6 +237,6 @@ test('the new page form submits through the design system controls', async ({ pa
 	await page.evaluate(() => customElements.whenDefined('nldd-text-field'));
 	await page.getByLabel('Map').selectOption('werkwijze');
 	await page.getByLabel('Titel').fill('Toegankelijk formulier');
-	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await page.getByRole('button', { name: 'Maak pagina' }).click();
 	await expect(page).toHaveURL(/\/bewerken\/werkwijze\/toegankelijk-formulier\.md\?/);
 });

@@ -50,7 +50,7 @@ test('the account menu leads to the logout block and keeps the drafts', async ({
 	await page.getByRole('menuitem', { name: 'Uitloggen' }).click();
 	await expect(page).toHaveURL(/\/instellingen#uitloggen$/);
 	const block = page.locator('#uitloggen');
-	await expect(block).toContainText('wist ook de niet-bewaarde concepten');
+	await expect(block).toContainText('wist ook de niet-bewaarde tekst in deze browser');
 	await expect(block.getByRole('button', { name: 'Log uit' })).toBeVisible();
 	expect(await page.evaluate(() => localStorage.getItem('schrijver:x:new:a.md'))).toBe('{}');
 });

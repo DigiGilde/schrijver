@@ -48,7 +48,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 		.click({ position: { x: 2, y: 2 } });
 	await page.keyboard.press('Shift+ControlOrMeta+End');
 	await page.keyboard.type('Voorstel door e2e');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 
 	// What now, for the writer of a concept, in one block under the title.
@@ -170,7 +170,7 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nSinds 2024 heet het programma MOZa.');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(
@@ -313,7 +313,7 @@ test('shows the old image of a block that a proposal takes away, read from where
 		if (at === -1) throw new Error(`Niet in de tekst: ${fragment}`);
 		element.replaceRange(at, at + fragment.length, '');
 	}, SCHEMA);
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await page.goto(`/sites/digi-handboek/voorstellen/${new URL(page.url()).searchParams.get('pr')}`);
 
@@ -338,7 +338,7 @@ test('shows a reaction as text, with links that open a new tab and nothing that 
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nEen reactie met opmaak');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
 	await veld.fill(

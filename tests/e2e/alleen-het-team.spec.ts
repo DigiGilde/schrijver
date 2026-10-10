@@ -48,7 +48,7 @@ test('a member of its team finds the site on the start page, opens it and makes 
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nAlleen voor het team.');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 
 	expect((await page.request.get(IMAGE)).status()).toBe(200);

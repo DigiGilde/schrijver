@@ -46,7 +46,6 @@
 		focusEditor,
 		conventie,
 		busy = $bindable(false),
-		knoptekst = $bindable(),
 		conflictOpen = $bindable(false),
 		vraagOpen = $bindable(false)
 	}: {
@@ -74,7 +73,6 @@
 		/** Where the site keeps its images: only there does a save offer to delete one. */
 		conventie: ImageConvention;
 		busy?: boolean;
-		knoptekst?: string;
 		/** True while a conflict waits for a choice; another save would only meet it again. */
 		conflictOpen?: boolean;
 		/** True while the question about images no page uses any more waits for an answer. */
@@ -111,10 +109,6 @@
 	// svelte-ignore state_referenced_locally
 	let basis = tekstVan(snapshot());
 
-	const knopTekst = $derived(huidigPr ? 'Opslaan' : 'Concept bewaren');
-	$effect.pre(() => {
-		knoptekst = knopTekst;
-	});
 	$effect.pre(() => {
 		conflictOpen = conflict !== null;
 	});
@@ -282,10 +276,10 @@
 			} else {
 				fout = result?.error ??
 					// The server's body limit answers 413 without JSON.
-					{ message: res.status === 413 ? IMAGES_TOO_LARGE : 'Opslaan is mislukt' };
+					{ message: res.status === 413 ? IMAGES_TOO_LARGE : 'Bewaren is mislukt' };
 			}
 		} catch (e) {
-			fout = { message: 'Opslaan is mislukt: geen verbinding', detail: String(e) };
+			fout = { message: 'Bewaren is mislukt: geen verbinding', detail: String(e) };
 		} finally {
 			busy = false;
 		}
@@ -465,7 +459,7 @@
 					<nldd-button
 						slot="actions"
 						appearance="secondary"
-						text="Eigenschappen aanpassen"
+						text="Eigenschappen wijzigen"
 						onclick={oneigenschappen}
 					></nldd-button>
 				{/if}
@@ -496,10 +490,9 @@
 			</section>
 		</div>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-button appearance="primary" text="Mijn versie behouden" onclick={behoudMijn}
-		></nldd-button>
+		<nldd-button appearance="primary" text="Houd mijn versie" onclick={behoudMijn}></nldd-button>
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-button appearance="secondary" text="Hun versie overnemen" onclick={neemOver}
+		<nldd-button appearance="secondary" text="Neem hun versie over" onclick={neemOver}
 		></nldd-button>
 	</div>
 {/if}

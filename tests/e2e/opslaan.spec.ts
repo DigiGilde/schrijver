@@ -15,12 +15,12 @@ test('saves an edit as a draft proposal and keeps the branch on reload', async (
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nOpgeslagen door e2e');
 
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 
 	await page.reload();
-	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 	await expect(page.locator('nldd-rich-text')).toContainText('Opgeslagen door e2e');
 
@@ -34,7 +34,7 @@ test('the save notification leaving on its own keeps the view and the focus', as
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nBewaard en dan bekeken');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const melding = page.locator('nldd-notification');
 	await expect(melding).toBeVisible();
 
@@ -53,7 +53,7 @@ test('dismissing the save notification from within keeps the preview showing', a
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nBewaard en weggeklikt');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const melding = page.locator('nldd-notification');
 	await expect(melding).toBeVisible();
 	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
@@ -74,7 +74,7 @@ test('a proposal that was sent in is named, not called a concept, and points to 
 		.locator('nldd-list[accessible-label="Mijn voorstellen"]')
 		.getByRole('link', { name: 'Verder bewerken: Over het handboek: wie de redactie is' })
 		.click();
-	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	const nummer = new URL(page.url()).searchParams.get('pr');
 	await expect(page.locator('#paginatitel')).toHaveAttribute(
 		'supporting-text',
@@ -84,7 +84,7 @@ test('a proposal that was sent in is named, not called a concept, and points to 
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nMail de redactie op redactie@example.org.');
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const klaar = 'Klaar? Kies "Stuur opnieuw in" op de pagina van het voorstel.';
 	const melding = page.locator('nldd-notification');
 	await expect(melding).toHaveAttribute('text', `Bewaard in voorstel #${nummer}`);
@@ -109,10 +109,10 @@ test('warns when a stored draft is based on an older version', async ({ page }) 
 		);
 	}, key);
 	await page.reload();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toBeVisible();
 	await expect(page.getByText(/gebaseerd op een oudere versie/)).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Herstellen' })).toBeVisible();
-	await page.getByRole('button', { name: 'Weggooien' }).click();
+	await expect(page.getByRole('button', { name: 'Herstel', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Gooi weg' }).click();
 });
 
 test('flushes the last keystrokes when the page is hidden', async ({ page }) => {

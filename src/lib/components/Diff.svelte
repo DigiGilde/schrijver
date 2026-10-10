@@ -144,9 +144,11 @@
 
 	{#if changes.length > 0}
 		<table class="gegevens">
-			<caption>Gewijzigde gegevens bovenaan de pagina</caption>
+			<caption>Gewijzigde eigenschappen</caption>
 			<thead>
-				<tr><th scope="col">Veld</th><th scope="col">Huidig</th><th scope="col">Voorgesteld</th></tr
+				<tr
+					><th scope="col">Eigenschap</th><th scope="col">Huidig</th><th scope="col">Voorgesteld</th
+					></tr
 				>
 			</thead>
 			<tbody>

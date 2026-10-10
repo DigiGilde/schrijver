@@ -147,7 +147,7 @@ test('keyboard-only walkthrough from site page to editor, save and Schrijfhulp',
 	}
 	expect(positions, 'toolbar stops in visual order').toEqual([...positions].sort((a, b) => a - b));
 	expect(keys.length - 1, 'the editor comes right after the toolbar').toBe(positions.at(-1)! + 1);
-	const bewaren = keys.findIndex((k) => k.includes('.Concept bewaren'));
+	const bewaren = keys.findIndex((k) => k.includes('.Bewaar'));
 	expect(bewaren, 'the save button in the title bar comes before the toolbar').toBeGreaterThan(-1);
 	expect(bewaren).toBeLessThan(positions[0]);
 
@@ -217,14 +217,14 @@ test('a save conflict takes focus, and choosing a version returns it to the edit
 	await page.goto('/sites/digi-handboek/bewerken/index.md');
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await expect(editor).toBeVisible();
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByRole('alert').filter({ hasText: 'intussen' })).toBeFocused();
 	// The conflict choices are the only primary actions: saving again would meet the same conflict.
-	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toHaveCount(0);
-	await page.getByRole('button', { name: 'Hun versie overnemen' }).click();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Neem hun versie over' }).click();
 	await expect(editor).toBeFocused();
 	await expect(editor).toContainText('Hun');
-	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 });
 
 test('field errors from a save mark the field and take focus', async ({ page }) => {
@@ -242,7 +242,7 @@ test('field errors from a save mark the field and take focus', async ({ page }) 
 	);
 	await page.goto('/sites/digi-handboek/bewerken/index.md');
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const melding = page
 		.getByRole('alert')
 		.filter({ hasText: 'Vul de gemarkeerde velden in bij Eigenschappen' });
@@ -284,7 +284,7 @@ test.describe('focus after an overlay from the toolbar menu at 320 px (WCAG 2.4.
 		const dialog = page.getByRole('dialog', { name: 'Afbeelding invoegen' });
 		await expect(dialog).toBeVisible();
 		// The buttons are slotted into the dialog element, not into the dialog role inside it.
-		await page.locator('nldd-modal-dialog').getByRole('button', { name: 'Annuleren' }).click();
+		await page.locator('nldd-modal-dialog').getByRole('button', { name: 'Annuleer' }).click();
 		await expect(dialog).toBeHidden();
 		await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
 

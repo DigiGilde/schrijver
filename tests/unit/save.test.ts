@@ -196,7 +196,16 @@ describe('save', () => {
 		it('foreign branch and misplaced image', async () => {
 			expect(
 				await save(forge, digi, digiSchema, identity, req({ branch: 'main', prNumber: 1 }))
-			).toMatchObject({ ok: false, status: 400 });
+			).toMatchObject({ ok: false, status: 400, error: { message: 'Ongeldig voorstel' } });
+			expect(
+				await save(
+					forge,
+					digi,
+					digiSchema,
+					identity,
+					req({ branch: 'schrijver/digi-handboek/ander-abcd', prNumber: null })
+				)
+			).toMatchObject({ ok: false, status: 400, error: { message: 'Voorstel ontbreekt' } });
 			const r = await save(
 				forge,
 				digi,
@@ -559,7 +568,11 @@ describe('save', () => {
 					baseSha: sha
 				})
 			);
-			expect(r).toMatchObject({ ok: false, status: 400 });
+			expect(r).toMatchObject({
+				ok: false,
+				status: 400,
+				error: { message: 'De tekst mag niet met --- beginnen' }
+			});
 		});
 
 		it('makes a single plain line of a title', () => {

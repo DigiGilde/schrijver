@@ -5,7 +5,7 @@ test('returns to an open proposal and saves into the same pull request', async (
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nEerste sessie');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const saved = page.getByText(/Concept bewaard als voorstel #\d+/).first();
 	await expect(saved).toBeVisible();
 	const nummer = (await saved.textContent())!.match(/#(\d+)/)![1];
@@ -14,7 +14,7 @@ test('returns to an open proposal and saves into the same pull request', async (
 	await page.goto(`/sites/digi-handboek/voorstellen/${nummer}`);
 	await page.getByRole('link', { name: 'Verder bewerken' }).click();
 	await expect(page).toHaveURL(new RegExp(`branch=schrijver%2Fdigi-handboek%2F.+&pr=${nummer}`));
-	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	await page.getByRole('radio', { name: 'Voorbeeld' }).click();
 	await expect(page.locator('nldd-rich-text')).toContainText('Eerste sessie');
 	await page.getByRole('radio', { name: 'Schrijven' }).click();
@@ -22,7 +22,7 @@ test('returns to an open proposal and saves into the same pull request', async (
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nTweede sessie');
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(`Concept bewaard als voorstel #${nummer}`).first()).toBeVisible();
 
 	await page.goto('/sites/digi-handboek');
@@ -38,7 +38,7 @@ async function saveMoza(page: Page, path: string, text: string): Promise<string>
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type(`\n\n${text}`);
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const saved = page.getByText(/Concept bewaard als voorstel #\d+/).first();
 	await expect(saved).toBeVisible();
 	return (await saved.textContent())!.match(/#(\d+)/)![1];
@@ -73,7 +73,7 @@ test('the page row and the proposal row both lead back into the open proposal', 
 	await page.goto('/sites/moza-site?map=onderwerpen');
 	await next.click();
 	await expect(page).toHaveURL(new RegExp(`pr=${nummer}`));
-	await expect(page.getByRole('button', { name: 'Opslaan' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 });
 
 test('the list offers the shortcut on own proposals only, also to the redactie', async ({

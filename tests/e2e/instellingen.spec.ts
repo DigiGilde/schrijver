@@ -4,13 +4,13 @@ import { als } from './als';
 test('settings: the save button is ready after loading and saves the choice', async ({ page }) => {
 	await page.goto('/instellingen');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
-	const knop = page.locator('nldd-button[text="Opslaan"]');
+	const knop = page.locator('nldd-button[text="Bewaar"]');
 	await expect(knop).not.toHaveAttribute('loading');
 	await page.getByRole('radio', { name: /^Op naam/ }).click();
-	await page.getByRole('button', { name: 'Opslaan' }).click();
-	await expect(page.getByText('Instellingen opgeslagen').first()).toBeVisible();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
+	await expect(page.getByText('Instellingen bewaard').first()).toBeVisible();
 	await page.getByRole('radio', { name: /^Anoniem/ }).click();
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByRole('radio', { name: /^Anoniem/ })).toBeChecked();
 });
 
@@ -23,16 +23,26 @@ test('settings: the signing choices are called as everywhere else', async ({ pag
 	).toBeVisible();
 	await expect(page.getByRole('radio', { name: /^Gekoppeld aan GitHub: / })).toBeVisible();
 	await expect(
-		page.getByText("'Gekoppeld aan GitHub' kan pas als je hieronder je GitHub-account koppelt.")
+		page.getByText('"Gekoppeld aan GitHub" kan pas als je hieronder je GitHub-account koppelt.')
 	).toBeVisible();
 	await expect(page.getByText(/pseudoniem|Gekoppeld aan mijn/)).toHaveCount(0);
+});
+
+test('settings: after linking GitHub the banner quotes the option and the button', async ({
+	page
+}) => {
+	await page.goto('/instellingen?gekoppeld=1');
+	await expect(page.locator('nldd-banner[variant="success"]')).toHaveAttribute(
+		'text',
+		'Je GitHub-account is gekoppeld. Kies hieronder "Gekoppeld aan GitHub" en kies "Bewaar" als je zo wilt ondertekenen.'
+	);
 });
 
 test('onboarding: saving the choice leads to the start page', async ({ page }) => {
 	await page.goto('/onboarding');
 	await page.evaluate(() => customElements.whenDefined('nldd-button'));
-	await expect(page.locator('nldd-button[text="Opslaan"]')).not.toHaveAttribute('loading');
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await expect(page.locator('nldd-button[text="Bewaar"]')).not.toHaveAttribute('loading');
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page).toHaveURL(/\/$/);
 	await expect(page.getByRole('heading', { name: 'Kies een site' })).toBeVisible();
 });

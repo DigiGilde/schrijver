@@ -3,7 +3,7 @@ export type PendingImage = { path: string; base64: string };
 /** Total of the images sent with one save; the server's body limit is sized to fit it. */
 export const MAX_PENDING_IMAGE_BYTES = 10 * 1024 * 1024;
 export const IMAGES_TOO_LARGE =
-	'De afbeeldingen in dit concept zijn samen groter dan 10 MB; verwijder er een paar of maak ze kleiner';
+	'De afbeeldingen op deze pagina zijn samen groter dan 10 MB; verwijder er een paar of maak ze kleiner';
 
 /** Decoded size of a base64 string, without decoding it. */
 export function base64Bytes(base64: string): number {

@@ -305,8 +305,8 @@ export async function save(
 	if (!isNew && req.baseSha === null) return fail(400, 'Ontbrekende basisversie');
 
 	const prefix = `schrijver/${site.id}/`;
-	if (req.branch !== null && !req.branch.startsWith(prefix)) return fail(400, 'Ongeldige branch');
-	if (req.branch !== null && req.prNumber === null) return fail(400, 'Pull request ontbreekt');
+	if (req.branch !== null && !req.branch.startsWith(prefix)) return fail(400, 'Ongeldig voorstel');
+	if (req.branch !== null && req.prNumber === null) return fail(400, 'Voorstel ontbreekt');
 
 	try {
 		let existingPr: Awaited<ReturnType<Forge['getPr']>> | null = null;
@@ -347,7 +347,7 @@ export async function save(
 				detail: page.message
 			});
 		if (page.rawFrontmatter === null && /^\uFEFF?(---|\+\+\+)\r?(\n|$)/.test(req.body)) {
-			return fail(400, 'De tekst mag niet met een gegevensblok (---) beginnen');
+			return fail(400, 'De tekst mag niet met --- beginnen');
 		}
 
 		const known = new Set(buildForm(schema, req.frontmatter, filePath).map((f) => f.key));

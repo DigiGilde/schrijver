@@ -39,10 +39,9 @@
 			<p>Elke wijziging gaat als voorstel door drie stappen:</p>
 			<ol>
 				<li>
-					<strong>Concept.</strong> Kies "Concept bewaren" om je werk op te slaan. Dat maakt een voorstel
-					op GitHub, maar de site verandert nog niet. Bij sites met een openbare repository is het concept
-					voor iedereen leesbaar, ook voordat je het instuurt. Zet dus niets in een concept dat nog niet
-					openbaar mag.
+					<strong>Concept.</strong> Kies "Bewaar". Dat maakt een voorstel op GitHub, maar de site verandert
+					nog niet. Bij sites met een openbare repository is het concept voor iedereen leesbaar, ook voordat
+					je het instuurt. Zet dus niets in een concept dat nog niet openbaar mag.
 				</li>
 				<li>
 					<strong>Ingestuurd.</strong> Kies "Stuur in" als je klaar bent. Dan vraagt Schrijver de redactie
@@ -82,8 +81,8 @@
 
 			<h2>Afbeeldingen en diagrammen</h2>
 			<p>
-				Bij elke afbeelding vul je een alternatieve tekst in; zonder die tekst kun je de afbeelding
-				niet toevoegen. Bij een diagram (Mermaid) hoort een beschrijving in de regel
+				Bij elke afbeelding vul je een alt-tekst in; zonder die tekst kun je de afbeelding niet
+				toevoegen. Bij een diagram (Mermaid) hoort een beschrijving in de regel
 				<code>accDescr</code>. Zonder beschrijving kun je niet bewaren.
 			</p>
 
@@ -97,8 +96,8 @@
 			</p>
 			<p>
 				Bij een nieuwe pagina kan de schrijfhulp uit een korte beschrijving een titel en een opzet
-				maken. Je ziet ze eerst in het formulier en past ze aan waar nodig. Met "Pagina maken" komen
-				ze in de editor; bewaard wordt er pas iets als je "Concept bewaren" kiest.
+				maken. Je ziet ze eerst in het formulier en past ze aan waar nodig. Met "Maak pagina" komen
+				ze in de editor; bewaard wordt er pas iets als je "Bewaar" kiest.
 			</p>
 			<p>
 				De schrijfhulp gebruikt een taalmodel (VLAM van SSC-ICT); het stelt alleen voor, jij

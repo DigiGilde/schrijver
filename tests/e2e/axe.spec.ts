@@ -34,7 +34,7 @@ const pages = [
 const allowedContrast = [
 	/^nldd-text-editor,\.cm-line:nth-child\(\d+\)$/,
 	/^(nldd-top-title-bar|\.optisch),nldd-button(\[start-icon="chevron-left"\])?,\.button__text$/,
-	/^nldd-button\[text="(Concept bewaren|Opslaan)"\],\.button__text$/,
+	/^nldd-button\[text="Bewaar"\],\.button__text$/,
 	/^nldd-just-in-time-education,\.just-in-time-education__(text|supporting-text)$/,
 	/^nldd-text-cell\[text="Hoogste niveau"\],\.text-cell__text$/,
 	/^nldd-step-bar-item\[(status="current"|text="[^"]+")\],\.step-bar__item-(number|title)$/,

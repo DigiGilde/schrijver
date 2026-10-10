@@ -43,7 +43,7 @@
 		toonBerekenen
 			? 'Bezig met berekenen of de afbeelding kleiner kan'
 			: aanbod
-				? 'Je kunt de afbeelding verkleinen: zie de optie Verklein voor het web'
+				? 'Je kunt de afbeelding verkleinen: kies "Verklein voor het web"'
 				: ''
 	);
 
@@ -227,12 +227,12 @@
 		{/if}
 	</div>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<nldd-button slot="actions" appearance="secondary" text="Annuleren" onclick={sluit}></nldd-button>
+	<nldd-button slot="actions" appearance="secondary" text="Annuleer" onclick={sluit}></nldd-button>
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<nldd-button
 		slot="actions"
 		appearance="primary"
-		text="Invoegen"
+		text="Voeg afbeelding in"
 		loading={busy || undefined}
 		onclick={invoegen}
 	></nldd-button>

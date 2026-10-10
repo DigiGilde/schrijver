@@ -37,7 +37,7 @@ test('opens a file, follows edits and offers to restore a draft', async ({ page 
 		page.getByText('docs/index.md · Openbaar concept · De titel is de eerste kop van de tekst')
 	).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Titel wijzigen' })).toHaveCount(0);
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toHaveCount(0);
 
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+End');
@@ -50,14 +50,14 @@ test('opens a file, follows edits and offers to restore a draft', async ({ page 
 		.toContain('Nieuwe kop uit e2e');
 
 	await page.reload();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
-	await page.getByRole('button', { name: 'Herstellen' }).click();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toBeVisible();
+	await page.getByRole('button', { name: 'Herstel', exact: true }).click();
 	await expect.poll(() => editorValue(page)).toContain('Nieuwe kop uit e2e');
 	await expect(editor).toBeFocused();
 
 	await page.reload();
-	await page.getByRole('button', { name: 'Weggooien' }).click();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Gooi weg' }).click();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toHaveCount(0);
 	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), key)).toBeNull();
 });
 
@@ -121,7 +121,7 @@ test('a link in Voorbeeld opens a new tab and the editor keeps its own file', as
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type(' En nog een zin.');
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.path).toBe('docs/contact.md');
 	expect(sent.body).toContain('Aangevuld bij contact En nog een zin.');
@@ -156,7 +156,7 @@ test('moving client-side to another page starts a session for that page', async 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Offboarding');
 	await expect.poll(() => editorValue(page)).toContain('We vinden het jammer om je te zien gaan');
 	expect(await editorValue(page)).not.toContain('Alleen voor contact');
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toHaveCount(0);
 	const drafts = await page.evaluate(() => ({
 		contact: localStorage.getItem('schrijver:digi-handboek:new:contact.md'),
 		offboarding: localStorage.getItem('schrijver:digi-handboek:new:offboarding.md')
@@ -166,7 +166,7 @@ test('moving client-side to another page starts a session for that page', async 
 
 	await page.unroute(/__data\.json/);
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.path).toBe('docs/offboarding.md');
 	expect(sent.body).toContain('We vinden het jammer om je te zien gaan');
@@ -188,7 +188,7 @@ test('after the first save Back from another page opens the proposal, and the se
 	page.on('request', (request) => {
 		if (request.url().includes('__data.json')) geladen.push(request.url());
 	});
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(page).toHaveURL(/\?branch=schrijver%2Fdigi-handboek%2F[^&]+&pr=\d+$/);
 	const sessie = await page.evaluate(
@@ -200,7 +200,7 @@ test('after the first save Back from another page opens the proposal, and the se
 	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
 	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
 	await page.goBack();
-	await expect(page.getByRole('button', { name: 'Opslaan', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	await expect.poll(() => editorValue(page)).toContain('Bewaard voor de terugknop.');
 });
 
@@ -211,14 +211,14 @@ test('Back to a new page after its first save opens the proposal', async ({ page
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nDe eerste versie.');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(page).toHaveURL(/\/bewerken\/kennis\/terug-na-bewaren\.md\?branch=/);
 
 	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
 	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
 	await page.goBack();
-	await expect(page.getByRole('button', { name: 'Opslaan', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	await expect.poll(() => editorValue(page)).toContain('De eerste versie.');
 });
 
@@ -304,8 +304,8 @@ test.describe('one writing surface at 1280 px', () => {
 		const height = await page.evaluate(() => document.documentElement.scrollHeight);
 		expect(height, 'the page is longer than the window').toBeGreaterThan(1800);
 		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-		await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeInViewport();
-		await page.getByRole('button', { name: 'Concept bewaren' }).click();
+		await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeInViewport();
+		await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	});
 });
@@ -411,7 +411,7 @@ test('the properties sheet opens from the toolbar and its values are saved', asy
 	await expect(page.getByRole('button', { name: 'Eigenschappen' })).toBeFocused();
 
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.frontmatter.description).toBe('Samenvatting uit de sheet');
 	expect(sent.changedKeys).toContain('description');
@@ -477,14 +477,14 @@ test('in the toolbar menu Eigenschappen spells out the count', async ({ page }) 
 test('a save with a missing required field offers to open the properties', async ({ page }) => {
 	await page.goto('/sites/moza-site/bewerken/contact.md');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contact');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 
 	const melding = page
 		.getByRole('alert')
 		.filter({ hasText: 'Vul de gemarkeerde velden in bij Eigenschappen' });
 	await expect(page.locator('.foutmelding')).toBeFocused();
 	await expect(melding.getByRole('listitem')).toHaveText(['Beschrijving is verplicht']);
-	const aanpassen = melding.getByRole('button', { name: 'Eigenschappen aanpassen' });
+	const aanpassen = melding.getByRole('button', { name: 'Eigenschappen wijzigen' });
 	for (let i = 0; i < 4; i++) {
 		await page.keyboard.press('Tab');
 		if (await aanpassen.evaluate((el) => el.matches(':focus-within'))) break;
@@ -501,7 +501,7 @@ test('a save with a missing required field offers to open the properties', async
 	await sheet.getByRole('textbox', { name: 'Beschrijving' }).fill('Hoe je het team bereikt.');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 });
 
@@ -521,7 +521,7 @@ test('a new page shows its properties once when a required one is still empty', 
 	await expect(page.locator('nldd-text-editor .cm-content')).toBeFocused();
 
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	expect(JSON.parse((await request).postData() ?? '{}').frontmatter).toEqual({
 		title: 'Nieuw onderwerp',
 		description: 'Een onderwerp uit e2e.'
@@ -633,7 +633,7 @@ test(
 		).toBeVisible();
 		await expect(page.getByText('openbaar leesbaar')).toHaveCount(0);
 
-		await page.getByRole('button', { name: 'Concept bewaren' }).click();
+		await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 		await expect(uitleg).toBeHidden();
 		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 
@@ -678,7 +678,7 @@ test(
 		await expect(uitleg).toBeFocused();
 		await page.keyboard.press('Escape');
 		await expect(uitleg).toBeHidden();
-		await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeFocused();
+		await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeFocused();
 		await page.keyboard.press('Tab');
 		await expect(page.getByRole('button', { name: 'Vet' })).toBeFocused();
 
@@ -695,7 +695,7 @@ test(
 	async ({ page }) => {
 		await page.setViewportSize({ width: 400, height: 800 });
 		await page.goto('/sites/digi-handboek/bewerken/over/licentie.md');
-		await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 		// Where the coach mark shows, it opens within a frame of the button getting its box.
 		await page.evaluate(
 			() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
@@ -743,7 +743,7 @@ test(
 		await page.setViewportSize({ width: 900, height: 800 });
 		await page.goto('/sites/moza-site/bewerken/onderwerpen/open-werken.md');
 		await expect(uitlegBanner(page)).toBeVisible();
-		await page.getByRole('button', { name: 'Concept bewaren' }).click();
+		await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 		await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 		await expect(uitlegBanner(page)).toHaveCount(0);
 		expect(await uitgelegd(page, 'moza-site')).toBe('1');

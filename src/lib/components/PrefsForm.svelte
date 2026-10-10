@@ -59,19 +59,18 @@
 
 <!-- One persistent live region: a banner inserted together with its text is not reliably announced. -->
 <p class="sr-only" role="status">
-	{error ??
-		(saved ? 'Instellingen opgeslagen' : justLinked ? 'Je GitHub-account is gekoppeld' : '')}
+	{error ?? (saved ? 'Instellingen bewaard' : justLinked ? 'Je GitHub-account is gekoppeld' : '')}
 </p>
 {#if error}
 	<nldd-banner variant="critical" text={error}></nldd-banner>
 {/if}
 {#if saved}
-	<nldd-banner variant="success" text="Instellingen opgeslagen"></nldd-banner>
+	<nldd-banner variant="success" text="Instellingen bewaard"></nldd-banner>
 {/if}
 {#if justLinked}
 	<nldd-banner
 		variant="success"
-		text="Je GitHub-account is gekoppeld. Kies hieronder 'Gekoppeld aan GitHub' en sla op als je zo wilt ondertekenen."
+		text={'Je GitHub-account is gekoppeld. Kies hieronder "Gekoppeld aan GitHub" en kies "Bewaar" als je zo wilt ondertekenen.'}
 	></nldd-banner>
 {/if}
 
@@ -113,16 +112,16 @@
 				</nldd-radio-button-group>
 				{#if !linked}
 					<nldd-form-field-help-text
-						>'Gekoppeld aan GitHub' kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
+						>"Gekoppeld aan GitHub" kan pas als je hieronder je GitHub-account koppelt.</nldd-form-field-help-text
 					>
 				{/if}
 				{#if !emailVerified}
 					<nldd-form-field-help-text
-						>'Op naam' kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text
+						>"Op naam" kan alleen met een geverifieerd e-mailadres.</nldd-form-field-help-text
 					>
 				{/if}
 				<nldd-form-field-help-text>
-					Wat met 'Gekoppeld aan GitHub' of 'Op naam' in een openbare repository komt, blijft daar
+					Wat met "Gekoppeld aan GitHub" of "Op naam" in een openbare repository komt, blijft daar
 					voorgoed zichtbaar: de geschiedenis kan niet worden gewist, ook niet als je later iets
 					anders kiest.
 				</nldd-form-field-help-text>
@@ -141,7 +140,7 @@
 
 			<nldd-form-actions>
 				<nldd-button-group>
-					<nldd-button appearance="primary" type="submit" text="Opslaan" loading={busy || undefined}
+					<nldd-button appearance="primary" type="submit" text="Bewaar" loading={busy || undefined}
 					></nldd-button>
 				</nldd-button-group>
 			</nldd-form-actions>

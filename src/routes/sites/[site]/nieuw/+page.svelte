@@ -87,7 +87,7 @@
 		const path = doel.pathname.slice(begin.length).split('/').map(decodeURIComponent).join('/');
 		const key = draftKey(data.site.id, path);
 		if (readDraft(key)) {
-			return 'Voor deze pagina staat al een niet-bewaard concept in deze browser. Kies een andere titel, of maak de opzet leeg om dat concept te openen.';
+			return 'Voor deze pagina staat al niet-bewaarde tekst in deze browser. Kies een andere titel, of maak de opzet leeg om die tekst te openen.';
 		}
 		const title = doel.searchParams.get('titel') ?? '';
 		writeDraft(key, {
@@ -215,7 +215,7 @@
 				{/if}
 				<nldd-form-actions>
 					<nldd-button-group>
-						<nldd-button appearance="primary" type="submit" text="Pagina maken"></nldd-button>
+						<nldd-button appearance="primary" type="submit" text="Maak pagina"></nldd-button>
 					</nldd-button-group>
 				</nldd-form-actions>
 			</form>

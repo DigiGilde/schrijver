@@ -34,7 +34,7 @@ test('the file preview caps a long file name at a word', async ({ page }) => {
 	await expect(page.getByText(`Bestand: kennis/${'woord-'.repeat(12)}woord.md`)).toBeVisible();
 });
 
-test('Maak een opzet fills title and outline, and Pagina maken opens the editor with them', async ({
+test('Maak een opzet fills title and outline, and Maak pagina opens the editor with them', async ({
 	page
 }) => {
 	await open(page, 'digi-handboek');
@@ -55,19 +55,19 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 	).toBeVisible();
 
 	await opzet.fill('## Waar staat hij\n\nOp de vierde verdieping.');
-	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await page.getByRole('button', { name: 'Maak pagina' }).click();
 	await expect(page).toHaveURL(
 		/\/bewerken\/kennis\/een-pagina-over-de-koffieautomaat\.md\?nieuw=1&/
 	);
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
 		'Een pagina over de koffieautomaat'
 	);
-	// The outline arrives as an unsaved draft; nothing reaches the forge before "Concept bewaren".
+	// The outline arrives as an unsaved draft; nothing reaches the forge before "Bewaar".
 	const herkomst = page.getByText(
 		'Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.'
 	);
 	await expect(herkomst).toBeVisible();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toHaveCount(0);
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toHaveCount(0);
 	const editor = page.locator('nldd-text-editor .cm-content');
 	await expect(editor).toContainText('# Een pagina over de koffieautomaat');
 	await expect(editor).toContainText('## Waar staat hij');
@@ -83,7 +83,7 @@ test('Maak een opzet fills title and outline, and Pagina maken opens the editor 
 		.poll(() => page.evaluate((k) => localStorage.getItem(k), sleutel))
 		.toContain('Mijn eigen zin.');
 	await page.reload();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toBeVisible();
 	await expect(herkomst).toHaveCount(0);
 });
 
@@ -94,7 +94,7 @@ test('Back into an outline the writer worked on asks about the draft, without th
 	await page.getByLabel('Of beschrijf wat je wilt schrijven').fill('Een pagina over de lift.');
 	await page.getByRole('button', { name: 'Maak een opzet' }).click();
 	await expect(page.getByLabel('Opzet', { exact: true })).not.toHaveValue('');
-	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await page.getByRole('button', { name: 'Maak pagina' }).click();
 	const herkomst = page.getByText(
 		'Deze opzet komt van Schrijfhulp. Lees en pas alles aan voordat je het bewaart.'
 	);
@@ -106,7 +106,7 @@ test('Back into an outline the writer worked on asks about the draft, without th
 	await page.getByRole('link', { name: 'Digi Handboek' }).first().click();
 	await expect(page).toHaveURL(/\/sites\/digi-handboek$/);
 	await page.goBack();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toBeVisible();
 	await expect(herkomst).toHaveCount(0);
 });
 
@@ -144,7 +144,7 @@ test('a marked outline is taken over once, also with a page load', async ({ page
 	).toBeUndefined();
 
 	await page.reload();
-	await expect(page.getByText('Niet-opgeslagen concept gevonden')).toBeVisible();
+	await expect(page.getByText('Niet-bewaarde tekst gevonden')).toBeVisible();
 	await expect(herkomst).toHaveCount(0);
 });
 
@@ -209,7 +209,7 @@ test('an existing file is refused on the form, before the editor', async ({ page
 	await open(page, 'digi-handboek');
 	await page.getByLabel('Titel').fill('Accounts');
 	await page.getByLabel('Map').selectOption('onboarding');
-	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await page.getByRole('button', { name: 'Maak pagina' }).click();
 	await expect(
 		page.getByRole('alert').filter({ hasText: 'Er is al een pagina met het bestand' })
 	).toContainText('onboarding/accounts.md');
@@ -222,7 +222,7 @@ test('a title above 300 characters is refused on the form, keeping what was type
 	await open(page, 'digi-handboek');
 	const titel = `${'woord '.repeat(50)}x`;
 	await page.getByLabel('Titel').fill(titel);
-	await page.getByRole('button', { name: 'Pagina maken' }).click();
+	await page.getByRole('button', { name: 'Maak pagina' }).click();
 	await expect(
 		page.getByRole('alert').filter({ hasText: 'De titel is te lang: gebruik hoogstens 300 tekens' })
 	).toBeVisible();

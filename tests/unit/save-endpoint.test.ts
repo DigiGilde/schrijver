@@ -161,7 +161,7 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		const res = await call({ body: { ...good, images } });
 		expect(res.status).toBe(413);
 		expect((await res.json()).error.message).toBe(
-			'De afbeeldingen in dit concept zijn samen groter dan 10 MB; verwijder er een paar of maak ze kleiner'
+			'De afbeeldingen op deze pagina zijn samen groter dan 10 MB; verwijder er een paar of maak ze kleiner'
 		);
 		expect((await call({ body: { ...good, images: images.slice(0, 2) } })).status).toBe(200);
 	});
@@ -171,7 +171,9 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		const res = await call({ body: { ...good, body: '!['.repeat(1_000_000) } });
 		expect(performance.now() - start).toBeLessThan(200);
 		expect(res.status).toBe(400);
-		expect((await res.json()).error.message).toContain('te lang');
+		expect((await res.json()).error.message).toBe(
+			'De tekst is te lang om te bewaren (maximaal 500.000 tekens)'
+		);
 	});
 
 	it('passes deletions on to save, up to 20', async () => {
@@ -208,7 +210,9 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		for (let i = 0; i < 50; i++) deep = { a: deep };
 		const res = await call({ body: { ...good, frontmatter: { description: deep } } });
 		expect(res.status).toBe(400);
-		expect((await res.json()).error.message).toContain('te diep');
+		expect((await res.json()).error.message).toBe(
+			'De eigenschappen van de pagina zijn te groot of te diep genest'
+		);
 	});
 
 	it('caps new proposals per user per hour', async () => {

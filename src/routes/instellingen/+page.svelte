@@ -75,7 +75,7 @@
 		<nldd-container id="uitloggen" gap="8">
 			<nldd-title size="3" heading-level="2" text="Uitloggen"></nldd-title>
 			<nldd-text color="secondary" size="sm"
-				>Uitloggen wist ook de niet-bewaarde concepten in deze browser.</nldd-text
+				>Uitloggen wist ook de niet-bewaarde tekst in deze browser.</nldd-text
 			>
 			<form method="post" action="/uitloggen" data-sveltekit-reload onsubmit={clearAllDrafts}>
 				<nldd-button appearance="secondary" type="submit" text="Log uit"></nldd-button>

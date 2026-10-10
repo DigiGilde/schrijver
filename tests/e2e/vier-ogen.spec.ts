@@ -29,7 +29,7 @@ test('the writer is blocked on the proposal they sent in, and another editor is 
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nTwee paar ogen zien meer.');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(ZELF);

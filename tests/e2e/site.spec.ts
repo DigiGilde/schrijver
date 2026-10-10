@@ -35,7 +35,7 @@ async function sendIn(page: Page, path: string, text: string): Promise<string> {
 	await page.locator('nldd-text-editor .cm-content').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type(`\n\n${text}`);
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const saved = page.getByText(/Concept bewaard als voorstel #\d+/).first();
 	await expect(saved).toBeVisible();
 	const nummer = (await saved.textContent())!.match(/#(\d+)/)![1];

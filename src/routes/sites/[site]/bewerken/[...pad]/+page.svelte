@@ -45,7 +45,6 @@
 	let schrijfvlak: ReturnType<typeof Schrijfvlak> | undefined = $state();
 	let opslaan: ReturnType<typeof Opslaan> | undefined = $state();
 	let bezig = $state(false);
-	let knoptekst = $state('');
 	let conflictOpen = $state(false);
 	let vraagOpen = $state(false);
 	let eigenschappenOpen = $state(false);
@@ -331,7 +330,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<nldd-button
 			appearance="primary"
-			text={knoptekst}
+			text="Bewaar"
 			loading={bezig || undefined}
 			onclick={() => void opslaan?.opslaan()}
 			{@attach zichtbaar}
@@ -389,7 +388,6 @@
 				<Opslaan
 					bind:this={opslaan}
 					bind:busy={bezig}
-					bind:knoptekst
 					bind:conflictOpen
 					bind:vraagOpen
 					oneigenschappen={fields.length > 0 ? openEigenschappen : null}

@@ -54,7 +54,7 @@ test('asks before deleting an image no other page shows, and deletes it with the
 }) => {
 	await openZonder(page, KWETSBAARHEID, 'Kwetsbaarheid melden', MELDING);
 	const opslaan = verzoeken(page, '/opslaan');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 
 	const blok = vraag(page);
 	await expect(blok).toBeVisible();
@@ -70,7 +70,8 @@ test('asks before deleting an image no other page shows, and deletes it with the
 		.toBe(160);
 	const vinkje = blok.getByRole('checkbox', { name: 'Verwijder ook dit bestand' });
 	await expect(vinkje).not.toBeChecked();
-	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toHaveCount(1);
+	await expect(blok.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	expect(opslaan).toEqual([]);
 
 	await vinkje.check();
@@ -105,7 +106,7 @@ test('asks before deleting an image no other page shows, and deletes it with the
 test('keeps an image other pages show, and says on which', async ({ page }) => {
 	await openZonder(page, WERKWIJZE, 'Onze werkwijze', SCHEMA);
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	const sent = JSON.parse((await request).postData() ?? '{}');
 	expect(sent.deletions).toBeUndefined();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
@@ -131,14 +132,14 @@ test('says an image may still be used where another page of the proposal only na
 		};
 		element.replaceRange(element.value.length, element.value.length, text);
 	}, '\n\nHet stroomschema staat in melding.png.\n');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await bewaarNieuw(page);
 	await expect(page).toHaveURL(/[?&]pr=\d+/);
 	const voorstel = new URL(page.url()).search;
 
 	await openZonder(page, `${KWETSBAARHEID}${voorstel}`, 'Kwetsbaarheid melden', MELDING);
 	const request = page.waitForRequest((r) => r.url().endsWith('/opslaan'));
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	expect(JSON.parse((await request).postData() ?? '{}').deletions).toBeUndefined();
 	await expect(vraag(page)).toHaveCount(0);
 	const melding = page
@@ -155,7 +156,7 @@ test('asks nothing and checks nothing when no image goes', async ({ page }) => {
 	await editor(page).click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nEen regel erbij.');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(vraag(page)).toHaveCount(0);
 	await expect(page.locator('nldd-banner[variant="neutral"]')).toHaveCount(0);
@@ -167,11 +168,11 @@ test('Annuleer saves nothing; Bewaar without the tick keeps the file and asks no
 }) => {
 	await openZonder(page, KWETSBAARHEID, 'Kwetsbaarheid melden', MELDING);
 	const opslaan = verzoeken(page, '/opslaan');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await vraag(page).getByRole('button', { name: 'Annuleer' }).click();
 	await expect(vraag(page)).toHaveCount(0);
 	await expect(editor(page)).toBeFocused();
-	await expect(page.getByRole('button', { name: 'Concept bewaren' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Bewaar', exact: true })).toBeVisible();
 	expect(opslaan).toEqual([]);
 
 	await page.keyboard.press('ControlOrMeta+s');
@@ -187,7 +188,7 @@ test('Annuleer saves nothing; Bewaar without the tick keeps the file and asks no
 	await editor(page).click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type(' Nog iets.');
-	await page.getByRole('button', { name: 'Opslaan' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
 	await expect(vraag(page)).toHaveCount(0);
 	expect(checks).toEqual([]);
@@ -233,14 +234,14 @@ test('refuses to merge a deletion while a page merged since shows the image', as
 		.locator('input[type=file]')
 		.setInputFiles({ name: 'bot.png', mimeType: 'image/png', buffer: PIXEL });
 	await dialog.getByLabel('Alt-tekst').fill('De bot');
-	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await dialog.getByRole('button', { name: 'Voeg afbeelding in' }).click();
 	await expect(editor(page)).toContainText('![De bot](');
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await voegSamen(page, await bewaarNieuw(page));
 
 	const fragment = '![De bot](../afbeeldingen/reservation-bot/bot.png)';
 	await openZonder(page, BOT, 'Reservation Bot', fragment);
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await vraag(page).getByRole('checkbox', { name: 'Verwijder ook dit bestand' }).check();
 	await vraag(page).getByRole('button', { name: 'Bewaar' }).click();
 	const weg = await bewaarNieuw(page);
@@ -255,7 +256,7 @@ test('refuses to merge a deletion while a page merged since shows the image', as
 		};
 		element.replaceRange(element.value.length, element.value.length, text);
 	}, `\n\n${fragment}\n`);
-	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 	await voegSamen(page, await bewaarNieuw(page));
 
 	await page.goto(`/sites/digi-handboek/voorstellen/${weg}`);
@@ -291,7 +292,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
 		test('has no axe violations', async ({ page }) => {
 			await openZonder(page, KWETSBAARHEID, 'Kwetsbaarheid melden', MELDING);
-			await page.getByRole('button', { name: 'Concept bewaren' }).click();
+			await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
 			await expect(vraag(page)).toBeVisible();
 			await vraag(page).getByRole('checkbox', { name: 'Verwijder ook dit bestand' }).check();
 			const result = await new AxeBuilder({ page })

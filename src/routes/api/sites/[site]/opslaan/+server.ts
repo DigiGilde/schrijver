@@ -15,8 +15,8 @@ import { IMAGE_SCANS_SPENT, imageScanLimit, newProposalLimit } from '$lib/server
 import { getConfigStore, getForge } from '$lib/server/services';
 
 const MAX_BODY_CHARS = 500_000;
-const BODY_TOO_LONG = 'De tekst is te lang om op te slaan (maximaal 500.000 tekens)';
-const FRONTMATTER_TOO_DEEP = 'De gegevens bovenaan de pagina zijn te groot of te diep genest';
+const BODY_TOO_LONG = 'De tekst is te lang om te bewaren (maximaal 500.000 tekens)';
+const FRONTMATTER_TOO_DEEP = 'De eigenschappen van de pagina zijn te groot of te diep genest';
 const MAX_FRONTMATTER_DEPTH = 8;
 const MAX_FRONTMATTER_NODES = 2_000;
 
