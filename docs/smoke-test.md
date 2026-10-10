@@ -34,7 +34,14 @@ Budget: about 30 minutes.
 - [ ] `<org>/schrijver-smoke`, typed in different casing than GitHub shows, or as its address on GitHub: expect step 2 with the name as GitHub writes it, the id `schrijver-smoke`, the repository's description and homepage, and "Ik" as first beheerder. Change the id to `smoke` and add the site.
 - [ ] Expect "Beheer van <naam>" with "<naam> staat nu in Schrijver.", you as beheerder, "Vier ogen" and "Samenvoegen in Schrijver" on, and under Structuur the summary of `.schrijver/` with a link to it on GitHub. In the database, `sites` holds the repository's numeric id (compare `GET /repos/{owner}/{repo}`), and `audit_log` holds `site.added` and `member.added`.
 - [ ] Try `<org>/schrijver-smoke` once more: expect "... hoort al bij de site ...".
-- [ ] `<org>/schrijver-smoke-prive`: expect "... is niet openbaar." This is the repository's `private` flag as GitHub returns it to the App.
+- [ ] `<org>/schrijver-smoke-prive`: expect step 2 with "Zichtbaar voor" "Alleen het team" and "... is niet openbaar op GitHub", without a choice. This is the repository's `private` flag as GitHub returns it to the App. Change the id to `prive`, choose "Een collega" and type the work address of a colleague who never signed in to Schrijver: expect "Deze collega heeft nog niet ingelogd bij Schrijver." Choose "Ik" and add the site. Its beheer page shows "Alleen het team" with the same reason.
+
+## 2c. A site only its team sees
+
+- [ ] Sign in with a second SSO account that is no platform admin and on no team. `/sites/prive`, one of its pages and `/api/sites/prive/mermaid` answer 404 with "Deze site bestaat niet, of alleen het team van de site ziet hem.", as `/sites/bestaat-niet` does, and the start page and Instellingen do not name the site. The log shows `site.refused` with a pseudonym, no address or `sub`.
+- [ ] Add that account under "Beheer van <naam>" as Bijdrager. It now finds the site on the start page, opens a page and saves a draft; on its proposal it decides nothing. Take it out of the team: the site answers 404 to it again at once.
+- [ ] Give a GitHub account read access to the private repository (a collaborator with "Read"), and link it to the second SSO account under Instellingen. Without being on the team, the account now sees the site and its pages: this is `GET /repos/{owner}/{repo}/collaborators/{username}/permission` answering `read`. Take the access away on GitHub: within a minute the site answers 404 again.
+- [ ] Make `<org>/schrijver-smoke` private on GitHub. The `repository` event `privatized` closes the site at once to the second account (the log shows `webhook.received` and `config.site_loaded`), and its beheer page shows "Alleen het team" without a choice. Make it public again: the event `publicized` opens it again as before.
 
 ## 3. Run the flow
 
@@ -75,8 +82,8 @@ Budget: about 30 minutes.
 ## 5. Clean up
 
 - [ ] Close or merge every pull request the run made and delete the `schrijver/smoke/...` branches.
-- [ ] As platform admin, remove the site under "Site verwijderen" on its beheer page. Expect the confirmation to say what goes and what stays, then "De site is uit Schrijver verwijderd." In the database the rows of `smoke` are gone from `sites`, `site_settings`, `site_members`, `invitations` and `proposal_writers`, and `audit_log` holds `site.removed`; the repository and its pull requests are still on GitHub.
-- [ ] Uninstall the App from both repositories, or delete the test App.
+- [ ] As platform admin, remove both sites under "Site verwijderen" on their beheer pages. Expect the confirmation to say what goes and what stays, then "De site is uit Schrijver verwijderd." In the database the rows of `smoke` are gone from `sites`, `site_settings`, `site_members`, `invitations` and `proposal_writers`, and `audit_log` holds `site.removed`; the repository and its pull requests are still on GitHub.
+- [ ] Uninstall the App from the three repositories, or delete the test App.
 - [ ] Archive or delete the throw-away repositories.
 - [ ] Remove the smoke user's row from the preferences table if the database is shared.
 - [ ] Note the outcome (date, App, what failed) in the pull request that triggered the run.

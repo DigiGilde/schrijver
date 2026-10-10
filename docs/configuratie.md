@@ -3,7 +3,7 @@
 Schrijver is configured, not hard-coded, in two places split by who changes what:
 
 - **The structure of a site** (content folder and file pattern, page schema, preview, Mermaid colours, writing guide) lives in the site's own repository, in `.schrijver/`. It changes with the site's code and goes through a pull request like everything else. See [The .schrijver folder](#the-schrijver-folder).
-- **Who works on a site and how** (its name, description and address, merging, four eyes, ways to sign, and its team) lives in Schrijver's database and is managed in Schrijver. See [Site settings and team](#site-settings-and-team).
+- **Who works on a site and how** (its name, description and address, who sees it, merging, four eyes, ways to sign, and its team) lives in Schrijver's database and is managed in Schrijver. See [Site settings and team](#site-settings-and-team).
 
 The list of sites is a table in the same database. A platform admin adds a site with "Site toevoegen" under Instellingen and removes one from its beheer page; step by step in [een-site-aansluiten.md](een-site-aansluiten.md). There is no central configuration repository.
 
@@ -21,6 +21,7 @@ How Schrijver reads the folder:
 
 - From the default branch of the site repository: at start-up for every site, four at a time, and again on a push to that branch (see the webhook in [een-site-aansluiten.md](een-site-aansluiten.md#9-add-the-webhook)). "Site toevoegen" reads it before the site is added.
 - The repository is known by GitHub's numeric id. When GitHub renames or moves it, Schrijver follows at once on GitHub's `repository` event, and otherwise on the next push or load, which also follow a new default branch. A repository that takes over the old name with another id is never used, and the site cannot be edited until that is sorted out.
+- Whether the repository is public is read with it, at every one of these loads, and again at once when GitHub's `repository` event says it was made private or public. Who may see the site follows from it at once ([Who sees a site](#who-sees-a-site)).
 - `site.yaml` and `schema.yaml` are read up to 64 kB each, `schrijfwijzer.md` up to 32 kB; a larger file is refused unread. Files are UTF-8; YAML aliases that would expand without bound are refused.
 - Every problem names its file and its field, in Dutch, for example `.schrijver/site.yaml: preview.url: moet {nummer} bevatten`. The site's admins see them on the start page ("De structuur in .schrijver klopt niet") and on the beheer page of the site; the logs only count them.
 - A site whose files are missing or not valid cannot be edited, and only its admins see it. When a later change is not valid, Schrijver keeps the last valid structure until it restarts, and shows the problem to the admins.
@@ -97,16 +98,26 @@ Optional. The style guidance of the site, sent to VLAM as part of the system pro
 
 ## Site settings and team
 
-Each site's settings live in Schrijver's database, keyed by its `id`: Naam, Omschrijving, Adres, "Samenvoegen in Schrijver", "Vier ogen" and "Ondertekenen". A new site starts with merging in Schrijver on, four eyes on and every way to sign allowed, and with the naam, omschrijving and adres given at "Site toevoegen". The site's admins change them, and its team, under Instellingen in "Beheer van <naam>" (`/instellingen/sites/<id>`), which also shows the structure from `.schrijver/`. Every change writes an audit row ([identiteit-en-privacy.md](identiteit-en-privacy.md#team-management)), and so does adding and removing a site. Removing a site removes its settings, team, invitations and the record of who wrote in its proposals; the repository and its proposals stay on GitHub.
+Each site's settings live in Schrijver's database, keyed by its `id`: Naam, Omschrijving, Adres, "Zichtbaar voor", "Samenvoegen in Schrijver", "Vier ogen" and "Ondertekenen". A new site starts with merging in Schrijver on, four eyes on and every way to sign allowed, and with the naam, omschrijving, adres and "Zichtbaar voor" given at "Site toevoegen". The site's admins change them, and its team, under Instellingen in "Beheer van <naam>" (`/instellingen/sites/<id>`), which also shows the structure from `.schrijver/`. Every change writes an audit row ([identiteit-en-privacy.md](identiteit-en-privacy.md#team-management)), and so does adding and removing a site. Removing a site removes its settings, team, invitations and the record of who wrote in its proposals; the repository and its proposals stay on GitHub.
 
-Who may do what, checked on the server at every request:
+The team of a site has three roles: beheerder, redactie and bijdrager. Who may do what, checked on the server at every request:
 
-- **Editorial** decides on proposals: a member of the site's team, as beheerder or redactie, or someone whose linked GitHub account has write or admin permission on the repository.
+- **Sees the site**: see [Who sees a site](#who-sees-a-site). Whoever sees a site may propose changes to it.
+- **Editorial** decides on proposals: a member of the site's team, as beheerder or redactie, or someone whose linked GitHub account has write or admin permission on the repository. A bijdrager makes proposals and never decides.
 - **Site admin** manages the team and the settings, and may merge a proposal they wrote despite four eyes: a beheerder on the team, a platform admin, or someone whose linked GitHub account has admin permission on the repository.
 - **Platform admin** ("Schrijver-beheerder") adds and removes sites and manages every site, so no site can be locked out. A platform admin is not editorial by that alone: one who decides on proposals adds themselves to the team.
-- Everyone signed in may propose.
 
-A lookup that fails (the database, GitHub) makes no one editorial or admin.
+A lookup that fails (the database, GitHub) makes no one editorial or admin, and shows no one a site only its team sees.
+
+### Who sees a site
+
+"Zichtbaar voor" is "Iedereen die inlogt" or "Alleen het team" ([decision 0009](decisions/0009-sites-only-the-team-can-see.md)):
+
+- **Iedereen die inlogt**: everyone who signs in sees the site and may propose. A site with a public repository starts this way.
+- **Alleen het team**: only the platform admins and the members of its team, in any role, see the site. On a private repository so does someone whose linked GitHub account may read it (read, write or admin permission; GitHub's answer is kept a minute). On a public repository only the team counts, as everyone may read it on GitHub.
+- A private repository is always "Alleen het team", whatever its admins chose: the choice does not count while the repository is not public, and the beheer page says why. So does a repository whose visibility Schrijver never read or could not read at its last try, and one GitHub just reported made private or public, until Schrijver read it again.
+
+To someone who may not see a site, every page, form, API endpoint and image under `/sites/<id>` and `/api/sites/<id>` answers 404, the same as a site that does not exist, and is logged as `site.refused` with their pseudonym. The start page, Instellingen, onboarding and the assistant leave such a site out.
 
 ### SCHRIJVER_BEHEERDERS
 
@@ -118,4 +129,4 @@ Set at least one: only a platform admin adds a site, and a site whose beheerders
 
 `concepten: openbaar` is the only supported value. Drafts are pull requests on the site repository, readable by anyone when the repository is public. See [identiteit-en-privacy.md](identiteit-en-privacy.md#public-drafts).
 
-The repository of a site is public: "Site toevoegen" refuses a private one, because everyone who signs in with SSO Rijk can read a site's pages, proposals and their conversation in Schrijver, more people than GitHub lets read a private repository.
+The repository of a site may be private. Its drafts are then readable on GitHub only by those GitHub lets read it, and in Schrijver only by those who may see the site: such a site is always "Alleen het team" ([Who sees a site](#who-sees-a-site)), and the editor says nothing about public drafts there.

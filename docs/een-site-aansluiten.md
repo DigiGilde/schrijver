@@ -14,13 +14,15 @@ Repository permissions:
 | Pull requests | Read and write | Draft pull requests, marking ready, reviewers, reviews, listing. |
 | Issues | Read and write | Labels: `preview` at "Insturen" and `aanpassing gevraagd` for a request for an adjustment. The conversation of a proposal: reading its comments and posting reactions. |
 | Checks | Read | Showing the build status of a preview. |
-| Metadata | Read | The repository's id, name, default branch, description and homepage, and the collaborator permission check for the editorial role. |
+| Metadata | Read | The repository's id, name, default branch, description, homepage and visibility, and the collaborator permission check for the editorial role and, on a private repository, for who sees the site. |
 
 Subscribe the App to the `push`, `pull_request` and `repository` events; GitHub sends `installation` and `installation_repositories` to every App without a subscription. For account linking the App also uses user authorization: its client id and secret are `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` (see [decision 0004](decisions/0004-github-link-verified.md)). The App id and private key go into `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`.
 
 ## 2. Install the App on the site repository
 
 Install it on the site repository only. Select repositories one by one, not the whole organisation. Schrijver needs no other repository: there is no central configuration repository.
+
+A private repository works the same way: the App reaches it through its installation, so neither Schrijver nor the colleagues who write in it need any other access to it on GitHub. In Schrijver only the team of the site sees it ([configuratie.md](configuratie.md#who-sees-a-site)).
 
 ## 3. Add `.schrijver/` to the repository
 
@@ -146,14 +148,14 @@ Drafts on a public repository are readable by everyone, and a per-push preview w
 
 A platform admin (one of the subs in `SCHRIJVER_BEHEERDERS`, see [configuratie.md](configuratie.md#schrijver_beheerders)) adds the site under Instellingen, with "Site toevoegen":
 
-1. The repository on GitHub, as `owner/name` or its address. Schrijver checks that the App is installed on it (else it links to the installation page), that no other site has it, that it is public, and that the files in `.schrijver/` on the default branch are valid (else it names every problem, with its file and field). A private repository is refused: everyone who signs in can read a site's pages and proposals in Schrijver, more people than GitHub lets read a private repository.
-2. The site: its id in Schrijver's addresses (`/sites/<id>`, lower case letters, digits and hyphens, proposed from the repository name), its naam, omschrijving and adres (proposed from the repository's name, description and homepage), and its first beheerder: yourself, or a colleague's work e-mail address. A colleague Schrijver knows by that verified address is added at once; otherwise the address gets an invitation for 30 days, claimed at the first login with it. Schrijver sends no e-mail.
+1. The repository on GitHub, as `owner/name` or its address. Schrijver checks that the App is installed on it (else it links to the installation page), that no other site has it, and that the files in `.schrijver/` on the default branch are valid (else it names every problem, with its file and field). It checks all of this again when you add the site, and refuses when the name now leads to another repository.
+2. The site: its id in Schrijver's addresses (`/sites/<id>`, lower case letters, digits and hyphens, proposed from the repository name), its naam, omschrijving and adres (proposed from the repository's name, description and homepage), who sees it ("Zichtbaar voor": "Iedereen die inlogt" or "Alleen het team"), and its first beheerder: yourself, or a colleague's work e-mail address. A colleague Schrijver knows by that verified address is added at once; otherwise the address gets an invitation for 30 days, claimed at the first login with it. Schrijver sends no e-mail. For a private repository "Zichtbaar voor" is "Alleen het team", without a choice: only the team sees the site, and the first beheerder adds the others. On a site only its team sees, the first beheerder is yourself or a colleague who signed in to Schrijver before: an address that would only be invited is refused, because nobody but a platform admin could let that colleague in.
 
 The site starts with merging in Schrijver on, four eyes on and every way to sign allowed. Schrijver binds the site to the repository's numeric id, so a renamed or moved repository stays the same site; a repository by the same name with another id is never used.
 
 ## 6. Set the team and the settings
 
-The site's beheerder opens "Beheer van <naam>" under Instellingen: the team (who is beheerder and who is redactie, and invitations), and the settings (naam, omschrijving, adres, merging in Schrijver, four eyes, ways to sign). On a public repository leave out "Op naam" unless real names should be visible. Users with a linked GitHub account and write permission on the repository count as redactie, with admin permission as beheerder. GitHub stays the last judge: branch protection and required reviews apply, and Schrijver shows a refusal verbatim.
+The site's beheerder opens "Beheer van <naam>" under Instellingen: the team (who is beheerder, redactie or bijdrager, and invitations), and the settings (naam, omschrijving, adres, who sees the site, merging in Schrijver, four eyes, ways to sign). A bijdrager makes proposals and never decides; on a site everyone sees, everyone who signs in may make proposals already. On a public repository leave out "Op naam" unless real names should be visible. Users with a linked GitHub account and write permission on the repository count as redactie, with admin permission as beheerder; on a private repository read permission lets them see the site. GitHub stays the last judge: branch protection and required reviews apply, and Schrijver shows a refusal verbatim.
 
 The page also shows the site's structure from `.schrijver/`, and what is wrong with it when the files stop being valid. Only a platform admin can remove a site, under "Site verwijderen": its settings, team and invitations go, and so does the record of who wrote in its proposals; the repository, its pages and its proposals stay on GitHub.
 
@@ -183,7 +185,7 @@ Schrijver matches every event to a site by the repository's numeric id:
 - `push` to the default branch: reads the site's `.schrijver/` again, and follows a new name or default branch.
 - `pull_request`: refreshes the proposal lists; when a pull request is closed, merged or not, Schrijver deletes its record of who wrote in it.
 - `installation` and `installation_repositories`: when the App is installed, removed, suspended or allowed back, or gains or loses a repository, Schrijver reads the sites of those repositories again at once (every site when the event names no repository). A site whose App was removed shows the problem on its beheer page; one whose App is back works again.
-- `repository` (renamed, transferred, deleted): Schrijver follows the new name at once, also when another repository takes the old one, or shows on the beheer page that the repository is gone.
+- `repository` (renamed, transferred, deleted, privatized, publicized): Schrijver follows the new name at once, also when another repository takes the old one, or shows on the beheer page that the repository is gone. A repository made private is closed at once to everyone but the team of its site; one made public gets back who its admins chose.
 
 A webhook reaches one replica only, so run Schrijver with exactly one replica.
 
