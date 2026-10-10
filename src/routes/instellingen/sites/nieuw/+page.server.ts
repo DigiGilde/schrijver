@@ -9,6 +9,7 @@ import { errorFields, log } from '$lib/log';
 import { limitBeheerPost } from '$lib/server/security';
 import { getForge, reloadSite } from '$lib/server/services';
 import {
+	ADMIN_UNKNOWN,
 	firstAdmin,
 	parseNewSite,
 	repositoryName,
@@ -114,9 +115,12 @@ export const actions: Actions = {
 		const added = await teamStore().addSite(
 			{ id: parsed.id, repoId: repo.id, repo: repo.fullName, standaardbranch: repo.defaultBranch },
 			parsed.values,
-			firstAdmin(parsed.admin, user.session.sub),
+			firstAdmin(parsed.admin, user.session.sub, parsed.values.zichtbaarheid === 'team'),
 			user.session.sub
 		);
+		if (!added.ok && added.reason === 'admin-unknown') {
+			return fail(400, { fouten: { email: ADMIN_UNKNOWN }, waarden: parsed.waarden });
+		}
 		// Someone else took this id or this repository a moment ago.
 		if (!added.ok && added.reason === 'id-taken') {
 			const again = parseNewSite(form, new Set([...taken, parsed.id]), repo.isPublic);

@@ -83,9 +83,19 @@ export type Weigering =
 export type NewSiteField = SettingsField | 'id' | 'email' | 'zichtbaarheid';
 export type NewSiteValues = ReturnType<typeof suggestion>;
 
+/** Step 2 as it was typed, to show again with a refusal. */
 export type NewSiteForm =
-	| { ok: true; id: string; values: SettingsValues; admin: 'ik' | { email: string } }
+	| {
+			ok: true;
+			id: string;
+			values: SettingsValues;
+			admin: 'ik' | { email: string };
+			waarden: NewSiteValues;
+	  }
 	| { ok: false; fouten: Partial<Record<NewSiteField, string>>; waarden: NewSiteValues };
+
+export const ADMIN_UNKNOWN =
+	'Deze collega heeft nog niet ingelogd bij Schrijver. Alleen het team ziet deze site: kies jezelf als eerste beheerder, of een collega die al eens heeft ingelogd.';
 
 /**
  * Step 2 as the form sends it, checked on the server. A repository that is not public is seen by its
@@ -117,15 +127,19 @@ export function parseNewSite(form: FormData, taken: Set<string>, isPublic: boole
 		else if (!isEmail(email)) errors.email = 'Een e-mailadres heeft de vorm naam@organisatie.nl.';
 	}
 
-	if (Object.keys(errors).length > 0) {
-		return {
-			ok: false,
-			fouten: errors,
-			waarden: { id, naam, omschrijving, adres, beheerder, email: typed, zichtbaarheid }
-		};
-	}
+	const waarden: NewSiteValues = {
+		id,
+		naam,
+		omschrijving,
+		adres,
+		beheerder,
+		email: typed,
+		zichtbaarheid
+	};
+	if (Object.keys(errors).length > 0) return { ok: false, fouten: errors, waarden };
 	return {
 		ok: true,
+		waarden,
 		id,
 		values: {
 			...startingSettings(naam),
@@ -137,6 +151,12 @@ export function parseNewSite(form: FormData, taken: Set<string>, isPublic: boole
 	};
 }
 
-/** The first beheerder as the registry takes it: the platform admin by sub, or an address. */
-export const firstAdmin = (admin: 'ik' | { email: string }, sub: string): FirstAdmin =>
-	admin === 'ik' ? { sub } : admin;
+/**
+ * The first beheerder as the registry takes it: the platform admin by sub, or an address. Of a site
+ * only its team sees, a colleague who gets in at once: nobody else could let them in.
+ */
+export const firstAdmin = (
+	admin: 'ik' | { email: string },
+	sub: string,
+	teamOnly: boolean
+): FirstAdmin => (admin === 'ik' ? { sub } : teamOnly ? { ...admin, known: true } : admin);

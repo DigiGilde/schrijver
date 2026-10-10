@@ -325,7 +325,9 @@
 								<nldd-form-field-help-text>{fouten.email}</nldd-form-field-help-text>
 							{/if}
 							<nldd-form-field-help-text
-								>Wie met dit adres inlogt, wordt beheerder. Schrijver stuurt geen e-mail: laat het
+								>{!data.openbaar || zichtbaar === 'team'
+									? 'Een collega die al eens heeft ingelogd bij Schrijver: die wordt meteen beheerder.'
+									: 'Wie met dit adres inlogt, wordt beheerder.'} Schrijver stuurt geen e-mail: laat het
 								je collega zelf weten.</nldd-form-field-help-text
 							>
 						</nldd-form-field>

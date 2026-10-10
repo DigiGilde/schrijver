@@ -119,7 +119,16 @@ describe('parseNewSite', () => {
 				identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
 				zichtbaarheid: 'iedereen'
 			},
-			admin: 'ik'
+			admin: 'ik',
+			waarden: {
+				id: 'kennisbank',
+				naam: 'Kennisbank',
+				omschrijving: '',
+				adres: '',
+				beheerder: 'ik',
+				email: '',
+				zichtbaarheid: 'iedereen'
+			}
 		});
 		expect(
 			parseNewSite(
@@ -479,6 +488,44 @@ describe('step 2', () => {
 			available: true,
 			isPublic: false
 		});
+	});
+
+	it('requires a first beheerder who gets in at once for a site only its team sees', async () => {
+		const besloten = {
+			...KENNISBANK,
+			repo: 'DigiGilde/besloten',
+			repoId: '4109',
+			id: 'besloten',
+			naam: 'Besloten',
+			beheerder: 'collega',
+			email: 'nog-nooit-ingelogd@example.org'
+		};
+		const wacht = {
+			status: 400,
+			data: {
+				fouten: {
+					email:
+						'Deze collega heeft nog niet ingelogd bij Schrijver. Alleen het team ziet deze site: kies jezelf als eerste beheerder, of een collega die al eens heeft ingelogd.'
+				},
+				waarden: { id: 'besloten', beheerder: 'collega', email: 'nog-nooit-ingelogd@example.org' }
+			}
+		};
+		expect(await add('platform', besloten)).toMatchObject(wacht);
+		expect(
+			await add('platform', {
+				...KENNISBANK,
+				zichtbaarheid: 'team',
+				beheerder: 'collega',
+				email: besloten.email
+			})
+		).toMatchObject({ status: 400, data: { fouten: { email: wacht.data.fouten.email } } });
+		expect((await team.sites()).map((s) => s.id)).not.toContain('besloten');
+		expect(await team.invitations('besloten')).toEqual([]);
+
+		expect(await thrown(add('platform', { ...besloten, email: 'Baas@Example.org' }))).toMatchObject(
+			{ status: 303 }
+		);
+		expect(await team.role('besloten', 'baas')).toBe('beheerder');
 	});
 
 	it('lets the platform admin choose who sees a site whose repository is public', async () => {

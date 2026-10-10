@@ -252,6 +252,13 @@ export function createTeamStore(
 		addSite(site, values: SettingsValues, admin, actor) {
 			return sql.begin(async (tx): Promise<AddSiteResult> => {
 				const now = clock();
+				if (admin && 'email' in admin && admin.known) {
+					// Locked, so the profile cannot go before the membership refers to it.
+					const known = await tx`
+						select sub from user_prefs where email = ${normaliseEmail(admin.email)}
+						limit 2 for share`;
+					if (known.length !== 1) return { ok: false, reason: 'admin-unknown' };
+				}
 				const inserted = await tx`
 					insert into sites (id, repo_id, repo, standaardbranch, created_at, created_by)
 					values (${site.id}, ${site.repoId}, ${site.repo}, ${site.standaardbranch}, ${now}, ${actor})

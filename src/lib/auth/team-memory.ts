@@ -132,6 +132,11 @@ export class MemoryTeamStore implements TeamStore {
 			return { ok: false, reason: 'repo-taken' };
 		}
 		if (admin && 'sub' in admin && !this.profiles.has(admin.sub)) throw new Error('unknown user');
+		if (admin && 'email' in admin && admin.known) {
+			const email = normaliseEmail(admin.email);
+			const known = [...this.profiles.values()].filter((p) => p.email === email);
+			if (known.length !== 1) return { ok: false, reason: 'admin-unknown' };
+		}
 		const now = this.clock();
 		this.registry.set(site.id, { ...site, createdAt: now, createdBy: actor });
 		this.siteSettings.set(site.id, {

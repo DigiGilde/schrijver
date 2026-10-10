@@ -73,11 +73,16 @@ export interface RegisteredSite {
 
 export type NewSite = Pick<RegisteredSite, 'id' | 'repoId' | 'repo' | 'standaardbranch'>;
 
-/** The first beheerder of a new site: a known user, or an address that is added or invited as addByEmail does. */
-export type FirstAdmin = { sub: string } | { email: string };
+/**
+ * The first beheerder of a new site: a known user, or an address that is added or invited as
+ * addByEmail does. With `known`, only the one user Schrijver knows by that verified address: never an
+ * invitation.
+ */
+export type FirstAdmin = { sub: string } | { email: string; known?: true };
 
 export type AddSiteResult =
-	{ ok: true; admin: AddResult | null } | { ok: false; reason: 'id-taken' | 'repo-taken' };
+	| { ok: true; admin: AddResult | null }
+	| { ok: false; reason: 'id-taken' | 'repo-taken' | 'admin-unknown' };
 
 /**
  * What a site in Schrijver starts with: samenvoegen in Schrijver, four eyes, every way to sign, and
@@ -161,7 +166,7 @@ export interface TeamStore {
 	sites(): Promise<RegisteredSite[]>;
 	/**
 	 * Adds a site with its settings and its first beheerder, all or nothing. Refuses an id or a
-	 * repository that another site has.
+	 * repository that another site has, and a first beheerder who must be known and is not.
 	 */
 	addSite(
 		site: NewSite,

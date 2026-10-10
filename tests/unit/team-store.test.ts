@@ -543,6 +543,34 @@ function contract(make: () => Promise<Harness>) {
 			expect(await team.role('twee', 'nieuw')).toBe('beheerder');
 		});
 
+		it('adds a first beheerder by address who must get in at once only when Schrijver knows that address', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('een', 'gedeeld@example.org'));
+			await team.recordLogin(login('twee', 'gedeeld@example.org'));
+			await team.recordLogin(login('onbevestigd', 'onbevestigd@example.org', false));
+			expect(
+				await team.addSite(
+					site('bekend', 7),
+					values('bekend'),
+					{ email: 'Jan@Example.org', known: true },
+					'platform'
+				)
+			).toMatchObject({ ok: true, admin: { kind: 'added', sub: 'jan' } });
+			expect(await team.role('bekend', 'jan')).toBe('beheerder');
+
+			const before = await team.audit();
+			for (const email of ['nieuw@example.org', 'gedeeld@example.org', 'onbevestigd@example.org']) {
+				expect(
+					await team.addSite(site('los', 8), values('los'), { email, known: true }, 'platform'),
+					email
+				).toEqual({ ok: false, reason: 'admin-unknown' });
+			}
+			expect((await team.sites()).map((s) => s.id)).not.toContain('los');
+			expect(await team.settings('los')).toBeNull();
+			expect(await team.invitations('los')).toEqual([]);
+			expect(await team.audit()).toEqual(before);
+		});
+
 		it('refuses an id or a repository that another site has, and changes nothing', async () => {
 			await team.saveSettings(DH, { ...values(DH), naam: 'Handboek' }, 'baas');
 			const before = await team.audit();

@@ -205,6 +205,25 @@ test('a private repository becomes a site that only its team sees', async ({ pag
 			'De beheerder regelt het team en de instellingen van de site. Alleen het team ziet de site: de beheerder voegt de anderen toe.'
 		)
 	).toBeVisible();
+
+	// Nobody but a platform admin could let in a colleague who never signed in.
+	await form.getByRole('radio', { name: 'Een collega' }).click();
+	await expect(
+		form.getByText(
+			'Een collega die al eens heeft ingelogd bij Schrijver: die wordt meteen beheerder. Schrijver stuurt geen e-mail: laat het je collega zelf weten.'
+		)
+	).toBeVisible();
+	const email = form.getByRole('textbox', { name: 'E-mailadres van je collega' });
+	await email.fill('nog-nooit-ingelogd@example.org');
+	await form.getByRole('button', { name: 'Voeg site toe' }).click();
+	await expect(
+		form.getByText(
+			'Deze collega heeft nog niet ingelogd bij Schrijver. Alleen het team ziet deze site: kies jezelf als eerste beheerder, of een collega die al eens heeft ingelogd.'
+		)
+	).toBeVisible();
+	await expect(email).toBeFocused();
+
+	await form.getByRole('radio', { name: 'Ik' }).click();
 	await form.getByRole('button', { name: 'Voeg site toe' }).click();
 	await expect(page).toHaveURL(/\/instellingen\/sites\/besloten\?toegevoegd=1$/);
 	await expect(
