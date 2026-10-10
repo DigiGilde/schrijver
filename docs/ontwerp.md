@@ -146,7 +146,7 @@ Known content that must survive untouched, from the inventory of 2026-10-07:
 
 ## 6. Forge layer
 
-One interface, `Forge`, with a GitHub implementation in version one and a Forgejo implementation later. Eight operations:
+One interface, `Forge`, with a GitHub implementation in version one and a Forgejo implementation later. Nine operations:
 
 | Operation | GitHub (REST unless noted) | Permission |
 | --- | --- | --- |
@@ -155,7 +155,8 @@ One interface, `Forge`, with a GitHub implementation in version one and a Forgej
 | `commit(branch, files[], message)` | Git data: blobs, tree, commit, update ref (one commit for text plus images) | Contents: write |
 | `openDraftPr(branch, title, body)` | `POST /pulls` with `draft: true` | Pull requests: write |
 | `markReady(pr)` | GraphQL `markPullRequestReadyForReview` | Pull requests: write (to verify) |
-| `setLabel(pr, label)` and `requestReviewers(pr, logins[])` | issues labels, requested reviewers | Issues: write, Pull requests: write |
+| `addLabel(pr, label)`, `removeLabel(pr, label)`, `requestReviewers(pr, logins[])` and `rerequestReviewers(pr, logins[])` | issues labels (one at a time), requested reviewers, and `POST /pulls/{n}/requested_reviewers/rerequest` for a reviewer who reviewed already (the plain request where GitHub answers 404) | Issues: write, Pull requests: write (to verify for the rerequest route) |
+| `mergeBase(base, head)` | `GET /compare/{base}...{head}`, its `merge_base_commit` | Contents: read (to verify) |
 | `listPrs(filter)` with checks and review state | `GET /pulls`, check runs, reviews | Pull requests: read, Checks: read |
 | `merge(pr, squash)` | `PUT /pulls/{n}/merge` | Contents: write |
 
@@ -175,8 +176,8 @@ Rate limits: installation tokens have 5000 requests per hour per installation (t
 2. **First save** ("Concept bewaren") creates the branch and a draft PR titled with the page title. Each later save is a commit. See 7.4 for what this means on a public repository.
 3. **Return later**: Schrijver lists the user's open proposals by matching the identity trailer (section 7.2) in the PR body, plus all open proposals of the site for editorial.
 4. **Send in** marks the PR ready, sets the `preview` label where the site uses one, fills the description (what changed, which page, "menu bijwerken" when it is a new page), requests reviewers among the linked GitHub accounts with write permission on the repository (never the writer), and notifies the editorial list by e-mail if ZAD offers mail (otherwise this step is a visible to-do in the proposal list).
-5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Samenvoegen" or "Vraag om aanpassing". Schrijver shows the changes in colour on the rendered page: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`; the writer adjusts and chooses "Opnieuw insturen" (decision 0007).
-6. **Merge** from Schrijver as squash, only for editorial, only when the site setting "Samenvoegen in Schrijver" is on, and with "Vier ogen" on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so and links to GitHub instead. The squash message carries the identity trailers of every contributing commit.
+5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Samenvoegen" or "Vraag om aanpassing". Schrijver shows the changes in colour on the rendered page, measured from the page as the proposal found it (the merge base, which is also where GitHub measures the pull request's files from), so what the site changed since is not shown as the proposal's own: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`, and a review on GitHub that asks for changes counts the same; the writer adjusts and chooses "Opnieuw insturen", which only the writer has (decision 0007): it takes the label off, asks each reviewer who requested changes on GitHub to review again, and comments "Klaar voor beoordeling".
+6. **Merge** from Schrijver as squash, only for editorial, only when the site setting "Samenvoegen in Schrijver" is on, and with "Vier ogen" on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so, and links to GitHub for a reader who linked a GitHub account. It merges no proposal that GitHub cannot merge (the page changed on the site since) and none with as many commits as GitHub lists (250), and says why. The squash message carries the identity trailers of every contributing commit.
 
 Required review on MOZa (one approval, last-push approval) applies unchanged; Schrijver reads it as the pull request's review decision. Because the App is the PR author, any member of the redactie can be that reviewer on GitHub, including the person who wrote the text in Schrijver. Schrijver's four eyes keep that writer from merging in Schrijver; branch protection on GitHub remains the hard guarantee.
 
@@ -198,7 +199,7 @@ The PR body carries the same trailer for the proposal as a whole, so Schrijver l
 
 ### 7.3 Conflicts
 
-Before each save Schrijver compares the file's blob SHA on the branch with the one it loaded. If the default branch changed the same file since the branch was created, Schrijver shows both versions and lets the colleague choose which to continue from. No automatic text merge. If GitHub reports the PR as not mergeable at Send-in, Schrijver says so and offers "neem de nieuwste versie over en pas je wijziging opnieuw toe" as a manual step with both texts visible.
+Before each save Schrijver compares the file's blob SHA on the branch with the one it loaded. If the default branch changed the same file since the branch was created, Schrijver shows both versions and lets the colleague choose which to continue from. No automatic text merge. If GitHub reports the PR as not mergeable, the proposal page says so in plain words and offers no merge: the writer is told to open the page again and make the change again, since Schrijver cannot update the branch, or to ask in the conversation for someone to solve it on GitHub, and the redactie can ask the writer for an adjustment. Send-in warns about it too.
 
 Version one limitation: after the first save, a change to the same file on the default branch is not detected on later saves; it surfaces at Send-in as "not mergeable" (above) and at merge time on GitHub.
 
