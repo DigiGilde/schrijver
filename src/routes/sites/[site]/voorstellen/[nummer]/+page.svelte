@@ -150,7 +150,13 @@
 
 	const images = (page: string) => ({
 		before: previewImages({ siteId: data.site.id, page, ref: data.imageRefs.before, pending: [] }),
-		after: previewImages({ siteId: data.site.id, page, ref: data.imageRefs.after, pending: [] })
+		after: previewImages({
+			siteId: data.site.id,
+			page,
+			ref: null,
+			voorstel: data.proposal.number,
+			pending: []
+		})
 	});
 </script>
 

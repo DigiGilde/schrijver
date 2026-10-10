@@ -59,29 +59,45 @@ describe('GET /api/sites/[site]/bestand', () => {
 		expect((await get({ pad: 'docs/afbeeldingen/home/nieuw.png' })).status).toBe(404);
 	});
 
-	it('serves an image from a commit by its id, as that commit has it', async () => {
+	it("serves a proposal's image at the commit its head points at", async () => {
 		const branch = 'schrijver/digi-handboek/home-abcd';
-		const first = forge.commitsOf(digi.repo, branch)[0].sha;
+		const pr = await forge.openDraftPr(digi.repo, branch, 'main', 'Voorstel', '');
+		const voorstel = String(pr.number);
+		expect((await get({ pad: 'docs/afbeeldingen/home/nieuw.png', voorstel })).status).toBe(200);
+		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', voorstel })).status).toBe(404);
 		await forge.commit(
 			digi.repo,
 			branch,
 			[{ path: 'docs/afbeeldingen/home/later.png', content: PNG }],
 			'y'
 		);
-		expect((await get({ pad: 'docs/afbeeldingen/home/nieuw.png', ref: first })).status).toBe(200);
-		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', ref: first })).status).toBe(404);
-		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', ref: branch })).status).toBe(200);
+		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', voorstel })).status).toBe(200);
 	});
 
-	it('404 for a commit the repository does not have', async () => {
-		const res = await get({ pad: 'docs/afbeeldingen/home/kat.png', ref: 'a'.repeat(40) });
-		expect(res.status).toBe(404);
+	it('400 for a proposal whose head is not a branch of the site repository', async () => {
+		const branch = 'schrijver/digi-handboek/home-abcd';
+		const pr = await forge.openDraftPr(digi.repo, branch, 'main', 'Voorstel', '');
+		const pad = 'docs/afbeeldingen/home/nieuw.png';
+		for (const headRepo of ['iemand/handboek', '']) {
+			forge.prs.get(pr.number)!.headRepo = headRepo;
+			expect((await get({ pad, voorstel: String(pr.number) })).status, headRepo).toBe(400);
+		}
+	});
+
+	it('404 for a proposal that does not exist, 400 for a malformed one', async () => {
+		const pad = 'docs/afbeeldingen/home/kat.png';
+		expect((await get({ pad, voorstel: '999' })).status).toBe(404);
+		for (const voorstel of ['0', '-1', '1.5', 'een', '01', '1234567890']) {
+			expect((await get({ pad, voorstel })).status, voorstel).toBe(400);
+		}
+		expect((await get({ pad, voorstel: '1', ref: 'main' })).status).toBe(400);
 	});
 
 	it('sandboxes an svg', async () => {
 		const res = await get({ pad: 'content/over/images/logo.svg' }, { site: 'moza-site' });
 		expect(res.headers.get('content-type')).toBe('image/svg+xml');
 		expect(res.headers.get('content-security-policy')).toContain('sandbox');
+		expect(res.headers.get('x-content-type-options')).toBe('nosniff');
 	});
 
 	it('401 without a user', async () => {
@@ -113,9 +129,11 @@ describe('GET /api/sites/[site]/bestand', () => {
 		}
 	});
 
-	it('400 for a ref that is not the default branch, a Schrijver branch of the site or a commit id', async () => {
+	it('400 for a ref that is not the default branch or a Schrijver branch of the site', async () => {
 		const commit = forge.commitsOf(digi.repo, 'schrijver/digi-handboek/home-abcd')[0].sha;
 		for (const ref of [
+			commit,
+			'a'.repeat(40),
 			'andere',
 			'schrijver/moza-site/x-abcd',
 			'HEAD',

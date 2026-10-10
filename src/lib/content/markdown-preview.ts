@@ -98,6 +98,8 @@ export function previewImages(opts: {
 	page: string;
 	/** Proposal branch; null for the default branch. */
 	ref: string | null;
+	/** A proposal's number: its images are read at the commit its head points at now. */
+	voorstel?: number;
 	pending: { path: string; base64: string }[];
 }): ResolveImage {
 	return (src) => {
@@ -106,7 +108,8 @@ export function previewImages(opts: {
 		const pending = opts.pending.find((i) => i.path === path);
 		if (pending) return `data:${mimeOf(path)};base64,${pending.base64}`;
 		const query = new URLSearchParams({ pad: path });
-		if (opts.ref) query.set('ref', opts.ref);
+		if (opts.voorstel !== undefined) query.set('voorstel', String(opts.voorstel));
+		else if (opts.ref) query.set('ref', opts.ref);
 		return `/api/sites/${encodeURIComponent(opts.siteId)}/bestand?${query}`;
 	};
 }

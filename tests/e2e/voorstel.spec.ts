@@ -166,7 +166,10 @@ test('shows the image that a proposal adds, with the word on the block like a te
 	const src = new URL((await afbeelding.getAttribute('src'))!, page.url());
 	expect(src.pathname).toBe('/api/sites/digi-handboek/bestand');
 	expect(src.searchParams.get('pad')).toBe('docs/afbeeldingen/kennis/team.png');
-	expect(src.searchParams.get('ref'), 'the head commit of the proposal').toMatch(/^[0-9a-f]{40}$/);
+	expect(src.searchParams.get('voorstel'), 'read at the head of the proposal').toMatch(
+		/^[1-9]\d*$/
+	);
+	expect(src.searchParams.get('ref'), 'never a commit id from the page').toBeNull();
 
 	// The word sits in the block, as in a text block, not on a line of its own above it.
 	const blok = page.locator('[data-diff="toegevoegd"]').filter({ has: page.locator('img') });

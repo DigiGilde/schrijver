@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { SiteConfig } from '$lib/config/types';
 import { MAX_IMAGE_BYTES } from '$lib/content/images';
+import { sameRepo } from '$lib/forge/repo';
 import { hasControlCharacters } from '$lib/forge/save';
 import { ForgeError } from '$lib/forge/types';
 import { getConfigStore, getForge } from '$lib/server/services';
@@ -16,7 +17,7 @@ const TYPES: Record<string, string> = {
 	svg: 'image/svg+xml'
 };
 
-const COMMIT = /^[0-9a-f]{40}$/;
+const NUMBER = /^[1-9][0-9]{0,8}$/;
 
 const fail = (status: number, message: string) => json({ message }, { status });
 
@@ -43,8 +44,12 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 	if (!site) return fail(404, 'Site niet gevonden');
 
 	const pad = url.searchParams.get('pad') ?? '';
-	const ref = url.searchParams.get('ref') || site.standaardbranch;
-	if (ref !== site.standaardbranch && !ref.startsWith(`schrijver/${site.id}/`) && !COMMIT.test(ref))
+	const voorstel = url.searchParams.get('voorstel');
+	const asked = url.searchParams.get('ref');
+	if (voorstel !== null && (asked !== null || !NUMBER.test(voorstel)))
+		return fail(400, 'Ongeldige versie');
+	const ref = asked || site.standaardbranch;
+	if (voorstel === null && ref !== site.standaardbranch && !ref.startsWith(`schrijver/${site.id}/`))
 		return fail(400, 'Ongeldige versie');
 	if (
 		pad === '' ||
@@ -59,9 +64,19 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const type = TYPES[pad.slice(pad.lastIndexOf('.') + 1).toLowerCase()];
 	if (!pad.includes('.') || !type) return fail(415, 'Geen afbeelding');
 
-	let file: Awaited<ReturnType<ReturnType<typeof getForge>['readFile']>>;
+	const forge = getForge();
+	let file: Awaited<ReturnType<typeof forge.readFile>>;
 	try {
-		file = await getForge().readFile(site.repo, ref, pad);
+		let at = ref;
+		if (voorstel !== null) {
+			// A proposal is read at the commit its head points at, and only when that head is a branch of the
+			// site's own repository: a commit id from the request could name a fork's commit.
+			const pr = await forge.getPr(site.repo, Number(voorstel));
+			if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch)
+				return fail(400, 'Ongeldige versie');
+			at = pr.headSha || pr.headRef;
+		}
+		file = await forge.readFile(site.repo, at, pad);
 	} catch (e) {
 		if (e instanceof ForgeError && e.status === 404) return fail(404, 'Afbeelding niet gevonden');
 		throw e;
@@ -73,6 +88,7 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 		headers: {
 			'content-type': type,
 			'cache-control': 'private, max-age=10',
+			'x-content-type-options': 'nosniff',
 			// An SVG opened directly must not run as a document on this origin.
 			'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 		}
