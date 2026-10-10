@@ -17,3 +17,7 @@ Version one offers no "Goedkeuren" button. The review page in Schrijver offers "
 - Editorial members on sites with required reviews need a GitHub account for the approval step. The linked-account route (decision 0004) makes that identity verifiable.
 - Merging from Schrijver stays possible everywhere branch protection allows it.
 - A later version can add approval with a user token obtained through the GitHub App user-authorization flow, which Schrijver deliberately does not keep today.
+
+## Note, 2026-10-10
+
+The labels named in the decision are the ones of 2026-10-08. Today the proposal page offers "Plaats reactie" (the App posts it as "**Reactie van de redactie via Schrijver**"), "Voeg samen" and "Aanpassing vragen" ([0007](0007-three-steps-and-four-eyes.md)), and the link "Beoordelen op GitHub" stays. The words of the interface are in [woordenlijst.md](../woordenlijst.md).

@@ -32,3 +32,7 @@ Both stages are in the same version.
 
 - **Stage 1, people and settings in the database:** the tables and stores, the profile and invitations at login, the roles, the beheer screens under Instellingen, the audit log and the retention; editorial membership, the four-eyes admin check and every reader of the site settings use the tables.
 - **Stage 2, structure in the site repository:** `.schrijver/site.yaml`, the page schema and the writing guide per site, read from the default branch and reloaded on a push to it; the list of sites in the database, with "Site toevoegen" and "Site verwijderen" for platform admins; the central configuration repository removed.
+
+## Note, 2026-10-10: names
+
+Point 4 calls the platform admins "Schrijver-beheerder". The interface says "beheerder van Schrijver", kept apart from the "beheerder" of one site ([woordenlijst.md](../woordenlijst.md)). "Site toevoegen" says "toevoegen" where earlier texts said "aansluiten", and asks "Controleer repository" in step 1. The danger zone of a site is headed "Site verwijderen", and its button, like the one in the dialog, reads "Verwijder site".

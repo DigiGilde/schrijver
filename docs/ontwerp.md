@@ -1,4 +1,4 @@
-> This is the v1 design of Schrijver as decided on 2026-10-07/08. Later decisions are recorded in [decisions](decisions/README.md).
+> This is the v1 design of Schrijver as decided on 2026-10-07/08. Later decisions are recorded in [decisions](decisions/README.md). The words of the interface, one name per concept, are in [woordenlijst.md](woordenlijst.md).
 
 # Schrijver: design
 
@@ -83,7 +83,7 @@ preview:
   url: "https://web-pr-{nummer}-mzs-3ik.rig.prd1.gn2.quattro.rijksapps.nl"
 ```
 
-The review model is `goedkeuring`: "Insturen" asks for review, and merging happens in Schrijver or on GitHub, as the site's setting "Samenvoegen in Schrijver" says. Merging at once on "Insturen" (`direct`) is not offered in version one.
+The review model is `goedkeuring`: "Stuur in" asks for review, and merging happens in Schrijver or on GitHub, as the site's setting "Samenvoegen in Schrijver" says. Merging at once on "Stuur in" (`direct`) is not offered in version one.
 
 **Who may do what.** Anyone signed in may propose on a site everyone can see. A site only its team can see (always so for a private repository, decision 0009) is open to its team only: beheerders, redactie and bijdragers, and on a private repository also a linked GitHub account with read permission. Editorial (`redactie`) is a member of the site's team in Schrijver, as beheerder or redactie, or someone who linked a GitHub account in onboarding and has write permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With "Vier ogen" (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge. Approving stays on GitHub (decisions 0005 and 0007).
 
@@ -173,10 +173,10 @@ Rate limits: installation tokens have 5000 requests per hour per installation (t
 ### 7.1 From edit to merge
 
 1. **Open** a page from the default branch, or choose "Nieuwe pagina" and a page type from the schema. Nothing is written yet.
-2. **First save** ("Concept bewaren") creates the branch and a draft PR titled with the page title. Each later save is a commit. See 7.4 for what this means on a public repository.
+2. **First save** ("Bewaar") creates the branch and a draft PR titled with the page title. Each later save is a commit. See 7.4 for what this means on a public repository.
 3. **Return later**: Schrijver lists the user's open proposals by matching the identity trailer (section 7.2) in the PR body, plus all open proposals of the site for editorial.
 4. **Send in** marks the PR ready, sets the `preview` label where the site uses one, fills the description (what changed, which page, "menu bijwerken" when it is a new page), requests reviewers among the linked GitHub accounts with write permission on the repository (never the writer), and notifies the editorial list by e-mail if ZAD offers mail (otherwise this step is a visible to-do in the proposal list).
-5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Samenvoegen" or "Vraag om aanpassing". Schrijver shows the changes in colour on the rendered page, measured from the page as the proposal found it (the merge base, which is also where GitHub measures the pull request's files from), so what the site changed since is not shown as the proposal's own: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`, and a review on GitHub that asks for changes counts the same; the writer adjusts and chooses "Opnieuw insturen", which only the writer has (decision 0007): it takes the label off, asks each reviewer who requested changes on GitHub to review again, and comments "Klaar voor beoordeling".
+5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Voeg samen" or "Aanpassing vragen" (which opens the form whose button, "Vraag om aanpassing", posts the request). Schrijver shows the changes in colour on the rendered page, measured from the page as the proposal found it (the merge base, which is also where GitHub measures the pull request's files from), so what the site changed since is not shown as the proposal's own: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`, and a review on GitHub that asks for changes counts the same; the writer adjusts and chooses "Stuur opnieuw in", which only the writer has (decision 0007): it takes the label off, asks each reviewer who requested changes on GitHub to review again, and comments "Klaar voor beoordeling".
 6. **Merge** from Schrijver as squash, only for editorial, only when the site setting "Samenvoegen in Schrijver" is on, and with "Vier ogen" on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so, and links to GitHub for a reader who linked a GitHub account. It merges no proposal that GitHub cannot merge (the page changed on the site since) and none with as many commits as GitHub lists (250), and says why. The squash message carries the identity trailers of every contributing commit.
 
 Required review on MOZa (one approval, last-push approval) applies unchanged; Schrijver reads it as the pull request's review decision. Because the App is the PR author, any member of the redactie can be that reviewer on GitHub, including the person who wrote the text in Schrijver. Schrijver's four eyes keep that writer from merging in Schrijver; branch protection on GitHub remains the hard guarantee.
@@ -209,7 +209,7 @@ Both pilot repositories are public, so a draft PR is readable by anyone on the i
 
 Version one:
 
-- The first save button is "Concept bewaren", and on a site with a public repository it carries the sentence "Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het instuurt." The editor shows a persistent dimmed "Openbaar concept" line on such sites.
+- The save button is "Bewaar", the first save as well as the later ones. On a site with a public repository the editor explains once, before the first save on that site, that the draft becomes readable on GitHub: "Je concept wordt openbaar" with "Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt." It is a coach mark beside the button, and a banner below 1008 px. The editor shows a persistent dimmed "Openbaar concept" line on such sites.
 - Site preview builds only after Send-in: on MOZa the `preview` label is set at Send-in instead of first save; for Digi Handboek, propose a change to `preview.yml` so it skips draft PRs (`if: github.event.pull_request.draft == false`). Schrijver's own "Voorbeeld" covers the draft phase.
 - `.schrijver/site.yaml` has `concepten: openbaar | privé`. Version one supports `openbaar` only and refuses a site configured as `privé`, so the option is visible but honest.
 
@@ -239,7 +239,7 @@ Gaps found in `nldd-text-editor` (no image or Mermaid rendering, no block drag) 
 
 ### 8.2 VLAM assistant
 
-Side panel, works on the selection or the whole page. Fixed actions: "Korter", "Naar B1", "Actiever", "Kopjes voorstellen", "Samenvatting voor description", and a free prompt. Each result is a **suggestion**. For a selection it is shown in the panel with a text diff, and marked in the editor with the annotation overlay on the affected range. For the whole text, a selection that takes in all of it included, it is a comparison of the page in the text column in place of the text, headed by the page title with the path and the number of changes under it, and the panel says how many changes it shows. "Overnemen" applies it with `replaceRange`; "Verwerpen" removes the annotation or the comparison; both are in the panel and, for a comparison, again under it. A summary is always shown in the panel. The assistant never writes into the document by itself.
+Side panel, works on the selection or the whole page. Fixed actions: "Korter", "Naar B1", "Actiever", "Kopjes voorstellen", "Samenvatting voor description", and a free prompt. Each result is a **suggestion**. For a selection it is shown in the panel with a text diff, and marked in the editor with the annotation overlay on the affected range. For the whole text, a selection that takes in all of it included, it is a comparison of the page in the text column in place of the text, headed by the page title with the path and the number of changes under it, and the panel says how many changes it shows. "Neem suggestie over" applies it with `replaceRange`; "Verwerp suggestie" removes the annotation or the comparison; both are in the panel and, for a comparison, again under it. A summary is always shown in the panel. The assistant never writes into the document by itself.
 
 Implementation: `openai` client against `VLAM_API_URL`, model from configuration (default `vlam-llm-large-prepaid`), `VLAM_KEY_PREPAID` from a ZAD secret, streaming on. System prompt is the site's `schrijfwijzer` plus a fixed instruction to answer in Markdown and to change only what was asked. Request payload contains the page text and the instruction, never the user's name, e-mail or pseudonym. Requests are logged with site, action and token counts, not with content.
 
@@ -269,7 +269,7 @@ If VLAM is unreachable the panel shows a notice; editing and saving are unaffect
 - A page that fails to parse opens read-only with the reason and a link to the file on GitHub.
 - Preview build failed: shown as status with a link to the check run; Send-in stays possible, the editorial team sees the failed check.
 - VLAM down: side panel notice only.
-- List of sites unreadable at start-up (the database): the app starts, shows "Configuratie niet geladen" to everyone and retries every minute; the sites from the previous load stay if present. A site whose `.schrijver/` cannot be read from GitHub is retried every minute and keeps its last valid structure.
+- List of sites unreadable at start-up (the database): the app starts, shows "Sites niet geladen" to everyone and retries every minute; the sites from the previous load stay if present. A site whose `.schrijver/` cannot be read from GitHub is retried every minute and keeps its last valid structure.
 
 ## 12. Documentation
 
@@ -280,6 +280,7 @@ Documentation is part of version one, not an afterthought, and lives in the Schr
 - `docs/een-site-aansluiten.md`: step by step for adding a site: install the App, add `.schrijver/` with a worked example per site type (Astro collection, Hugo section), set up the preview URL, add the site with "Site toevoegen", set its team, test the round-trip.
 - `docs/identiteit-en-privacy.md`: the three identity choices, what ends up where, the pseudonym mechanism and secret rotation, what goes to VLAM.
 - `docs/decisions/`: short decision records, starting with `0001-editor.md` (NLDD text editor over a block editor, with the Milkdown fallback) and `0002-forge-as-state.md`.
+- [`docs/woordenlijst.md`](woordenlijst.md): the words of the interface, one name per concept, with the labels and what not to say.
 - `CONTRIBUTING.md` and a `CHANGELOG.md`.
 - In-app: a help page in Dutch for colleagues ("Zo werkt Schrijver") and the per-site writing guide.
 

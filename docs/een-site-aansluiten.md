@@ -1,4 +1,4 @@
-# Connecting a site
+# Adding a site
 
 Step by step for adding a site to Schrijver. A site is a GitHub repository with a `.schrijver/` folder that describes how the site is built; who works on it and how is set in Schrijver. For every field of the files see [configuratie.md](configuratie.md#the-schrijver-folder).
 
@@ -12,7 +12,7 @@ Repository permissions:
 | --- | --- | --- |
 | Contents | Read and write | Reading pages and `.schrijver/`, creating branches, committing, merging. |
 | Pull requests | Read and write | Draft pull requests, marking ready, reviewers, reviews, listing. |
-| Issues | Read and write | Labels: `preview` at "Insturen" and `aanpassing gevraagd` for a request for an adjustment. The conversation of a proposal: reading its comments and posting reactions. |
+| Issues | Read and write | Labels: `preview` at "Stuur in" and `aanpassing gevraagd` for a request for an adjustment. The conversation of a proposal: reading its comments and posting reactions. |
 | Checks | Read | Showing the build status of a preview. |
 | Metadata | Read | The repository's id, name, default branch, description, homepage and visibility, and the collaborator permission check for the editorial role and, on a private repository, for who sees the site. |
 
@@ -128,10 +128,10 @@ A "Weekly" lands in `content/weekly/<year>/<date>.md` and shows only the `title`
 `preview.url` must be an `https://` or `http://` address with `{nummer}` in it, which becomes the pull request number. Pick `soort`:
 
 - `bij-push`: the site builds a preview on every push to the pull request.
-- `bij-label`: the preview builds after the label in `preview.label` is set; Schrijver sets it at "Insturen".
+- `bij-label`: the preview builds after the label in `preview.label` is set; Schrijver sets it at "Stuur in".
 - `geen`: no preview link.
 
-Drafts on a public repository are readable by everyone, and a per-push preview would put half-finished text online. Make the preview build start only after "Insturen":
+Drafts on a public repository are readable by everyone, and a per-push preview would put half-finished text online. Make the preview build start only after "Stuur in":
 
 - Digi Handboek (Plak, `bij-push`): change the preview workflow (`preview.yml`) so it skips draft pull requests:
 
@@ -142,13 +142,13 @@ Drafts on a public repository are readable by everyone, and a per-push preview w
   ```
 
   Place the `if` on the job that builds and publishes the preview.
-- MOZa (`bij-label`): nothing to change; the `preview` label is only set at "Insturen".
+- MOZa (`bij-label`): nothing to change; the `preview` label is only set at "Stuur in".
 
 ## 5. Add the site in Schrijver
 
 A platform admin (one of the subs in `SCHRIJVER_BEHEERDERS`, see [configuratie.md](configuratie.md#schrijver_beheerders)) adds the site under Instellingen, with "Site toevoegen":
 
-1. The repository on GitHub, as `owner/name` or its address. Schrijver checks that the App is installed on it (else it links to the installation page), that no other site has it, and that the files in `.schrijver/` on the default branch are valid (else it names every problem, with its file and field). It checks all of this again when you add the site, and refuses when the name now leads to another repository.
+1. The repository on GitHub, as `owner/name` or its address, and "Controleer repository". Schrijver checks that the App is installed on it (else it links to the installation page), that no other site has it, and that the files in `.schrijver/` on the default branch are valid (else it names every problem, with its file and field). It checks all of this again when you add the site, and refuses when the name now leads to another repository.
 2. The site: its id in Schrijver's addresses (`/sites/<id>`, lower case letters, digits and hyphens, proposed from the repository name), its naam, omschrijving and adres (proposed from the repository's name, description and homepage), who sees it ("Zichtbaar voor": "Iedereen die inlogt" or "Alleen het team"), and its first beheerder: yourself, or a colleague's work e-mail address. A colleague Schrijver knows by that verified address is added at once; otherwise the address gets an invitation for 30 days, claimed at the first login with it. Schrijver sends no e-mail. For a private repository "Zichtbaar voor" is "Alleen het team", without a choice: only the team sees the site, and the first beheerder adds the others. On a site only its team sees, the first beheerder is yourself or a colleague who signed in to Schrijver before: an address that would only be invited is refused, because nobody but a platform admin could let that colleague in.
 
 The site starts with merging in Schrijver on, four eyes on and every way to sign allowed. Schrijver binds the site to the repository's numeric id, so a renamed or moved repository stays the same site; a repository by the same name with another id is never used.

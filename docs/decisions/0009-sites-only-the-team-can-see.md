@@ -23,3 +23,7 @@ This changes point 4 of decision 0008: everyone signed in may propose on a site 
 - **The guard** decides on the site id the route itself reads. A test lists every route file under `src/routes/sites/[site]` and `src/routes/api/sites/[site]` and runs each through the server hook as a colleague outside the team: a route there that escapes the guard fails it, and so do a route beside `[site]` in those folders, a remote function there, and another route with a site in its path, until they are covered.
 - Visibility follows GitHub through the `repository` event. Where that event is missed, a repository that turned private stays open to everyone who signs in until Schrijver reads it again: on a push to its default branch, an event on the App's installation, a restart, or at the latest at the reading of every site each quarter of an hour. The App must be subscribed to `repository` events ([een-site-aansluiten.md](../een-site-aansluiten.md#9-add-the-webhook)).
 - On a public repository with "Alleen het team", a GitHub admin of the repository who is not on the team neither sees nor manages the site in Schrijver. A platform admin can add them.
+
+## Note, 2026-10-10: names
+
+"Het team" is everyone with a role on the site and "de redactie" is who decides; a sentence that means the deciders never says "het team" ([woordenlijst.md](../woordenlijst.md)). The third role is "Bijdrager" in every label, sentence and message.

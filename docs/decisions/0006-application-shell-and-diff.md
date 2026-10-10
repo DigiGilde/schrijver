@@ -33,3 +33,5 @@ The NLDD design system distinguishes two compositions: an application (panes, to
 ## Note, 2026-10-10
 
 Two details of point 1 changed. The wordmark is the `file-text-pencil` icon in the accent block followed by the full word "Schrijver". On a site's pages the menu lists Sites, "Over `<site>`", Help and, under "Account", Instellingen and Uitloggen.
+
+The words of the interface were made uniform on the same day ([woordenlijst.md](../woordenlijst.md)): a save that fails on a property offers "Eigenschappen wijzigen", the link to the site built for a proposal is "Voorbeeldsite bekijken", the save button is "Bewaar", and the source view of a changed page is "Markdown".

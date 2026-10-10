@@ -35,7 +35,7 @@ The pseudonym is `HMAC-SHA256(PSEUDONYM_SECRET, sub)` truncated to 12 hexadecima
 
 Sent: the text being worked on (the selection or the page), the instruction (a fixed action or the colleague's free prompt) and the site's writing guide (`schrijfwijzer`) as the system prompt.
 
-Never sent: name, e-mail address, `sub`, pseudonym or GitHub login. The request goes to `VLAM_API_URL` with `VLAM_KEY_PREPAID`. The assistant only returns suggestions; the colleague applies them ("Overnemen") or discards them ("Verwerpen").
+Never sent: name, e-mail address, `sub`, pseudonym or GitHub login. The request goes to `VLAM_API_URL` with `VLAM_KEY_PREPAID`. The assistant only returns suggestions; the colleague applies them ("Neem suggestie over") or discards them ("Verwerp suggestie").
 
 ## What is logged
 
@@ -79,11 +79,11 @@ What GitHub shows stays as GitHub decides: a public repository is readable by an
 
 ## Public drafts
 
-Both pilot repositories are public. A draft pull request is readable by anyone on the internet from the first "Concept bewaren", and a per-push preview would put the half-finished text online as a web page. Anonymity hides who wrote it, not what it says.
+Both pilot repositories are public. A draft pull request is readable by anyone on the internet from the first "Bewaar", and a per-push preview would put the half-finished text online as a web page. Anonymity hides who wrote it, not what it says.
 
 What Schrijver does about it:
 
-- On a site with a public repository, "Concept bewaren" says: "Dit concept komt als voorstel op GitHub en is openbaar leesbaar, ook voordat je het instuurt." The editor shows a dimmed "Openbaar concept" line.
-- The site preview should build only after "Insturen": the `preview` label is set at "Insturen" (MOZa), and Digi Handboek's `preview.yml` skips draft pull requests. See [een-site-aansluiten.md](een-site-aansluiten.md#4-set-up-the-preview).
+- On a site with a public repository the editor explains once, before the first save on that site: "Je concept wordt openbaar", "Iedereen kan het op GitHub lezen zodra je het bewaart, ook voordat je het instuurt." The editor shows a dimmed "Openbaar concept" line.
+- The site preview should build only after "Stuur in": the `preview` label is set at "Stuur in" (MOZa), and Digi Handboek's `preview.yml` skips draft pull requests. See [een-site-aansluiten.md](een-site-aansluiten.md#4-set-up-the-preview).
 - A site with a private repository warns about nothing: a draft there is readable only by those GitHub lets read the repository and, in Schrijver, by whoever may see the site ([Who reads a site in Schrijver](#who-reads-a-site-in-schrijver)).
 - `concepten: privé` (drafts in a private repository of their own, for a site whose repository is public) is planned and refused in version one.

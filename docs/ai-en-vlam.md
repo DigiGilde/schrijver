@@ -5,9 +5,9 @@ Transparency about the writing assistant ("Schrijfhulp") in Schrijver.
 ## What it does
 
 - Suggests changes to a selection or a page: a shorter sentence, a B1 rewrite, a fixed action or a free prompt.
-- Shows a suggestion for a selection as a word diff in the panel, and one for the whole text, a selection that takes in all of it included, as a comparison of the page in the text column. The colleague chooses "Overnemen" or "Verwerpen".
+- Shows a suggestion for a selection as a word diff in the panel, and one for the whole text, a selection that takes in all of it included, as a comparison of the page in the text column. The colleague chooses "Neem suggestie over" or "Verwerp suggestie".
 - "Samenvatting" writes its suggestion only into the page's description field ("Gebruik als samenvatting"), never into the text.
-- On "Nieuwe pagina", "Maak een opzet" turns a description of the page (up to 2000 characters) into a suggested title and an outline in Markdown. The form shows both to check and edit; "Pagina maken" opens the editor with them as an unsaved draft in that browser. Nothing reaches the forge before "Concept bewaren".
+- On "Nieuwe pagina", "Maak een opzet" turns a description of the page (up to 2000 characters) into a suggested title and an outline in Markdown. The form shows both to check and edit; "Maak pagina" opens the editor with them as unsaved text in that browser. Nothing reaches the forge before "Bewaar".
 - Never writes into a page by itself. Nothing reaches the forge unless the colleague takes the suggestion and then saves.
 
 ## What it does not do
@@ -30,7 +30,7 @@ VLAM, operated by SSC-ICT, over an OpenAI-compatible API (`VLAM_API_URL`, key `V
 
 ## Human in the loop
 
-Every suggestion is read and accepted or rejected by the colleague, and every proposal is reviewed by the site's editorial team before it is merged. The help page says "Controleer elk voorstel zelf".
+Every suggestion is read and accepted or rejected by the colleague, and every proposal is reviewed by the site's editorial team before it is merged. The help page says "Controleer elke suggestie zelf".
 
 ## Statements to obtain from SSC-ICT
 

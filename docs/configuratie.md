@@ -37,7 +37,7 @@ How Schrijver reads the folder:
 | `content.uitsluiten` | list of globs | none | Pages that are not offered for editing, for example `documenten/**`. |
 | `content.afbeeldingen.pad` | string | none | Where uploaded images are stored. Placeholders: `{paginaslug}` (file name of the page without extension) and `{paginamap}` (folder of the page). Without this block the site refuses images ("Deze site accepteert geen afbeeldingen"). |
 | `content.afbeeldingen.verwijzing` | `relatief` | required in the block | How images are referenced from the page. Only `relatief`. |
-| `preview.soort` | `bij-push`, `bij-label` or `geen` | required | `bij-push`: a preview exists for every push to the pull request. `bij-label`: a preview exists once the label is set, which Schrijver does at "Insturen". `geen`: no preview link. |
+| `preview.soort` | `bij-push`, `bij-label` or `geen` | required | `bij-push`: a preview exists for every push to the pull request. `bij-label`: a preview exists once the label is set, which Schrijver does at "Stuur in". `geen`: no preview link. |
 | `preview.label` | string | required for `bij-label` | Label that triggers the preview build. |
 | `preview.url` | `https:` or `http:` address | required unless `soort` is `geen` | Preview URL pattern. Must contain `{nummer}`, replaced by the pull request number. |
 | `mermaid.tokens` | map of token name to `licht` and `donker` | none | Colours for `var(--token)` in Mermaid diagrams, such as `classDef inzicht fill:var(--color-bg-light)`. The key is the custom property name with its `--`; `licht` and `donker` are hex colours (quote them, a bare `#` starts a YAML comment). "Voorbeeld" puts the colour of the current colour scheme in place before it draws, as the site's build does. A token missing here shows as grey, and "Voorbeeld" names it. |
@@ -105,7 +105,7 @@ The team of a site has three roles: beheerder, redactie and bijdrager. Who may d
 - **Sees the site**: see [Who sees a site](#who-sees-a-site). Whoever sees a site may propose changes to it.
 - **Editorial** decides on proposals: a member of the site's team, as beheerder or redactie, or someone whose linked GitHub account has write or admin permission on the repository. A bijdrager makes proposals and never decides.
 - **Site admin** manages the team and the settings, and may merge a proposal they wrote despite four eyes: a beheerder on the team, a platform admin, or someone whose linked GitHub account has admin permission on the repository.
-- **Platform admin** ("Schrijver-beheerder") adds and removes sites and manages every site, so no site can be locked out. A platform admin is not editorial by that alone: one who decides on proposals adds themselves to the team.
+- **Platform admin** ("beheerder van Schrijver") adds and removes sites and manages every site, so no site can be locked out. A platform admin is not editorial by that alone: one who decides on proposals adds themselves to the team.
 
 A lookup that fails (the database, GitHub) makes no one editorial or admin, and shows no one a site only its team sees.
 
