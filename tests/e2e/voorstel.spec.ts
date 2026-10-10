@@ -290,6 +290,42 @@ test('shows the image that a proposal adds, with the word on the block like a te
 	).toBeCloseTo(kaders.tekst[1].x - kaders.tekst[0].x, 0);
 });
 
+test('shows the old image of a block that a proposal takes away, read from where the proposal began', async ({
+	page
+}) => {
+	// Only this test edits over/toegankelijkheid.md; schema.png stays on two other pages, so nothing asks about the file.
+	const SCHEMA = '![Schema van onze werkwijze](../afbeeldingen/werkwijze/schema.png)';
+	await page.addInitScript(() =>
+		localStorage.setItem('schrijver:digi-handboek:openbaar-uitgelegd', '1')
+	);
+	await page.goto('/sites/digi-handboek/bewerken/over/toegankelijkheid.md');
+	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Toegankelijkheid');
+	await page.evaluate((fragment) => {
+		const element = document.querySelector('nldd-text-editor') as unknown as {
+			value: string;
+			replaceRange(from: number, to: number, text: string): void;
+		};
+		const at = element.value.indexOf(fragment);
+		if (at === -1) throw new Error(`Niet in de tekst: ${fragment}`);
+		element.replaceRange(at, at + fragment.length, '');
+	}, SCHEMA);
+	await page.getByRole('button', { name: 'Concept bewaren' }).click();
+	await expect(page.getByText(/Concept bewaard als voorstel #\d+/).first()).toBeVisible();
+	await page.goto(`/sites/digi-handboek/voorstellen/${new URL(page.url()).searchParams.get('pr')}`);
+
+	const oud = page.locator('[data-diff="verwijderd"] img');
+	await expect(oud).toHaveAttribute('alt', 'Schema van onze werkwijze');
+	await expect
+		.poll(() => oud.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+		.toBe(160);
+	const src = new URL((await oud.getAttribute('src'))!, page.url());
+	expect(src.pathname).toBe('/api/sites/digi-handboek/bestand');
+	expect(src.searchParams.get('pad')).toBe('docs/afbeeldingen/werkwijze/schema.png');
+	expect(src.searchParams.get('kant'), 'the side before, found by the server').toBe('voor');
+	expect(src.searchParams.get('voorstel')).toMatch(/^[1-9]\d*$/);
+	expect(src.searchParams.get('ref'), 'never a commit id or a branch from the page').toBeNull();
+});
+
 test('shows a reaction as text, with links that open a new tab and nothing that runs', async ({
 	page
 }) => {
