@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
 import { log } from '../../src/lib/log';
+import { settingsOf, useTeams } from './team-fixture';
 
 const state = vi.hoisted(() => ({ forge: null as unknown, site: null as unknown }));
 vi.mock('../../src/lib/server/services', () => ({
@@ -72,7 +73,8 @@ function call(
 	opts: {
 		gekoppeld?: string;
 		who?: string;
-		email?: string;
+		/** The SSO subject: red is on the redactie of the site. */
+		sub?: string;
 		nummer?: string;
 		siteId?: string;
 		body?: unknown;
@@ -87,10 +89,10 @@ function call(
 				? null
 				: {
 						session: {
-							email: opts.email ?? 'iemand@example.org',
+							email: 'iemand@example.org',
 							emailVerified: true,
 							name: 'N',
-							sub: 's'
+							sub: opts.sub ?? 's'
 						},
 						prefs: { who: opts.who ?? 'auteur', githubLogin: opts.gekoppeld ?? null }
 					}
@@ -102,6 +104,7 @@ beforeEach(async () => {
 	forge = new FakeForge();
 	state.forge = forge;
 	state.site = site();
+	await useTeams([settingsOf('moza')], { moza: { red: 'redactie' } });
 	forge.seedRepo('o/moza', 'main', { 'content/a.md': 'oud' });
 	await forge.createBranch('o/moza', 'main', 'b');
 	await forge.commit(
@@ -124,9 +127,7 @@ describe('proposal endpoints', () => {
 		expect((await call(insturen, { anon: true })).status).toBe(401);
 		expect((await call(insturen, { siteId: 'x' })).status).toBe(404);
 		expect((await call(insturen, { nummer: '99' })).status).toBe(404);
-		expect((await call(opmerking, { email: 'red@example.org', body: { body: '  ' } })).status).toBe(
-			400
-		);
+		expect((await call(opmerking, { sub: 'red', body: { body: '  ' } })).status).toBe(400);
 	});
 
 	it('lets the owner send in and react, but not merge', async () => {
@@ -142,7 +143,7 @@ describe('proposal endpoints', () => {
 		await call(insturen, { who: 'auteur' });
 		expect((await call(mergen, { who: 'vreemde' })).status).toBe(403);
 		state.site = site(false);
-		const res = await call(mergen, { email: 'red@example.org' });
+		const res = await call(mergen, { sub: 'red' });
 		expect(res.status).toBe(403);
 		expect((await res.json()).message).toContain('GitHub');
 	});
@@ -151,14 +152,14 @@ describe('proposal endpoints', () => {
 		state.site = site(true, true);
 		await call(insturen, { who: 'auteur' });
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
-		const zelf = await call(mergen, { email: 'red@example.org', who: 'auteur', body: { sha } });
+		const zelf = await call(mergen, { sub: 'red', who: 'auteur', body: { sha } });
 		expect(zelf.status).toBe(403);
 		expect((await zelf.json()).message).toBe(
 			'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.'
 		);
 		forge.permissionByLogin.set('beheerder', 'admin');
 		const admin = await call(mergen, {
-			email: 'red@example.org',
+			sub: 'red',
 			who: 'auteur',
 			gekoppeld: 'beheerder',
 			body: { sha }
@@ -177,7 +178,7 @@ describe('proposal endpoints', () => {
 			'Bewerk\n\nSchrijver-Auteur: redacteur'
 		);
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
-		const red = { email: 'red@example.org', body: { sha } };
+		const red = { sub: 'red', body: { sha } };
 		const mee = await call(mergen, { ...red, who: 'redacteur' });
 		expect(mee.status).toBe(403);
 		expect((await mee.json()).message).toBe(
@@ -191,7 +192,7 @@ describe('proposal endpoints', () => {
 		await call(insturen, { who: 'auteur' });
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
 		state.site = site(true, false);
-		const red = { email: 'red@example.org', body: { sha } };
+		const red = { sub: 'red', body: { sha } };
 		forge.failNext('merge', new ForgeError(500, 'Kapot'));
 		expect((await call(mergen, { ...red, who: 'auteur' })).status).toBe(500);
 		state.site = site(true, true);
@@ -203,7 +204,7 @@ describe('proposal endpoints', () => {
 		forge.requireReview('o/moza');
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
 		const merge = vi.spyOn(forge, 'merge');
-		const red = { email: 'red@example.org', who: 'redacteur', body: { sha } };
+		const red = { sub: 'red', who: 'redacteur', body: { sha } };
 		const wacht = await call(mergen, red);
 		expect(wacht.status).toBe(409);
 		expect((await wacht.json()).message).toBe(
@@ -229,12 +230,12 @@ describe('proposal endpoints', () => {
 	});
 
 	it('refuses merging a draft', async () => {
-		expect((await call(mergen, { email: 'red@example.org' })).status).toBe(409);
+		expect((await call(mergen, { sub: 'red' })).status).toBe(409);
 	});
 
 	it('approves, comments and merges as editorial', async () => {
 		await call(insturen, { who: 'auteur' });
-		const red = { email: 'red@example.org' };
+		const red = { sub: 'red' };
 		expect((await call(opmerking, { ...red, body: { body: 'Mooi' } })).status).toBe(200);
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
 		expect((await call(mergen, { ...red, body: { sha } })).status).toBe(200);
@@ -250,9 +251,9 @@ describe('proposal endpoints', () => {
 			body: { body: ' Aangepast ', role: 'redactie', rol: 'redactie', kind: 'aanpassing' }
 		});
 		expect(await res.json()).toEqual({ ok: true });
-		await call(opmerking, { email: 'red@example.org', who: 'iemand', body: { body: 'Dank' } });
+		await call(opmerking, { sub: 'red', who: 'iemand', body: { body: 'Dank' } });
 		await call(opmerking, {
-			email: 'red@example.org',
+			sub: 'red',
 			who: 'jan',
 			gekoppeld: 'jan',
 			body: { body: 'Ok' }
@@ -281,7 +282,7 @@ describe('proposal endpoints', () => {
 	});
 
 	it('asks for an adjustment for the redactie only: a comment and the label, other labels kept', async () => {
-		const red = { email: 'red@example.org', who: 'redacteur' };
+		const red = { sub: 'red', who: 'redacteur' };
 		expect((await call(aanpassing, { ...red, body: { body: 'Korter' } })).status).toBe(409);
 		await call(insturen, { who: 'auteur' });
 		await forge.setLabels('o/moza', 1, ['preview']);
@@ -306,7 +307,7 @@ describe('proposal endpoints', () => {
 	it('takes the label back off when the comment fails, so the writer is not asked for nothing', async () => {
 		await call(insturen, { who: 'auteur' });
 		forge.failNext('comment', new ForgeError(502, 'GitHub is niet bereikbaar'));
-		const res = await call(aanpassing, { email: 'red@example.org', body: { body: 'Korter' } });
+		const res = await call(aanpassing, { sub: 'red', body: { body: 'Korter' } });
 		expect(res.status).toBe(502);
 		expect((await forge.getPr('o/moza', 1)).labels).toEqual([]);
 	});
@@ -326,7 +327,7 @@ describe('proposal endpoints', () => {
 
 		await forge.setLabels('o/moza', 1, ['aanpassing gevraagd']);
 		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
-		const github = await call(opnieuwInsturen, { email: 'red@example.org', who: 'redacteur' });
+		const github = await call(opnieuwInsturen, { sub: 'red', who: 'redacteur' });
 		expect(await github.json()).toEqual({
 			ok: true,
 			warning:
@@ -336,9 +337,7 @@ describe('proposal endpoints', () => {
 
 	it('refuses comments on a closed proposal', async () => {
 		forge.prs.get(1)!.state = 'closed';
-		expect((await call(opmerking, { email: 'red@example.org', body: { body: 'x' } })).status).toBe(
-			409
-		);
+		expect((await call(opmerking, { sub: 'red', body: { body: 'x' } })).status).toBe(409);
 	});
 
 	it('requests no reviewers at all for an anonymous author', async () => {
@@ -361,7 +360,7 @@ describe('proposal endpoints', () => {
 		forge.prs.get(1)!.body = 'x\n\nCo-authored-by: Jan Jansen <jan@example.org>';
 		const perm = vi.spyOn(forge, 'collaboratorPermission');
 		const req = vi.spyOn(forge, 'requestReviewers');
-		await call(insturen, { email: 'red@example.org', gekoppeld: undefined });
+		await call(insturen, { sub: 'red', gekoppeld: undefined });
 		expect(perm.mock.calls.length).toBeLessThanOrEqual(5);
 		expect(req).toHaveBeenCalledWith('o/moza', 1, ['jan', 'piet', 'kees', 'els', 'tom']);
 	});
@@ -371,7 +370,7 @@ describe('proposal endpoints', () => {
 			forge.permissionByLogin.set(l, 'write');
 		forge.prs.get(1)!.body = 'x\n\nCo-authored-by: piet <7+piet@users.noreply.github.com>';
 		const req = vi.spyOn(forge, 'requestReviewers');
-		await call(insturen, { email: 'red@example.org' });
+		await call(insturen, { sub: 'red' });
 		expect(req).toHaveBeenCalledWith('o/moza', 1, ['jan', 'kees', 'els', 'tom', 'zoe']);
 	});
 
@@ -380,13 +379,13 @@ describe('proposal endpoints', () => {
 		write.mockClear();
 		await call(insturen, { who: 'auteur' });
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
-		await call(mergen, { email: 'red@example.org', body: { sha } });
+		await call(mergen, { sub: 'red', body: { sha } });
 		const calls = JSON.stringify([
 			...vi.mocked(log.info).mock.calls,
 			...vi.mocked(log.warn).mock.calls
 		]);
 		expect(write).toHaveBeenCalledWith('proposal.insturen', { site: 'moza', pr: 1, actor: 'p-s' });
-		expect(write).toHaveBeenCalledWith('proposal.mergen', { site: 'moza', pr: 1, actor: 'p-s' });
+		expect(write).toHaveBeenCalledWith('proposal.mergen', { site: 'moza', pr: 1, actor: 'p-red' });
 		expect(calls).not.toContain('@');
 	});
 
@@ -406,7 +405,7 @@ describe('proposal endpoints', () => {
 			new ForgeError(405, 'Samenvoegen geweigerd', 'Required status check "build" is expected.')
 		);
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
-		const res = await call(mergen, { email: 'red@example.org', body: { sha } });
+		const res = await call(mergen, { sub: 'red', body: { sha } });
 		expect(res.status).toBe(405);
 		expect(await res.json()).toMatchObject({
 			message: 'Samenvoegen geweigerd',
@@ -416,7 +415,7 @@ describe('proposal endpoints', () => {
 
 	it('pins the merge to the head the reviewer saw', async () => {
 		await call(insturen, { who: 'auteur' });
-		const red = { email: 'red@example.org' };
+		const red = { sub: 'red' };
 		const seen = (await forge.getPr('o/moza', 1)).headSha;
 		await forge.commit(
 			'o/moza',
@@ -437,14 +436,14 @@ describe('proposal endpoints', () => {
 });
 
 describe('four eyes, on every way to the merge', () => {
-	const RED = 'red@example.org';
+	const RED = 'red';
 	const ONBEKEND =
 		'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.';
 	const ZELF = 'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.';
 	let sha: string;
 
 	const merge = (opts: Parameters<typeof call>[1] = {}) =>
-		call(mergen, { email: RED, ...opts, body: { sha, ...(opts.body as object) } });
+		call(mergen, { sub: RED, ...opts, body: { sha, ...(opts.body as object) } });
 	const refused = async (res: Response, message: string) => {
 		expect(res.status).toBe(403);
 		expect((await res.json()).message).toBe(message);
@@ -523,7 +522,7 @@ describe('four eyes, on every way to the merge', () => {
 		forge.permissionByLogin.set('piet', 'write');
 		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));
 		await refused(
-			await merge({ email: 'piet@example.org', who: 'piet', gekoppeld: 'piet' }),
+			await merge({ sub: 'piet', who: 'piet', gekoppeld: 'piet' }),
 			'Alleen de redactie kan samenvoegen'
 		);
 	});
@@ -543,7 +542,7 @@ describe('four eyes, on every way to the merge', () => {
 	it('holds the same server checks for reactions, requests and re-sends', async () => {
 		forge.prs.get(1)!.headRepo = 'iemand/moza';
 		for (const handler of [opmerking, aanpassing, opnieuwInsturen]) {
-			expect((await call(handler, { email: RED, body: { body: 'x' } })).status).toBe(403);
+			expect((await call(handler, { sub: RED, body: { body: 'x' } })).status).toBe(403);
 		}
 		forge.prs.get(1)!.headRepo = 'o/moza';
 		forge.permissionByLogin.set('piet', 'write');

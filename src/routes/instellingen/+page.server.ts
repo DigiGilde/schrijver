@@ -2,15 +2,12 @@ import type { Actions, PageServerLoad } from './$types';
 import { siteRules, submitPrefs, unlinkGithub } from '$lib/auth/prefs-action';
 import { isPlatformAdmin, managedSites } from '$lib/auth/roles';
 import { teamStore } from '$lib/auth/team-store';
-import { getConfigStore } from '$lib/server/services';
+import { getConfigStore, getForge } from '$lib/server/services';
 
 /** The configured sites this user manages, by the name in their settings. */
-async function beheer(sub: string) {
+async function beheer(sub: string, githubLogin: string | null) {
 	const sites = getConfigStore().sites();
-	const ids = await managedSites(
-		sites.map((s) => s.id),
-		{ sub }
-	);
+	const ids = await managedSites(sites, { sub, githubLogin }, getForge());
 	return {
 		platform: isPlatformAdmin(sub),
 		sites: await Promise.all(
@@ -29,7 +26,7 @@ export const load: PageServerLoad = async ({ locals, url }) => ({
 	githubLogin: locals.user!.prefs.githubLogin ?? '',
 	emailVerified: locals.user!.session.emailVerified,
 	sites: siteRules(),
-	beheer: await beheer(locals.user!.session.sub),
+	beheer: await beheer(locals.user!.session.sub, locals.user!.prefs.githubLogin),
 	kenmerk: locals.user!.session.sub
 });
 

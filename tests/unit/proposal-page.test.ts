@@ -15,6 +15,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/sites/[site]/voorstellen/[nummer]/+page.server';
+import { useTeams } from './team-fixture';
 
 const REPO = 'DigiGilde/handboek';
 let forge: FakeForge;
@@ -68,14 +69,16 @@ async function proposal(slug: string, files: Record<string, string>): Promise<nu
 	return pr.number;
 }
 
-// Editorial on digi-handboek only: the fake services add this address to its redactie.
-const EDITOR = 'test@example.org';
+// On the redactie of digi-handboek only.
+const EDITOR = 'redacteur';
+// On the redactie of the MOZa site, which asks for four eyes and, in the fake, an approval on GitHub.
+const MOZA_EDITOR = 'moza-redacteur';
 
-async function visit(nummer: number, { query = '', email = session.email } = {}): Promise<Data> {
+async function visit(nummer: number, { query = '', sub = session.sub } = {}): Promise<Data> {
 	return (await load({
 		params: { site: 'digi-handboek', nummer: String(nummer) },
 		url: new URL(`http://x/sites/digi-handboek/voorstellen/${nummer}${query}`),
-		locals: { user: { session: { ...session, email }, prefs } }
+		locals: { user: { session: { ...session, sub }, prefs: { ...prefs, sub } } }
 	} as never)) as Data;
 }
 
@@ -85,6 +88,10 @@ beforeAll(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
+	await useTeams(services.store.sites(), {
+		'digi-handboek': { [EDITOR]: 'redactie' },
+		'moza-site': { [MOZA_EDITOR]: 'redactie' }
+	});
 });
 
 describe('the fake forge of the local preview', () => {
@@ -145,7 +152,7 @@ describe('the way back from a proposal', () => {
 	it('returns to the list in the filter that the proposal was opened from', async () => {
 		expect((await visit(nummer, { query: '?filter=alle' })).terug).toBe(`${LIST}?filter=alle`);
 		expect((await visit(nummer, { query: '?filter=mijn' })).terug).toBe(`${LIST}?filter=mijn`);
-		expect((await visit(nummer, { query: '?filter=beoordelen', email: EDITOR })).terug).toBe(
+		expect((await visit(nummer, { query: '?filter=beoordelen', sub: EDITOR })).terug).toBe(
 			`${LIST}?filter=beoordelen`
 		);
 	});
@@ -158,9 +165,9 @@ describe('the way back from a proposal', () => {
 	});
 
 	it('goes as the Voorstellen tab goes without a filter: to what waits, for editors only', async () => {
-		expect((await visit(nummer, { email: EDITOR })).terug, 'nothing waits yet').toBe(LIST);
+		expect((await visit(nummer, { sub: EDITOR })).terug, 'nothing waits yet').toBe(LIST);
 		await forge.markReady(REPO, nummer);
-		expect((await visit(nummer, { email: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
+		expect((await visit(nummer, { sub: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
 		expect((await visit(nummer)).terug).toBe(LIST);
 	});
 
@@ -168,15 +175,15 @@ describe('the way back from a proposal', () => {
 		const fork = await proposal('fork-dddd', { 'docs/fork.md': '# Fork\n' });
 		await forge.markReady(REPO, fork);
 		forge.prs.get(fork)!.headRepo = 'iemand/handboek';
-		expect((await visit(fork, { query: '?filter=beoordelen', email: EDITOR })).terug).toBe(
+		expect((await visit(fork, { query: '?filter=beoordelen', sub: EDITOR })).terug).toBe(
 			`${LIST}?filter=beoordelen`
 		);
-		expect((await visit(fork, { email: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
+		expect((await visit(fork, { sub: EDITOR })).terug).toBe(`${LIST}?filter=beoordelen`);
 	});
 
 	it('still opens the plain list when the forge cannot tell what waits', async () => {
 		forge.failNext('listPrs', new ForgeError(502, 'GitHub is niet bereikbaar'));
-		expect((await visit(nummer, { email: EDITOR })).terug).toBe(LIST);
+		expect((await visit(nummer, { sub: EDITOR })).terug).toBe(LIST);
 	});
 });
 
@@ -185,8 +192,6 @@ const REPOS: Record<SiteId, string> = {
 	'digi-handboek': REPO,
 	'moza-site': 'MinBZK/moza-site'
 };
-// Editorial on the MOZa site, which asks for four eyes and, in the fake, an approval on GitHub.
-const MOZA_EDITOR = 'redactie@example.org';
 
 interface Page {
 	ondertitel: string;
@@ -201,16 +206,16 @@ interface Page {
 }
 
 let made = 0;
-/** A proposal on a site, by the reader (`mijn`) or someone else, with the given body text. */
+/** A proposal on a site, signed by the user `door` or by someone else, with the given body text. */
 async function make(
 	site: SiteId,
 	files: Record<string, string>,
-	{ mijn = false, sent = false, body }: { mijn?: boolean; sent?: boolean; body?: string } = {}
+	{ door, sent = false, body }: { door?: string; sent?: boolean; body?: string } = {}
 ): Promise<number> {
 	const repo = REPOS[site];
 	const branch = `schrijver/${site}/test-${++made}`;
 	await forge.createBranch(repo, 'main', branch);
-	const who = mijn ? pseudonym(process.env.PSEUDONYM_SECRET!, 'lezer') : 'iemandanders';
+	const who = door ? pseudonym(process.env.PSEUDONYM_SECRET!, door) : 'iemandanders';
 	const trailer = identityTrailer({ kind: 'anoniem', pseudoniem: who });
 	await forge.commit(
 		repo,
@@ -226,12 +231,12 @@ async function make(
 async function open(
 	site: SiteId,
 	nummer: number,
-	{ email = session.email, githubLogin = null as string | null } = {}
+	{ sub = session.sub, githubLogin = null as string | null } = {}
 ): Promise<Page> {
 	return (await load({
 		params: { site, nummer: String(nummer) },
 		url: new URL(`http://x/sites/${site}/voorstellen/${nummer}`),
-		locals: { user: { session: { ...session, email }, prefs: { ...prefs, githubLogin } } }
+		locals: { user: { session: { ...session, sub }, prefs: { ...prefs, sub, githubLogin } } }
 	} as never)) as Page;
 }
 
@@ -248,7 +253,7 @@ describe('the line under the title', () => {
 		const mijn = await make(
 			'digi-handboek',
 			{ 'docs/kennis/een.md': '# Een\n', 'docs/kennis/twee.md': '# Twee\n' },
-			{ mijn: true }
+			{ door: 'lezer' }
 		);
 		expect((await open('digi-handboek', mijn)).ondertitel).toMatch(
 			/^Voor 2 pagina's · van jou · bijgewerkt /
@@ -268,7 +273,7 @@ describe('what now', () => {
 			{ 'docs/kennis/vier.md': '# Vier\n' },
 			{ sent: true }
 		);
-		const page = await open('digi-handboek', nummer, { email: EDITOR });
+		const page = await open('digi-handboek', nummer, { sub: EDITOR });
 		expect(page.stap).toBe('Ingestuurd');
 		expect(page.watNu).toMatchObject({
 			actions: ['samenvoegen', 'vraag-om-aanpassing'],
@@ -279,12 +284,12 @@ describe('what now', () => {
 
 	it('asks for the approval on GitHub first where the site requires one', async () => {
 		const nummer = await make('moza-site', { 'content/vijf.md': 'Vijf\n' }, { sent: true });
-		expect((await open('moza-site', nummer, { email: MOZA_EDITOR })).watNu).toMatchObject({
+		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu).toMatchObject({
 			sentence: 'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
 			actions: ['goedkeuren-op-github', 'vraag-om-aanpassing']
 		});
 		forge.reviewOnGitHub('MinBZK/moza-site', nummer, 'jansen', 'approved', '');
-		expect((await open('moza-site', nummer, { email: MOZA_EDITOR })).watNu.actions).toEqual([
+		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.actions).toEqual([
 			'samenvoegen',
 			'vraag-om-aanpassing'
 		]);
@@ -293,24 +298,29 @@ describe('what now', () => {
 	it('offers the merge when GitHub cannot say whether an approval is missing', async () => {
 		const nummer = await make('moza-site', { 'content/zes.md': 'Zes\n' }, { sent: true });
 		forge.failNext('reviewDecision', new ForgeError(502, 'GitHub is niet bereikbaar'));
-		expect((await open('moza-site', nummer, { email: MOZA_EDITOR })).watNu.actions).toEqual([
+		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.actions).toEqual([
 			'samenvoegen',
 			'vraag-om-aanpassing'
 		]);
 	});
 
 	it('leaves the decision on an own proposal to another editor where four eyes hold', async () => {
-		const nummer = await make(
+		const eigen = await make(
 			'moza-site',
 			{ 'content/zeven.md': 'Zeven\n' },
-			{ mijn: true, sent: true }
+			{ door: MOZA_EDITOR, sent: true }
 		);
-		expect((await open('moza-site', nummer, { email: MOZA_EDITOR })).watNu).toEqual({
+		expect((await open('moza-site', eigen, { sub: MOZA_EDITOR })).watNu).toEqual({
 			sentence: 'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.',
 			actions: ['verder-bewerken'],
 			primary: null
 		});
-		expect((await open('moza-site', nummer)).watNu.sentence).toBe(
+		const lezer = await make(
+			'moza-site',
+			{ 'content/zeven-b.md': 'Zeven\n' },
+			{ door: 'lezer', sent: true }
+		);
+		expect((await open('moza-site', lezer)).watNu.sentence).toBe(
 			'De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.'
 		);
 	});
@@ -367,7 +377,7 @@ describe('the conversation', () => {
 				kind: 'aanpassing'
 			})
 		);
-		const page = await open('digi-handboek', nummer, { email: EDITOR });
+		const page = await open('digi-handboek', nummer, { sub: EDITOR });
 		expect(page.gesprek?.items.map((i) => [i.who, i.as, i.text])).toEqual([
 			['jansen', 'github', 'Eerst op GitHub'],
 			['Anoniem, codenaam 9f86d081884c', 'redactie', 'Graag korter']
@@ -378,7 +388,7 @@ describe('the conversation', () => {
 		const mijn = await make(
 			'digi-handboek',
 			{ 'docs/kennis/twaalf.md': '# Twaalf\n' },
-			{ mijn: true }
+			{ door: 'lezer' }
 		);
 		expect((await open('digi-handboek', mijn)).kanReageren).toBe(true);
 	});

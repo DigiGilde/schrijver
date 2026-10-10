@@ -39,8 +39,6 @@ export function proposalAction(action: string, handler: Handler) {
 			const user: ActingUser = {
 				sub: current.session.sub,
 				identities: identitiesFor(current.prefs, current.session),
-				email: current.session.email,
-				emailVerified: current.session.emailVerified,
 				githubLogin: current.prefs.githubLogin,
 				identityKind: identity.kind
 			};

@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	const editorial = await isEditorial(
 		site,
-		{ email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
+		{ sub: session.sub, githubLogin: prefs.githubLogin },
 		forge
 	);
 

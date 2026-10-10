@@ -63,7 +63,7 @@ export async function backToProposals(
 	if (filter) return `/sites/${encodeURIComponent(site.id)}/voorstellen?filter=${filter}`;
 	const editorial = await isEditorial(
 		site,
-		{ email: session.email, emailVerified: session.emailVerified, githubLogin: prefs.githubLogin },
+		{ sub: session.sub, githubLogin: prefs.githubLogin },
 		forge
 	);
 	return proposalsTabAddress(site.id, editorial ? await waitingFor(site, forge) : null);

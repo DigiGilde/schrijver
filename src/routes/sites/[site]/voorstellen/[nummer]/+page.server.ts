@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { isSiteAdmin } from '$lib/auth/admin';
 import { identitiesFor, identityFor } from '$lib/auth/identity';
+import { canManageSite } from '$lib/auth/roles';
 import type { SiteConfig } from '$lib/config/types';
 import { parsePage } from '$lib/content/frontmatter';
 import { pageTitle } from '$lib/content/schema-form';
@@ -53,8 +53,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const user: ActingUser = {
 		sub: session.sub,
 		identities: identitiesFor(prefs, session),
-		email: session.email,
-		emailVerified: session.emailVerified,
 		githubLogin: prefs.githubLogin,
 		identityKind: identityFor(prefs, session, site).kind
 	};
@@ -124,7 +122,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		if (deciding && site.review['vier-ogen']) {
 			const commits = await forge.prCommits(site.repo, nummer).catch(() => null);
 			const reason = commits ? fourEyes(authorship(pr, commits, user, app)) : 'onbekend';
-			if (reason && !(await isSiteAdmin(site, user, forge))) blocked = reason;
+			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
 		}
 		let approvalMissing = false;
 		if (deciding && !blocked && site.review['mergen-vanuit-schrijver']) {

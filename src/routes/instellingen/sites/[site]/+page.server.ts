@@ -5,7 +5,7 @@ import { canManageSite, isPlatformAdmin } from '$lib/auth/roles';
 import { isRole, type TeamChange } from '$lib/auth/team';
 import { seedSites, teamStore } from '$lib/auth/team-store';
 import { log } from '$lib/log';
-import { getConfigStore } from '$lib/server/services';
+import { getConfigStore, getForge } from '$lib/server/services';
 import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './forms';
 
 /**
@@ -16,7 +16,8 @@ async function managed(event: RequestEvent) {
 	const user = event.locals.user;
 	if (!user) redirect(303, '/login');
 	const site = getConfigStore().site(event.params.site ?? '');
-	if (!site || !(await canManageSite(site.id, user.session)))
+	const asker = { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
+	if (!site || !(await canManageSite(site, asker, getForge())))
 		error(404, 'Deze pagina bestaat niet');
 	const team = teamStore();
 	let settings = await team.settings(site.id);
@@ -26,7 +27,7 @@ async function managed(event: RequestEvent) {
 		if (!settings) error(404, 'Deze pagina bestaat niet');
 	}
 	const actor = { sub: user.session.sub, platformAdmin: isPlatformAdmin(user.session.sub) };
-	return { site, settings, session: user.session, team, actor };
+	return { site, settings, session: user.session, asker, team, actor };
 }
 
 type Managed = Awaited<ReturnType<typeof managed>>;
@@ -36,7 +37,7 @@ const who = (change: { name: string | null }, self: boolean) =>
 
 /** After a change to their own place in the team, someone who no longer manages the site leaves the page. */
 async function leaveWhenNoLongerManaging(m: Managed, sub: string) {
-	if (sub === m.session.sub && !(await canManageSite(m.site.id, m.session))) {
+	if (sub === m.session.sub && !(await canManageSite(m.site, m.asker, getForge()))) {
 		redirect(303, '/instellingen');
 	}
 }

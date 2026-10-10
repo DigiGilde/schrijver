@@ -1,97 +1,92 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isEditorial } from '../../src/lib/auth/editorial';
-import { parseSitesYaml, type SiteConfig } from '../../src/lib/config/types';
+import type { TeamStore } from '../../src/lib/auth/team';
+import { useTeamStore } from '../../src/lib/auth/team-store';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
 import { log } from '../../src/lib/log';
+import { settingsOf, useTeams } from './team-fixture';
 
-const REDACTIE_EMAIL = 'redactie@example.org';
-
-const base: SiteConfig = parseSitesYaml(
-	readFileSync(new URL('../fixtures/config/sites.yaml', import.meta.url), 'utf8')
-)[0];
-const site: SiteConfig = { ...base, review: { ...base.review, redactie: [REDACTIE_EMAIL] } };
+const site = { id: 'moza', repo: 'o/moza' };
 
 describe('isEditorial', () => {
 	let forge: FakeForge;
+	let team: TeamStore;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		forge = new FakeForge();
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it('matches a verified e-mail in review.redactie case-insensitively after trimming', async () => {
-		const user = { email: `  ReDactie@Example.ORG `, emailVerified: true, githubLogin: null };
-		expect(await isEditorial(site, user, forge)).toBe(true);
-	});
-
-	it('ignores the e-mail when it is not verified', async () => {
-		const user = { email: REDACTIE_EMAIL, emailVerified: false, githubLogin: null };
-		expect(await isEditorial(site, user, forge)).toBe(false);
-	});
-
-	it('ignores a null e-mail even when verified', async () => {
-		const user = { email: null, emailVerified: true, githubLogin: null };
-		expect(await isEditorial(site, user, forge)).toBe(false);
-	});
-
-	it('does not match a blank e-mail against a blank redactie entry', async () => {
-		const blank = { ...site, review: { ...site.review, redactie: ['', '  '] } };
-		expect(
-			await isEditorial(blank, { email: ' ', emailVerified: true, githubLogin: null }, forge)
-		).toBe(false);
-	});
-
-	it('grants editorial rights to a GitHub login with write permission', async () => {
-		forge.permissionByLogin.set('writer', 'write');
-		const user = { email: null, emailVerified: false, githubLogin: 'writer' };
-		expect(await isEditorial(site, user, forge)).toBe(true);
-	});
-
-	it('grants editorial rights to a GitHub login with admin permission', async () => {
-		forge.permissionByLogin.set('admin', 'admin');
-		const user = { email: null, emailVerified: false, githubLogin: 'admin' };
-		expect(await isEditorial(site, user, forge)).toBe(true);
-	});
-
-	it('denies a GitHub login with read permission', async () => {
-		forge.permissionByLogin.set('reader', 'read');
-		const user = { email: null, emailVerified: false, githubLogin: 'reader' };
-		expect(await isEditorial(site, user, forge)).toBe(false);
-	});
-
-	it('denies an unknown GitHub login', async () => {
-		const user = { email: null, emailVerified: false, githubLogin: 'nobody' };
-		expect(await isEditorial(site, user, forge)).toBe(false);
-	});
-
-	it('editorial-fails-closed: returns false and logs a warning when the forge throws', async () => {
-		forge.permissionByLogin.set('writer', 'write');
-		forge.failNext('collaboratorPermission', new ForgeError(503, 'Forge onbereikbaar', 'timeout'));
-		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
-		const user = { email: null, emailVerified: false, githubLogin: 'writer' };
-
-		expect(await isEditorial(site, user, forge)).toBe(false);
-		expect(warn).toHaveBeenCalledTimes(1);
-		expect(warn).toHaveBeenCalledWith('editorial.check_failed', {
-			site: site.id,
-			error: 'ForgeError',
-			status: 503
+		team = await useTeams([settingsOf('moza'), settingsOf('ander')], {
+			moza: { baas: 'beheerder', red: 'redactie' },
+			ander: { elders: 'redactie' }
 		});
 	});
 
-	it('never logs the e-mail address', async () => {
-		forge.failNext('collaboratorPermission', new ForgeError(500, 'Fout'));
-		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
-		const outsider = 'buiten@example.org';
-		const user = { email: outsider, emailVerified: true, githubLogin: 'writer' };
+	afterEach(() => {
+		useTeamStore(undefined);
+		delete process.env.SCHRIJVER_BEHEERDERS;
+		vi.restoreAllMocks();
+	});
 
-		expect(await isEditorial(site, user, forge)).toBe(false);
-		expect(warn).toHaveBeenCalledTimes(1);
-		expect(JSON.stringify(warn.mock.calls)).not.toContain(outsider);
+	it('counts both roles on the team of the site, by sub', async () => {
+		expect(await isEditorial(site, { sub: 'baas', githubLogin: null }, forge)).toBe(true);
+		expect(await isEditorial(site, { sub: 'red', githubLogin: null }, forge)).toBe(true);
+		expect(await isEditorial(site, { sub: 'elders', githubLogin: null }, forge)).toBe(false);
+		expect(await isEditorial(site, { sub: 'vreemd', githubLogin: null }, forge)).toBe(false);
+	});
+
+	it('no longer counts an e-mail address, of the configuration or of an invitation', async () => {
+		await team.addByEmail('moza', 'uitgenodigd@example.org', 'redactie', 'baas');
+		await team.recordLogin({
+			sub: 'jan',
+			name: 'Jan',
+			email: 'jan@example.org',
+			emailVerified: true
+		});
+		expect(await isEditorial(site, { sub: 'jan', githubLogin: null }, forge)).toBe(false);
+	});
+
+	it('leaves a platform admin out, until they join the team', async () => {
+		process.env.SCHRIJVER_BEHEERDERS = 'platform';
+		expect(await isEditorial(site, { sub: 'platform', githubLogin: null }, forge)).toBe(false);
+	});
+
+	it('grants it to a linked GitHub account with write or admin permission', async () => {
+		forge.permissionByLogin.set('schrijver', 'write');
+		forge.permissionByLogin.set('admin', 'admin');
+		forge.permissionByLogin.set('lezer', 'read');
+		const as = (githubLogin: string) => isEditorial(site, { sub: 'x', githubLogin }, forge);
+		expect(await as('schrijver')).toBe(true);
+		expect(await as('admin')).toBe(true);
+		expect(await as('lezer')).toBe(false);
+		expect(await as('onbekend')).toBe(false);
+	});
+
+	it('asks GitHub nothing for a member of the team', async () => {
+		const permission = vi.spyOn(forge, 'collaboratorPermission');
+		expect(await isEditorial(site, { sub: 'red', githubLogin: 'red' }, forge)).toBe(true);
+		expect(permission).not.toHaveBeenCalled();
+	});
+
+	it('fails closed and logs without personal data when GitHub cannot tell', async () => {
+		forge.permissionByLogin.set('schrijver', 'write');
+		forge.failNext('collaboratorPermission', new ForgeError(503, 'Forge onbereikbaar', 'timeout'));
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
+		expect(await isEditorial(site, { sub: 'x', githubLogin: 'schrijver' }, forge)).toBe(false);
+		expect(warn).toHaveBeenCalledWith('editorial.check_failed', {
+			site: 'moza',
+			error: 'ForgeError',
+			status: 503
+		});
+		expect(JSON.stringify(warn.mock.calls)).not.toContain('schrijver');
+	});
+
+	it('fails closed when the team cannot be read', async () => {
+		vi.spyOn(team, 'role').mockRejectedValue(new Error('database weg'));
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => true);
+		expect(await isEditorial(site, { sub: 'red', githubLogin: null }, forge)).toBe(false);
+		expect(warn).toHaveBeenCalledWith('editorial.check_failed', {
+			site: 'moza',
+			error: 'Error'
+		});
 	});
 });

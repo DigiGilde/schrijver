@@ -19,8 +19,6 @@ export interface ActingUser {
 	sub: string;
 	/** Every identity the user can hold; the PR is theirs when its trailer matches one. */
 	identities: Identity[];
-	email: string | null;
-	emailVerified: boolean;
 	githubLogin: string | null;
 	identityKind: 'anoniem' | 'gekoppeld' | 'op-naam';
 }

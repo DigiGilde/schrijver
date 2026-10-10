@@ -11,13 +11,15 @@ vi.mock('../../src/lib/log', async (original) => ({
 import { buildFakeServices, seedScenarios } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/sites/[site]/voorstellen/[nummer]/+page.server';
+import { useTeams } from './team-fixture';
 
 type SiteId = 'digi-handboek' | 'moza-site';
-// The fake adds the first address to the redactie of Digi Handboek; the second is that of MOZa.
-const DIGI_EDITOR = 'test@example.org';
-const MOZA_EDITOR = 'redactie@example.org';
+/** The reader, lezer, wrote the seeded proposals of the test user; on the redactie of the site or not. */
+const EDITOR = true;
+const ANYONE = false;
 
 let forge: FakeForge;
+let sites: SiteConfig[];
 let mergeInSchrijver = true;
 
 async function numberOf(repo: string, title: string): Promise<number> {
@@ -26,9 +28,10 @@ async function numberOf(repo: string, title: string): Promise<number> {
 	return pr.number;
 }
 
-async function sentence(site: SiteId, title: string, email: string): Promise<string> {
+async function sentence(site: SiteId, title: string, redactie: boolean): Promise<string> {
 	const repo = site === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
 	const nummer = await numberOf(repo, title);
+	await useTeams(sites, redactie ? { [site]: { lezer: 'redactie' } } : {});
 	const data = (await load({
 		params: { site, nummer: String(nummer) },
 		url: new URL(`http://x/sites/${site}/voorstellen/${nummer}`),
@@ -37,7 +40,7 @@ async function sentence(site: SiteId, title: string, email: string): Promise<str
 				session: {
 					sub: 'lezer',
 					name: 'Lezer',
-					email,
+					email: 'lezer@example.org',
 					emailVerified: true,
 					organisation: null,
 					iat: 0,
@@ -70,64 +73,66 @@ beforeAll(async () => {
 	};
 	setForge(forge);
 	setConfigStore(store);
+	sites = store.sites();
 });
 
 describe('the fake fixtures of the local preview', () => {
 	it('hold a proposal for every row of what now', async () => {
-		const rows: [SiteId, string, string, RegExp][] = [
+		const rows: [SiteId, string, boolean, RegExp][] = [
 			[
 				'digi-handboek',
 				'Onboarding: begin bij je buddy',
-				DIGI_EDITOR,
+				EDITOR,
 				/^Je voorstel is nog een concept\./
 			],
 			[
 				'moza-site',
 				'Toegankelijkheid: wie je kunt mailen',
-				'iemand@example.org',
+				ANYONE,
 				/^De redactie beoordeelt je voorstel\./
 			],
 			[
 				'digi-handboek',
 				'Over het handboek: wie de redactie is',
-				DIGI_EDITOR,
+				EDITOR,
 				/^De redactie vraagt je iets aan te passen\./
 			],
-			['digi-handboek', 'Kennis: het team stelt zich voor', DIGI_EDITOR, /^Jij beslist\./],
+			['digi-handboek', 'Kennis: het team stelt zich voor', EDITOR, /^Jij beslist\./],
 			[
 				'moza-site',
 				'Weekly 23 september: de demo',
-				MOZA_EDITOR,
+				EDITOR,
 				/^Deze site vraagt eerst een goedkeuring op GitHub\./
 			],
 			[
 				'moza-site',
 				'Toegankelijkheid: wie je kunt mailen',
-				MOZA_EDITOR,
+				EDITOR,
 				/^Je schreef dit voorstel zelf\./
 			],
 			[
 				'moza-site',
 				'Weekly 23 september: de demo',
-				'iemand@example.org',
+				ANYONE,
 				/^De redactie beoordeelt dit voorstel\.$/
 			],
-			['digi-handboek', 'Offboarding: laptop inleveren', 'iemand@example.org', /^Samengevoegd op /],
+			['digi-handboek', 'Offboarding: laptop inleveren', ANYONE, /^Samengevoegd op /],
 			[
 				'digi-handboek',
 				'Principes: oude versie terugzetten',
-				'iemand@example.org',
+				ANYONE,
 				/^Gesloten zonder samenvoegen\./
 			]
 		];
-		for (const [site, title, email, expected] of rows) {
-			expect(await sentence(site, title, email), `${title} voor ${email}`).toMatch(expected);
+		for (const [site, title, redactie, expected] of rows) {
+			const reader = redactie ? 'de redactie' : 'een ander';
+			expect(await sentence(site, title, redactie), `${title} voor ${reader}`).toMatch(expected);
 		}
 	});
 
 	it('show the row for a site that merges on GitHub, with its setting turned off', async () => {
 		mergeInSchrijver = false;
-		expect(await sentence('moza-site', 'Weekly 23 september: de demo', MOZA_EDITOR)).toBe(
+		expect(await sentence('moza-site', 'Weekly 23 september: de demo', EDITOR)).toBe(
 			'Bij deze site gebeurt samenvoegen op GitHub.'
 		);
 		mergeInSchrijver = true;

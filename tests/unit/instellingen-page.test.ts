@@ -2,8 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Session } from '../../src/lib/auth/session';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { seedSites, useTeamStore } from '../../src/lib/auth/team-store';
+import type { FakeForge } from '../../src/lib/forge/fake';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
-import { getConfigStore, setConfigStore } from '../../src/lib/server/services';
+import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/instellingen/+page.server';
 
 const session = (sub: string): Session => ({
@@ -16,13 +17,15 @@ const session = (sub: string): Session => ({
 	exp: Date.now() + 60_000
 });
 
-const visit = async (sub: string) =>
+let forge: FakeForge;
+
+const visit = async (sub: string, githubLogin: string | null = null) =>
 	(await load({
 		url: new URL('http://x/instellingen'),
 		locals: {
 			user: {
 				session: session(sub),
-				prefs: { sub, identity: 'anoniem', githubLogin: null, githubId: null, onboarded: true }
+				prefs: { sub, identity: 'anoniem', githubLogin, githubId: null, onboarded: true }
 			}
 		}
 	} as never)) as {
@@ -32,7 +35,10 @@ const visit = async (sub: string) =>
 
 beforeAll(async () => {
 	process.env.SCHRIJVER_BEHEERDERS = 'platform';
-	setConfigStore((await buildFakeServices()).store);
+	const services = await buildFakeServices();
+	forge = services.forge;
+	setConfigStore(services.store);
+	setForge(forge);
 });
 afterAll(() => {
 	delete process.env.SCHRIJVER_BEHEERDERS;
@@ -71,6 +77,18 @@ describe('Beheer on Instellingen', () => {
 			platform: false,
 			sites: [{ id: 'moza-site', naam: 'MOZa' }]
 		});
+	});
+
+	it('lists a site whose repository the linked GitHub account administers', async () => {
+		forge.permissionByLogin.set('octo', 'admin');
+		expect((await visit('iemand', 'octo')).beheer).toEqual({
+			platform: false,
+			sites: [
+				{ id: 'digi-handboek', naam: 'Digi Handboek' },
+				{ id: 'moza-site', naam: 'MOZa' }
+			]
+		});
+		forge.permissionByLogin.delete('octo');
 	});
 
 	it('lists nothing for anyone else, and shows everyone their own sub', async () => {

@@ -24,15 +24,7 @@ async function statusLines(site: SiteConfig, { session, prefs }: User): Promise<
 		const waiting = proposals.filter((p) => waitsForReview(p.status)).length;
 		const editorial =
 			waiting > 0 &&
-			(await isEditorial(
-				site,
-				{
-					email: session.email,
-					emailVerified: session.emailVerified,
-					githubLogin: prefs.githubLogin
-				},
-				forge
-			));
+			(await isEditorial(site, { sub: session.sub, githubLogin: prefs.githubLogin }, forge));
 		const lines: string[] = [];
 		if (open > 0) lines.push(`Je hebt ${open} open ${open === 1 ? 'voorstel' : 'voorstellen'}`);
 		if (editorial) {

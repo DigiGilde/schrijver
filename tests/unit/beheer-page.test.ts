@@ -11,13 +11,15 @@ import { log } from '../../src/lib/log';
 import { seedFromConfig, type TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { seedSites, useTeamStore } from '../../src/lib/auth/team-store';
+import type { FakeForge } from '../../src/lib/forge/fake';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
-import { getConfigStore, setConfigStore } from '../../src/lib/server/services';
+import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
 import { actions, load } from '../../src/routes/instellingen/sites/[site]/+page.server';
 
 const DH = 'digi-handboek';
 const MOZA = 'moza-site';
 let team: TeamStore;
+let forge: FakeForge;
 
 const session = (sub: string): Session => ({
 	sub,
@@ -28,10 +30,11 @@ const session = (sub: string): Session => ({
 	iat: 0,
 	exp: Date.now() + 60_000
 });
+/** Octo linked the GitHub account octo. */
 const prefs = (sub: string): UserPrefs => ({
 	sub,
 	identity: 'anoniem',
-	githubLogin: null,
+	githubLogin: sub === 'octo' ? 'octo' : null,
 	githubId: null,
 	onboarded: true
 });
@@ -76,8 +79,10 @@ const SETTINGS = {
 beforeAll(async () => {
 	process.env.PSEUDONYM_SECRET = 'test-pseudonym-secret';
 	process.env.SCHRIJVER_BEHEERDERS = 'platform';
-	const { store } = await buildFakeServices();
-	setConfigStore(store);
+	const services = await buildFakeServices();
+	forge = services.forge;
+	setConfigStore(services.store);
+	setForge(forge);
 });
 afterAll(() => {
 	delete process.env.SCHRIJVER_BEHEERDERS;
@@ -141,6 +146,20 @@ describe('who may manage a site', () => {
 			expect.objectContaining({ email: 'test@example.org', rol: 'redactie' })
 		]);
 		expect(data.instellingen).toMatchObject({ naam: 'Digi Handboek', vierOgen: true });
+	});
+
+	it('lets someone whose linked GitHub account has admin permission manage the site', async () => {
+		forge.permissionByLogin.set('octo', 'admin');
+		try {
+			const data = (await load(event('octo', DH))) as { beheer: { naam: string } };
+			expect(data.beheer.naam).toBe('Digi Handboek');
+			forge.permissionByLogin.set('octo', 'write');
+			expect(await thrown(load(event('octo', DH)) as Promise<unknown>)).toMatchObject({
+				status: 404
+			});
+		} finally {
+			forge.permissionByLogin.delete('octo');
+		}
 	});
 
 	it('lets a platform admin manage any site', async () => {

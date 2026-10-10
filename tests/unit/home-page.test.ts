@@ -17,6 +17,7 @@ import { log } from '../../src/lib/log';
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/+page.server';
+import { useTeams } from './team-fixture';
 
 const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
 
@@ -27,10 +28,10 @@ const failing = new ConfigStore({
 	listFiles: async () => []
 });
 
-const session = (email: string): Session => ({
-	sub: 'lezer',
+const session = (sub: string): Session => ({
+	sub,
 	name: 'Lezer',
-	email,
+	email: `${sub}@example.org`,
 	emailVerified: true,
 	organisation: null,
 	iat: 0,
@@ -48,30 +49,31 @@ interface Data {
 	configNotLoaded: boolean;
 	sites: { id: string; naam: string; omschrijving?: string; adres?: string; status: string[] }[];
 }
-const OTHER = 'iemand@example.org';
-// Editorial on digi-handboek only: the fake services add this address to its redactie.
-const EDITOR = 'test@example.org';
+const OTHER = 'lezer';
+// On the redactie of digi-handboek only.
+const EDITOR = 'redacteur';
 
-const visit = (email: string | null = OTHER) =>
+const visit = (sub: string | null = OTHER) =>
 	load({
-		locals: { user: email === null ? null : { session: session(email), prefs } }
+		locals: { user: sub === null ? null : { session: session(sub), prefs: { ...prefs, sub } } }
 	} as never) as Promise<Data>;
 
-async function statusOf(site: string, email: string | null = OTHER) {
-	return (await visit(email)).sites.find((s) => s.id === site)!.status;
+async function statusOf(site: string, sub: string | null = OTHER) {
+	return (await visit(sub)).sites.find((s) => s.id === site)!.status;
 }
 
 let forge: FakeForge;
 
 type SiteId = 'digi-handboek' | 'moza-site';
 
-async function proposal(site: SiteId, slug: string, opts: { mine?: boolean; sent?: boolean } = {}) {
+/** A proposal signed by the user `door`, or by someone else. */
+async function proposal(site: SiteId, slug: string, opts: { door?: string; sent?: boolean } = {}) {
 	const repo = site === 'digi-handboek' ? digi.repo : moza.repo;
 	const file = site === 'digi-handboek' ? 'docs/index.md' : 'content/contact.md';
 	const branch = `schrijver/${site}/${slug}`;
 	await forge.createBranch(repo, 'main', branch);
 	await forge.commit(repo, branch, [{ path: file, content: `# ${slug}\n` }], slug);
-	const who = opts.mine ? pseudonym(process.env.PSEUDONYM_SECRET!, 'lezer') : 'iemandanders';
+	const who = opts.door ? pseudonym(process.env.PSEUDONYM_SECRET!, opts.door) : 'iemandanders';
 	const pr = await forge.openDraftPr(
 		repo,
 		branch,
@@ -89,6 +91,7 @@ beforeEach(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
+	await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
 });
 
 afterEach(() => {
@@ -164,16 +167,16 @@ describe('home page status lines', () => {
 	});
 
 	it('count the open proposals of the user, in the singular and the plural', async () => {
-		await proposal('digi-handboek', 'eigen-aaaa', { mine: true });
+		await proposal('digi-handboek', 'eigen-aaaa', { door: OTHER });
 		expect(await statusOf('digi-handboek')).toEqual(['Je hebt 1 open voorstel']);
-		await proposal('digi-handboek', 'eigen-bbbb', { mine: true });
+		await proposal('digi-handboek', 'eigen-bbbb', { door: OTHER });
 		expect(await statusOf('digi-handboek')).toEqual(['Je hebt 2 open voorstellen']);
 		expect(await statusOf('moza-site')).toEqual([]);
 	});
 
 	it('leave out the proposals of others and the ones that are no longer open', async () => {
 		await proposal('digi-handboek', 'ander-aaaa');
-		const done = await proposal('digi-handboek', 'eigen-cccc', { mine: true });
+		const done = await proposal('digi-handboek', 'eigen-cccc', { door: OTHER });
 		await forge.merge(digi.repo, done.number, 'samengevoegd');
 		expect(await statusOf('digi-handboek')).toEqual([]);
 	});
@@ -202,7 +205,7 @@ describe('home page status lines', () => {
 	});
 
 	it('give an editorial member with an own proposal both lines', async () => {
-		await proposal('digi-handboek', 'eigen-dddd', { mine: true, sent: true });
+		await proposal('digi-handboek', 'eigen-dddd', { door: EDITOR, sent: true });
 		await proposal('digi-handboek', 'ander-eeee', { sent: true });
 		expect(await statusOf('digi-handboek', EDITOR)).toEqual([
 			'Je hebt 1 open voorstel',
@@ -218,7 +221,7 @@ describe('home page status lines', () => {
 	});
 
 	it('are left out, quietly, when the forge cannot be reached', async () => {
-		await proposal('digi-handboek', 'eigen-hhhh', { mine: true });
+		await proposal('digi-handboek', 'eigen-hhhh', { door: OTHER });
 		forge.listPrs = async () => {
 			throw new ForgeError(503, 'GitHub is niet bereikbaar');
 		};

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { isSiteAdmin } from '$lib/auth/admin';
+import { canManageSite } from '$lib/auth/roles';
 import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
@@ -33,7 +33,7 @@ export const POST: RequestHandler = proposalAction(
 		const commits = await forge.prCommits(site.repo, pr.number);
 		if (site.review['vier-ogen']) {
 			const reason = fourEyes(authorship(pr, commits, user, await appAccount(forge)));
-			if (reason && !(await isSiteAdmin(site, user, forge))) {
+			if (reason && !(await canManageSite(site, user, forge))) {
 				return refuse(403, `${FOUR_EYES[reason]} Een ander lid van de redactie voegt het samen.`);
 			}
 		}

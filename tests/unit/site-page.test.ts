@@ -16,16 +16,18 @@ import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load as loadPages } from '../../src/routes/sites/[site]/+page.server';
 import { load as loadProposals } from '../../src/routes/sites/[site]/voorstellen/+page.server';
 import { load as loadAbout } from '../../src/routes/sites/[site]/over/+page.server';
+import { useTeams } from './team-fixture';
 
 const REPO = 'DigiGilde/handboek';
-const EDITOR = 'test@example.org';
-const WRITER = 'iemand@example.org';
+// On the redactie of digi-handboek.
+const EDITOR = 'redacteur';
+const WRITER = 'lezer';
 let forge: FakeForge;
 
-const session = (email: string): Session => ({
-	sub: 'lezer',
+const session = (sub: string): Session => ({
+	sub,
 	name: 'Lezer',
-	email,
+	email: `${sub}@example.org`,
 	emailVerified: true,
 	organisation: null,
 	iat: 0,
@@ -39,10 +41,10 @@ const prefs: UserPrefs = {
 	onboarded: true
 };
 
-const event = (email: string, site: string, path: string) => ({
+const event = (sub: string, site: string, path: string) => ({
 	params: { site },
 	url: new URL(`http://x/sites/${site}${path}`),
-	locals: { user: { session: session(email), prefs } }
+	locals: { user: { session: session(sub), prefs: { ...prefs, sub } } }
 });
 
 interface PagesData {
@@ -70,20 +72,20 @@ interface AboutData {
 	mergenVanuitSchrijver: boolean;
 }
 
-const pages = async (email: string, query = '') =>
-	(await loadPages(event(email, 'digi-handboek', query) as never)) as PagesData;
-const proposals = async (email: string, query = '') =>
+const pages = async (sub: string, query = '') =>
+	(await loadPages(event(sub, 'digi-handboek', query) as never)) as PagesData;
+const proposals = async (sub: string, query = '') =>
 	(await loadProposals(
-		event(email, 'digi-handboek', `/voorstellen${query}`) as never
+		event(sub, 'digi-handboek', `/voorstellen${query}`) as never
 	)) as ProposalsData;
-const about = async (email: string, site = 'digi-handboek') =>
-	(await loadAbout(event(email, site, '/over') as never)) as AboutData;
+const about = async (sub: string, site = 'digi-handboek') =>
+	(await loadAbout(event(sub, site, '/over') as never)) as AboutData;
 
 async function proposal(slug: string, opts: { sent: boolean; mine?: boolean }) {
 	const branch = `schrijver/digi-handboek/${slug}`;
 	await forge.createBranch(REPO, 'main', branch);
 	await forge.commit(REPO, branch, [{ path: 'docs/index.md', content: `# ${slug}\n` }], slug);
-	const who = opts.mine ? pseudonym(process.env.PSEUDONYM_SECRET!, 'lezer') : 'iemandanders';
+	const who = opts.mine ? pseudonym(process.env.PSEUDONYM_SECRET!, WRITER) : 'iemandanders';
 	const pr = await forge.openDraftPr(
 		REPO,
 		branch,
@@ -106,6 +108,7 @@ beforeAll(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
+	await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
 	sentIn = await proposal('ingestuurd-aaaa', { sent: true });
 	concept = await proposal('concept-bbbb', { sent: false });
 	own = await proposal('eigen-cccc', { sent: false, mine: true });
@@ -234,8 +237,7 @@ describe('about page', () => {
 	it('carries nothing for the tabs and does not ask the forge for proposals', async () => {
 		const listPrs = vi.spyOn(forge, 'listPrs');
 		try {
-			for (const email of [EDITOR, WRITER])
-				expect(await about(email)).not.toHaveProperty('wachtend');
+			for (const sub of [EDITOR, WRITER]) expect(await about(sub)).not.toHaveProperty('wachtend');
 			expect(listPrs).not.toHaveBeenCalled();
 		} finally {
 			listPrs.mockRestore();

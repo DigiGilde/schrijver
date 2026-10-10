@@ -18,6 +18,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }));
 import { log } from '../../src/lib/log';
+import { settingsOf, useTeams } from './team-fixture';
 
 const site = (over: Partial<SiteConfig> & { label?: boolean } = {}): SiteConfig =>
 	({
@@ -418,12 +419,11 @@ describe('pickReviewers', () => {
 
 describe('canAct', () => {
 	it('detects owner and editorial', async () => {
+		await useTeams([settingsOf('moza')], { moza: { s: 'redactie' } });
 		const pr = await draft();
 		const user = {
 			sub: 's',
 			identities: [{ kind: 'anoniem' as const, pseudoniem: 'abc' }],
-			email: 'red@example.org',
-			emailVerified: true,
 			githubLogin: null,
 			identityKind: 'anoniem' as const
 		};
@@ -437,7 +437,7 @@ describe('canAct', () => {
 			owner: false,
 			editorial: false
 		});
-		expect(await canAct({ ...user, identities: [], email: 'a@b.nl' }, site(), pr, forge)).toEqual({
+		expect(await canAct({ ...user, identities: [], sub: 'ander' }, site(), pr, forge)).toEqual({
 			owner: false,
 			editorial: false
 		});

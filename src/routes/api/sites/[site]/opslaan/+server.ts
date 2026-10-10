@@ -95,10 +95,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	}
 
 	const forge = getForge();
-	const { session, prefs } = user as unknown as {
-		session: { email: string; emailVerified: boolean };
-		prefs: { githubLogin: string | null };
-	};
+	const { prefs } = user as unknown as { prefs: { githubLogin: string | null } };
 	const result = await save(
 		forge,
 		site,
@@ -107,16 +104,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		parsed,
 		{
 			identities: identitiesFor(user.prefs, user.session),
-			isEditorial: () =>
-				isEditorial(
-					site,
-					{
-						email: session.email,
-						emailVerified: session.emailVerified,
-						githubLogin: prefs.githubLogin
-					},
-					forge
-				)
+			isEditorial: () => isEditorial(site, { sub, githubLogin: prefs.githubLogin }, forge)
 		}
 	);
 	if (result.ok) {
