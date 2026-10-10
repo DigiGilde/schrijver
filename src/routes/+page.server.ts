@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
+import { managedSites } from '$lib/auth/roles';
 import { siteSettings } from '$lib/auth/team-store';
 import { addressText } from '$lib/config/site-address';
 import type { SiteConfig } from '$lib/config/types';
@@ -59,21 +60,34 @@ async function statusWithin(site: SiteConfig, user: User): Promise<string[]> {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const store = getConfigStore();
-	const sites = store.sites();
+	const statuses = store.statuses();
 	const user = locals.user;
+	// Only a site with a problem asks who manages it: its admins see the problem, and a site nobody
+	// can edit only them.
+	const troubled = statuses.filter((s) => s.errors.length > 0).map((s) => s.site);
+	const asker = user && { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
+	const beheerd = new Set(asker ? await managedSites(troubled, asker, getForge()) : []);
+	const shown = statuses.filter((s) => s.available || beheerd.has(s.site.id));
 	const [settings, status] = await Promise.all([
-		Promise.all(sites.map((site) => siteSettings(site))),
-		Promise.all(sites.map((site) => (user ? statusWithin(site, user) : Promise.resolve([]))))
+		Promise.all(shown.map((s) => siteSettings(s.site))),
+		Promise.all(
+			shown.map((s) => {
+				const site = store.site(s.site.id);
+				return user && site ? statusWithin(site, user) : Promise.resolve([]);
+			})
+		)
 	]);
 	return {
 		// The detail is logged by the loader; everyone gets the same notice.
-		configNotLoaded: sites.length === 0 && store.state().lastError !== null,
-		sites: settings.map((s, i) => ({
-			id: s.siteId,
-			naam: s.naam,
-			omschrijving: s.omschrijving,
-			adres: s.adres ? addressText(s.adres) : undefined,
-			status: status[i]
+		configNotLoaded: statuses.length === 0 && store.state().lastError !== null,
+		sites: shown.map((s, i) => ({
+			id: s.site.id,
+			naam: settings[i].naam,
+			omschrijving: settings[i].omschrijving,
+			adres: settings[i].adres ? addressText(settings[i].adres) : undefined,
+			status: status[i],
+			beschikbaar: s.available,
+			klopNiet: beheerd.has(s.site.id)
 		}))
 	};
 };

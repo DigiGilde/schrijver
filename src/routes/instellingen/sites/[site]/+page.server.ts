@@ -4,25 +4,51 @@ import { actorPseudonym } from '$lib/auth/identity';
 import { canManageSite, isPlatformAdmin } from '$lib/auth/roles';
 import { isRole, type TeamChange } from '$lib/auth/team';
 import { siteSettings, teamStore } from '$lib/auth/team-store';
+import type { SiteConfig } from '$lib/config/types';
 import { log } from '$lib/log';
-import { getConfigStore, getForge } from '$lib/server/services';
+import { getConfigStore, getForge, reloadSite } from '$lib/server/services';
 import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './forms';
 
 /**
  * The site and the signed-in user, when the user may manage the site: a platform admin or a
- * beheerder of it. Anyone else gets the same 404 as for a site that does not exist.
+ * beheerder of it. Anyone else gets the same 404 as for a site that does not exist. A site whose
+ * files are not valid is managed here too.
  */
 async function managed(event: RequestEvent) {
 	const user = event.locals.user;
 	if (!user) redirect(303, '/login');
-	const site = getConfigStore().site(event.params.site ?? '');
+	const status = getConfigStore().status(event.params.site ?? '');
 	const asker = { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
-	if (!site || !(await canManageSite(site, asker, getForge())))
+	if (!status || !(await canManageSite(status.site, asker, getForge())))
 		error(404, 'Deze pagina bestaat niet');
+	const site = status.site;
 	const team = teamStore();
 	const settings = await siteSettings(site, team);
 	const actor = { sub: user.session.sub, platformAdmin: isPlatformAdmin(user.session.sub) };
-	return { site, settings, session: user.session, asker, team, actor };
+	return { site, status, settings, session: user.session, asker, team, actor };
+}
+
+const PREVIEW: Record<SiteConfig['preview']['soort'], string> = {
+	'bij-push': 'Bij elke keer bewaren',
+	'bij-label': 'Na insturen',
+	geen: 'Geen voorbeeld'
+};
+
+/** What `.schrijver/` says, as its admins read it; null for a site without a valid structure. */
+function structure(siteId: string) {
+	const store = getConfigStore();
+	const site = store.site(siteId);
+	if (!site) return null;
+	const schema = store.schema(siteId);
+	const nieuw = schema['nieuwe-pagina'];
+	return {
+		paginas: `${site.content.pad || '.'}/${site.content.patroon}`,
+		uitsluiten: site.content.uitsluiten ?? [],
+		afbeeldingen: site.content.afbeeldingen?.pad ?? null,
+		voorbeeld: PREVIEW[site.preview.soort],
+		nieuwePaginas: 'soorten' in nieuw ? nieuw.soorten.map((s) => s.naam) : nieuw.mappen,
+		schrijfwijzer: store.schrijfwijzer(siteId) !== ''
+	};
 }
 
 type Managed = Awaited<ReturnType<typeof managed>>;
@@ -56,13 +82,22 @@ function refused(m: Managed, actie: 'rol' | 'verwijderen', sub: string, change: 
 }
 
 export const load: PageServerLoad = async (event) => {
-	const { site, settings, session, team } = await managed(event);
+	const { site, status, settings, session, team, actor } = await managed(event);
 	const [members, invitations] = await Promise.all([
 		team.members(site.id),
 		team.invitations(site.id)
 	]);
+	const branch = site.standaardbranch.split('/').map(encodeURIComponent).join('/');
 	return {
 		beheer: { id: site.id, naam: settings.naam, repo: site.repo },
+		toegevoegd: event.url.searchParams.get('toegevoegd') === '1',
+		structuur: {
+			bruikbaar: status.available,
+			fouten: status.errors,
+			url: `https://github.com/${site.repo}/tree/${branch}/.schrijver`,
+			samenvatting: structure(site.id)
+		},
+		magVerwijderen: actor.platformAdmin,
 		instellingen: {
 			naam: settings.naam,
 			omschrijving: settings.omschrijving ?? '',
@@ -184,6 +219,20 @@ export const actions: Actions = {
 			actie: 'intrekken',
 			melding: `De uitnodiging voor ${revoked.email} is ingetrokken.`
 		};
+	},
+
+	verwijderSite: async (event) => {
+		const m = await managed(event);
+		if (!m.actor.platformAdmin) {
+			return fail(403, {
+				actie: 'verwijderSite',
+				fout: 'Alleen een beheerder van Schrijver haalt een site uit Schrijver.'
+			});
+		}
+		if (!(await m.team.removeSite(m.site.id, m.actor.sub))) error(404, 'Deze pagina bestaat niet');
+		log.info('site.removed', { site: m.site.id, actor: actorPseudonym(m.session) });
+		await reloadSite(m.site.id);
+		redirect(303, '/instellingen?verwijderd=1');
 	},
 
 	instellingen: async (event) => {

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Session } from '../../src/lib/auth/session';
+import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { FakeForge } from '../../src/lib/forge/fake';
-import { buildFakeServices } from '../../src/lib/server/fake-mode';
-import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
-import { useTeams } from './team-fixture';
+import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
+import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/instellingen/+page.server';
 
 const session = (sub: string): Session => ({
@@ -19,9 +19,9 @@ const session = (sub: string): Session => ({
 
 let forge: FakeForge;
 
-const visit = async (sub: string, githubLogin: string | null = null) =>
+const visit = async (sub: string, githubLogin: string | null = null, query = '') =>
 	(await load({
-		url: new URL('http://x/instellingen'),
+		url: new URL(`http://x/instellingen${query}`),
 		locals: {
 			user: {
 				session: session(sub),
@@ -29,8 +29,9 @@ const visit = async (sub: string, githubLogin: string | null = null) =>
 			}
 		}
 	} as never)) as {
-		beheer: { platform: boolean; sites: { id: string; naam: string }[] };
+		beheer: { platform: boolean; sites: { id: string; naam: string; klopNiet: boolean }[] };
 		kenmerk: string;
+		siteVerwijderd: boolean;
 	};
 
 beforeAll(async () => {
@@ -46,7 +47,9 @@ afterAll(() => {
 });
 
 beforeEach(async () => {
-	const team = await useTeams(getConfigStore().sites());
+	const team = new MemoryTeamStore();
+	useTeamStore(team);
+	for (const { site, settings } of PREVIEW_SITES) await team.addSite(site, settings, null, null);
 	await team.recordLogin({
 		sub: 'baas',
 		name: 'B',
@@ -60,12 +63,13 @@ beforeEach(async () => {
 });
 
 describe('Beheer on Instellingen', () => {
-	it('lists every configured site for a platform admin', async () => {
+	it('lists every site for a platform admin, with the one whose files are not valid', async () => {
 		expect((await visit('platform')).beheer).toEqual({
 			platform: true,
 			sites: [
-				{ id: 'digi-handboek', naam: 'Digi Handboek' },
-				{ id: 'moza-site', naam: 'MOZa' }
+				{ id: 'digi-handboek', naam: 'Digi Handboek', klopNiet: false },
+				{ id: 'moza-site', naam: 'MOZa', klopNiet: false },
+				{ id: 'oude-site', naam: 'Oude site', klopNiet: true }
 			]
 		});
 	});
@@ -73,8 +77,13 @@ describe('Beheer on Instellingen', () => {
 	it('lists the sites a beheerder manages, and not those where they are redactie', async () => {
 		expect((await visit('baas')).beheer).toEqual({
 			platform: false,
-			sites: [{ id: 'moza-site', naam: 'MOZa' }]
+			sites: [{ id: 'moza-site', naam: 'MOZa', klopNiet: false }]
 		});
+	});
+
+	it('says a site was removed only after a removal', async () => {
+		expect((await visit('platform', null, '?verwijderd=1')).siteVerwijderd).toBe(true);
+		expect((await visit('platform')).siteVerwijderd).toBe(false);
 	});
 
 	it('lists a site whose repository the linked GitHub account administers', async () => {
@@ -82,8 +91,9 @@ describe('Beheer on Instellingen', () => {
 		expect((await visit('iemand', 'octo')).beheer).toEqual({
 			platform: false,
 			sites: [
-				{ id: 'digi-handboek', naam: 'Digi Handboek' },
-				{ id: 'moza-site', naam: 'MOZa' }
+				{ id: 'digi-handboek', naam: 'Digi Handboek', klopNiet: false },
+				{ id: 'moza-site', naam: 'MOZa', klopNiet: false },
+				{ id: 'oude-site', naam: 'Oude site', klopNiet: true }
 			]
 		});
 		forge.permissionByLogin.delete('octo');

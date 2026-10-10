@@ -12,8 +12,9 @@ import type { TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { FakeForge } from '../../src/lib/forge/fake';
+import { ConfigStore } from '../../src/lib/config/load';
 import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
-import { setConfigStore, setForge } from '../../src/lib/server/services';
+import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
 import { actions, load } from '../../src/routes/instellingen/sites/[site]/+page.server';
 
 const DH = 'digi-handboek';
@@ -39,14 +40,19 @@ const prefs = (sub: string): UserPrefs => ({
 	onboarded: true
 });
 
-function event(sub: string, site: string, fields: Record<string, string | string[]> = {}) {
+function event(
+	sub: string,
+	site: string,
+	fields: Record<string, string | string[]> = {},
+	query = ''
+) {
 	const body = new FormData();
 	for (const [k, v] of Object.entries(fields)) {
 		for (const value of Array.isArray(v) ? v : [v]) body.append(k, value);
 	}
 	return {
 		params: { site },
-		url: new URL(`http://x/instellingen/sites/${site}`),
+		url: new URL(`http://x/instellingen/sites/${site}${query}`),
 		locals: { user: { session: session(sub), prefs: prefs(sub) } },
 		request: new Request(`http://x/instellingen/sites/${site}`, { method: 'POST', body })
 	} as never;
@@ -370,5 +376,104 @@ describe('the settings of the site', () => {
 	it('keeps an empty description and address empty', async () => {
 		await act('instellingen', 'baas', DH, { ...SETTINGS, omschrijving: '', adres: '' });
 		expect(await team.settings(DH)).toMatchObject({ omschrijving: null, adres: null });
+	});
+});
+
+type Structure = {
+	bruikbaar: boolean;
+	fouten: string[];
+	url: string;
+	samenvatting: Record<string, unknown> | null;
+};
+
+describe('the structure of the site', () => {
+	it('summarises .schrijver/ and links to it on GitHub', async () => {
+		const data = (await load(event('baas', DH))) as { structuur: Structure };
+		expect(data.structuur).toEqual({
+			bruikbaar: true,
+			fouten: [],
+			url: 'https://github.com/DigiGilde/handboek/tree/main/.schrijver',
+			samenvatting: {
+				paginas: 'docs/**/*.md',
+				uitsluiten: [],
+				afbeeldingen: 'docs/afbeeldingen/{paginaslug}',
+				voorbeeld: 'Bij elke keer bewaren',
+				nieuwePaginas: ['kennis', 'werkwijze', 'onboarding', 'over'],
+				schrijfwijzer: false
+			}
+		});
+		const moza = (await load(event('platform', MOZA))) as { structuur: Structure };
+		expect(moza.structuur.samenvatting).toMatchObject({
+			uitsluiten: ['documenten/**'],
+			voorbeeld: 'Na insturen',
+			nieuwePaginas: ['Weekly', 'Handboekpagina', 'Onderwerp'],
+			schrijfwijzer: true
+		});
+	});
+
+	it('lets its admins manage a site nobody can edit, and shows them what is wrong', async () => {
+		const data = (await load(event('platform', 'oude-site'))) as {
+			beheer: { naam: string };
+			structuur: Structure;
+		};
+		expect(data.beheer.naam).toBe('Oude site');
+		expect(data.structuur).toMatchObject({ bruikbaar: false, samenvatting: null });
+		expect(data.structuur.fouten).toContain('.schrijver/schema.yaml: ontbreekt');
+		expect(await thrown(load(event('baas', 'oude-site')) as Promise<unknown>)).toMatchObject({
+			status: 404
+		});
+	});
+
+	it('says the site was added only right after adding it', async () => {
+		expect(((await load(event('platform', DH, {}, '?toegevoegd=1'))) as never)['toegevoegd']).toBe(
+			true
+		);
+		expect(((await load(event('platform', DH))) as never)['toegevoegd']).toBe(false);
+	});
+});
+
+describe('removing a site', () => {
+	it('is offered to platform admins only', async () => {
+		expect(((await load(event('platform', DH))) as never)['magVerwijderen']).toBe(true);
+		expect(((await load(event('baas', DH))) as never)['magVerwijderen']).toBe(false);
+	});
+
+	it('is refused to a beheerder of the site, and to anyone else', async () => {
+		expect(await act('verwijderSite', 'baas', DH)).toMatchObject({
+			status: 403,
+			data: { fout: 'Alleen een beheerder van Schrijver haalt een site uit Schrijver.' }
+		});
+		expect(await thrown(act('verwijderSite', 'red', DH))).toMatchObject({ status: 404 });
+		expect((await team.sites()).map((s) => s.id)).toContain(DH);
+	});
+
+	it('removes the site with its team for a platform admin, writes it down and reloads the sites', async () => {
+		const before = getConfigStore();
+		const store = new ConfigStore(team, () => forge);
+		await store.load();
+		setConfigStore(store);
+		try {
+			expect(await thrown(act('verwijderSite', 'platform', DH))).toMatchObject({
+				status: 303,
+				location: '/instellingen?verwijderd=1'
+			});
+			expect((await team.sites()).map((s) => s.id)).not.toContain(DH);
+			expect(await team.members(DH)).toEqual([]);
+			expect(await team.invitations(DH)).toEqual([]);
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'platform',
+				action: 'site.removed',
+				target: 'DigiGilde/handboek'
+			});
+			expect(store.site(DH)).toBeUndefined();
+			expect(store.status(DH)).toBeUndefined();
+			expect(log.info).toHaveBeenCalledWith('site.removed', {
+				site: DH,
+				actor: expect.any(String)
+			});
+			expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('platform');
+		} finally {
+			setConfigStore(before);
+		}
 	});
 });

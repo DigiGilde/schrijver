@@ -12,7 +12,9 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 
 import { log } from '../../src/lib/log';
-import { buildFakeServices } from '../../src/lib/server/fake-mode';
+import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
+import { useTeamStore } from '../../src/lib/auth/team-store';
+import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/+page.server';
 import { digi, moza } from './sites-fixture';
@@ -66,6 +68,7 @@ async function statusOf(site: string, sub: string | null = OTHER) {
 }
 
 let forge: FakeForge;
+let store: ConfigStore;
 
 type SiteId = 'digi-handboek' | 'moza-site';
 
@@ -92,6 +95,7 @@ beforeEach(async () => {
 	process.env.PSEUDONYM_SECRET = 'home-page-test-secret';
 	const services = await buildFakeServices();
 	forge = services.forge;
+	store = services.store;
 	setForge(forge);
 	setConfigStore(services.store);
 	await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
@@ -266,5 +270,61 @@ describe('home page status lines', () => {
 		const listPrs = vi.spyOn(forge, 'listPrs');
 		expect((await visit(null)).sites.map((s) => s.status)).toEqual([[], []]);
 		expect(listPrs).not.toHaveBeenCalled();
+	});
+});
+
+describe('home page for the admins of a site with a problem', () => {
+	const ADMIN = 'baas';
+	let team: MemoryTeamStore;
+
+	beforeEach(async () => {
+		process.env.SCHRIJVER_BEHEERDERS = 'platform';
+		team = new MemoryTeamStore();
+		for (const { site, settings } of PREVIEW_SITES) await team.addSite(site, settings, null, null);
+		await team.recordLogin({
+			sub: ADMIN,
+			name: 'Baas',
+			email: 'baas@example.org',
+			emailVerified: true
+		});
+		await team.addByEmail('moza-site', 'baas@example.org', 'beheerder', 'platform');
+		useTeamStore(team);
+	});
+	afterEach(() => {
+		delete process.env.SCHRIJVER_BEHEERDERS;
+	});
+
+	const card = async (sub: string, site: string) =>
+		(await visit(sub)).sites.find((s) => s.id === site) as
+			(Data['sites'][number] & { beschikbaar: boolean; klopNiet: boolean }) | undefined;
+
+	it('shows a site nobody can edit to its admins only, with what is wrong', async () => {
+		expect(await card('platform', 'oude-site')).toEqual({
+			id: 'oude-site',
+			naam: 'Oude site',
+			omschrijving: 'Een site die nog de opzet van voor .schrijver/ heeft.',
+			adres: undefined,
+			status: [],
+			beschikbaar: false,
+			klopNiet: true
+		});
+		expect(await card(OTHER, 'oude-site')).toBeUndefined();
+		expect(await card(ADMIN, 'oude-site')).toBeUndefined();
+		await team.addByEmail('oude-site', 'baas@example.org', 'beheerder', 'platform');
+		expect(await card(ADMIN, 'oude-site')).toMatchObject({ beschikbaar: false, klopNiet: true });
+	});
+
+	it('tells the admins of a site, not the others, when a later change to its files is not valid', async () => {
+		await forge.commit(
+			'MinBZK/moza-site',
+			'main',
+			[{ path: '.schrijver/site.yaml', content: 'naam: MOZa\n' }],
+			'm'
+		);
+		await store.reload('moza-site');
+		expect(await card(ADMIN, 'moza-site')).toMatchObject({ beschikbaar: true, klopNiet: true });
+		expect(await card('platform', 'moza-site')).toMatchObject({ klopNiet: true });
+		expect(await card(OTHER, 'moza-site')).toMatchObject({ beschikbaar: true, klopNiet: false });
+		expect(await card(ADMIN, 'digi-handboek')).toMatchObject({ klopNiet: false });
 	});
 });

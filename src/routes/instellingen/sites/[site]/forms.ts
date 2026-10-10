@@ -81,7 +81,7 @@ export function parseSettings(form: FormData): SettingsForm | null {
 
 /** What an action of the page answers, as the components read it. */
 export interface Resultaat {
-	actie: 'toevoegen' | 'rol' | 'verwijderen' | 'intrekken' | 'instellingen';
+	actie: 'toevoegen' | 'rol' | 'verwijderen' | 'intrekken' | 'instellingen' | 'verwijderSite';
 	melding?: string;
 	uitleg?: string;
 	fout?: string;

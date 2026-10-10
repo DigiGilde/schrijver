@@ -23,7 +23,10 @@
 		{:else}
 			<nldd-collection item-width="320px" show-load-more>
 				{#each data.sites as site (site.id)}
-					<nldd-card href="/sites/{site.id}" accessible-label={site.naam}>
+					<nldd-card
+						href={site.beschikbaar ? `/sites/${site.id}` : `/instellingen/sites/${site.id}`}
+						accessible-label={site.beschikbaar ? site.naam : `Beheer van ${site.naam}`}
+					>
 						<nldd-container padding="16" gap="8">
 							<nldd-title size="4" heading-level="2" text={site.naam}></nldd-title>
 							{#if site.omschrijving}
@@ -33,8 +36,13 @@
 								<nldd-text size="sm" color="secondary">{site.adres}</nldd-text>
 							{/if}
 						</nldd-container>
-						{#if site.status.length > 0}
+						{#if site.klopNiet || site.status.length > 0}
 							<nldd-container slot="footer" padding="16" padding-top="0" gap="4">
+								{#if site.klopNiet}
+									<nldd-text size="sm" weight="medium" color="critical"
+										>De instellingen in de repository kloppen niet</nldd-text
+									>
+								{/if}
 								{#each site.status as regel (regel)}
 									<nldd-text size="sm" weight="medium">{regel}</nldd-text>
 								{/each}
