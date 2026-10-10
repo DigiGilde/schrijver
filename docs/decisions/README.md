@@ -7,3 +7,4 @@
 - [0005: No "Goedkeuren" from Schrijver in version one](0005-no-approve-from-schrijver.md): the App cannot approve its own pull request; editors comment and merge, and approve on GitHub.
 - [0006: NLDD application shell, preview on demand, coloured diff](0006-application-shell-and-diff.md): the app follows the NLDD application composition, the editor has one writing surface, a proposal shows its changes in colour.
 - [0007: Three steps, one decision in Schrijver, four eyes](0007-three-steps-and-four-eyes.md): the redactie merges or asks for an adjustment, the conversation comes into Schrijver, and nobody merges their own proposal.
+- [0008: People in Schrijver, structure in the site](0008-people-in-schrijver-structure-in-the-site.md): teams and site settings live in Postgres keyed by the SSO sub and are managed under Instellingen; a site's structure moves into its own repository.
