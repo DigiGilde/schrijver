@@ -107,7 +107,7 @@ describe('ConfigStore', () => {
 				'.schrijver/schema.yaml: ontbreekt'
 			]
 		});
-		expect(store.needsRetry()).toBe(false);
+		expect(store.retrying()).toEqual([]);
 	});
 
 	it('keeps the last valid structure after an invalid change, and says what is wrong', async () => {
@@ -169,7 +169,7 @@ describe('ConfigStore', () => {
 			available: true,
 			errors: [NOT_INSTALLED(MOZA)]
 		});
-		expect(store.needsRetry()).toBe(true);
+		expect(store.retrying()).toEqual(['moza-site']);
 
 		forge.setInstalled(MOZA, true);
 		forge.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
@@ -183,7 +183,7 @@ describe('ConfigStore', () => {
 
 		await store.reload('moza-site');
 		expect(store.status('moza-site')?.errors).toEqual([]);
-		expect(store.needsRetry()).toBe(false);
+		expect(store.retrying()).toEqual([]);
 	});
 
 	it('keeps what it had, and throws, when the registry cannot be read', async () => {

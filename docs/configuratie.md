@@ -20,11 +20,11 @@ Working examples of the pilot sites are in [een-site-aansluiten.md](een-site-aan
 How Schrijver reads the folder:
 
 - From the default branch of the site repository: at start-up for every site, four at a time, and again on a push to that branch (see the webhook in [een-site-aansluiten.md](een-site-aansluiten.md#9-add-the-webhook)). "Site toevoegen" reads it before the site is added.
-- The repository is known by GitHub's numeric id. When GitHub renames or moves it, or its default branch changes, Schrijver follows; a repository that takes over the old name with another id is never used, and the site cannot be edited until that is sorted out.
+- The repository is known by GitHub's numeric id. When GitHub renames or moves it, Schrijver follows at once on GitHub's `repository` event, and otherwise on the next push or load, which also follow a new default branch. A repository that takes over the old name with another id is never used, and the site cannot be edited until that is sorted out.
 - `site.yaml` and `schema.yaml` are read up to 64 kB each, `schrijfwijzer.md` up to 32 kB; a larger file is refused unread. Files are UTF-8; YAML aliases that would expand without bound are refused.
 - Every problem names its file and its field, in Dutch, for example `.schrijver/site.yaml: preview.url: moet {nummer} bevatten`. The site's admins see them on the start page ("De instellingen in de repository kloppen niet") and on the beheer page of the site; the logs only count them.
 - A site whose files are missing or not valid cannot be edited, and only its admins see it. When a later change is not valid, Schrijver keeps the last valid structure until it restarts, and shows the problem to the admins.
-- When GitHub cannot be reached, or the App is no longer installed on the repository, Schrijver tries again every minute.
+- When GitHub cannot be reached, or the App is no longer installed on the repository, the site stays editable with its last valid structure, and its admins see the problem. Schrijver reads that site again every minute, and only the sites that failed, until it succeeds. GitHub's events on the App's installation read the sites it concerns again at once, so a removed App shows as a problem at once and one that is back works at once (see [the webhook](een-site-aansluiten.md#9-add-the-webhook)).
 
 ### site.yaml
 

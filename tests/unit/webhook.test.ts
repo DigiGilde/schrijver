@@ -12,12 +12,14 @@ vi.mock('$lib/log', () => ({
 }));
 
 const reloadSite = vi.fn(async (_siteId: string) => {});
+const reloadConfig = vi.fn(async () => {});
 const fake = new FakeForge();
 const forge = new CachingForge(fake);
 const invalidate = vi.spyOn(forge, 'invalidate');
 
 vi.mock('$lib/server/services', () => ({
 	reloadSite: (siteId: string) => reloadSite(siteId),
+	reloadConfig: () => reloadConfig(),
 	getForge: () => forge
 }));
 
@@ -47,6 +49,7 @@ const push = (over: Record<string, unknown> = {}, repository: Record<string, unk
 beforeEach(async () => {
 	process.env.GITHUB_WEBHOOK_SECRET = SECRET;
 	reloadSite.mockClear();
+	reloadConfig.mockClear();
 	invalidate.mockClear();
 	vi.mocked(log.error).mockClear();
 	team = new MemoryTeamStore();
@@ -177,6 +180,94 @@ describe('github webhook', () => {
 		expect(res.status).toBe(204);
 		expect(invalidate).not.toHaveBeenCalled();
 		expect(reloadSite).not.toHaveBeenCalled();
+		expect(reloadConfig).not.toHaveBeenCalled();
+	});
+
+	describe('a change to the App installation', () => {
+		const repos = (...ids: number[]) =>
+			ids.map((id) => ({ id, name: `r${id}`, full_name: `Org/r${id}`, private: false }));
+
+		it('reads again the sites of the repositories the App left or joined, by id', async () => {
+			for (const [action, list] of [
+				['removed', 'repositories_removed'],
+				['added', 'repositories_added']
+			]) {
+				reloadSite.mockClear();
+				const payload = { action, repositories_added: [], repositories_removed: [] };
+				const res = await call('installation_repositories', { ...payload, [list]: repos(7, 8) });
+				expect(res.status).toBe(204);
+				expect(reloadSite.mock.calls).toEqual([['site']]);
+				expect(invalidate).toHaveBeenCalledWith(SITE);
+			}
+			expect(reloadConfig).not.toHaveBeenCalled();
+		});
+
+		it('reads again the sites of an installation that is removed, suspended or let back', async () => {
+			for (const action of ['deleted', 'suspend', 'unsuspend', 'created']) {
+				await call('installation', { action, repositories: repos(7) });
+			}
+			expect(reloadSite.mock.calls).toEqual([['site'], ['site'], ['site'], ['site']]);
+			await call('installation', { action: 'deleted', repositories: repos(8, 9) });
+			expect(reloadSite).toHaveBeenCalledTimes(4);
+			expect(reloadConfig).not.toHaveBeenCalled();
+		});
+
+		it('reads every site again when the event names no repository', async () => {
+			await call('installation', { action: 'deleted' });
+			await call('installation_repositories', {
+				action: 'added',
+				repository_selection: 'all',
+				repositories_added: [],
+				repositories_removed: []
+			});
+			expect(reloadConfig).toHaveBeenCalledTimes(2);
+			expect(reloadSite).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('a change to a repository', () => {
+		const changed = (action: string, repository: Record<string, unknown> = {}) => ({
+			action,
+			repository: { id: 7, full_name: SITE, default_branch: 'main', ...repository }
+		});
+
+		it('follows a repository of a site that is renamed or moved, by its id, and reads it again', async () => {
+			await call('repository', changed('renamed', { full_name: 'Org/nieuwe-naam' }));
+			expect((await team.sites())[0]).toMatchObject({ repo: 'Org/nieuwe-naam' });
+			expect(log.info).toHaveBeenCalledWith('webhook.site_moved', { site: 'site' });
+			await call('repository', changed('transferred', { full_name: 'Ander/site' }));
+			expect((await team.sites())[0]).toMatchObject({
+				repo: 'Ander/site',
+				standaardbranch: 'main'
+			});
+			expect(reloadSite.mock.calls).toEqual([['site'], ['site']]);
+			expect(invalidate).toHaveBeenCalledWith(SITE);
+		});
+
+		it('reads a site again whose repository is deleted, so its admins see why', async () => {
+			await call('repository', changed('deleted'));
+			expect(reloadSite).toHaveBeenCalledWith('site');
+			expect((await team.sites())[0]).toMatchObject({ repo: SITE });
+		});
+
+		it('leaves other changes, other repositories and names that are not one alone', async () => {
+			await call('repository', changed('edited'));
+			await call('repository', changed('archived'));
+			await call('repository', changed('renamed', { id: 8, full_name: 'Org/ander' }));
+			expect(reloadSite).not.toHaveBeenCalled();
+			await call('repository', changed('renamed', { full_name: 'geen naam' }));
+			expect((await team.sites())[0]).toMatchObject({ repo: SITE });
+			expect(reloadSite).toHaveBeenCalledTimes(1);
+		});
+
+		it('answers 503 when the registry cannot be read', async () => {
+			vi.spyOn(team, 'sites').mockRejectedValueOnce(new Error('database down'));
+			expect((await call('repository', changed('deleted'))).status).toBe(503);
+			expect(log.error).toHaveBeenCalledWith('webhook.reload_failed', {
+				repo: SITE,
+				error: 'Error'
+			});
+		});
 	});
 
 	it('answers 503 when the registry cannot be read, so GitHub shows the delivery failed', async () => {

@@ -449,6 +449,8 @@ export class GitHubForge implements Forge {
 	}
 
 	async repository(repo: string): Promise<RepoInfo | null> {
+		// The installation as it is now: the App may have left the repository, or come back under a new id.
+		this.installations.delete(repo);
 		let data: Json;
 		try {
 			data = await this.request(repo, 'GET /repos/{owner}/{repo}');

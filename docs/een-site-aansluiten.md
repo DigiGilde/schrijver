@@ -16,7 +16,7 @@ Repository permissions:
 | Checks | Read | Showing the build status of a preview. |
 | Metadata | Read | The repository's id, name, default branch, description and homepage, and the collaborator permission check for the editorial role. |
 
-Subscribe the App to the `push` and `pull_request` events. For account linking the App also uses user authorization: its client id and secret are `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` (see [decision 0004](decisions/0004-github-link-verified.md)). The App id and private key go into `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`.
+Subscribe the App to the `push`, `pull_request` and `repository` events; GitHub sends `installation` and `installation_repositories` to every App without a subscription. For account linking the App also uses user authorization: its client id and secret are `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` (see [decision 0004](decisions/0004-github-link-verified.md)). The App id and private key go into `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`.
 
 ## 2. Install the App on the site repository
 
@@ -176,8 +176,15 @@ On the App (or on each repository) add a webhook:
 - URL: `https://<ORIGIN>/api/webhook/github`
 - Content type: `application/json`
 - Secret: the value of `GITHUB_WEBHOOK_SECRET`
-- Events: `push` and `pull_request`
+- Events: `push`, `pull_request` and `repository`; `installation` and `installation_repositories` come without a subscription
 
-A push to the default branch of a site's repository reads its `.schrijver/` again, matched on the repository's id; Schrijver follows a new name or default branch from the same push. Events on site repositories also refresh the proposal lists. A webhook reaches one replica only, so run Schrijver with exactly one replica.
+Schrijver matches every event to a site by the repository's numeric id:
+
+- `push` to the default branch: reads the site's `.schrijver/` again, and follows a new name or default branch.
+- `pull_request`: refreshes the proposal lists; when a pull request is closed, merged or not, Schrijver deletes its record of who wrote in it.
+- `installation` and `installation_repositories`: when the App is installed, removed, suspended or allowed back, or gains or loses a repository, Schrijver reads the sites of those repositories again at once (every site when the event names no repository). A site whose App was removed shows the problem on its beheer page; one whose App is back works again.
+- `repository` (renamed, transferred, deleted): Schrijver follows the new name at once, also when another repository takes the old one, or shows on the beheer page that the repository is gone.
+
+A webhook reaches one replica only, so run Schrijver with exactly one replica.
 
 When a later change to `.schrijver/` is not valid, Schrijver keeps working with the last valid structure and shows the problem to the site's admins, on the start page ("De instellingen in de repository kloppen niet") and on its beheer page. A site whose files were never valid, or that Schrijver could not read since it started, cannot be edited until they are.

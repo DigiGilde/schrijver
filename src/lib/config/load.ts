@@ -192,9 +192,9 @@ export class ConfigStore {
 		return this.statuses().find((status) => status.site.id === siteId);
 	}
 
-	/** Whether a site could not be read for a reason that may pass. */
-	needsRetry(): boolean {
-		return [...this.entries.values()].some((entry) => entry.retry);
+	/** The sites that could not be read for a reason that may pass. */
+	retrying(): string[] {
+		return [...this.entries.values()].filter((entry) => entry.retry).map((entry) => entry.site.id);
 	}
 
 	state(): { loadedAt: number | null; lastError: string | null } {

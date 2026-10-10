@@ -35,6 +35,8 @@ export function setForge(f: Forge | null): void {
 let wholeLoad = false;
 const siteLoads = new Set<string>();
 let running: Promise<void> | null = null;
+/** Sites whose load threw before the store could note why: the next retry reads them again. */
+const failedSites = new Set<string>();
 
 function drain(): Promise<void> {
 	running ??= (async () => {
@@ -59,6 +61,7 @@ function drain(): Promise<void> {
 
 async function loadAll(): Promise<void> {
 	const store = getConfigStore();
+	failedSites.clear();
 	try {
 		await store.load();
 		const statuses = store.statuses();
@@ -73,7 +76,7 @@ async function loadAll(): Promise<void> {
 	} catch (err) {
 		log.error('config.load_failed', errorFields(err));
 	}
-	if (store.state().lastError !== null || store.needsRetry()) scheduleRetry();
+	if (store.state().lastError !== null || store.retrying().length > 0) scheduleRetry();
 }
 
 async function loadSite(siteId: string): Promise<void> {
@@ -88,19 +91,29 @@ async function loadSite(siteId: string): Promise<void> {
 		});
 	} catch (err) {
 		log.error('config.site_load_failed', { site: siteId, ...errorFields(err) });
+		failedSites.add(siteId);
 		scheduleRetry();
 		return;
 	}
-	if (store.needsRetry()) scheduleRetry();
+	if (store.retrying().length > 0) scheduleRetry();
 }
 
 function scheduleRetry(): void {
 	if (retryTimer || stopped) return;
 	retryTimer = setTimeout(() => {
 		retryTimer = null;
-		void reloadConfig();
+		void retry();
 	}, RETRY_MS);
 	retryTimer.unref?.();
+}
+
+/** Reads again what failed: the list of sites when it could not be read, else only those sites. */
+function retry(): Promise<void> {
+	const store = getConfigStore();
+	if (store.state().lastError !== null) return reloadConfig();
+	for (const siteId of [...store.retrying(), ...failedSites]) siteLoads.add(siteId);
+	failedSites.clear();
+	return drain();
 }
 
 /** Reads the list of sites and every site's structure again. */
@@ -141,4 +154,5 @@ export function stopServices(): void {
 	initPromise = null;
 	if (retryTimer) clearTimeout(retryTimer);
 	retryTimer = null;
+	failedSites.clear();
 }

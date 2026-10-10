@@ -761,6 +761,34 @@ describe('GitHubForge', () => {
 		});
 	});
 
+	it('looks the installation up again for every repository check: an App that left or came back shows at once', async () => {
+		let installation: number | null = 42;
+		server.use(
+			http.get(`${API}/repos/o/r/installation`, () =>
+				installation === null
+					? HttpResponse.json({ message: 'Not Found' }, { status: 404 })
+					: HttpResponse.json({ id: installation })
+			),
+			http.post(`${API}/app/installations/43/access_tokens`, () =>
+				HttpResponse.json(
+					{ token: 'ghs_y', expires_at: new Date(Date.now() + 3600_000).toISOString() },
+					{ status: 201 }
+				)
+			),
+			http.get(`${API}/repos/o/r`, ({ request }) => {
+				record('token', request.headers.get('authorization'));
+				return HttpResponse.json({ id: 4242, full_name: 'o/r', default_branch: 'main' });
+			})
+		);
+		const f = forge();
+		expect(await f.repository('o/r')).toMatchObject({ id: 4242 });
+		installation = null;
+		expect(await f.repository('o/r')).toBeNull();
+		installation = 43;
+		expect(await f.repository('o/r')).toMatchObject({ id: 4242 });
+		expect(bodies.token).toEqual(['token ghs_x', 'token ghs_y']);
+	});
+
 	it('answers no repository where the App is not installed, and fails on anything else', async () => {
 		server.use(
 			http.get(`${API}/repos/o/elders/installation`, () =>

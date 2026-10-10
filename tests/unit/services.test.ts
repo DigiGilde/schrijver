@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startingSettings } from '$lib/auth/team';
 import { MemoryTeamStore } from '$lib/auth/team-memory';
 import { useTeamStore } from '$lib/auth/team-store';
-import { ConfigStore } from '$lib/config/load';
+import { ConfigStore, NOT_INSTALLED } from '$lib/config/load';
 import { CachingForge } from '$lib/forge/cache';
 import { FakeForge } from '$lib/forge/fake';
 import { ForgeError } from '$lib/forge/types';
@@ -26,6 +26,19 @@ const structure = () =>
 			structureFile('moza-site', name)
 		])
 	);
+
+/** A signed delivery of GitHub's webhook. */
+function webhook(event: string, payload: unknown) {
+	const body = JSON.stringify(payload);
+	const sig = 'sha256=' + createHmac('sha256', 's').update(body).digest('hex');
+	return POST({
+		request: new Request('http://x', {
+			method: 'POST',
+			body,
+			headers: { 'x-github-event': event, 'x-hub-signature-256': sig }
+		})
+	} as never);
+}
 
 let fake: FakeForge;
 let team: MemoryTeamStore;
@@ -167,9 +180,80 @@ describe('services', () => {
 		fake.setInstalled(MOZA, false);
 		await services.reloadSite('moza-site');
 		const load = vi.spyOn(services.getConfigStore(), 'load');
+		const reload = vi.spyOn(services.getConfigStore(), 'reload');
 		services.stopServices();
 		await vi.advanceTimersByTimeAsync(120000);
 		expect(load).not.toHaveBeenCalled();
+		expect(reload).not.toHaveBeenCalled();
+	});
+
+	it('tries again every minute only the sites that could not be read, not every site', async () => {
+		fake.seedRepo('Org/weg', 'main', structure(), { id: 3, installed: false });
+		await team.addSite(
+			{ id: 'weg', repoId: 3, repo: 'Org/weg', standaardbranch: 'main' },
+			startingSettings('Weg'),
+			null,
+			null
+		);
+		services.setForge(fake);
+		await services.initServices();
+		expect(services.getConfigStore().status('weg')?.errors).toEqual([NOT_INSTALLED('Org/weg')]);
+		const repository = vi.spyOn(fake, 'repository');
+		const load = vi.spyOn(services.getConfigStore(), 'load');
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(repository.mock.calls).toEqual([['Org/weg']]);
+		expect(load).not.toHaveBeenCalled();
+
+		fake.setInstalled('Org/weg', true);
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(repository.mock.calls).toEqual([['Org/weg'], ['Org/weg']]);
+		expect(services.getConfigStore().status('weg')).toMatchObject({ available: true, errors: [] });
+		await vi.advanceTimersByTimeAsync(120000);
+		expect(repository).toHaveBeenCalledTimes(2);
+	});
+
+	it('shows a site whose App was removed as a problem at once, and takes it back at once', async () => {
+		services.setForge(new CachingForge(fake));
+		await services.initServices();
+		const change = (action: 'added' | 'removed') => ({
+			action,
+			repositories_added: [],
+			repositories_removed: [],
+			[`repositories_${action}`]: [{ id: 2, name: 'moza-site', full_name: MOZA, private: false }]
+		});
+
+		fake.setInstalled(MOZA, false);
+		expect((await webhook('installation_repositories', change('removed'))).status).toBe(204);
+		expect(services.getConfigStore().status('moza-site')).toMatchObject({
+			available: true,
+			errors: [NOT_INSTALLED(MOZA)]
+		});
+
+		fake.setInstalled(MOZA, true);
+		await webhook('installation_repositories', change('added'));
+		expect(services.getConfigStore().status('moza-site')).toMatchObject({
+			available: true,
+			errors: []
+		});
+	});
+
+	it('follows a renamed repository at once, also when another one takes its old name', async () => {
+		services.setForge(new CachingForge(fake));
+		await services.initServices();
+		fake.renameRepo(MOZA, 'MinBZK/moza-nieuw');
+		fake.seedRepo(MOZA, 'main', structure(), { id: 99 });
+		const renamed = {
+			action: 'renamed',
+			changes: { repository: { name: { from: 'moza-site' } } },
+			repository: { id: 2, full_name: 'MinBZK/moza-nieuw', default_branch: 'main' }
+		};
+		expect((await webhook('repository', renamed)).status).toBe(204);
+		expect(services.getConfigStore().status('moza-site')).toMatchObject({
+			available: true,
+			errors: [],
+			site: { repo: 'MinBZK/moza-nieuw', repoId: 2 }
+		});
+		expect(services.getConfigStore().site('moza-site')?.repo).toBe('MinBZK/moza-nieuw');
 	});
 
 	it('logs a site whose files are not valid by its id and the number of problems only', async () => {

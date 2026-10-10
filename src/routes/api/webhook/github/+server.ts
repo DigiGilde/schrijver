@@ -3,7 +3,7 @@ import { movedColumns } from '$lib/auth/team';
 import { teamStore } from '$lib/auth/team-store';
 import { CachingForge } from '$lib/forge/cache';
 import { errorFields, log } from '$lib/log';
-import { getForge, reloadSite } from '$lib/server/services';
+import { getForge, reloadConfig, reloadSite } from '$lib/server/services';
 import type { RequestHandler } from './$types';
 
 function validSignature(secret: string | undefined, body: Buffer, header: string | null): boolean {
@@ -37,6 +37,55 @@ async function pushed(payload: Record<string, unknown>, repository: Record<strin
 	await reloadSite(site.id);
 }
 
+const idsOf = (list: unknown): number[] =>
+	Array.isArray(list)
+		? list.flatMap((r) => (isBlock(r) && Number.isSafeInteger(r.id) ? [r.id as number] : []))
+		: [];
+
+/**
+ * The App was installed, removed, suspended or allowed back, or the repositories it may read changed:
+ * the sites of the repositories the event names are read again, every site where it names none.
+ */
+async function installationChanged(event: string, payload: Record<string, unknown>) {
+	const ids =
+		event === 'installation'
+			? idsOf(payload.repositories)
+			: [...idsOf(payload.repositories_added), ...idsOf(payload.repositories_removed)];
+	if (ids.length === 0) {
+		await reloadConfig();
+		return;
+	}
+	const forge = getForge();
+	for (const site of (await teamStore().sites()).filter((s) => ids.includes(s.repoId))) {
+		if (forge instanceof CachingForge) forge.invalidate(site.repo);
+		await reloadSite(site.id);
+	}
+}
+
+/** A registered repository was renamed, moved or deleted: its site follows it, or shows why it cannot. */
+async function repositoryChanged(
+	payload: Record<string, unknown>,
+	repository: Record<string, unknown>
+) {
+	const action = payload.action;
+	if (action !== 'renamed' && action !== 'transferred' && action !== 'deleted') return;
+	const team = teamStore();
+	const site = (await team.sites()).find((s) => s.repoId === repository.id);
+	if (!site) return;
+	const forge = getForge();
+	if (forge instanceof CachingForge) forge.invalidate(site.repo);
+	const { full_name: repo, default_branch: branch } = repository;
+	if (action !== 'deleted' && typeof repo === 'string' && REPO.test(repo)) {
+		const standaardbranch =
+			typeof branch === 'string' && BRANCH.test(branch) ? branch : site.standaardbranch;
+		if (movedColumns(site, { repo, standaardbranch }).length > 0) {
+			await team.moveSite(site.id, repo, standaardbranch);
+			log.info('webhook.site_moved', { site: site.id });
+		}
+	}
+	await reloadSite(site.id);
+}
+
 /** A merged or closed pull request of a registered repository takes the record of its writers along. */
 async function closed(payload: Record<string, unknown>, repository: Record<string, unknown>) {
 	const number = isBlock(payload.pull_request) ? payload.pull_request.number : undefined;
@@ -56,6 +105,10 @@ async function handle(
 ) {
 	if (event === 'push' && repository) await pushed(payload, repository);
 	if (event === 'pull_request' && repository) await closed(payload, repository);
+	if (event === 'installation' || event === 'installation_repositories') {
+		await installationChanged(event, payload);
+	}
+	if (event === 'repository' && repository) await repositoryChanged(payload, repository);
 }
 
 export const POST: RequestHandler = async ({ request }) => {
