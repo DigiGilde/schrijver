@@ -14,6 +14,7 @@
 	let vierOgen = $state(instellingen.vierOgen);
 	let bewaren = $state(false);
 	let formulier: HTMLFormElement | undefined = $state();
+	let bewaarKnop: HTMLElement | undefined = $state();
 
 	const fouten = $derived(resultaat?.fouten ?? {});
 	const mag = (kind: 'gekoppeld' | 'op-naam') =>
@@ -39,8 +40,13 @@
 			use:enhance={() => {
 				bewaren = true;
 				return async ({ result, update }) => {
+					// On success update() moves the focus to the body: the button takes it back after it.
 					await update({ reset: false });
 					bewaren = false;
+					if (result.type === 'success') {
+						await tick();
+						bewaarKnop?.focus();
+					}
 					if (result.type === 'failure') {
 						await tick();
 						formulier?.querySelector<HTMLElement>('[invalid]')?.focus();
@@ -132,6 +138,7 @@
 			<nldd-form-actions>
 				<nldd-button-group>
 					<nldd-button
+						bind:this={bewaarKnop}
 						appearance="primary"
 						type="submit"
 						text="Bewaar"

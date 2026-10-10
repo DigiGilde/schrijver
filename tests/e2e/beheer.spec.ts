@@ -70,6 +70,8 @@ test('a known colleague is added at once, gets another role in a sheet and is re
 	await expect(
 		status(page, 'Tweede Collega hoort nu bij het team, als lid van de redactie.')
 	).toHaveCount(1);
+	// Ready for the next colleague.
+	await expect(addForm(page).getByRole('textbox', { name: 'E-mailadres' })).toBeFocused();
 	await expect(
 		page.locator(
 			'nldd-banner[supporting-text="Schrijver stuurt geen e-mail: laat het je collega zelf weten."]'
@@ -105,8 +107,15 @@ test('an unknown address is invited, and Intrekken takes the invitation back by 
 	page
 }) => {
 	await open(page, DH);
-	await add(page, 'nieuw-lid@example.org', 'Beheerder');
+	const field = addForm(page).getByRole('textbox', { name: 'E-mailadres' });
+	await field.fill('nieuw-lid@example.org');
+	await addForm(page)
+		.getByRole('radio', { name: /^Beheerder:/ })
+		.click();
+	await addForm(page).getByRole('button', { name: 'Voeg toe' }).focus();
+	await page.keyboard.press('Enter');
 	await expect(status(page, 'nieuw-lid@example.org is uitgenodigd als beheerder.')).toHaveCount(1);
+	await expect(field).toBeFocused();
 	await expect(page.locator('nldd-banner[supporting-text*="geldt 30 dagen"]')).toBeVisible();
 	const invitation = row(page, 'nieuw-lid@example.org');
 	await expect(invitation).toContainText('Uitgenodigd, nog niet ingelogd');
@@ -200,8 +209,10 @@ test('the settings of the site are checked on the server and saved', async ({ pa
 	const vierOgenAan = await vierOgen.isChecked();
 	await vierOgen.click();
 	await form.getByRole('checkbox', { name: 'Op naam' }).click();
-	await form.getByRole('button', { name: 'Bewaar' }).click();
+	await form.getByRole('button', { name: 'Bewaar' }).focus();
+	await page.keyboard.press('Enter');
 	await expect(status(page, 'De instellingen van de site zijn bewaard.')).toHaveCount(1);
+	await expect(form.getByRole('button', { name: 'Bewaar' })).toBeFocused();
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Beheer van Digi Handboek bewerkt' })
 	).toBeVisible();

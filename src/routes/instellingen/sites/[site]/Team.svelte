@@ -151,10 +151,11 @@
 				use:enhance={() => {
 					toevoegen = true;
 					return async ({ result, update }) => {
+						// On success update() moves the focus to the body: the field takes it back after it.
 						await update({ reset: false });
 						toevoegen = false;
 						if (result.type === 'success') email = '';
-						if (result.type === 'failure') {
+						if (result.type === 'success' || result.type === 'failure') {
 							await tick();
 							emailVeld?.focus();
 						}
