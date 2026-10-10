@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 const stap = (page: Page) =>
@@ -196,3 +197,36 @@ test.describe('on the MOZa site, where the test user is not in the redactie', ()
 		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
 	});
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+	test.describe(`the seeded proposals, ${colorScheme} mode`, () => {
+		test.use({ colorScheme });
+
+		test('have no axe violations, nor do their words on the changes', async ({ page }) => {
+			for (const [site, titel] of [
+				['digi-handboek', 'Kennis: het team stelt zich voor'],
+				['digi-handboek', 'Over het handboek: wie de redactie is'],
+				['moza-site', 'Weekly 23 september: de demo']
+			]) {
+				await page.goto(`/sites/${site}/voorstellen?filter=alle`);
+				await page
+					.locator('nldd-list[accessible-label="Alle voorstellen"]')
+					.getByRole('link', { name: new RegExp(`^${titel}`) })
+					.first()
+					.click();
+				await expect(zin(page)).toBeVisible();
+				await expect(page.locator('.diff-woord').first()).toBeVisible();
+				await page.waitForLoadState('networkidle');
+				const height = await page.evaluate(() => document.documentElement.scrollHeight);
+				await page.setViewportSize({ width: 1280, height });
+				const result = await new AxeBuilder({ page })
+					.withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+					.analyze();
+				expect(
+					result.violations,
+					`${titel}: ${JSON.stringify(result.violations, null, 1)}`
+				).toEqual([]);
+			}
+		});
+	});
+}
