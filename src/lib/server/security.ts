@@ -1,4 +1,4 @@
-import type { Handle, RequestEvent } from '@sveltejs/kit';
+import { error, type Handle, type RequestEvent } from '@sveltejs/kit';
 import { SESSION_COOKIE, openSession, sessionSecret } from '$lib/auth/session';
 
 export const CSP =
@@ -185,6 +185,18 @@ export function newProposalsPerHour(env: Env = process.env): number {
 }
 
 export const newProposalLimit = createWindowCounter(newProposalsPerHour(), 3600_000);
+
+/**
+ * Posts per user per minute to the beheer pages and Site toevoegen; loading a page does not count.
+ * Counted in the actions: there the user is known, and a refusal reaches the page as SvelteKit's error.
+ */
+export const BEHEER_POSTS_PER_MINUTE = 30;
+export const beheerPostLimit = createWindowCounter(BEHEER_POSTS_PER_MINUTE, WINDOW_MS);
+
+/** Refuses a post to a beheer page or Site toevoegen beyond the limit of its user. */
+export function limitBeheerPost(sub: string): void {
+	if (!beheerPostLimit.take(sub)) error(429, 'Te veel aanvragen, probeer het zo opnieuw');
+}
 
 /** Image usage scans per user per hour: the check before a save that drops an image, and that save. */
 export const IMAGE_SCANS_PER_HOUR = 60;

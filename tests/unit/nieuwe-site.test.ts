@@ -234,6 +234,17 @@ describe('who may add a site', () => {
 		expect((await team.sites()).map((s) => s.id)).not.toContain('kennisbank');
 	});
 
+	it('refuses more than 30 posts a minute from one user; checking a repository does not count', async () => {
+		for (let i = 0; i < 31; i++) await thrown(step('veel', 'DigiGilde/kennisbank'));
+		for (let i = 0; i < 30; i++) {
+			expect(await thrown(add('veel', KENNISBANK))).toMatchObject({ status: 404 });
+		}
+		expect(await thrown(add('veel', KENNISBANK))).toMatchObject({
+			status: 429,
+			body: { message: 'Te veel aanvragen, probeer het zo opnieuw' }
+		});
+	});
+
 	it('logs every refused load and action by pseudonym, never with an address or a sub', async () => {
 		await thrown(step('baas', 'DigiGilde/kennisbank'));
 		await thrown(add('baas', KENNISBANK));

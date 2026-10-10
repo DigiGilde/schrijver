@@ -6,6 +6,7 @@ import { isRole, type TeamChange } from '$lib/auth/team';
 import { siteSettings, teamStore } from '$lib/auth/team-store';
 import type { SiteConfig } from '$lib/config/types';
 import { log } from '$lib/log';
+import { limitBeheerPost } from '$lib/server/security';
 import { getConfigStore, getForge, reloadSite } from '$lib/server/services';
 import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './forms';
 
@@ -17,6 +18,7 @@ import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './form
 async function managed(event: RequestEvent, action: string) {
 	const user = event.locals.user;
 	if (!user) redirect(303, '/login');
+	if (action !== 'load') limitBeheerPost(user.session.sub);
 	const status = getConfigStore().status(event.params.site ?? '');
 	const asker = { sub: user.session.sub, githubLogin: user.prefs.githubLogin };
 	if (!status || !(await canManageSite(status.site, asker, getForge()))) {

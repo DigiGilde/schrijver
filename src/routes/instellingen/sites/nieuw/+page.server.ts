@@ -6,6 +6,7 @@ import { siteSettings, teamStore } from '$lib/auth/team-store';
 import { checkRepository } from '$lib/config/structure';
 import type { RepoInfo } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
+import { limitBeheerPost } from '$lib/server/security';
 import { getForge, reloadSite } from '$lib/server/services';
 import {
 	firstAdmin,
@@ -19,6 +20,7 @@ import {
 function platformAdmin(locals: App.Locals, action: string) {
 	const user = locals.user;
 	if (!user) redirect(303, '/login');
+	if (action !== 'load') limitBeheerPost(user.session.sub);
 	if (!isPlatformAdmin(user.session.sub)) {
 		log.warn('beheer.refused', {
 			page: 'site-toevoegen',

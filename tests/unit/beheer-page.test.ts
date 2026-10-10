@@ -14,6 +14,7 @@ import { useTeamStore } from '../../src/lib/auth/team-store';
 import type { FakeForge } from '../../src/lib/forge/fake';
 import { ConfigStore } from '../../src/lib/config/load';
 import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
+import { beheerPostLimit } from '../../src/lib/server/security';
 import { getConfigStore, setConfigStore, setForge } from '../../src/lib/server/services';
 import { actions, load } from '../../src/routes/instellingen/sites/[site]/+page.server';
 
@@ -111,6 +112,8 @@ beforeEach(async () => {
 	await team.addByEmail(DH, 'baas@example.org', 'beheerder', 'platform');
 	await team.addByEmail(DH, 'red@example.org', 'redactie', 'platform');
 	vi.mocked(log.info).mockClear();
+	// The limit on posts has a test of its own; the others post as often as they need.
+	vi.spyOn(beheerPostLimit, 'take').mockReturnValue(true);
 });
 
 describe('who may manage a site', () => {
@@ -141,6 +144,25 @@ describe('who may manage a site', () => {
 			['beheer.refused', { page: 'beheer', site: DH, action: 'verwijderSite', actor }]
 		]);
 		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toMatch(/@|"red"|"baas"|vreemd/);
+	});
+
+	it('refuses more than 30 posts a minute from one user, also refused ones; loading does not count', async () => {
+		vi.mocked(beheerPostLimit.take).mockRestore();
+		for (let i = 0; i < 40; i++) await load(event('baas', DH));
+		for (let i = 0; i < 30; i++) {
+			expect(await thrown(act('rol', 'vreemd', DH, { rol: 'beheerder' }))).toMatchObject({
+				status: 404
+			});
+		}
+		for (const name of ['rol', 'instellingen'] as Action[]) {
+			expect(await thrown(act(name, 'vreemd', DH))).toMatchObject({
+				status: 429,
+				body: { message: 'Te veel aanvragen, probeer het zo opnieuw' }
+			});
+		}
+		expect(await act('instellingen', 'baas', DH, SETTINGS)).toMatchObject({
+			actie: 'instellingen'
+		});
 	});
 
 	it('checks every action, not only the page', async () => {
