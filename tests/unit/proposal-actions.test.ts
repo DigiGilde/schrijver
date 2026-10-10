@@ -171,12 +171,14 @@ describe('sendInAgain', () => {
 	it('asks each reviewer who asked for changes on GitHub to review again, and says it is ready', async () => {
 		const pr = await asked('jan', 'piet');
 		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
-		const request = vi.spyOn(forge, 'requestReviewers');
+		const request = vi.spyOn(forge, 'rerequestReviewers');
+		const plain = vi.spyOn(forge, 'requestReviewers');
 		expect(await sendInAgain(forge, site(), pr)).toEqual({});
 		expect(request.mock.calls).toEqual([
 			['o/moza', pr.number, ['jan']],
 			['o/moza', pr.number, ['piet']]
 		]);
+		expect(plain).not.toHaveBeenCalled();
 		const after = await forge.getPr('o/moza', pr.number);
 		expect(after.requestedReviewers).toEqual(['jan', 'piet']);
 		expect(statusOf(after)).toBe('ingestuurd');
@@ -187,7 +189,7 @@ describe('sendInAgain', () => {
 
 	it('goes on past a reviewer GitHub refuses, logs it and says that request stands', async () => {
 		const pr = await asked('jan', 'piet');
-		forge.failNext('requestReviewers', new ForgeError(422, 'GitHub weigerde de wijziging'));
+		forge.failNext('rerequestReviewers', new ForgeError(422, 'GitHub weigerde de wijziging'));
 		expect(await sendInAgain(forge, site(), pr)).toEqual({
 			warning:
 				'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'

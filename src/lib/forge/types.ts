@@ -145,6 +145,8 @@ export interface Forge {
 	/** Takes one label off a pull request, the others keep; a label it does not have is no error. */
 	removeLabel(repo: string, number: number, label: string): Promise<void>;
 	requestReviewers(repo: string, number: number, logins: string[]): Promise<void>;
+	/** Asks reviewers who already reviewed to review again. */
+	rerequestReviewers(repo: string, number: number, logins: string[]): Promise<void>;
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]>;
 	getPr(repo: string, number: number): Promise<PrSummary>;
 	/** One lookup of the pull request, without its reviews and checks. */

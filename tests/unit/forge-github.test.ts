@@ -675,6 +675,66 @@ describe('GitHubForge', () => {
 		});
 	});
 
+	describe('asking reviewers to review again', () => {
+		const RE = `${API}/repos/o/r/pulls/7/requested_reviewers/rerequest`;
+		const PLAIN = `${API}/repos/o/r/pulls/7/requested_reviewers`;
+		const created = () => HttpResponse.json({}, { status: 201 });
+
+		it('uses the rerequest route of GitHub, and only that', async () => {
+			server.use(
+				http.post(RE, async ({ request }) => {
+					record('rerequest', await request.json());
+					return created();
+				})
+			);
+			await forge().rerequestReviewers('o/r', 7, ['jan', 'piet']);
+			expect(bodies.rerequest).toEqual([{ reviewers: ['jan', 'piet'] }]);
+		});
+
+		it('falls back to the plain request where GitHub has no such route', async () => {
+			server.use(
+				http.post(RE, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 })),
+				http.post(PLAIN, async ({ request }) => {
+					record('plain', await request.json());
+					return created();
+				})
+			);
+			await forge().rerequestReviewers('o/r', 7, ['jan']);
+			expect(bodies.plain).toEqual([{ reviewers: ['jan'] }]);
+		});
+
+		it('does not fall back for any other refusal, such as a reviewer who is no collaborator', async () => {
+			let plain = 0;
+			server.use(
+				http.post(RE, () =>
+					HttpResponse.json(
+						{ message: 'Reviews may only be requested from collaborators' },
+						{ status: 422 }
+					)
+				),
+				http.post(PLAIN, () => {
+					plain++;
+					return created();
+				})
+			);
+			await expect(forge().rerequestReviewers('o/r', 7, ['jan'])).rejects.toMatchObject({
+				status: 422,
+				detail: 'Reviews may only be requested from collaborators'
+			});
+			expect(plain).toBe(0);
+		});
+
+		it('fails when the plain request is not found either', async () => {
+			server.use(
+				http.post(RE, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 })),
+				http.post(PLAIN, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 }))
+			);
+			await expect(forge().rerequestReviewers('o/r', 7, ['jan'])).rejects.toMatchObject({
+				status: 404
+			});
+		});
+	});
+
 	it('adds and takes off one label at a time, and takes a label that is not there as gone', async () => {
 		const deleted: string[] = [];
 		server.use(

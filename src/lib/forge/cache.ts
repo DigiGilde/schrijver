@@ -131,6 +131,9 @@ export class CachingForge implements Forge {
 	requestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
 		return this.written(repo, () => this.inner.requestReviewers(repo, number, logins));
 	}
+	rerequestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
+		return this.written(repo, () => this.inner.rerequestReviewers(repo, number, logins));
+	}
 	approve(repo: string, number: number, comment: string): Promise<void> {
 		return this.written(repo, () => this.inner.approve(repo, number, comment));
 	}

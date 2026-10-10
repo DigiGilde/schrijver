@@ -431,8 +431,10 @@ describe('proposal endpoints', () => {
 		await call(insturen, { who: 'auteur' });
 		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
 		expect(statusOf(await forge.getPr('o/moza', 1))).toBe('aanpassing-gevraagd');
+		const rerequest = vi.spyOn(forge, 'rerequestReviewers');
 		const res = await call(opnieuwInsturen, { who: 'auteur' });
 		expect(await res.json()).toEqual({ ok: true });
+		expect(rerequest).toHaveBeenCalledWith('o/moza', 1, ['jansen']);
 		const pr = await forge.getPr('o/moza', 1);
 		expect(pr.requestedReviewers).toEqual(['jansen']);
 		expect(statusOf(pr)).toBe('ingestuurd');

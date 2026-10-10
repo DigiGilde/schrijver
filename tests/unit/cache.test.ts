@@ -200,6 +200,17 @@ describe('CachingForge', () => {
 		expect(listPrs).toHaveBeenCalledTimes(3);
 	});
 
+	it('drops what it holds of a repository when reviewers are asked to review again', async () => {
+		const { fake, cache } = setup();
+		await fake.createBranch('o/site', 'main', 'p');
+		const pr = await fake.openDraftPr('o/site', 'p', 'main', 'P', '');
+		const listPrs = vi.spyOn(fake, 'listPrs');
+		await cache.listPrs('o/site', 'open');
+		await cache.rerequestReviewers('o/site', pr.number, ['jansen']);
+		expect((await cache.listPrs('o/site', 'open'))[0].requestedReviewers).toEqual(['jansen']);
+		expect(listPrs).toHaveBeenCalledTimes(2);
+	});
+
 	it('passes the head sha on to merge', async () => {
 		const { fake, cache } = setup();
 		const merge = vi.spyOn(fake, 'merge').mockResolvedValue();

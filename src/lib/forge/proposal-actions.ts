@@ -170,7 +170,7 @@ export async function sendInAgain(
 	let refused = false;
 	for (const reviewer of pr.changesRequestedBy) {
 		try {
-			await forge.requestReviewers(site.repo, pr.number, [reviewer]);
+			await forge.rerequestReviewers(site.repo, pr.number, [reviewer]);
 		} catch (err) {
 			refused = true;
 			log.warn('proposal.rerequest_failed', { site: site.id, pr: pr.number, ...errorFields(err) });

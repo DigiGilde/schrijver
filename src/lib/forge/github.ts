@@ -343,6 +343,20 @@ export class GitHubForge implements Forge {
 		});
 	}
 
+	async rerequestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
+		try {
+			await this.request(
+				repo,
+				'POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers/rerequest',
+				{ pull_number: number, reviewers: logins }
+			);
+		} catch (e) {
+			// A GitHub without the rerequest route answers 404.
+			if (!(e instanceof ForgeError && e.status === 404)) throw e;
+			await this.requestReviewers(repo, number, logins);
+		}
+	}
+
 	async listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]> {
 		const prs: Json[] = await this.request(repo, 'GET /repos/{owner}/{repo}/pulls', {
 			state,

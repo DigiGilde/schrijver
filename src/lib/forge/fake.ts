@@ -369,10 +369,12 @@ export class FakeForge implements Forge {
 
 	async requestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
 		this.maybeFail('requestReviewers');
-		const pr = this.pr(repo, number);
-		this.touch(repo, number, {
-			requestedReviewers: [...new Set([...pr.requestedReviewers, ...logins])]
-		});
+		this.askReviewers(repo, number, logins);
+	}
+
+	async rerequestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
+		this.maybeFail('rerequestReviewers');
+		this.askReviewers(repo, number, logins);
 	}
 
 	async listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]> {
@@ -531,6 +533,13 @@ export class FakeForge implements Forge {
 			this.failures.delete(op);
 			throw error;
 		}
+	}
+
+	private askReviewers(repo: string, number: number, logins: string[]): void {
+		const pr = this.pr(repo, number);
+		this.touch(repo, number, {
+			requestedReviewers: [...new Set([...pr.requestedReviewers, ...logins])]
+		});
 	}
 
 	private repo(repo: string): RepoState {

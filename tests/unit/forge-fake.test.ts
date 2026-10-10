@@ -279,6 +279,24 @@ describe('FakeForge', () => {
 		});
 	});
 
+	it('asks a reviewer again after their review, which keeps their change request until they review', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'changes_requested', 'Korter');
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({ requestedReviewers: [] });
+		await forge.rerequestReviewers(REPO, pr.number, ['jansen']);
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({
+			reviewState: 'changes_requested',
+			changesRequestedBy: ['jansen'],
+			requestedReviewers: ['jansen']
+		});
+		forge.failNext('rerequestReviewers', new ForgeError(422, 'GitHub weigerde de wijziging'));
+		await expect(forge.rerequestReviewers(REPO, pr.number, ['piet'])).rejects.toMatchObject({
+			status: 422
+		});
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({ requestedReviewers: ['jansen'] });
+	});
+
 	it('says who opened a pull request and when it was merged', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
