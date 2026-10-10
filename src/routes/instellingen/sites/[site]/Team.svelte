@@ -81,7 +81,7 @@
 				text="Nog niemand in het team"
 				supporting-text="Voeg hieronder iemand toe."
 			></nldd-inline-dialog>
-			{#each leden as lid (lid.sub)}
+			{#each leden as lid (lid.sleutel)}
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 				<nldd-list-item button onclick={() => sheet?.toon(lid)}>
 					<nldd-text-cell hide-below="md" text={naam(lid)} supporting-text={over(lid)}

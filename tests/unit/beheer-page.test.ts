@@ -8,6 +8,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 }));
 
 import { log } from '../../src/lib/log';
+import { actorPseudonym } from '../../src/lib/auth/identity';
 import type { TeamStore } from '../../src/lib/auth/team';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeamStore } from '../../src/lib/auth/team-store';
@@ -73,6 +74,15 @@ const thrown = (p: Promise<unknown>) =>
 		() => null,
 		(e: unknown) => e
 	);
+
+type Lid = { sleutel: string; naam: string | null; email: string | null };
+
+/** The key the beheer page gives a member, which its forms send back. */
+async function sleutel(site: string, sub: string): Promise<string> {
+	const { leden } = (await load(event('platform', site))) as { leden: Lid[] };
+	const naam = sub === 'collega' ? 'Tweede Collega' : `Naam ${sub}`;
+	return leden.find((lid) => lid.naam === naam)!.sleutel;
+}
 
 const SETTINGS = {
 	naam: 'Digi Handboek',
@@ -177,10 +187,11 @@ describe('who may manage a site', () => {
 	it('shows the team, the invitations and the settings to a beheerder of the site', async () => {
 		const data = (await load(event('baas', DH))) as Record<string, unknown>;
 		expect(data.beheer).toEqual({ id: DH, naam: 'Digi Handboek', repo: 'DigiGilde/handboek' });
+		const key = expect.stringMatching(/^[0-9a-f]{32}$/);
 		expect(data.leden).toEqual([
-			expect.objectContaining({ sub: 'baas', naam: 'Naam baas', rol: 'beheerder', jij: true }),
+			expect.objectContaining({ sleutel: key, naam: 'Naam baas', rol: 'beheerder', jij: true }),
 			expect.objectContaining({
-				sub: 'red',
+				sleutel: key,
 				email: 'red@example.org',
 				rol: 'redactie',
 				jij: false
@@ -278,31 +289,37 @@ describe('adding someone', () => {
 
 describe('changing the team', () => {
 	it('changes a role', async () => {
-		expect(await act('rol', 'baas', DH, { sub: 'red', rol: 'beheerder' })).toEqual({
+		const red = await sleutel(DH, 'red');
+		expect(await act('rol', 'baas', DH, { sleutel: red, rol: 'beheerder' })).toEqual({
 			actie: 'rol',
-			sub: 'red',
+			sleutel: red,
 			melding: 'Naam red is nu beheerder.'
 		});
+		expect(await team.role(DH, 'red')).toBe('beheerder');
 	});
 
 	it('refuses to leave the site without a beheerder, in one clear sentence', async () => {
-		expect(await act('rol', 'baas', DH, { sub: 'baas', rol: 'redactie' })).toMatchObject({
+		const baas = await sleutel(DH, 'baas');
+		expect(await act('rol', 'baas', DH, { sleutel: baas, rol: 'redactie' })).toMatchObject({
 			status: 409,
 			data: {
 				actie: 'rol',
-				sub: 'baas',
+				sleutel: baas,
 				fout: 'Je bent de enige beheerder van Digi Handboek. Een site heeft altijd een beheerder: maak eerst iemand anders beheerder.'
 			}
 		});
-		expect(await act('verwijderen', 'baas', DH, { sub: 'baas' })).toMatchObject({ status: 409 });
+		expect(await act('verwijderen', 'baas', DH, { sleutel: baas })).toMatchObject({
+			status: 409
+		});
 		expect(await team.role(DH, 'baas')).toBe('beheerder');
 	});
 
 	it('names the last beheerder when a platform admin is not the one acting', async () => {
 		await team.addByEmail(MOZA, 'collega@example.org', 'beheerder', 'platform');
 		await team.addByEmail(MOZA, 'baas@example.org', 'beheerder', 'platform');
-		await act('verwijderen', 'collega', MOZA, { sub: 'baas' });
-		expect(await act('rol', 'collega', MOZA, { sub: 'collega', rol: 'redactie' })).toMatchObject({
+		await act('verwijderen', 'collega', MOZA, { sleutel: await sleutel(MOZA, 'baas') });
+		const collega = await sleutel(MOZA, 'collega');
+		expect(await act('rol', 'collega', MOZA, { sleutel: collega, rol: 'redactie' })).toMatchObject({
 			data: {
 				fout: 'Je bent de enige beheerder van MijnOverheid Zakelijk. Een site heeft altijd een beheerder: maak eerst iemand anders beheerder.'
 			}
@@ -310,16 +327,18 @@ describe('changing the team', () => {
 	});
 
 	it('lets a platform admin remove the last beheerder', async () => {
-		expect(await act('verwijderen', 'platform', DH, { sub: 'baas' })).toEqual({
+		const baas = await sleutel(DH, 'baas');
+		expect(await act('verwijderen', 'platform', DH, { sleutel: baas })).toEqual({
 			actie: 'verwijderen',
-			sub: 'baas',
+			sleutel: baas,
 			melding: 'Naam baas hoort niet meer bij het team.'
 		});
 	});
 
 	it('sends a beheerder who stepped down back to Instellingen', async () => {
 		await team.addByEmail(DH, 'collega@example.org', 'beheerder', 'platform');
-		expect(await thrown(act('rol', 'baas', DH, { sub: 'baas', rol: 'redactie' }))).toMatchObject({
+		const baas = await sleutel(DH, 'baas');
+		expect(await thrown(act('rol', 'baas', DH, { sleutel: baas, rol: 'redactie' }))).toMatchObject({
 			status: 303,
 			location: '/instellingen'
 		});
@@ -327,13 +346,58 @@ describe('changing the team', () => {
 	});
 
 	it('says when someone is no longer on the team, and refuses an unknown role', async () => {
-		expect(await act('verwijderen', 'baas', DH, { sub: 'vreemd' })).toMatchObject({
+		expect(await act('verwijderen', 'baas', DH, { sleutel: 'f'.repeat(32) })).toMatchObject({
 			status: 404,
 			data: { fout: 'Deze persoon hoort niet meer bij het team.' }
 		});
-		expect(await act('rol', 'baas', DH, { sub: 'red', rol: 'eigenaar' })).toMatchObject({
+		const red = await sleutel(DH, 'red');
+		expect(await act('rol', 'baas', DH, { sleutel: red, rol: 'eigenaar' })).toMatchObject({
 			status: 400
 		});
+		await act('verwijderen', 'baas', DH, { sleutel: red });
+		expect(await act('rol', 'baas', DH, { sleutel: red, rol: 'beheerder' })).toMatchObject({
+			status: 404,
+			data: { actie: 'rol', sleutel: red, fout: 'Deze persoon hoort niet meer bij het team.' }
+		});
+	});
+
+	it('knows a member only by the key of the page: a sub, a pseudonym or a key of another site does nothing', async () => {
+		await team.addByEmail(MOZA, 'red@example.org', 'redactie', 'platform');
+		const tries: Record<string, string>[] = [
+			{ sub: 'red' },
+			{ sleutel: 'red' },
+			{ sleutel: actorPseudonym({ sub: 'red' }) },
+			{ sleutel: await sleutel(MOZA, 'red') }
+		];
+		for (const fields of tries) {
+			expect(
+				await act('rol', 'baas', DH, { ...fields, rol: 'beheerder' }),
+				JSON.stringify(fields)
+			).toMatchObject({ status: 404 });
+		}
+		expect(await team.role(DH, 'red')).toBe('redactie');
+	});
+
+	it('sends no sub of anyone to the browser, only a key per site and member', async () => {
+		const subs = ['9b0c2f6e-sub-een', '4d1a7c33-sub-twee'];
+		for (const [i, sub] of subs.entries()) {
+			const email = `lid${i}@team.example`;
+			await team.recordLogin({ sub, name: `Lid ${i}`, email, emailVerified: true });
+			await team.addByEmail(DH, email, 'redactie', 'platform');
+			await team.addByEmail(MOZA, email, 'redactie', 'platform');
+		}
+		const data = (await load(event('baas', DH))) as { leden: Lid[] };
+		const text = JSON.stringify(data);
+		for (const sub of [...subs, 'baas', 'red']) expect(text).not.toContain(`"${sub}"`);
+		for (const sub of subs) expect(text).not.toContain(sub);
+		const keys = data.leden.map((lid) => lid.sleutel);
+		expect(new Set(keys).size).toBe(keys.length);
+		for (const sub of [...subs, 'baas', 'red']) {
+			expect(keys).not.toContain(actorPseudonym({ sub }));
+			expect(keys.some((key) => key.startsWith(actorPseudonym({ sub })))).toBe(false);
+		}
+		const moza = (await load(event('platform', MOZA))) as { leden: Lid[] };
+		expect(moza.leden.map((lid) => lid.sleutel).filter((key) => keys.includes(key))).toEqual([]);
 	});
 
 	it('revokes an invitation, and says when it is gone', async () => {
@@ -350,7 +414,7 @@ describe('changing the team', () => {
 
 	it('logs who acted by pseudonym, and no e-mail address', async () => {
 		await act('toevoegen', 'baas', DH, { email: 'nieuw@example.org', rol: 'redactie' });
-		await act('rol', 'baas', DH, { sub: 'red', rol: 'beheerder' });
+		await act('rol', 'baas', DH, { sleutel: await sleutel(DH, 'red'), rol: 'beheerder' });
 		const lines = JSON.stringify(vi.mocked(log.info).mock.calls);
 		expect(lines).toContain('team.add');
 		expect(lines).toContain('team.role_changed');

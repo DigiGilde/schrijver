@@ -91,6 +91,7 @@ export interface Resultaat {
 	uitleg?: string;
 	fout?: string;
 	fouten?: Partial<Record<SettingsField, string>>;
-	sub?: string;
+	/** The key of the member a change was about: never their sub. */
+	sleutel?: string;
 	email?: string;
 }

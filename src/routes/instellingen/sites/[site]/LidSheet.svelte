@@ -117,7 +117,7 @@
 										};
 									}}
 								>
-									<input type="hidden" name="sub" value={lid.sub} />
+									<input type="hidden" name="sleutel" value={lid.sleutel} />
 									<nldd-form-field label="Rol">
 										<nldd-radio-button-group name="rol" required>
 											<nldd-radio-button-field
@@ -183,7 +183,7 @@
 									};
 								}}
 							>
-								<input type="hidden" name="sub" value={lid.sub} />
+								<input type="hidden" name="sleutel" value={lid.sleutel} />
 							</form>
 						{/key}
 					{/if}

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import type { Identity } from '$lib/forge/trailers';
 import { pseudonym } from '$lib/forge/trailers';
 import type { Session } from './session';
@@ -39,6 +40,19 @@ export function actorPseudonym(session: Pick<Session, 'sub'>): string {
 	const secret = process.env.PSEUDONYM_SECRET;
 	if (!secret) throw new Error('PSEUDONYM_SECRET is not set');
 	return pseudonym(secret, session.sub);
+}
+
+/**
+ * The key the beheer page knows a member of a site by, in its data and its forms: not the sub, and
+ * derived under a purpose of its own, so never the pseudonym either.
+ */
+export function memberKey(siteId: string, sub: string): string {
+	const secret = process.env.PSEUDONYM_SECRET;
+	if (!secret) throw new Error('PSEUDONYM_SECRET is not set');
+	return createHmac('sha256', secret)
+		.update(`schrijver:lid\0${siteId}\0${sub}`)
+		.digest('hex')
+		.slice(0, 32);
 }
 
 export function identityFor(prefs: UserPrefs, session: Session, settings: Allowed): Identity {

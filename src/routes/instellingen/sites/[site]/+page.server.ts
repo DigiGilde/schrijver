@@ -1,6 +1,6 @@
 import { error, fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { actorPseudonym } from '$lib/auth/identity';
+import { actorPseudonym, memberKey } from '$lib/auth/identity';
 import { canManageSite, isPlatformAdmin } from '$lib/auth/roles';
 import { isRole, type TeamChange } from '$lib/auth/team';
 import { siteSettings, teamStore } from '$lib/auth/team-store';
@@ -72,11 +72,23 @@ async function leaveWhenNoLongerManaging(m: Managed, sub: string) {
 	}
 }
 
-function refused(m: Managed, actie: 'rol' | 'verwijderen', sub: string, change: TeamChange) {
+const GONE = 'Deze persoon hoort niet meer bij het team.';
+
+/** The sub of the member whose key a form sends back; null when nobody on the team has that key. */
+async function memberOf(m: Managed, sleutel: string): Promise<string | null> {
+	const members = await m.team.members(m.site.id);
+	return members.find((member) => memberKey(m.site.id, member.sub) === sleutel)?.sub ?? null;
+}
+
+function refused(
+	m: Managed,
+	actie: 'rol' | 'verwijderen',
+	sleutel: string,
+	sub: string,
+	change: TeamChange
+) {
 	if (change.ok) throw new Error('not a refusal');
-	if (change.reason === 'not-a-member') {
-		return fail(404, { actie, sub, fout: 'Deze persoon hoort niet meer bij het team.' });
-	}
+	if (change.reason === 'not-a-member') return fail(404, { actie, sleutel, fout: GONE });
 	log.info('team.last_admin_refused', {
 		site: m.site.id,
 		action: actie,
@@ -85,7 +97,7 @@ function refused(m: Managed, actie: 'rol' | 'verwijderen', sub: string, change: 
 	const self = sub === m.session.sub;
 	return fail(409, {
 		actie,
-		sub,
+		sleutel,
 		fout: `${self ? 'Je bent' : `${who(change, false)} is`} de enige beheerder van ${m.settings.naam}. Een site heeft altijd een beheerder: maak eerst iemand anders beheerder.`
 	});
 }
@@ -116,7 +128,7 @@ export const load: PageServerLoad = async (event) => {
 			identiteitToegestaan: settings.identiteitToegestaan
 		},
 		leden: members.map((m) => ({
-			sub: m.sub,
+			sleutel: memberKey(site.id, m.sub),
 			naam: m.name,
 			email: m.email,
 			rol: m.role,
@@ -173,11 +185,13 @@ export const actions: Actions = {
 	rol: async (event) => {
 		const m = await managed(event, 'rol');
 		const form = await event.request.formData();
-		const sub = String(form.get('sub') ?? '');
+		const sleutel = String(form.get('sleutel') ?? '');
 		const rol = form.get('rol');
-		if (!isRole(rol)) return fail(400, { actie: 'rol', sub, fout: 'Kies een rol.' });
+		if (!isRole(rol)) return fail(400, { actie: 'rol', sleutel, fout: 'Kies een rol.' });
+		const sub = await memberOf(m, sleutel);
+		if (sub === null) return fail(404, { actie: 'rol', sleutel, fout: GONE });
 		const change = await m.team.changeRole(m.site.id, sub, rol, m.actor);
-		if (!change.ok) return refused(m, 'rol', sub, change);
+		if (!change.ok) return refused(m, 'rol', sleutel, sub, change);
 		if (change.previous !== rol) {
 			log.info('team.role_changed', {
 				site: m.site.id,
@@ -189,16 +203,18 @@ export const actions: Actions = {
 		const self = sub === m.session.sub;
 		return {
 			actie: 'rol',
-			sub,
+			sleutel,
 			melding: `${who(change, self)} ${self ? 'bent' : 'is'} nu ${ROLE_IN_SENTENCE[rol]}.`
 		};
 	},
 
 	verwijderen: async (event) => {
 		const m = await managed(event, 'verwijderen');
-		const sub = String((await event.request.formData()).get('sub') ?? '');
+		const sleutel = String((await event.request.formData()).get('sleutel') ?? '');
+		const sub = await memberOf(m, sleutel);
+		if (sub === null) return fail(404, { actie: 'verwijderen', sleutel, fout: GONE });
 		const change = await m.team.removeMember(m.site.id, sub, m.actor);
-		if (!change.ok) return refused(m, 'verwijderen', sub, change);
+		if (!change.ok) return refused(m, 'verwijderen', sleutel, sub, change);
 		log.info('team.member_removed', {
 			site: m.site.id,
 			role: change.previous,
@@ -207,7 +223,7 @@ export const actions: Actions = {
 		await leaveWhenNoLongerManaging(m, sub);
 		return {
 			actie: 'verwijderen',
-			sub,
+			sleutel,
 			melding: `${who(change, false)} hoort niet meer bij het team.`
 		};
 	},
