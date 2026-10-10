@@ -1,6 +1,6 @@
 import type { SiteConfig } from '../config/types';
 import { sameRepo } from './repo';
-import type { PrFile, PrSummary } from './types';
+import type { Forge, PrFile, PrHead, PrSummary } from './types';
 import { identityFromPrBody, isOwnTrailer, type Identity } from './trailers';
 
 export interface Proposal {
@@ -44,6 +44,16 @@ export function statusOf(pr: PrSummary): Proposal['status'] {
 		return 'aanpassing-gevraagd';
 	if (pr.reviewState === 'approved') return 'goedgekeurd';
 	return 'ingestuurd';
+}
+
+/**
+ * The commit a proposal's changes are measured from: where its head and its base branch last agree.
+ * A merged proposal is measured against the base branch as it was just before the merge, the first
+ * parent of what the merge put there: for a merge commit, a squash and a rebase alike.
+ */
+export async function startOf(forge: Forge, repo: string, pr: PrHead, head: string) {
+	const base = pr.mergeCommitSha ? await forge.firstParent(repo, pr.mergeCommitSha) : pr.baseRef;
+	return forge.mergeBase(repo, base, head);
 }
 
 export function previewUrl(site: SiteConfig, pr: PrSummary): string | null {

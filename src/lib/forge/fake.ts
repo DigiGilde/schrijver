@@ -35,8 +35,8 @@ interface RepoState {
 	/** Without an author, a commit is the App's. */
 	commits: Map<string, { sha: string; message: string; author?: string | null }[]>;
 	heads: Map<string, string>;
-	/** The commit each commit follows; a seeded head has none. */
-	parents: Map<string, string | null>;
+	/** The commits each commit follows, the first one first; a seeded head has none. */
+	parents: Map<string, string[]>;
 	snapshots: Map<string, Tree>;
 	/** The tree a branch started from: GitHub lists a pull request's files against that point, not the base's head. */
 	forkTrees: Map<string, Tree>;
@@ -103,7 +103,7 @@ export class FakeForge implements Forge {
 			trees: new Map([[defaultBranch, tree]]),
 			commits: new Map([[defaultBranch, []]]),
 			heads: new Map([[defaultBranch, head]]),
-			parents: new Map([[head, null]]),
+			parents: new Map([[head, []]]),
 			snapshots: new Map([[head, cloneTree(tree)]]),
 			forkTrees: new Map()
 		});
@@ -328,7 +328,8 @@ export class FakeForge implements Forge {
 			requestedReviewers: [],
 			checks: 'none',
 			author: APP_LOGIN,
-			mergedAt: null
+			mergedAt: null,
+			mergeCommitSha: null
 		};
 		this.prs.set(number, pr);
 		this.prRepo.set(number, repo);
@@ -387,20 +388,24 @@ export class FakeForge implements Forge {
 
 	async prHead(repo: string, number: number): Promise<PrHead> {
 		this.maybeFail('prHead');
-		const { headRef, headSha, headRepo, baseRef } = this.view(this.pr(repo, number));
-		return { headRef, headSha, headRepo, baseRef };
+		const { headRef, headSha, headRepo, baseRef, mergeCommitSha } = this.view(
+			this.pr(repo, number)
+		);
+		return { headRef, headSha, headRepo, baseRef, mergeCommitSha: mergeCommitSha ?? null };
 	}
 
 	async mergeBase(repo: string, base: Ref, head: Ref): Promise<string> {
 		this.maybeFail('mergeBase');
 		const r = this.repo(repo);
+		/** The commits a ref holds, nearest first, through every parent of a merge commit. */
 		const history = (ref: Ref): string[] => {
 			this.tree(repo, ref);
 			const shas: string[] = [];
-			let sha: string | null = r.heads.get(ref) ?? ref;
-			while (sha) {
+			const queue = [r.heads.get(ref) ?? ref];
+			for (let sha = queue.shift(); sha !== undefined; sha = queue.shift()) {
+				if (shas.includes(sha)) continue;
 				shas.push(sha);
-				sha = r.parents.get(sha) ?? null;
+				queue.push(...(r.parents.get(sha) ?? []));
 			}
 			return shas;
 		};
@@ -414,6 +419,13 @@ export class FakeForge implements Forge {
 			);
 		}
 		return common;
+	}
+
+	async firstParent(repo: string, sha: string): Promise<string> {
+		this.maybeFail('firstParent');
+		const parent = this.repo(repo).parents.get(sha)?.[0];
+		if (!parent) throw new ForgeError(404, 'Niet gevonden op GitHub', `No parent of ${sha}`);
+		return parent;
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
@@ -491,22 +503,53 @@ export class FakeForge implements Forge {
 				'At least 1 approving review is required by reviewers with write access.'
 			);
 		}
-		// Like a squash merge on GitHub: only what the branch changed since its fork point lands.
-		const head = this.tree(repo, pr.headRef);
+		this.land(repo, pr, 'squash', message);
+	}
+
+	/** A merge someone did on GitHub itself, in one of its three ways. */
+	mergeOnGitHub(repo: string, number: number, how: 'merge' | 'squash' | 'rebase'): void {
+		const pr = this.pr(repo, number);
+		this.land(repo, pr, how, `${pr.title} (#${number})`);
+	}
+
+	/**
+	 * Puts what the branch changed since its fork point on the base, as GitHub does without a conflict:
+	 * in one commit (squash), in a commit with the head as second parent (merge), or commit by commit
+	 * (rebase). The pull request then names the last commit it put there.
+	 */
+	private land(
+		repo: string,
+		pr: PrSummary,
+		how: 'merge' | 'squash' | 'rebase',
+		message: string
+	): void {
+		const r = this.repo(repo);
 		const base = this.tree(repo, pr.baseRef);
-		const fork = this.repo(repo).forkTrees.get(pr.headRef) ?? base;
-		for (const path of changedPaths(fork, head)) {
-			const blob = head.get(path);
-			if (blob) base.set(path, { ...blob });
-			else base.delete(path);
+		const fork = r.forkTrees.get(pr.headRef) ?? base;
+		const take = (from: Tree, to: Tree) => {
+			for (const path of changedPaths(from, to)) {
+				const blob = to.get(path);
+				if (blob) base.set(path, { ...blob });
+				else base.delete(path);
+			}
+		};
+		const next = (text: string) => sha1(pr.baseRef, text, String(this.commitCounter++));
+		if (how === 'rebase') {
+			for (const commit of r.commits.get(pr.headRef) ?? []) {
+				const parent = r.parents.get(commit.sha)?.[0];
+				take(parent ? this.tree(repo, parent) : fork, this.tree(repo, commit.sha));
+				this.recordCommit(repo, pr.baseRef, next(commit.message), commit.message);
+			}
+		} else {
+			take(fork, this.tree(repo, pr.headRef));
+			const second = how === 'merge' ? r.heads.get(pr.headRef) : undefined;
+			this.recordCommit(repo, pr.baseRef, next(message), message, undefined, second);
 		}
-		this.recordCommit(
-			repo,
-			pr.baseRef,
-			sha1(pr.baseRef, message, String(this.commitCounter++)),
-			message
-		);
-		this.touch(repo, number, { state: 'merged', mergedAt: new Date().toISOString() });
+		this.touch(repo, pr.number, {
+			state: 'merged',
+			mergedAt: new Date().toISOString(),
+			mergeCommitSha: r.heads.get(pr.baseRef) ?? null
+		});
 	}
 
 	async reviewDecision(repo: string, number: number): Promise<ReviewDecision> {
@@ -557,16 +600,22 @@ export class FakeForge implements Forge {
 		this.comments.set(number, [...(this.comments.get(number) ?? []), comment]);
 	}
 
+	/** Records a commit on a branch; with `second`, a merge commit of that commit into it. */
 	private recordCommit(
 		repo: string,
 		branch: string,
 		sha: string,
 		message: string,
-		author?: string | null
+		author?: string | null,
+		second?: string
 	): void {
 		const r = this.repo(repo);
 		r.commits.get(branch)!.push({ sha, message, ...(author !== undefined ? { author } : {}) });
-		r.parents.set(sha, r.heads.get(branch) ?? null);
+		const first = r.heads.get(branch);
+		r.parents.set(
+			sha,
+			[first, second].filter((parent): parent is string => parent !== undefined)
+		);
 		r.heads.set(branch, sha);
 		r.snapshots.set(sha, cloneTree(this.tree(repo, branch)));
 	}

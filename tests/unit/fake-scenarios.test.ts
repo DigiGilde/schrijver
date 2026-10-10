@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { SiteConfig } from '../../src/lib/config/types';
 import type { FakeForge } from '../../src/lib/forge/fake';
+import { startOf } from '../../src/lib/forge/proposals';
 import { pseudonym } from '../../src/lib/forge/trailers';
 
 vi.mock('../../src/lib/log', async (original) => ({
@@ -197,6 +198,17 @@ describe('the fake fixtures of the local preview', () => {
 			['Facilitaire diensten: wie je belt', true],
 			['Werkplaats: het rooster van de week', false]
 		]);
+	});
+
+	it('hold a proposal merged on GitHub with a merge commit, whose change the site holds now', async () => {
+		const repo = 'DigiGilde/handboek';
+		const pr = await forge.getPr(repo, await numberOf(repo, 'Offboarding: laptop inleveren'));
+		const own = 'Lever je laptop in bij de servicedesk op je laatste werkdag.';
+		expect(pr.state).toBe('merged');
+		expect(forge.fileText(repo, 'main', 'docs/offboarding.md')).toContain(own);
+		expect(forge.fileText(repo, pr.headSha, 'docs/offboarding.md')).toContain(own);
+		const start = await startOf(forge, repo, pr, pr.headSha);
+		expect(forge.fileText(repo, start, 'docs/offboarding.md')).not.toContain(own);
 	});
 
 	it('leave out the proposals of the test user when there is none', async () => {

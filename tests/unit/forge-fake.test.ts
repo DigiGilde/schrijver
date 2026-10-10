@@ -72,6 +72,74 @@ describe('FakeForge', () => {
 		expect(await forge.mergeBase(REPO, 'main', seeded)).toBe(seeded);
 	});
 
+	describe('a merge done on GitHub', () => {
+		async function merged(how: 'merge' | 'squash' | 'rebase') {
+			await forge.createBranch(REPO, 'main', 'voorstel');
+			const start = (await forge.openDraftPr(REPO, 'voorstel', 'main', 'T', 'B')).headSha;
+			await forge.commit(REPO, 'voorstel', [{ path: 'content/a.md', content: 'alfa' }], 'een');
+			const { sha: head } = await forge.commit(
+				REPO,
+				'voorstel',
+				[{ path: 'content/new.md', content: 'nieuw' }],
+				'twee'
+			);
+			const { sha: tip } = await forge.commit(
+				REPO,
+				'main',
+				[{ path: 'other/c.md', content: 'delta' }],
+				'op de site'
+			);
+			forge.mergeOnGitHub(REPO, 1, how);
+			return { start, head, tip };
+		}
+
+		it('puts the change on the base in any of its three ways, and names what it put there', async () => {
+			for (const how of ['merge', 'squash', 'rebase'] as const) {
+				forge = new FakeForge();
+				forge.seedRepo(REPO, 'main', { 'content/a.md': 'alpha', 'other/c.md': 'charlie' });
+				const { head } = await merged(how);
+				expect(forge.fileText(REPO, 'main', 'content/a.md'), how).toBe('alfa');
+				expect(forge.fileText(REPO, 'main', 'content/new.md'), how).toBe('nieuw');
+				expect(forge.fileText(REPO, 'main', 'other/c.md'), how).toBe('delta');
+				const pr = await forge.getPr(REPO, 1);
+				expect(pr, how).toMatchObject({ state: 'merged', mergedAt: expect.any(String) });
+				const last = forge.commitsOf(REPO, 'main').at(-1)!.sha;
+				expect(pr.mergeCommitSha, how).toBe(last);
+				expect((await forge.prHead(REPO, 1)).mergeCommitSha, how).toBe(last);
+				expect(forge.commitsOf(REPO, 'main'), how).toHaveLength(how === 'rebase' ? 3 : 2);
+				expect((await forge.prHead(REPO, 1)).headSha, how).toBe(head);
+			}
+		});
+
+		it('keeps the head of a merge commit in the base, so only the first parent shows where it began', async () => {
+			for (const how of ['merge', 'squash', 'rebase'] as const) {
+				forge = new FakeForge();
+				forge.seedRepo(REPO, 'main', { 'content/a.md': 'alpha', 'other/c.md': 'charlie' });
+				const { start, head, tip } = await merged(how);
+				const { mergeCommitSha } = await forge.getPr(REPO, 1);
+				const parent = await forge.firstParent(REPO, mergeCommitSha!);
+				expect(await forge.mergeBase(REPO, parent, head), how).toBe(start);
+				expect(await forge.mergeBase(REPO, 'main', head), how).toBe(how === 'merge' ? head : start);
+				if (how !== 'rebase') expect(parent, how).toBe(tip);
+			}
+		});
+
+		it('has no merge commit before the merge, nor a parent for a commit it does not have', async () => {
+			await forge.createBranch(REPO, 'main', 'voorstel');
+			const pr = await forge.openDraftPr(REPO, 'voorstel', 'main', 'T', 'B');
+			expect(pr.mergeCommitSha).toBeNull();
+			expect((await forge.prHead(REPO, pr.number)).mergeCommitSha).toBeNull();
+			await expect(forge.firstParent(REPO, pr.headSha)).rejects.toMatchObject({ status: 404 });
+			await expect(forge.firstParent(REPO, 'f'.repeat(40))).rejects.toMatchObject({
+				status: 404
+			});
+			await forge.merge(REPO, pr.number, 'Samengevoegd');
+			const { mergeCommitSha } = await forge.getPr(REPO, pr.number);
+			expect(mergeCommitSha).toBe(forge.commitsOf(REPO, 'main').at(-1)!.sha);
+			expect(await forge.firstParent(REPO, mergeCommitSha!)).toBe(pr.headSha);
+		});
+	});
+
 	it('does not know the merge base of a ref it does not have, and can be made to fail', async () => {
 		await expect(forge.mergeBase(REPO, 'main', 'ghost')).rejects.toMatchObject({ status: 404 });
 		await expect(forge.mergeBase(REPO, 'ghost', 'main')).rejects.toMatchObject({ status: 404 });

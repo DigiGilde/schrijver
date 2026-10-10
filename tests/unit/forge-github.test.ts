@@ -467,6 +467,7 @@ describe('GitHubForge', () => {
 					draft: false,
 					state: 'closed',
 					merged_at: '2026-10-09T15:00:00Z',
+					merge_commit_sha: 'c'.repeat(40),
 					user: { login: 'jansen' },
 					head: { ref: 'h', sha: 'sha9' },
 					base: { ref: 'main' },
@@ -484,7 +485,8 @@ describe('GitHubForge', () => {
 		expect(await forge().getPr('o/r', 9)).toMatchObject({
 			state: 'merged',
 			author: 'jansen',
-			mergedAt: '2026-10-09T15:00:00Z'
+			mergedAt: '2026-10-09T15:00:00Z',
+			mergeCommitSha: 'c'.repeat(40)
 		});
 	});
 
@@ -496,7 +498,9 @@ describe('GitHubForge', () => {
 				return HttpResponse.json({
 					number: 9,
 					head: { ref: 'schrijver/site/x', sha: 'sha9', repo: { full_name: 'O/R' } },
-					base: { ref: 'main' }
+					base: { ref: 'main' },
+					merged_at: null,
+					merge_commit_sha: 'd'.repeat(40)
 				});
 			})
 		);
@@ -504,7 +508,8 @@ describe('GitHubForge', () => {
 			headRef: 'schrijver/site/x',
 			headSha: 'sha9',
 			headRepo: 'O/R',
-			baseRef: 'main'
+			baseRef: 'main',
+			mergeCommitSha: null
 		});
 		expect(calls).toBe(1);
 		server.use(
@@ -517,6 +522,55 @@ describe('GitHubForge', () => {
 			)
 		);
 		expect((await forge().prHead('o/r', 9)).headRepo).toBe('');
+		for (const [sha, expected] of [
+			['e'.repeat(40), 'e'.repeat(40)],
+			['geen-commit', null],
+			[null, null]
+		]) {
+			server.use(
+				http.get(`${API}/repos/o/r/pulls/9`, () =>
+					HttpResponse.json({
+						number: 9,
+						head: { ref: 'h', sha: 's', repo: null },
+						base: { ref: 'main' },
+						merged_at: '2026-10-09T15:00:00Z',
+						merge_commit_sha: sha
+					})
+				)
+			);
+			expect((await forge().prHead('o/r', 9)).mergeCommitSha, String(sha)).toBe(expected);
+		}
+	});
+
+	it("reads a commit's first parent from the commit object", async () => {
+		const asked: string[] = [];
+		server.use(
+			http.get(`${API}/repos/o/r/git/commits/:sha`, ({ params }) => {
+				asked.push(String(params.sha));
+				return HttpResponse.json({
+					sha: params.sha,
+					parents: [{ sha: 'a'.repeat(40) }, { sha: 'b'.repeat(40) }]
+				});
+			})
+		);
+		expect(await forge().firstParent('o/r', 'c'.repeat(40))).toBe('a'.repeat(40));
+		expect(asked).toEqual(['c'.repeat(40)]);
+		for (const parents of [[], [{}], [{ sha: 'abc' }], undefined]) {
+			server.use(
+				http.get(`${API}/repos/o/r/git/commits/:sha`, () => HttpResponse.json({ parents }))
+			);
+			await expect(forge().firstParent('o/r', 'c'.repeat(40))).rejects.toMatchObject({
+				status: 502
+			});
+		}
+		server.use(
+			http.get(`${API}/repos/o/r/git/commits/:sha`, () =>
+				HttpResponse.json({ message: 'Not Found' }, { status: 404 })
+			)
+		);
+		await expect(forge().firstParent('o/r', 'c'.repeat(40))).rejects.toMatchObject({
+			status: 404
+		});
 	});
 
 	it('finds where a pull request started with one compare call, asked for one commit', async () => {

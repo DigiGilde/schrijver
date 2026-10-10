@@ -10,7 +10,7 @@ import { sourceDiff } from '$lib/content/source-diff';
 import { authorName, authorship, fourEyes } from '$lib/forge/authorship';
 import { conversation } from '$lib/forge/conversation';
 import { appAccount, canAct, type ActingUser } from '$lib/forge/proposal-actions';
-import { toProposal } from '$lib/forge/proposals';
+import { startOf, toProposal } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import { FOUR_EYES, dateText, stepOf, whatNow } from '$lib/forge/status';
 import { ForgeError, MAX_PR_COMMITS, type Forge, type ReviewDecision } from '$lib/forge/types';
@@ -86,7 +86,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			const shown = pages.slice(0, MAX_DIFF_PAGES);
 			// The old text is the page as the proposal found it: the base branch may have changed it since.
 			const started = shown.some((f) => f.status !== 'added')
-				? await forge.mergeBase(site.repo, pr.baseRef, head)
+				? await startOf(forge, site.repo, pr, head)
 				: null;
 			return Promise.all(
 				shown.map(async (f) => {

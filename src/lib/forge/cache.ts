@@ -166,6 +166,10 @@ export class CachingForge implements Forge {
 			this.headTtlMs
 		);
 	}
+	/** A commit's parents never change. */
+	firstParent(repo: string, sha: string): Promise<string> {
+		return this.cached(repo, `parent\0${sha}`, () => this.inner.firstParent(repo, sha));
+	}
 	prFiles(repo: string, number: number): Promise<PrFile[]> {
 		return this.cached(
 			repo,

@@ -180,6 +180,30 @@ describe('what the comparison starts from', () => {
 		expect(diff.source.map((part) => part.kind)).toContain('added');
 	});
 
+	it('is the page as the proposal found it after a merge on GitHub, in any of its three ways', async () => {
+		for (const [how, page] of [
+			['merge', 'docs/werkwijze/principes.md'],
+			['squash', 'docs/werkwijze/code-review.md'],
+			['rebase', 'docs/werkwijze/beslissingen-logboek.md']
+		] as const) {
+			const original = forge.fileText(REPO, 'main', page)!;
+			const nummer = await proposal(`op-github-${how}`, { [page]: own(original) });
+			await forge.markReady(REPO, nummer);
+			forge.mergeOnGitHub(REPO, nummer, how);
+			expect(forge.fileText(REPO, 'main', page), how).toBe(own(original));
+			const [diff] = (await visit(nummer)).diffs;
+			expect(diff, how).toMatchObject({ before: original, after: own(original) });
+			expect(
+				diff.source.map((part) => part.kind),
+				how
+			).toContain('added');
+			expect(
+				diff.source.map((part) => part.kind),
+				how
+			).not.toContain('removed');
+		}
+	});
+
 	it('is not looked for when the proposal only adds pages', async () => {
 		const nummer = await proposal('nieuw-gggg', { 'docs/nieuw-begin.md': '# Nieuw\n' });
 		const mergeBase = vi.spyOn(forge, 'mergeBase');

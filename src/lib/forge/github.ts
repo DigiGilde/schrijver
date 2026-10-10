@@ -24,6 +24,8 @@ import {
 type Octo = Awaited<ReturnType<App['getInstallationOctokit']>>;
 type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+const COMMIT = /^[0-9a-f]{40,64}$/;
+
 const MESSAGES: Record<number, string> = {
 	401: 'Geen toegang tot de repository',
 	403: 'Geen toegang tot de repository',
@@ -382,7 +384,8 @@ export class GitHubForge implements Forge {
 			headRef: pr.head.ref,
 			headSha: pr.head.sha,
 			headRepo: pr.head.repo?.full_name ?? '',
-			baseRef: pr.base.ref
+			baseRef: pr.base.ref,
+			mergeCommitSha: mergeCommitOf(pr)
 		};
 	}
 
@@ -392,10 +395,21 @@ export class GitHubForge implements Forge {
 			per_page: 1
 		});
 		const sha = data?.merge_base_commit?.sha;
-		if (typeof sha !== 'string' || !/^[0-9a-f]{40,64}$/.test(sha)) {
+		if (typeof sha !== 'string' || !COMMIT.test(sha)) {
 			throw new ForgeError(502, 'GitHub gaf een fout', 'compare without a merge base');
 		}
 		return sha;
+	}
+
+	async firstParent(repo: string, sha: string): Promise<string> {
+		const data = await this.request(repo, 'GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
+			commit_sha: sha
+		});
+		const parent = data?.parents?.[0]?.sha;
+		if (typeof parent !== 'string' || !COMMIT.test(parent)) {
+			throw new ForgeError(502, 'GitHub gaf een fout', 'commit without a parent');
+		}
+		return parent;
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {
@@ -638,9 +652,16 @@ export class GitHubForge implements Forge {
 			requestedReviewers: (pr.requested_reviewers ?? []).map((user: Json) => user.login as string),
 			checks: checkState(checks.check_runs ?? []),
 			author: pr.user?.login,
-			mergedAt: pr.merged_at ?? null
+			mergedAt: pr.merged_at ?? null,
+			mergeCommitSha: mergeCommitOf(pr)
 		};
 	}
+}
+
+/** Before the merge GitHub names a test merge commit here, which never lands. */
+function mergeCommitOf(pr: Json): string | null {
+	const sha = pr.merge_commit_sha;
+	return pr.merged_at && typeof sha === 'string' && COMMIT.test(sha) ? sha : null;
 }
 
 async function mapPool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {

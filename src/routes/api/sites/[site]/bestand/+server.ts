@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { SiteConfig } from '$lib/config/types';
 import { MAX_IMAGE_BYTES } from '$lib/content/images';
+import { startOf } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import { hasControlCharacters } from '$lib/forge/save';
 import { ForgeError } from '$lib/forge/types';
@@ -79,7 +80,7 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 			at = head.headSha || head.headRef;
 			// The old side is the commit the proposal started from, found here and never taken from the
 			// request.
-			if (kant === 'voor') at = await forge.mergeBase(site.repo, head.baseRef, at);
+			if (kant === 'voor') at = await startOf(forge, site.repo, head, at);
 		}
 		file = await forge.readFile(site.repo, at, pad);
 	} catch (e) {

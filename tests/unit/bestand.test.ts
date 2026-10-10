@@ -173,6 +173,19 @@ describe('GET /api/sites/[site]/bestand', () => {
 			expect(readFile).not.toHaveBeenCalled();
 		});
 
+		it('is the image as it was when the proposal began, also after a merge commit on GitHub', async () => {
+			const branch = 'schrijver/digi-handboek/kat-efgh';
+			await forge.createBranch(digi.repo, 'main', branch);
+			await forge.commit(digi.repo, branch, [{ path: KAT, content: PNG_LATER }], 'eigen');
+			const merged = String((await forge.openDraftPr(digi.repo, branch, 'main', 'K', '')).number);
+			forge.mergeOnGitHub(digi.repo, Number(merged), 'merge');
+			expect(await bytes(await get({ pad: KAT }))).toEqual(PNG_LATER);
+			expect(await bytes(await get({ pad: KAT, voorstel: merged }))).toEqual(PNG_LATER);
+			expect(await bytes(await get({ pad: KAT, voorstel: merged, kant: 'voor' }))).toEqual(
+				PNG_ON_SITE
+			);
+		});
+
 		it('is a 404 when the forge cannot find where the proposal started', async () => {
 			forge.failNext('mergeBase', new ForgeError(404, 'Niet gevonden op GitHub'));
 			expect((await get({ pad: KAT, voorstel, kant: 'voor' })).status).toBe(404);

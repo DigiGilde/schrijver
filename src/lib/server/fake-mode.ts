@@ -342,7 +342,8 @@ export async function seedScenarios(
 		text: 'Lever je laptop in bij de servicedesk op je laatste werkdag.',
 		sent: true
 	});
-	Object.assign(forge.prs.get(merged)!, { state: 'merged', mergedAt: daysAgo(3) });
+	forge.mergeOnGitHub(DIGI, merged, 'merge');
+	forge.prs.get(merged)!.mergedAt = daysAgo(3);
 
 	const closed = await seedProposal(forge, DIGI, {
 		branch: 'schrijver/digi-handboek/principes-oud',

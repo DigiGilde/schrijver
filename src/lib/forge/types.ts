@@ -37,10 +37,18 @@ export interface PrSummary {
 	/** Login of who opened it on GitHub; Schrijver's App for a proposal made in Schrijver. */
 	author?: string;
 	mergedAt?: string | null;
+	/**
+	 * The commit the merge put on the base branch: the merge commit, the squashed commit, or the last
+	 * rebased one. Null until it is merged.
+	 */
+	mergeCommitSha?: string | null;
 }
 
-/** Where a pull request's head is, and the branch it would merge into. */
-export type PrHead = Pick<PrSummary, 'headRef' | 'headSha' | 'headRepo' | 'baseRef'>;
+/** Where a pull request's head is, the branch it would merge into, and what its merge put there. */
+export type PrHead = Pick<
+	PrSummary,
+	'headRef' | 'headSha' | 'headRepo' | 'baseRef' | 'mergeCommitSha'
+>;
 
 export interface PrCommit {
 	sha: string;
@@ -153,6 +161,8 @@ export interface Forge {
 	prHead(repo: string, number: number): Promise<PrHead>;
 	/** The commit where `head` and `base` last agree: what a pull request's changes are measured from. */
 	mergeBase(repo: string, base: Ref, head: Ref): Promise<string>;
+	/** The first parent of a commit: of a merge commit, the branch that was merged into. */
+	firstParent(repo: string, sha: string): Promise<string>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
 	prCommits(repo: string, number: number): Promise<PrCommit[]>;
 	/** Oldest first. */

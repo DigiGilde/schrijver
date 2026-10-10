@@ -175,6 +175,20 @@ describe('CachingForge', () => {
 		expect(mergeBase).toHaveBeenCalledTimes(5);
 	});
 
+	it("keeps a commit's first parent, which never changes, until a write", async () => {
+		const { fake, cache } = setup();
+		await fake.createBranch('o/site', 'main', 'p');
+		const start = (await fake.openDraftPr('o/site', 'p', 'main', 'P', '')).headSha;
+		const { sha } = await fake.commit('o/site', 'p', [{ path: 'a.md', content: 'nieuw' }], 'm');
+		const firstParent = vi.spyOn(fake, 'firstParent');
+		expect(await cache.firstParent('o/site', sha)).toBe(start);
+		expect(await cache.firstParent('o/site', sha)).toBe(start);
+		expect(firstParent).toHaveBeenCalledTimes(1);
+		await cache.commit('o/site', 'p', [], 'n');
+		await cache.firstParent('o/site', sha);
+		expect(firstParent).toHaveBeenCalledTimes(2);
+	});
+
 	it('drops what it holds of a repository when a label is added or taken off', async () => {
 		const { fake, cache } = setup();
 		await fake.createBranch('o/site', 'main', 'p');
