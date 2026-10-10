@@ -94,7 +94,16 @@ test('sends in, asks for an adjustment, sends in again, reacts and merges', asyn
 	await page.getByRole('button', { name: 'Vraag om aanpassing' }).click();
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
 	await expect(veld).toBeFocused();
-	await expect(page.getByText('Schrijf wat er anders moet.', { exact: false })).toBeVisible();
+	await expect(page.locator('p[role="status"]')).toHaveText(
+		'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.'
+	);
+	await expect(page.locator('nldd-form-field-help-text')).toContainText(
+		'Schrijf wat er anders moet.'
+	);
+	await page.getByRole('button', { name: 'Annuleer' }).click();
+	await expect(veld).toBeFocused();
+	await expect(page.locator('form').getByRole('button', { name: 'Plaats reactie' })).toBeVisible();
+	await page.getByRole('button', { name: 'Vraag om aanpassing' }).click();
 	await page.locator('form').getByRole('button', { name: 'Vraag om aanpassing' }).click();
 	await expect(page.locator('nldd-form-field-help-text')).toHaveText(
 		'Schrijf eerst wat er anders moet'

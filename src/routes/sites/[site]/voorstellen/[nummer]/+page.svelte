@@ -111,6 +111,7 @@
 		fout = null;
 		await tick();
 		veld?.focus();
+		status = 'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.';
 	}
 
 	async function terugNaarReactie() {
@@ -118,6 +119,7 @@
 		fout = null;
 		await tick();
 		veld?.focus();
+		status = 'Je reactie is weer een gewone reactie.';
 	}
 
 	async function plaats(event: SubmitEvent) {
