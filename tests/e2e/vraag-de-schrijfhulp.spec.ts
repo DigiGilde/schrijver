@@ -242,6 +242,40 @@ test('the comparison names the page by its title, with its path and the changes 
 	).toHaveCount(0);
 });
 
+test('an image in the text shows in the comparison, as in Voorbeeld', async ({ page }) => {
+	await page.addInitScript(() =>
+		localStorage.setItem('schrijver:digi-handboek:openbaar-uitgelegd', '1')
+	);
+	await answerHere(page);
+	await page.goto(url);
+	await expect(editor(page)).toContainText('Het Digi Handboek');
+	await editor(page).click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.getByRole('button', { name: 'Afbeelding invoegen' }).click();
+	const dialog = page.locator('nldd-modal-dialog');
+	await dialog.locator('input[type=file]').setInputFiles({
+		name: 'pixel.png',
+		mimeType: 'image/png',
+		buffer: Buffer.from(
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+			'base64'
+		)
+	});
+	await dialog.getByLabel('Alt-tekst').fill('Een pixel');
+	await dialog.getByRole('button', { name: 'Invoegen' }).click();
+	await expect(editor(page)).toContainText('![Een pixel](');
+
+	await page.getByRole('button', { name: 'Schrijfhulp' }).click();
+	const paneel = page.getByRole('complementary', { name: 'Schrijfhulp' });
+	await paneel.getByRole('button', { name: 'Naar B1' }).click();
+	const kolom = page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Naar B1' });
+	await kolom.getByRole('radio', { name: 'Hele pagina' }).click();
+	await expect(kolom.locator('img[alt="Een pixel"]')).toHaveAttribute(
+		'src',
+		/^data:image\/png;base64,/
+	);
+});
+
 test('the focus ring of the comparison heading hugs its text', async ({ page }) => {
 	const paneel = await openPanelHere(page);
 	await paneel.getByRole('button', { name: 'Korter' }).focus();

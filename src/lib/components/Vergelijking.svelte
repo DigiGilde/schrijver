@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import Diff from './Diff.svelte';
 	import type { Comparison } from '$lib/client/suggestion';
+	import type { ResolveImage } from '$lib/content/markdown-preview';
 
 	type Props = {
 		/** The path of the page the text belongs to. */
@@ -9,6 +10,8 @@
 		/** The title of that page, as the editor knows it. */
 		paginatitel: string;
 		vergelijking: Comparison;
+		/** Where the images of both texts are: the same place, as in the editor's preview. */
+		resolveImage: ResolveImage;
 		/** The heading, which takes the focus once the comparison is there. */
 		kop?: HTMLElement;
 		onovernemen: () => void;
@@ -18,6 +21,7 @@
 		pagina,
 		paginatitel,
 		vergelijking,
+		resolveImage,
 		kop = $bindable(),
 		onovernemen,
 		onverwerpen
@@ -49,6 +53,7 @@
 				after={vergelijking.after}
 				source={vergelijking.source}
 				status="modified"
+				images={{ before: resolveImage, after: resolveImage }}
 			/>
 			<nldd-spacer size="24"></nldd-spacer>
 			<nldd-button-group>

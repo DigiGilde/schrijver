@@ -168,6 +168,7 @@
 				{pagina}
 				paginatitel={titel}
 				{vergelijking}
+				resolveImage={previewImages({ siteId, page: pagina, ref: branch, pending: images })}
 				bind:kop={vergelijkingKop}
 				onovernemen={() => assistent?.accept()}
 				onverwerpen={() => assistent?.dismiss()}
