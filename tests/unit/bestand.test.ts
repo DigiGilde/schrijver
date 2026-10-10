@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeForge } from '../../src/lib/forge/fake';
+import { ForgeError } from '../../src/lib/forge/types';
 import { apiGuard } from '../../src/lib/server/security';
 
 const state = vi.hoisted(() => ({ forge: null as unknown }));
@@ -12,6 +13,8 @@ import { GET } from '../../src/routes/api/sites/[site]/bestand/+server';
 import { digi, moza } from './sites-fixture';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const PNG_LATER = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 4, 5, 6]);
+const PNG_ON_SITE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 8, 9]);
 let forge: FakeForge;
 
 beforeEach(async () => {
@@ -99,6 +102,83 @@ describe('GET /api/sites/[site]/bestand', () => {
 		}
 	});
 
+	describe('the old side of a proposal', () => {
+		const KAT = 'docs/afbeeldingen/home/kat.png';
+		const BRANCH = 'schrijver/digi-handboek/home-abcd';
+		const bytes = async (res: Response) => new Uint8Array(await res.arrayBuffer());
+		let voorstel: string;
+
+		beforeEach(async () => {
+			await forge.commit(digi.repo, BRANCH, [{ path: KAT, content: PNG_LATER }], 'eigen');
+			voorstel = String((await forge.openDraftPr(digi.repo, BRANCH, 'main', 'V', '')).number);
+			await forge.commit(digi.repo, 'main', [{ path: KAT, content: PNG_ON_SITE }], 'site');
+		});
+
+		it('is the image as it was when the proposal began, not as the default branch has it now', async () => {
+			const old = await get({ pad: KAT, voorstel, kant: 'voor' });
+			expect(old.status).toBe(200);
+			expect(await bytes(old)).toEqual(PNG);
+			expect(await bytes(await get({ pad: KAT, voorstel }))).toEqual(PNG_LATER);
+			expect(await bytes(await get({ pad: KAT }))).toEqual(PNG_ON_SITE);
+		});
+
+		it('does not have an image that the proposal adds', async () => {
+			const pad = 'docs/afbeeldingen/home/nieuw.png';
+			expect((await get({ pad, voorstel })).status).toBe(200);
+			expect((await get({ pad, voorstel, kant: 'voor' })).status).toBe(404);
+		});
+
+		it('reads at the commit that the forge names as the start, found from the proposal itself', async () => {
+			const prHead = await forge.prHead(digi.repo, Number(voorstel));
+			const mergeBase = vi.spyOn(forge, 'mergeBase');
+			const readFile = vi.spyOn(forge, 'readFile');
+			await get({ pad: KAT, voorstel, kant: 'voor' });
+			expect(mergeBase).toHaveBeenCalledTimes(1);
+			expect(mergeBase).toHaveBeenCalledWith(digi.repo, 'main', prHead.headSha);
+			const start = await mergeBase.mock.results[0].value;
+			expect(readFile).toHaveBeenCalledWith(digi.repo, start, KAT);
+		});
+
+		it('is only for a proposal, and only the side called voor', async () => {
+			const commit = (await forge.prHead(digi.repo, Number(voorstel))).headSha;
+			for (const kant of ['', 'na', 'VOOR', 'voor ', 'voor,voor', 'main', 'HEAD', commit]) {
+				expect((await get({ pad: KAT, voorstel, kant })).status, kant).toBe(400);
+			}
+			const queries: Record<string, string>[] = [
+				{ kant: 'voor' },
+				{ kant: 'voor', ref: 'main' },
+				{ kant: 'voor', ref: commit },
+				{ kant: commit, ref: commit },
+				{ voorstel, kant: 'voor', ref: 'main' },
+				{ voorstel, kant: 'voor', ref: commit }
+			];
+			for (const query of queries) {
+				expect((await get({ pad: KAT, ...query })).status, JSON.stringify(query)).toBe(400);
+			}
+		});
+
+		it('is not read for a head outside the site repository or a pull request into another branch', async () => {
+			const mergeBase = vi.spyOn(forge, 'mergeBase');
+			const readFile = vi.spyOn(forge, 'readFile');
+			for (const over of [{ headRepo: 'iemand/handboek' }, { headRepo: '' }, { baseRef: 'dev' }]) {
+				const original = { ...forge.prs.get(Number(voorstel))! };
+				Object.assign(forge.prs.get(Number(voorstel))!, over);
+				for (const kant of ['voor', undefined]) {
+					const res = await get({ pad: KAT, voorstel, ...(kant ? { kant } : {}) });
+					expect(res.status, `${JSON.stringify(over)} ${kant}`).toBe(400);
+				}
+				Object.assign(forge.prs.get(Number(voorstel))!, original);
+			}
+			expect(mergeBase).not.toHaveBeenCalled();
+			expect(readFile).not.toHaveBeenCalled();
+		});
+
+		it('is a 404 when the forge cannot find where the proposal started', async () => {
+			forge.failNext('mergeBase', new ForgeError(404, 'Niet gevonden op GitHub'));
+			expect((await get({ pad: KAT, voorstel, kant: 'voor' })).status).toBe(404);
+		});
+	});
+
 	it('404 for a proposal that does not exist, 400 for a malformed one', async () => {
 		const pad = 'docs/afbeeldingen/home/kat.png';
 		expect((await get({ pad, voorstel: '999' })).status).toBe(404);
@@ -106,6 +186,9 @@ describe('GET /api/sites/[site]/bestand', () => {
 			expect((await get({ pad, voorstel })).status, voorstel).toBe(400);
 		}
 		expect((await get({ pad, voorstel: '1', ref: 'main' })).status).toBe(400);
+		const commit = forge.commitsOf(digi.repo, 'schrijver/digi-handboek/home-abcd')[0].sha;
+		expect((await get({ pad, voorstel: '1', ref: commit })).status).toBe(400);
+		expect((await get({ pad, voorstel: commit })).status).toBe(400);
 	});
 
 	it('sandboxes an svg', async () => {

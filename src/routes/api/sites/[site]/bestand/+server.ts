@@ -45,9 +45,11 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 
 	const pad = url.searchParams.get('pad') ?? '';
 	const voorstel = url.searchParams.get('voorstel');
+	const kant = url.searchParams.get('kant');
 	const asked = url.searchParams.get('ref');
 	if (voorstel !== null && (asked !== null || !NUMBER.test(voorstel)))
 		return fail(400, 'Ongeldige versie');
+	if (kant !== null && (voorstel === null || kant !== 'voor')) return fail(400, 'Ongeldige versie');
 	const ref = asked || site.standaardbranch;
 	if (voorstel === null && ref !== site.standaardbranch && !ref.startsWith(`schrijver/${site.id}/`))
 		return fail(400, 'Ongeldige versie');
@@ -75,6 +77,9 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 			if (!sameRepo(head.headRepo, site.repo) || head.baseRef !== site.standaardbranch)
 				return fail(400, 'Ongeldige versie');
 			at = head.headSha || head.headRef;
+			// The old side is the commit the proposal started from, found here and never taken from the
+			// request.
+			if (kant === 'voor') at = await forge.mergeBase(site.repo, head.baseRef, at);
 		}
 		file = await forge.readFile(site.repo, at, pad);
 	} catch (e) {

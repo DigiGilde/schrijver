@@ -82,10 +82,16 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			: files
 					.filter((f) => proposal.pages.includes(f.path))
 					.sort((a, b) => a.path.localeCompare(b.path));
-		const [diffs, acts, app, gesprek, terug] = await Promise.all([
-			Promise.all(
-				pages.slice(0, MAX_DIFF_PAGES).map(async (f) => {
-					const before = f.status === 'added' ? null : await text(pr.baseRef, f.path);
+		const compare = async () => {
+			const shown = pages.slice(0, MAX_DIFF_PAGES);
+			// The old text is the page as the proposal found it: the base branch may have changed it since.
+			const started = shown.some((f) => f.status !== 'added')
+				? await forge.mergeBase(site.repo, pr.baseRef, head)
+				: null;
+			return Promise.all(
+				shown.map(async (f) => {
+					const before =
+						f.status === 'added' || started === null ? null : await text(started, f.path);
 					const after = f.status === 'removed' ? null : await text(head, f.path);
 					if (before === TE_GROOT || after === TE_GROOT) {
 						return {
@@ -108,7 +114,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 						source: sourceDiff(before, after)
 					};
 				})
-			),
+			);
+		};
+		const [diffs, acts, app, gesprek, terug] = await Promise.all([
+			compare(),
 			canAct(user, site, pr, forge),
 			appAccount(forge),
 			loadConversation(forge, site, nummer),
@@ -212,7 +221,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			nogMeerBestanden: Math.max(others.length - MAX_OTHER_FILES, 0),
 			fromFork,
 			headSha: pr.headSha,
-			imageRefs: { before: pr.baseRef },
 			githubUrl: pr.url,
 			gesprek,
 			kanReageren: pr.state === 'open' && (acts.owner || acts.editorial)

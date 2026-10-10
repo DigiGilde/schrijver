@@ -100,6 +100,8 @@ export function previewImages(opts: {
 	ref: string | null;
 	/** A proposal's number: its images are read at the commit its head points at now. */
 	voorstel?: number;
+	/** With `voorstel`: the images as the page had them when the proposal began. */
+	kant?: 'voor';
 	pending: { path: string; base64: string }[];
 }): ResolveImage {
 	return (src) => {
@@ -108,8 +110,10 @@ export function previewImages(opts: {
 		const pending = opts.pending.find((i) => i.path === path);
 		if (pending) return `data:${mimeOf(path)};base64,${pending.base64}`;
 		const query = new URLSearchParams({ pad: path });
-		if (opts.voorstel !== undefined) query.set('voorstel', String(opts.voorstel));
-		else if (opts.ref) query.set('ref', opts.ref);
+		if (opts.voorstel !== undefined) {
+			query.set('voorstel', String(opts.voorstel));
+			if (opts.kant) query.set('kant', opts.kant);
+		} else if (opts.ref) query.set('ref', opts.ref);
 		return `/api/sites/${encodeURIComponent(opts.siteId)}/bestand?${query}`;
 	};
 }

@@ -43,12 +43,12 @@ interface Diff {
 	teGroot: boolean;
 	before: string | null;
 	after: string | null;
+	source: { kind: string; text?: string }[];
 }
 interface Data {
 	diffs: Diff[];
 	nietVergeleken: number;
 	terug: string;
-	imageRefs: { before: string; after: string };
 }
 
 async function proposal(slug: string, files: Record<string, string>): Promise<number> {
@@ -125,11 +125,79 @@ describe('proposal page load', () => {
 	});
 });
 
-describe('the version that the comparison reads the old images at', () => {
-	// The new images are read by the proposal's number, at its head: see bestand.test.ts.
-	it('is the base branch', async () => {
-		const nummer = await proposal('plaatjes-dddd', { 'docs/plaatjes.md': '![Een](een.png)\n' });
-		expect((await visit(nummer)).imageRefs).toEqual({ before: 'main' });
+describe('what the comparison starts from', () => {
+	// The images follow: the page asks for them by the proposal's number, see bestand.test.ts.
+	const LICENTIE = 'docs/over/licentie.md';
+	const own = (text: string) => `${text}\nEen zin van het voorstel.\n`;
+	const site = (text: string) => `${text}\nEen zin die intussen op de site kwam.\n`;
+
+	it('is the page as the proposal found it, whatever the site changed since', async () => {
+		const original = forge.fileText(REPO, 'main', LICENTIE)!;
+		const nummer = await proposal('begin-eeee', { [LICENTIE]: own(original) });
+		await forge.commit(REPO, 'main', [{ path: LICENTIE, content: site(original) }], 'Op de site');
+		const [diff] = (await visit(nummer)).diffs;
+		expect(diff.before).toBe(original);
+		expect(diff.after).toBe(own(original));
+		expect(diff.source.map((part) => part.kind)).not.toContain('removed');
+		expect(diff.source.filter((part) => part.kind === 'added')).toEqual([
+			{ kind: 'added', text: '\nEen zin van het voorstel.\n' }
+		]);
+		expect(JSON.stringify(diff)).not.toContain('intussen op de site');
+	});
+
+	it('is the page as the proposal found it for a page that the proposal removes', async () => {
+		const original = forge.fileText(REPO, 'main', 'docs/over/privacy.md')!;
+		const branch = 'schrijver/digi-handboek/weg-ffff';
+		await forge.createBranch(REPO, 'main', branch);
+		await forge.commit(REPO, branch, [{ path: 'docs/over/privacy.md', deleted: true }], 'Weg');
+		const nummer = (
+			await forge.openDraftPr(
+				REPO,
+				branch,
+				'main',
+				'Weg',
+				identityTrailer({ kind: 'anoniem', pseudoniem: 'iemandanders' })
+			)
+		).number;
+		await forge.commit(
+			REPO,
+			'main',
+			[{ path: 'docs/over/privacy.md', content: site(original) }],
+			'Op de site'
+		);
+		const [diff] = (await visit(nummer)).diffs;
+		expect(diff).toMatchObject({ before: original, after: null });
+	});
+
+	it('is not looked for when the proposal only adds pages', async () => {
+		const nummer = await proposal('nieuw-gggg', { 'docs/nieuw-begin.md': '# Nieuw\n' });
+		const mergeBase = vi.spyOn(forge, 'mergeBase');
+		const [diff] = (await visit(nummer)).diffs;
+		expect(diff).toMatchObject({ before: null, after: '# Nieuw\n' });
+		expect(mergeBase).not.toHaveBeenCalled();
+		mergeBase.mockRestore();
+	});
+
+	it('is asked once for all the pages, from the base branch and the commit of the head', async () => {
+		const nummer = await proposal('twee-hhhh', {
+			'docs/over/licentie.md': 'Een\n',
+			'docs/over/kwetsbaarheid.md': 'Twee\n'
+		});
+		const mergeBase = vi.spyOn(forge, 'mergeBase');
+		expect((await visit(nummer)).diffs).toHaveLength(2);
+		expect(mergeBase).toHaveBeenCalledTimes(1);
+		expect(mergeBase).toHaveBeenCalledWith(
+			REPO,
+			'main',
+			(await forge.prHead(REPO, nummer)).headSha
+		);
+		mergeBase.mockRestore();
+	});
+
+	it('is not guessed from the base branch when the forge cannot tell', async () => {
+		const nummer = await proposal('onbekend-iiii', { 'docs/over/licentie.md': 'Een\n' });
+		forge.failNext('mergeBase', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await expect(visit(nummer)).rejects.toMatchObject({ status: 502 });
 	});
 });
 

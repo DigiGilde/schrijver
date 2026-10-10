@@ -377,6 +377,22 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(knop(page, 'Verder bewerken')).toHaveCount(0);
 	});
 
+	test('shows only its own change when the page changed on the site since', async ({ page }) => {
+		for (const [titel, eigen] of [
+			['Weekly 10 september: de agenda', 'De agenda staat voortaan bovenaan.'],
+			['Weekly 3 september: de terugblik', 'Een terugblik op de zomer.']
+		]) {
+			await openSeeded(page, 'moza-site', titel);
+			await expect(
+				page.locator('[data-diff="toegevoegd"]').filter({ hasText: eigen }),
+				titel
+			).toBeVisible();
+			// What the site added to the page since is not the proposal's to take away.
+			await expect(page.locator('[data-diff="verwijderd"]'), titel).toHaveCount(0);
+			await expect(page.getByText('Aangevuld op de site.'), titel).toHaveCount(0);
+		}
+	});
+
 	test('answers a request for changes made on GitHub with Opnieuw insturen', async ({ page }) => {
 		await openSeeded(page, 'moza-site', 'Facilitaire diensten: wie je belt');
 		await expect(zin(page)).toHaveText(

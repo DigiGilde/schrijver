@@ -163,7 +163,14 @@
 	const appearance = (actie: Action) => (actie === data.watNu.primary ? 'primary' : 'secondary');
 
 	const images = (page: string) => ({
-		before: previewImages({ siteId: data.site.id, page, ref: data.imageRefs.before, pending: [] }),
+		before: previewImages({
+			siteId: data.site.id,
+			page,
+			ref: null,
+			voorstel: data.proposal.number,
+			kant: 'voor',
+			pending: []
+		}),
 		after: previewImages({
 			siteId: data.site.id,
 			page,

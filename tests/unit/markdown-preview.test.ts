@@ -107,6 +107,19 @@ describe('preview images', () => {
 		expect(main('b.png')).toBe('/api/sites/s/bestand?pad=docs%2Fb.png');
 	});
 
+	it("reads a proposal's images at its head, or with kant at where the proposal began", () => {
+		const page = { siteId: 's', page: 'docs/a.md', ref: null, pending: [] };
+		expect(previewImages({ ...page, voorstel: 7 })('b.png')).toBe(
+			'/api/sites/s/bestand?pad=docs%2Fb.png&voorstel=7'
+		);
+		expect(previewImages({ ...page, voorstel: 7, kant: 'voor' })('b.png')).toBe(
+			'/api/sites/s/bestand?pad=docs%2Fb.png&voorstel=7&kant=voor'
+		);
+		expect(previewImages({ ...page, kant: 'voor' })('b.png'), 'no side without a proposal').toBe(
+			'/api/sites/s/bestand?pad=docs%2Fb.png'
+		);
+	});
+
 	it('shows an image added in this session from memory', () => {
 		expect(img('![Nieuw](../afbeeldingen/privacy/nieuw.png)')).toBe(
 			'data:image/png;base64,iVBORw=='
