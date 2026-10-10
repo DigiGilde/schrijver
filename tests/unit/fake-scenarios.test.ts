@@ -153,7 +153,9 @@ describe('the fake fixtures of the local preview', () => {
 			await sentence('moza-site', 'Weekly 23 september: de demo', EDITOR, {
 				mergenVanuitSchrijver: false
 			})
-		).toBe('Bij deze site gebeurt samenvoegen op GitHub.');
+		).toBe(
+			'Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.'
+		);
 	});
 
 	it('name the open proposals for the record of who wrote them, not the merged or closed ones', async () => {

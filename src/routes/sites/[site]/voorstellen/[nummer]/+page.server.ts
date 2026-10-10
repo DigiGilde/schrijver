@@ -186,6 +186,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				mergeInSchrijver: settings.mergenVanuitSchrijver,
 				approvalRequired: decision !== null,
 				approvalMissing: decision === 'review_required' || decision === 'changes_requested',
+				// An editor outside the team is one through write permission on GitHub; the team does not say.
+				actsOnGitHub: user.githubLogin !== null,
 				canEdit: verderBewerken.length > 0,
 				mergedAt: pr.mergedAt ?? null,
 				siteAddress: !!settings.adres

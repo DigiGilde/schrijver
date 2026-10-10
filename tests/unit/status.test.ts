@@ -118,6 +118,7 @@ describe('whatNow', () => {
 		mergeInSchrijver: true,
 		approvalRequired: false,
 		approvalMissing: false,
+		actsOnGitHub: true,
 		canEdit: true,
 		mergedAt: null,
 		siteAddress: true
@@ -130,14 +131,17 @@ describe('whatNow', () => {
 		(['concept', 'ingestuurd', 'goedgekeurd', 'aanpassing-gevraagd'] as const).flatMap((status) =>
 			flags.flatMap((editor) =>
 				flags.flatMap((mergeInSchrijver) =>
-					flags.map((approvalMissing) => ({
-						status,
-						editor,
-						mergeInSchrijver,
-						approvalRequired: approvalMissing,
-						approvalMissing,
-						...over
-					}))
+					flags.flatMap((approvalMissing) =>
+						flags.map((actsOnGitHub) => ({
+							status,
+							editor,
+							mergeInSchrijver,
+							approvalRequired: approvalMissing,
+							approvalMissing,
+							actsOnGitHub,
+							...over
+						}))
+					)
 				)
 			)
 		);
@@ -237,6 +241,39 @@ describe('whatNow', () => {
 			actions: ['beoordelen-op-github', 'verder-bewerken'],
 			primary: 'beoordelen-op-github'
 		});
+	});
+
+	it('gives an editor who cannot act on GitHub no GitHub button, and says who acts there', () => {
+		const without = { editor: true, actsOnGitHub: false };
+		expect(row({ ...without, approvalMissing: true })).toEqual({
+			sentence:
+				'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.',
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
+		});
+		expect(row({ ...without, mergeInSchrijver: false })).toEqual({
+			sentence:
+				'Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.',
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
+		});
+		expect(row({ ...without, writer: true, approvalMissing: true })).toEqual({
+			sentence:
+				'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen.',
+			actions: ['verder-bewerken'],
+			primary: null
+		});
+		expect(row({ ...without, writer: true, mergeInSchrijver: false })).toEqual({
+			sentence:
+				'Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen.',
+			actions: ['verder-bewerken'],
+			primary: null
+		});
+		for (const situation of open({ actsOnGitHub: false }))
+			for (const writer of flags)
+				expect(row({ ...situation, writer }).actions).not.toEqual(
+					expect.arrayContaining([expect.stringMatching(/-op-github$/)])
+				);
 	});
 
 	it('leaves the decision to another editor when four eyes keep the reader from it', () => {

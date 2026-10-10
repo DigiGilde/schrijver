@@ -147,6 +147,8 @@ export interface Situation {
 	approvalRequired: boolean;
 	/** GitHub waits for an approval the site requires before a merge. */
 	approvalMissing: boolean;
+	/** The reader has a GitHub account that may approve and merge there. */
+	actsOnGitHub: boolean;
 	/** Schrijver can open the proposal's pages in the editor. */
 	canEdit: boolean;
 	mergedAt: string | null;
@@ -202,18 +204,32 @@ export function whatNow(
 	if (!s.editor) return say('De redactie beoordeelt dit voorstel.');
 	/* A writer who may merge an own proposal asks nobody for an adjustment, least of all themselves. */
 	const next: Action[] = s.writer ? edit : ['vraag-om-aanpassing'];
+	const ask = s.writer ? '' : ' Moet er iets anders, vraag dan om een aanpassing.';
+	const main = s.writer ? null : 'vraag-om-aanpassing';
 	if (!s.mergeInSchrijver)
-		return say(
-			'Bij deze site gebeurt samenvoegen op GitHub.',
-			['beoordelen-op-github', ...next],
-			'beoordelen-op-github'
-		);
+		return s.actsOnGitHub
+			? say(
+					'Bij deze site gebeurt samenvoegen op GitHub.',
+					['beoordelen-op-github', ...next],
+					'beoordelen-op-github'
+				)
+			: say(
+					`Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen.${ask}`,
+					next,
+					main
+				);
 	if (s.approvalMissing)
-		return say(
-			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
-			['goedkeuren-op-github', ...next],
-			'goedkeuren-op-github'
-		);
+		return s.actsOnGitHub
+			? say(
+					'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
+					['goedkeuren-op-github', ...next],
+					'goedkeuren-op-github'
+				)
+			: say(
+					`Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen.${ask}`,
+					next,
+					main
+				);
 	if (s.writer)
 		return say(
 			'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.',

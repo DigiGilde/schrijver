@@ -294,9 +294,19 @@ describe('what now', () => {
 			{ 'content/vijf.md': 'Vijf\n' },
 			{ sent: true, writer: 'schrijver' }
 		);
-		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu).toMatchObject({
+		const linked = { sub: MOZA_EDITOR, githubLogin: 'octo' };
+		expect((await open('moza-site', nummer, linked)).watNu).toMatchObject({
 			sentence: 'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
 			actions: ['goedkeuren-op-github', 'vraag-om-aanpassing']
+		});
+		expect(
+			(await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu,
+			'without a GitHub account, someone with rights there approves'
+		).toEqual({
+			sentence:
+				'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.',
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
 		});
 		forge.reviewOnGitHub('MinBZK/moza-site', nummer, 'jansen', 'approved', '');
 		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.actions).toEqual([
@@ -367,8 +377,8 @@ describe('what now', () => {
 		expect(await sentence(MOZA_EDITOR)).toBe(
 			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
 		);
-		expect(await sentence(MOZA_OTHER_EDITOR)).toBe(
-			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		expect(await sentence(MOZA_OTHER_EDITOR)).toMatch(
+			/^Deze site vraagt eerst een goedkeuring op GitHub\./
 		);
 	});
 
