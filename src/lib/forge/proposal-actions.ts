@@ -66,7 +66,7 @@ export async function sendIn(
 	opts: { reviewers: string[]; filesAdded: boolean; pages?: string[] }
 ): Promise<{ warning?: string }> {
 	if (site.preview.soort === 'bij-label' && site.preview.label) {
-		await forge.setLabels(site.repo, pr.number, [...new Set([...pr.labels, site.preview.label])]);
+		await forge.addLabel(site.repo, pr.number, site.preview.label);
 	}
 
 	const pages =
@@ -136,8 +136,7 @@ export async function askForAdjustment(
 ): Promise<void> {
 	const clean = cleanComment(body);
 	if (clean === null) throw new RangeError('Reactie is leeg of te lang');
-	const labels = [...new Set([...pr.labels, ADJUSTMENT_LABEL])];
-	await forge.setLabels(site.repo, pr.number, labels);
+	await forge.addLabel(site.repo, pr.number, ADJUSTMENT_LABEL);
 	try {
 		await forge.comment(
 			site.repo,
@@ -145,13 +144,15 @@ export async function askForAdjustment(
 			commentBody(clean, { ...author, kind: 'aanpassing' })
 		);
 	} catch (e) {
-		await forge.setLabels(site.repo, pr.number, pr.labels).catch((err) =>
-			log.warn('proposal.label_restore_failed', {
-				site: site.id,
-				pr: pr.number,
-				...errorFields(err)
-			})
-		);
+		if (!pr.labels.includes(ADJUSTMENT_LABEL)) {
+			await forge.removeLabel(site.repo, pr.number, ADJUSTMENT_LABEL).catch((err) =>
+				log.warn('proposal.label_restore_failed', {
+					site: site.id,
+					pr: pr.number,
+					...errorFields(err)
+				})
+			);
+		}
 		throw e;
 	}
 }
@@ -162,11 +163,7 @@ export async function sendInAgain(
 	site: SiteConfig,
 	pr: PrSummary
 ): Promise<{ warning?: string }> {
-	await forge.setLabels(
-		site.repo,
-		pr.number,
-		pr.labels.filter((label) => label !== ADJUSTMENT_LABEL)
-	);
+	await forge.removeLabel(site.repo, pr.number, ADJUSTMENT_LABEL);
 	return pr.reviewState === 'changes_requested'
 		? {
 				warning:

@@ -65,15 +65,24 @@ describe('sendIn', () => {
 
 	it('keeps existing labels and does not label bij-push sites', async () => {
 		const pr = await draft('o/handboek', 'docs/a.md');
-		await forge.setLabels('o/handboek', pr.number, ['x']);
+		await forge.addLabel('o/handboek', pr.number, 'x');
 		const digi = site({
 			id: 'digi',
 			repo: 'o/handboek',
 			content: { pad: 'docs' },
 			preview: { soort: 'bij-push', url: 'https://p/{nummer}' }
 		} as never);
+		const add = vi.spyOn(forge, 'addLabel');
 		await sendIn(forge, digi, { ...pr, labels: ['x'] }, { reviewers: [], filesAdded: false });
 		expect((await forge.getPr('o/handboek', pr.number)).labels).toEqual(['x']);
+		expect(add).not.toHaveBeenCalled();
+	});
+
+	it('adds the preview label to the labels the pull request has now, not those read before', async () => {
+		const pr = await draft();
+		await forge.addLabel('o/moza', pr.number, 'op-github');
+		await sendIn(forge, site(), pr, { reviewers: [], filesAdded: false });
+		expect((await forge.getPr('o/moza', pr.number)).labels).toEqual(['op-github', 'preview']);
 	});
 
 	it('adds the menu line when a file was added and skips empty reviewers', async () => {
@@ -117,7 +126,7 @@ describe('sendIn', () => {
 	it('marks ready last and survives a failing reviewer request', async () => {
 		const pr = await draft();
 		const order: string[] = [];
-		for (const op of ['setLabels', 'updatePr', 'requestReviewers', 'markReady'] as const) {
+		for (const op of ['addLabel', 'updatePr', 'requestReviewers', 'markReady'] as const) {
 			const orig = forge[op].bind(forge) as (...a: unknown[]) => Promise<void>;
 			(forge as unknown as Record<string, unknown>)[op] = async (...a: unknown[]) => {
 				order.push(op);
@@ -126,7 +135,7 @@ describe('sendIn', () => {
 		}
 		forge.failNext('requestReviewers', new ForgeError(422, 'Geen reviewer'));
 		await sendIn(forge, site(), pr, { reviewers: ['jan'], filesAdded: false });
-		expect(order).toEqual(['setLabels', 'updatePr', 'requestReviewers', 'markReady']);
+		expect(order).toEqual(['addLabel', 'updatePr', 'requestReviewers', 'markReady']);
 		expect((await forge.getPr('o/moza', pr.number)).draft).toBe(false);
 	});
 

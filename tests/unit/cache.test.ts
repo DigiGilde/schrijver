@@ -146,6 +146,19 @@ describe('CachingForge', () => {
 		for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
 	});
 
+	it('drops what it holds of a repository when a label is added or taken off', async () => {
+		const { fake, cache } = setup();
+		await fake.createBranch('o/site', 'main', 'p');
+		const pr = await fake.openDraftPr('o/site', 'p', 'main', 'P', '');
+		const listPrs = vi.spyOn(fake, 'listPrs');
+		await cache.listPrs('o/site', 'open');
+		await cache.addLabel('o/site', pr.number, 'preview');
+		expect((await cache.listPrs('o/site', 'open'))[0].labels).toEqual(['preview']);
+		await cache.removeLabel('o/site', pr.number, 'preview');
+		expect((await cache.listPrs('o/site', 'open'))[0].labels).toEqual([]);
+		expect(listPrs).toHaveBeenCalledTimes(3);
+	});
+
 	it('passes the head sha on to merge', async () => {
 		const { fake, cache } = setup();
 		const merge = vi.spyOn(fake, 'merge').mockResolvedValue();

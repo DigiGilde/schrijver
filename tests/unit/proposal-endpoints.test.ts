@@ -344,7 +344,7 @@ describe('proposal endpoints', () => {
 		const red = { sub: 'red', who: 'redacteur' };
 		expect((await call(aanpassing, { ...red, body: { body: 'Korter' } })).status).toBe(409);
 		await call(insturen, { who: 'auteur' });
-		await forge.setLabels('o/moza', 1, ['preview']);
+		await forge.addLabel('o/moza', 1, 'preview');
 		const schrijver = await call(aanpassing, { who: 'auteur', body: { body: 'Zelf' } });
 		expect(schrijver.status).toBe(403);
 		expect((await schrijver.json()).message).toBe(
@@ -369,11 +369,53 @@ describe('proposal endpoints', () => {
 		const res = await call(aanpassing, { sub: 'red', body: { body: 'Korter' } });
 		expect(res.status).toBe(502);
 		expect((await forge.getPr('o/moza', 1)).labels).toEqual([]);
+
+		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
+		forge.failNext('comment', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		expect((await call(aanpassing, { sub: 'red', body: { body: 'Nog korter' } })).status).toBe(502);
+		expect((await forge.getPr('o/moza', 1)).labels).toEqual(['aanpassing gevraagd']);
+	});
+
+	describe('a label someone sets on GitHub while Schrijver acts', () => {
+		/** As if the label was set on GitHub right after Schrijver read the pull request. */
+		function labelledMeanwhile(label: string) {
+			const read = forge.getPr.bind(forge);
+			vi.spyOn(forge, 'getPr').mockImplementationOnce(async (repo, number) => {
+				const pr = await read(repo, number);
+				await forge.addLabel(repo, number, label);
+				return pr;
+			});
+		}
+
+		beforeEach(async () => {
+			await call(insturen, { who: 'auteur' });
+		});
+
+		it('stays when the redactie asks for an adjustment', async () => {
+			labelledMeanwhile('preview');
+			expect((await call(aanpassing, { sub: 'red', body: { body: 'Korter' } })).status).toBe(200);
+			expect((await forge.getPr('o/moza', 1)).labels).toEqual(['preview', 'aanpassing gevraagd']);
+		});
+
+		it('stays when the label of a failed request is taken off again', async () => {
+			labelledMeanwhile('preview');
+			forge.failNext('comment', new ForgeError(502, 'GitHub is niet bereikbaar'));
+			expect((await call(aanpassing, { sub: 'red', body: { body: 'Korter' } })).status).toBe(502);
+			expect((await forge.getPr('o/moza', 1)).labels).toEqual(['preview']);
+		});
+
+		it('stays when the proposal is sent in again', async () => {
+			await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
+			labelledMeanwhile('preview');
+			expect((await call(opnieuwInsturen, { who: 'auteur' })).status).toBe(200);
+			expect((await forge.getPr('o/moza', 1)).labels).toEqual(['preview']);
+		});
 	});
 
 	it('sends in again for the writer or the redactie, taking off only that label', async () => {
 		await call(insturen, { who: 'auteur' });
-		await forge.setLabels('o/moza', 1, ['preview', 'aanpassing gevraagd']);
+		await forge.addLabel('o/moza', 1, 'preview');
+		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
 		expect((await call(opnieuwInsturen, { who: 'vreemde' })).status).toBe(403);
 		const res = await call(opnieuwInsturen, { who: 'auteur' });
 		expect(await res.json()).toEqual({ ok: true });
@@ -384,7 +426,7 @@ describe('proposal endpoints', () => {
 		expect(again.status).toBe(409);
 		expect((await again.json()).message).toBe('Er is geen aanpassing gevraagd');
 
-		await forge.setLabels('o/moza', 1, ['aanpassing gevraagd']);
+		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
 		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
 		const github = await call(opnieuwInsturen, { sub: 'red', who: 'redacteur' });
 		expect(await github.json()).toEqual({

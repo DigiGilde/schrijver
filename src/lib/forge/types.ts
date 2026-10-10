@@ -133,7 +133,10 @@ export interface Forge {
 	): Promise<PrSummary>;
 	markReady(repo: string, number: number): Promise<void>;
 	updatePr(repo: string, number: number, patch: { title?: string; body?: string }): Promise<void>;
-	setLabels(repo: string, number: number, labels: string[]): Promise<void>;
+	/** Adds one label to a pull request; the labels it has keep. */
+	addLabel(repo: string, number: number, label: string): Promise<void>;
+	/** Takes one label off a pull request, the others keep; a label it does not have is no error. */
+	removeLabel(repo: string, number: number, label: string): Promise<void>;
 	requestReviewers(repo: string, number: number, logins: string[]): Promise<void>;
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]>;
 	getPr(repo: string, number: number): Promise<PrSummary>;

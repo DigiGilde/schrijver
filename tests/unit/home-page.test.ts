@@ -217,7 +217,7 @@ describe('home page status lines', () => {
 		const gelabeld = await proposal('digi-handboek', 'gelabeld-kkkk', { sent: true });
 		const goed = await proposal('digi-handboek', 'goed-jjjj', { sent: true });
 		forge.prs.get(gevraagd.number)!.reviewState = 'changes_requested';
-		await forge.setLabels(digi.repo, gelabeld.number, ['aanpassing gevraagd']);
+		await forge.addLabel(digi.repo, gelabeld.number, 'aanpassing gevraagd');
 		await forge.approve(digi.repo, goed.number, 'Akkoord');
 		expect(await statusOf('digi-handboek', EDITOR)).toEqual([
 			'2 voorstellen wachten op beoordeling'

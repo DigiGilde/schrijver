@@ -145,13 +145,13 @@ describe('FakeForge', () => {
 		expect(forge.prs.get(1)).toBeDefined();
 	});
 
-	it('markReady, approve, updatePr, setLabels change the PR', async () => {
+	it('markReady, approve, updatePr, addLabel change the PR', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
 		await forge.markReady(REPO, 1);
 		await forge.approve(REPO, 1, 'ok');
 		await forge.updatePr(REPO, 1, { title: 'T2' });
-		await forge.setLabels(REPO, 1, ['x']);
+		await forge.addLabel(REPO, 1, 'x');
 		expect(await forge.getPr(REPO, 1)).toMatchObject({
 			draft: false,
 			reviewState: 'approved',
@@ -159,6 +159,18 @@ describe('FakeForge', () => {
 			body: 'B',
 			labels: ['x']
 		});
+	});
+
+	it('adds and takes off one label at a time, the others untouched', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		await forge.addLabel(REPO, 1, 'preview');
+		await forge.addLabel(REPO, 1, 'aanpassing gevraagd');
+		await forge.addLabel(REPO, 1, 'preview');
+		expect((await forge.getPr(REPO, 1)).labels).toEqual(['preview', 'aanpassing gevraagd']);
+		await forge.removeLabel(REPO, 1, 'aanpassing gevraagd');
+		await forge.removeLabel(REPO, 1, 'bestaat-niet');
+		expect((await forge.getPr(REPO, 1)).labels).toEqual(['preview']);
 	});
 
 	it('merge throws 405 when not mergeable', async () => {

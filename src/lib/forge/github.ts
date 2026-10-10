@@ -316,11 +316,23 @@ export class GitHubForge implements Forge {
 		});
 	}
 
-	async setLabels(repo: string, number: number, labels: string[]): Promise<void> {
-		await this.request(repo, 'PUT /repos/{owner}/{repo}/issues/{issue_number}/labels', {
+	async addLabel(repo: string, number: number, label: string): Promise<void> {
+		await this.request(repo, 'POST /repos/{owner}/{repo}/issues/{issue_number}/labels', {
 			issue_number: number,
-			labels
+			labels: [label]
 		});
+	}
+
+	async removeLabel(repo: string, number: number, label: string): Promise<void> {
+		try {
+			await this.request(repo, 'DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}', {
+				issue_number: number,
+				name: label
+			});
+		} catch (e) {
+			// GitHub answers 404 for a label the pull request does not have.
+			if (!(e instanceof ForgeError && e.status === 404)) throw e;
+		}
 	}
 
 	async requestReviewers(repo: string, number: number, logins: string[]): Promise<void> {

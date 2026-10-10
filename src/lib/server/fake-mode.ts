@@ -250,7 +250,7 @@ export async function seedScenarios(
 			sent: true
 		});
 		forge.reviewOnGitHub(DIGI, asked, 'pietersen', 'commented', '', daysAgo(2));
-		await forge.setLabels(DIGI, asked, [ADJUSTMENT_LABEL]);
+		await forge.addLabel(DIGI, asked, ADJUSTMENT_LABEL);
 		await forge.comment(
 			DIGI,
 			asked,

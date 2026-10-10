@@ -120,8 +120,11 @@ export class CachingForge implements Forge {
 	updatePr(repo: string, number: number, patch: { title?: string; body?: string }): Promise<void> {
 		return this.written(repo, () => this.inner.updatePr(repo, number, patch));
 	}
-	setLabels(repo: string, number: number, labels: string[]): Promise<void> {
-		return this.written(repo, () => this.inner.setLabels(repo, number, labels));
+	addLabel(repo: string, number: number, label: string): Promise<void> {
+		return this.written(repo, () => this.inner.addLabel(repo, number, label));
+	}
+	removeLabel(repo: string, number: number, label: string): Promise<void> {
+		return this.written(repo, () => this.inner.removeLabel(repo, number, label));
 	}
 	requestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
 		return this.written(repo, () => this.inner.requestReviewers(repo, number, logins));

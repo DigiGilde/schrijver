@@ -569,6 +569,37 @@ describe('GitHubForge', () => {
 		});
 	});
 
+	it('adds and takes off one label at a time, and takes a label that is not there as gone', async () => {
+		const deleted: string[] = [];
+		server.use(
+			http.post(`${API}/repos/o/r/issues/7/labels`, async ({ request }) => {
+				record('added', await request.json());
+				return HttpResponse.json([{ name: 'preview' }, { name: 'aanpassing gevraagd' }]);
+			}),
+			http.delete(`${API}/repos/o/r/issues/7/labels/:name`, ({ request, params }) => {
+				deleted.push(new URL(request.url).pathname);
+				return params.name === 'weg'
+					? HttpResponse.json({ message: 'Label does not exist' }, { status: 404 })
+					: HttpResponse.json([{ name: 'preview' }]);
+			})
+		);
+		const f = forge();
+		await f.addLabel('o/r', 7, 'aanpassing gevraagd');
+		expect(bodies.added).toEqual([{ labels: ['aanpassing gevraagd'] }]);
+		await f.removeLabel('o/r', 7, 'aanpassing gevraagd');
+		await f.removeLabel('o/r', 7, 'weg');
+		expect(deleted).toEqual([
+			'/repos/o/r/issues/7/labels/aanpassing%20gevraagd',
+			'/repos/o/r/issues/7/labels/weg'
+		]);
+		server.use(
+			http.delete(`${API}/repos/o/r/issues/7/labels/:name`, () =>
+				HttpResponse.json({ message: 'kapot' }, { status: 500 })
+			)
+		);
+		await expect(f.removeLabel('o/r', 7, 'preview')).rejects.toBeInstanceOf(ForgeError);
+	});
+
 	it('reuses the installation client: one token exchange across operations', async () => {
 		let tokenHits = 0;
 		server.use(

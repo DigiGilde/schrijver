@@ -343,9 +343,18 @@ export class FakeForge implements Forge {
 		this.touch(repo, number, patch);
 	}
 
-	async setLabels(repo: string, number: number, labels: string[]): Promise<void> {
-		this.maybeFail('setLabels');
-		this.touch(repo, number, { labels: [...labels] });
+	async addLabel(repo: string, number: number, label: string): Promise<void> {
+		this.maybeFail('addLabel');
+		const { labels } = this.pr(repo, number);
+		if (!labels.includes(label)) this.touch(repo, number, { labels: [...labels, label] });
+	}
+
+	async removeLabel(repo: string, number: number, label: string): Promise<void> {
+		this.maybeFail('removeLabel');
+		const { labels } = this.pr(repo, number);
+		if (labels.includes(label)) {
+			this.touch(repo, number, { labels: labels.filter((l) => l !== label) });
+		}
 	}
 
 	async requestReviewers(repo: string, number: number, _logins: string[]): Promise<void> {
