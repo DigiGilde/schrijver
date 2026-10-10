@@ -59,7 +59,7 @@ test('the beheer page shows the team, an open invitation and the GitHub rule', a
 	await expect(row(page, 'naam@rijksoverheid.nl')).toContainText('Uitgenodigd, nog niet ingelogd');
 	await expect(
 		page.getByText(
-			"Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+			"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
 		)
 	).toBeVisible();
 	await expect(
@@ -295,6 +295,12 @@ test('Alleen het team closes a site to anyone outside its team, and Iedereen die
 	await expect(
 		page.locator('nldd-text').filter({ hasText: 'Alleen het team ziet de site.' })
 	).toBeVisible();
+	// On a public repository rights on GitHub open nothing: they count only in the team.
+	await expect(
+		page.getByText(
+			"Wie niet in het team staat, ziet de site niet, ook niet met rechten op GitHub; alleen een beheerder van Schrijver ziet hem wel. In het team horen collega's die hun GitHub-account aan Schrijver hebben gekoppeld, met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+		)
+	).toBeVisible();
 	await expect(
 		addForm(page).getByText('Op deze site kan iedereen die inlogt al voorstellen maken.')
 	).toHaveCount(0);
@@ -329,7 +335,7 @@ test('on a private repository only the team sees the site, which its admins cann
 	await expect(row(page, 'Test Gebruiker')).toContainText('Bijdrager');
 	await expect(
 		page.getByText(
-			"Collega's met leesrechten op de repository op GitHub zien de site ook; met schrijfrechten horen ze bij de redactie, met beheerrechten zijn ze beheerder."
+			"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, zien de site met leesrechten op de repository op GitHub ook als ze niet in het team staan; met schrijfrechten daar horen ze bij de redactie, met beheerrechten zijn ze beheerder."
 		)
 	).toBeVisible();
 

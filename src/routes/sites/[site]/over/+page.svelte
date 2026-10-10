@@ -85,18 +85,22 @@
 				<nldd-title size="3" heading-level="2" text="Zichtbaar voor"></nldd-title>
 				<nldd-rich-text>
 					<p>
-						Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers.
+						Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers. Een
+						beheerder van Schrijver ziet hem ook.
 					</p>
 					{#if data.repoOpenbaar === false}
 						<p>
 							Wie de repository op GitHub mag lezen, ziet de site ook, als die een GitHub-account
 							aan Schrijver heeft gekoppeld.
 						</p>
-					{:else if data.repoOpenbaar}
-						<p>
-							De repository op GitHub is wel openbaar: daar kan iedereen de pagina's en de
-							voorstellen lezen.
-						</p>
+					{:else}
+						<p>Anderen zien de site niet, ook niet met rechten op GitHub.</p>
+						{#if data.repoOpenbaar}
+							<p>
+								De repository op GitHub is wel openbaar: daar kan iedereen de pagina's en de
+								voorstellen lezen.
+							</p>
+						{/if}
 					{/if}
 				</nldd-rich-text>
 			</nldd-container>
@@ -151,8 +155,9 @@
 					met "Via GitHub".
 				</p>
 				<p>
-					Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met
-					beheerrechten daar zijn ze beheerder.
+					{data.zichtbaarheid === 'team' && data.repoOpenbaar !== false
+						? "In het team horen collega's die hun GitHub-account aan Schrijver hebben gekoppeld, met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+						: "Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."}
 				</p>
 				<p>
 					De structuur van de site staat in de map <a href={data.structuurUrl}

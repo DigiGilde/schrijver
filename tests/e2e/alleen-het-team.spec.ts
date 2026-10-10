@@ -123,6 +123,12 @@ test('the Over page says who sees the site, and Help that some sites only a team
 			'Wie de repository op GitHub mag lezen, ziet de site ook, als die een GitHub-account aan Schrijver heeft gekoppeld.'
 		)
 	).toBeVisible();
+	await expect(page.getByText('Anderen zien de site niet')).toHaveCount(0);
+	await expect(
+		page.getByText(
+			"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+		)
+	).toBeVisible();
 	await expect(page.getByText(/^Concepten zijn niet openbaar\./)).toBeVisible();
 	await expect(page.getByText(/^Concepten zijn openbaar\./)).toHaveCount(0);
 

@@ -194,6 +194,59 @@ describe('the links that leave Schrijver', () => {
 	});
 });
 
+describe('Over, on who sees a site and what rights on GitHub count for', () => {
+	const over = (zichtbaarheid: 'iedereen' | 'team', repoOpenbaar: boolean | null) =>
+		screen(Over, {
+			data: {
+				site: { id: 'digi-handboek', naam: 'Digi Handboek', omschrijving: null, adres: null },
+				redactie: [],
+				kanBeheren: false,
+				mergenVanuitSchrijver: true,
+				ondertekenen: ['anoniem'],
+				zichtbaarheid,
+				repoOpenbaar,
+				conceptenOpenbaar: repoOpenbaar !== false,
+				voorbeeld: 'bij-push',
+				repo: 'DigiGilde/handboek',
+				repoUrl: 'https://github.com/DigiGilde/handboek/tree/main',
+				structuurUrl: 'https://github.com/DigiGilde/handboek/tree/main/.schrijver'
+			}
+		}).body.textContent!.replace(/\s+/g, ' ');
+	const EVERYONE =
+		"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder.";
+	const TEAM =
+		"In het team horen collega's die hun GitHub-account aan Schrijver hebben gekoppeld, met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder.";
+	const NOBODY_ELSE = 'Anderen zien de site niet, ook niet met rechten op GitHub.';
+
+	it('counts rights on GitHub for everyone where everyone sees the site', () => {
+		const text = over('iedereen', true);
+		expect(text).toContain(EVERYONE);
+		expect(text).not.toContain('Zichtbaar voor');
+	});
+
+	it('opens a site for its team only to whom may read its private repository', () => {
+		const text = over('team', false);
+		expect(text).toContain(
+			'Wie de repository op GitHub mag lezen, ziet de site ook, als die een GitHub-account aan Schrijver heeft gekoppeld.'
+		);
+		expect(text).toContain(EVERYONE);
+		expect(text).not.toContain(NOBODY_ELSE);
+	});
+
+	it('counts rights on GitHub only in the team where they open nothing', () => {
+		for (const repoOpenbaar of [true, null]) {
+			const text = over('team', repoOpenbaar);
+			expect(text).toContain(
+				'Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers. Een beheerder van Schrijver ziet hem ook.'
+			);
+			expect(text).toContain(NOBODY_ELSE);
+			expect(text).toContain(TEAM);
+			expect(text).not.toContain(EVERYONE);
+		}
+		expect(over('team', null)).not.toContain('wel openbaar');
+	});
+});
+
 describe('the settings of a colleague', () => {
 	const props = { identity: 'anoniem', emailVerified: true, sites: [], headings: true };
 	const buttons = (document: Document) =>

@@ -136,9 +136,11 @@
 			{/each}
 		</nldd-list>
 		<nldd-text color="secondary"
-			>{openbaar === false
-				? "Collega's met leesrechten op de repository op GitHub zien de site ook; met schrijfrechten horen ze bij de redactie, met beheerrechten zijn ze beheerder."
-				: "Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."}</nldd-text
+			>{zichtbaarheid === 'iedereen'
+				? "Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+				: openbaar === false
+					? "Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, zien de site met leesrechten op de repository op GitHub ook als ze niet in het team staan; met schrijfrechten daar horen ze bij de redactie, met beheerrechten zijn ze beheerder."
+					: "Wie niet in het team staat, ziet de site niet, ook niet met rechten op GitHub; alleen een beheerder van Schrijver ziet hem wel. In het team horen collega's die hun GitHub-account aan Schrijver hebben gekoppeld, met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."}</nldd-text
 		>
 		<form
 			method="post"

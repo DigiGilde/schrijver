@@ -449,7 +449,7 @@ test.describe('the Over page', () => {
 			'https://github.com/DigiGilde/handboek/tree/main/.schrijver'
 		);
 		await expect(bestanden).toContainText(
-			"Collega's met schrijfrechten op de repository op GitHub horen ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+			"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
 		);
 		await expect(bestanden).toContainText(
 			'De structuur van de site staat in de map .schrijver op GitHub. Die wijzig je met een voorstel in de repository van de site.'
@@ -458,6 +458,27 @@ test.describe('the Over page', () => {
 		await expect(bestanden).not.toContainText('configuratierepository');
 		await expect(bestanden).toContainText(
 			'Hun voorstellen staan ook bij "Voorstellen", met "Via GitHub".'
+		);
+	});
+
+	test('says on a public repository for its team only that rights on GitHub count only in the team', async ({
+		page
+	}) => {
+		await patchAbout(page, { zichtbaarheid: 'team' });
+		await openAboutFromSite(page, 'digi-handboek', 'Digi Handboek');
+		const zichtbaar = part(page, 'Zichtbaar voor');
+		await expect(zichtbaar).toContainText(
+			'Alleen het team ziet deze site in Schrijver: de redactie hierboven en de bijdragers. Een beheerder van Schrijver ziet hem ook.'
+		);
+		await expect(zichtbaar).toContainText(
+			'Anderen zien de site niet, ook niet met rechten op GitHub.'
+		);
+		await expect(zichtbaar).toContainText('De repository op GitHub is wel openbaar');
+		await expect(part(page, 'Bestanden op GitHub')).toContainText(
+			"In het team horen collega's die hun GitHub-account aan Schrijver hebben gekoppeld, met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
+		);
+		await expect(part(page, 'Bestanden op GitHub')).not.toContainText(
+			"Collega's die hun GitHub-account aan Schrijver hebben gekoppeld, horen met schrijfrechten op de repository op GitHub ook bij de redactie; met beheerrechten daar zijn ze beheerder."
 		);
 	});
 
