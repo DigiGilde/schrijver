@@ -31,6 +31,8 @@
 				return 'Schrijver kon GitHub niet bereiken.';
 			case 'al-aangesloten':
 				return `${w.repo} hoort al bij de site ${w.site.naam}.`;
+			case 'prive':
+				return `${w.repo} is niet openbaar.`;
 			case 'klopt-niet':
 				return w.zonderMap
 					? `${w.repo} heeft nog geen map .schrijver.`
@@ -111,6 +113,11 @@
 								bij <a href="/instellingen/sites/{encodeURIComponent(weigering.site.id)}"
 									>Beheer van {weigering.site.naam}</a
 								>.
+							</p>
+						{:else if weigering.soort === 'prive'}
+							<p>
+								Schrijver werkt alleen met openbare repositories: iedereen die inlogt, kan in
+								Schrijver de pagina's en voorstellen lezen.
 							</p>
 						{:else if weigering.soort === 'klopt-niet'}
 							{#if !weigering.zonderMap}

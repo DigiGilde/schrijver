@@ -295,6 +295,15 @@ describe('step 1', () => {
 		});
 	});
 
+	it('refuses a private repository, whose pages everyone who signs in would read', async () => {
+		expect((await step('platform', 'digigilde/intern')).weigering).toEqual({
+			soort: 'prive',
+			repo: 'DigiGilde/intern'
+		});
+		forge.setPublic('DigiGilde/intern', true);
+		expect(await step('platform', 'DigiGilde/intern')).toMatchObject({ stap: 2 });
+	});
+
 	it('names what is wrong with .schrijver, or that it is not there', async () => {
 		expect((await step('platform', 'DigiGilde/intranet')).weigering).toEqual({
 			soort: 'klopt-niet',
@@ -394,6 +403,11 @@ describe('step 2', () => {
 		expect(await add('platform', { ...KENNISBANK, repo: 'digigilde/handboek' })).toMatchObject({
 			status: 409,
 			data: { weigering: { soort: 'al-aangesloten' } }
+		});
+		forge.setPublic('DigiGilde/kennisbank', false);
+		expect(await add('platform', KENNISBANK)).toMatchObject({
+			status: 409,
+			data: { weigering: { soort: 'prive', repo: 'DigiGilde/kennisbank' } }
 		});
 		expect((await team.sites()).map((s) => s.id)).not.toContain('kennisbank');
 	});

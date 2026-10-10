@@ -133,9 +133,9 @@ export const PREVIEW_SITES: {
 ];
 
 /**
- * The repositories of the local preview: the pilot sites, Oude site, and four for "Site toevoegen":
- * one that is ready, one without `.schrijver/`, one whose files are not valid, and one the App is not
- * installed on.
+ * The repositories of the local preview: the pilot sites, Oude site, and five for "Site toevoegen":
+ * one that is ready, one without `.schrijver/`, one whose files are not valid, one the App is not
+ * installed on, and a private one.
  */
 function seedRepos(forge: FakeForge): void {
 	forge.seedRepo(
@@ -175,11 +175,17 @@ function seedRepos(forge: FakeForge): void {
 		{ id: 4104, description: 'De nieuwsbrief van het Digi Gilde.' }
 	);
 	forge.seedRepo('DigiGilde/intranet', 'main', fixtureFiles('intranet'), { id: 4105 });
+	forge.setPublic('DigiGilde/nieuwsbrief', true);
+	forge.setPublic('DigiGilde/intranet', true);
 	forge.seedRepo('MinBZK/elders', 'main', fixtureFiles('kennisbank'), {
 		id: 4106,
 		installed: false
 	});
 	forge.seedRepo(OUD, 'main', fixtureFiles('oude-site'), { id: 4107 });
+	forge.seedRepo('DigiGilde/intern', 'main', fixtureFiles('kennisbank'), {
+		id: 4108,
+		description: 'Wat het Digi Gilde alleen intern deelt.'
+	});
 }
 const COLLEAGUE = identityTrailer({ kind: 'anoniem', pseudoniem: '5ca1ab1e0000' });
 const EDITOR = { kind: 'op-naam' as const, name: 'Petra de Vries', email: 'petra@example.org' };

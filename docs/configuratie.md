@@ -117,3 +117,5 @@ Set at least one: only a platform admin adds a site, and a site whose beheerders
 ## Public drafts
 
 `concepten: openbaar` is the only supported value. Drafts are pull requests on the site repository, readable by anyone when the repository is public. See [identiteit-en-privacy.md](identiteit-en-privacy.md#public-drafts).
+
+The repository of a site is public: "Site toevoegen" refuses a private one, because everyone who signs in with SSO Rijk can read a site's pages, proposals and their conversation in Schrijver, more people than GitHub lets read a private repository.

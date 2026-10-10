@@ -34,8 +34,8 @@ type Inspection =
 	{ ok: true; repo: RepoInfo; taken: Set<string> } | { ok: false; weigering: Weigering };
 
 /**
- * Whether a repository can become a site: its name, the App on it, no site on it yet and valid
- * `.schrijver/` files on its default branch. A lookup on GitHub that fails refuses.
+ * Whether a repository can become a site: its name, the App on it, no site on it yet, public, and
+ * valid `.schrijver/` files on its default branch. A lookup on GitHub that fails refuses.
  */
 async function inspect(typed: string): Promise<Inspection> {
 	const name = repositoryName(typed);
@@ -64,6 +64,10 @@ async function inspect(typed: string): Promise<Inspection> {
 				site: { id: existing.id, naam }
 			}
 		};
+	}
+	// Everyone who signs in reads a site's pages and proposals in Schrijver.
+	if (!check.repo.isPublic) {
+		return { ok: false, weigering: { soort: 'prive', repo: check.repo.fullName } };
 	}
 	if (!check.ok) {
 		return {

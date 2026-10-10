@@ -70,6 +70,7 @@ export type Weigering =
 	| { soort: 'niet-geinstalleerd'; repo: string; installeren: string | null }
 	| { soort: 'onbereikbaar' }
 	| { soort: 'al-aangesloten'; repo: string; site: { id: string; naam: string } }
+	| { soort: 'prive'; repo: string }
 	| { soort: 'klopt-niet'; repo: string; fouten: string[]; zonderMap: boolean };
 
 export type NewSiteField = SettingsField | 'id' | 'email';
