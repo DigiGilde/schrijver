@@ -6,12 +6,15 @@ import type { Forge } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 
 const RETRY_MS = 60000;
+/** Reads every site again now and then: a webhook GitHub could not deliver, such as a repository made private, is caught up this way. */
+const REFRESH_MS = 15 * 60_000;
 
 let configStore: ConfigStore | null = null;
 let forge: Forge | null = null;
 let stopped = false;
 let initPromise: Promise<void> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 export function getConfigStore(): ConfigStore {
 	if (!configStore) throw new Error('config store not initialised');
@@ -145,6 +148,10 @@ export function initServices(prepare?: () => Promise<void>): Promise<void> {
 		};
 		setConfigStore(new ConfigStore(registry, getForge));
 		await reloadConfig();
+		refreshTimer ??= setInterval(() => {
+			if (!stopped) void reloadConfig();
+		}, REFRESH_MS);
+		refreshTimer.unref?.();
 	})();
 	return initPromise;
 }
@@ -154,5 +161,7 @@ export function stopServices(): void {
 	initPromise = null;
 	if (retryTimer) clearTimeout(retryTimer);
 	retryTimer = null;
+	if (refreshTimer) clearInterval(refreshTimer);
+	refreshTimer = null;
 	failedSites.clear();
 }

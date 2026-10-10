@@ -187,6 +187,24 @@ describe('services', () => {
 		expect(reload).not.toHaveBeenCalled();
 	});
 
+	it('reads every site again every quarter of an hour, so a missed webhook cannot keep a site open', async () => {
+		fake.setPublic(MOZA, true);
+		services.setForge(fake);
+		await services.initServices();
+		expect(services.getConfigStore().status('moza-site')?.isPublic).toBe(true);
+
+		fake.setPublic(MOZA, false);
+		await vi.advanceTimersByTimeAsync(14 * 60_000);
+		expect(services.getConfigStore().status('moza-site')?.isPublic).toBe(true);
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(services.getConfigStore().status('moza-site')?.isPublic).toBe(false);
+
+		const load = vi.spyOn(services.getConfigStore(), 'load');
+		services.stopServices();
+		await vi.advanceTimersByTimeAsync(30 * 60_000);
+		expect(load).not.toHaveBeenCalled();
+	});
+
 	it('tries again every minute only the sites that could not be read, not every site', async () => {
 		fake.seedRepo('Org/weg', 'main', structure(), { id: 3, installed: false });
 		await team.addSite(
