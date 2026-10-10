@@ -43,11 +43,11 @@ test('with merging in Schrijver switched off, the editors merge on GitHub', asyn
 			'Bij deze site gebeurt samenvoegen op GitHub. Iemand met rechten op GitHub voegt het voorstel daar samen. Moet er iets anders, vraag dan om een aanpassing.'
 		);
 		await expect(page.locator('nldd-box nldd-button[text="Beoordelen op GitHub"]')).toHaveCount(0);
-		await expect(page.locator('nldd-box nldd-button[text="Vraag om aanpassing"]')).toHaveAttribute(
+		await expect(page.locator('nldd-box nldd-button[text="Aanpassing vragen"]')).toHaveAttribute(
 			'appearance',
 			'primary'
 		);
-		await expect(page.locator('nldd-box nldd-button[text="Samenvoegen"]')).toHaveCount(0);
+		await expect(page.locator('nldd-box nldd-button[text="Voeg samen"]')).toHaveCount(0);
 		await page.goto('/sites/moza-site/over');
 		await expect(
 			page.getByText('Op deze site gebeurt het samenvoegen op GitHub, niet in Schrijver.')

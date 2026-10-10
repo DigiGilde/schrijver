@@ -204,7 +204,7 @@ export function whatNow(
 	if (s.status === 'concept') {
 		return s.writer
 			? say(
-					'Je voorstel is nog een concept. Klaar? Stuur het in, dan beoordeelt de redactie het.',
+					'Je voorstel is nog een concept. Klaar? Kies "Stuur in", dan beoordeelt de redactie het.',
 					['insturen', ...edit],
 					'insturen'
 				)
@@ -213,7 +213,7 @@ export function whatNow(
 	if (s.status === 'aanpassing-gevraagd') {
 		if (s.writer)
 			return say(
-				`De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er${s.approvalRequired ? ' op GitHub' : ''} opnieuw naar.`,
+				`De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het${s.approvalRequired ? ' op GitHub' : ''} opnieuw.`,
 				[...edit, 'opnieuw-insturen'],
 				edit[0] ?? 'opnieuw-insturen'
 			);

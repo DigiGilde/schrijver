@@ -64,11 +64,11 @@ test.describe('Help, how a change reaches the site', () => {
 	}) => {
 		await page.goto('/help');
 		const text = page.locator('nldd-rich-text');
-		await expect(text).toContainText('met "Samenvoegen"');
-		await expect(text).toContainText('met "Vraag om aanpassing"');
+		await expect(text).toContainText('Ze kiest "Voeg samen"');
+		await expect(text).toContainText('kiest "Aanpassing vragen" en schrijft wat er anders moet');
 		await expect(text).toContainText('de status "Aanpassing gevraagd"');
 		await expect(text).toContainText('bij "Gesprek" op de pagina van het voorstel');
-		await expect(text).toContainText('met "Verder bewerken" en kies daarna "Opnieuw insturen"');
+		await expect(text).toContainText('met "Verder bewerken" en kies daarna "Stuur opnieuw in"');
 		await expect(text).toContainText(
 			'Niemand voegt een eigen voorstel samen: een ander lid van de redactie beslist'
 		);
@@ -315,7 +315,7 @@ test.describe('the Over page', () => {
 			'Redactie',
 			'Ondertekenen',
 			'Concepten',
-			'Voorbeeld van een voorstel',
+			'Voorbeeldsite van een voorstel',
 			'Bestanden op GitHub'
 		]);
 		const last = inhoud(page).locator('nldd-rich-text').last();
@@ -418,20 +418,23 @@ test.describe('the Over page', () => {
 		);
 	});
 
-	test('says what kind of preview a proposal gets', async ({ page }) => {
+	test('says what kind of preview site a proposal gets', async ({ page }) => {
 		await page.goto('/sites/digi-handboek/over');
-		await expect(part(page, 'Voorbeeld van een voorstel')).toContainText(
-			'Elk voorstel krijgt een voorbeeld van de site.'
+		await expect(part(page, 'Voorbeeldsite van een voorstel')).toContainText(
+			'Elk voorstel krijgt een voorbeeldsite.'
+		);
+		await expect(part(page, 'Voorbeeldsite van een voorstel')).toContainText(
+			'met "Voorbeeldsite bekijken" op de pagina van het voorstel'
 		);
 		await page.goto('/sites/moza-site/over');
-		await expect(part(page, 'Voorbeeld van een voorstel')).toContainText(
-			'Een voorstel krijgt een voorbeeld zodra het is ingestuurd.'
+		await expect(part(page, 'Voorbeeldsite van een voorstel')).toContainText(
+			'Een voorstel krijgt een voorbeeldsite zodra het is ingestuurd. Na "Stuur in" bouwt de site'
 		);
 
 		await patchAbout(page, { voorbeeld: 'geen' });
 		await openAboutFromSite(page, 'digi-handboek', 'Digi Handboek');
-		await expect(part(page, 'Voorbeeld van een voorstel')).toContainText(
-			'Deze site maakt geen voorbeeld van een voorstel.'
+		await expect(part(page, 'Voorbeeldsite van een voorstel')).toContainText(
+			'Deze site maakt geen voorbeeldsite van een voorstel.'
 		);
 	});
 

@@ -204,7 +204,7 @@ test('the primary action of a proposal comes first among its actions', async ({ 
 	await page.evaluate(() => customElements.whenDefined('nldd-button-group'));
 	const toolbar = page.locator('nldd-box nldd-button-group');
 	const primary = toolbar.locator('nldd-button[appearance="primary"]');
-	await expect(primary).toHaveAttribute('text', 'Insturen');
+	await expect(primary).toHaveAttribute('text', 'Stuur in');
 	const others = await toolbar.locator('nldd-button:not([appearance="primary"])').all();
 	expect(others.length).toBeGreaterThan(0);
 	for (const other of others) {

@@ -52,7 +52,7 @@ const visibility = (m: Managed) => ({
 const PREVIEW: Record<SiteConfig['preview']['soort'], string> = {
 	'bij-push': 'Bij elke keer bewaren',
 	'bij-label': 'Na insturen',
-	geen: 'Geen voorbeeld'
+	geen: 'Geen voorbeeldsite'
 };
 
 /** What `.schrijver/` says, as its admins read it; null for a site without a valid structure. */

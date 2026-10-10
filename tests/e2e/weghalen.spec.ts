@@ -212,13 +212,13 @@ const stap = (page: Page, naam: string) =>
 
 async function stuurIn(page: Page, nummer: string) {
 	await page.goto(`/sites/digi-handboek/voorstellen/${nummer}`);
-	await page.getByRole('button', { name: 'Insturen' }).click();
+	await page.getByRole('button', { name: 'Stuur in' }).click();
 	await expect(stap(page, 'Ingestuurd')).toBeVisible();
 }
 
 async function voegSamen(page: Page, nummer: string) {
 	await stuurIn(page, nummer);
-	await page.getByRole('button', { name: 'Samenvoegen' }).click();
+	await page.getByRole('button', { name: 'Voeg samen' }).click();
 	await expect(stap(page, 'Samengevoegd')).toBeVisible();
 }
 
@@ -259,7 +259,7 @@ test('refuses to merge a deletion while a page merged since shows the image', as
 	await voegSamen(page, await bewaarNieuw(page));
 
 	await page.goto(`/sites/digi-handboek/voorstellen/${weg}`);
-	await page.getByRole('button', { name: 'Samenvoegen' }).click();
+	await page.getByRole('button', { name: 'Voeg samen' }).click();
 	await expect(page.locator('nldd-banner[variant="critical"]')).toHaveAttribute(
 		'text',
 		'Niet samengevoegd: dit voorstel verwijdert bot.png, maar die afbeelding staat nog op docs/kennis/sso-rijk-keycloak.md.'

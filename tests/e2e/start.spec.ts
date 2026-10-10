@@ -108,7 +108,7 @@ test('a card says what waits for you on that site', async ({ page }) => {
 
 	// The test user is editorial on this site: a sent-in proposal waits for review.
 	await page.goto(proposal);
-	await page.getByRole('button', { name: 'Insturen' }).click();
+	await page.getByRole('button', { name: 'Stuur in' }).click();
 	await expect(
 		page.locator('nldd-step-bar-item[status="current"][text="Ingestuurd"]')
 	).toBeVisible();

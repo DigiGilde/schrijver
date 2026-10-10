@@ -31,9 +31,9 @@ test('the writer is blocked on the proposal they sent in, and another editor is 
 	await page.keyboard.type('\n\nTwee paar ogen zien meer.');
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
-	await knop(page, 'Insturen').click();
+	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(ZELF);
-	await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
+	await expect(knop(page, 'Voeg samen')).toHaveCount(0);
 	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
 
 	// Derde Collega has no GitHub account: someone with rights there approves.
@@ -41,7 +41,7 @@ test('the writer is blocked on the proposal they sent in, and another editor is 
 	await page.reload();
 	await expect(zin(page)).toHaveText(GOEDKEURING);
 	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
-	await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
+	await expect(knop(page, 'Aanpassing vragen')).toHaveAttribute('appearance', 'primary');
 });
 
 test('another editor may merge the approved proposal that the test user wrote', async ({
@@ -49,12 +49,12 @@ test('another editor may merge the approved proposal that the test user wrote', 
 }) => {
 	await openSeeded(page, 'moza-site', 'Toegankelijkheid: wie je kunt mailen');
 	await expect(zin(page)).toHaveText(ZELF);
-	await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
+	await expect(knop(page, 'Voeg samen')).toHaveCount(0);
 
 	await als(page, 'derde');
 	await page.reload();
 	await expect(zin(page)).toHaveText(/^Jij beslist\./);
-	await expect(knop(page, 'Samenvoegen')).toBeVisible();
+	await expect(knop(page, 'Voeg samen')).toBeVisible();
 });
 
 test('Te beoordelen leaves out the own proposals that four eyes keep from the reader', async ({
@@ -80,5 +80,5 @@ test('someone outside the redactie of the site is told that the editors decide',
 	await openSeeded(page, 'digi-handboek', 'Kennis: het team stelt zich voor');
 	await expect(zin(page)).toHaveText('De redactie beoordeelt dit voorstel.');
 	await expect(page.getByRole('textbox', { name: 'Je reactie' })).toHaveCount(0);
-	await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
+	await expect(knop(page, 'Voeg samen')).toHaveCount(0);
 });

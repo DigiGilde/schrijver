@@ -483,7 +483,7 @@ describe('conversation', () => {
 		);
 		expect(list.map((i) => [i.verdict, i.text, i.url])).toEqual([
 			[
-				'Plaatste opmerkingen in de tekst op GitHub',
+				'Plaatste reacties in de tekst op GitHub',
 				'',
 				'https://github.com/o/r/pull/7#pullrequestreview-2'
 			],

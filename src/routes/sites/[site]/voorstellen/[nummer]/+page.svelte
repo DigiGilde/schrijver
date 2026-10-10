@@ -188,7 +188,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<nldd-button
 			appearance={appearance(actie)}
-			text="Insturen"
+			text="Stuur in"
 			loading={busy || undefined}
 			onclick={() => zet('insturen', 'Het voorstel is ingestuurd')}
 		></nldd-button>
@@ -216,7 +216,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<nldd-button
 			appearance={appearance(actie)}
-			text="Opnieuw insturen"
+			text="Stuur opnieuw in"
 			loading={busy || undefined}
 			onclick={() => zet('opnieuw-insturen', 'Het voorstel is opnieuw ingestuurd')}
 		></nldd-button>
@@ -224,16 +224,13 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<nldd-button
 			appearance={appearance(actie)}
-			text="Samenvoegen"
+			text="Voeg samen"
 			loading={busy || undefined}
 			onclick={() => zet('mergen', 'Het voorstel is samengevoegd', { sha: data.headSha })}
 		></nldd-button>
 	{:else if actie === 'vraag-om-aanpassing'}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<nldd-button
-			appearance={appearance(actie)}
-			text="Vraag om aanpassing"
-			onclick={vraagOmAanpassing}
+		<nldd-button appearance={appearance(actie)} text="Aanpassing vragen" onclick={vraagOmAanpassing}
 		></nldd-button>
 	{:else if actie === 'goedkeuren-op-github'}
 		<nldd-button
@@ -284,7 +281,7 @@
 						{#if data.voorbeeld?.stand === 'klaar'}
 							<nldd-button
 								appearance="secondary"
-								text="Bekijk het voorbeeld"
+								text="Voorbeeldsite bekijken"
 								href={data.voorbeeld.url}
 								target="_blank"
 							></nldd-button>
@@ -292,9 +289,9 @@
 					</nldd-button-group>
 				{/if}
 				{#if data.voorbeeld?.stand === 'bezig'}
-					<nldd-text color="secondary">Het voorbeeld wordt gebouwd</nldd-text>
+					<nldd-text color="secondary">De voorbeeldsite wordt gebouwd</nldd-text>
 				{:else if data.voorbeeld?.stand === 'mislukt'}
-					<nldd-text color="secondary">Het voorbeeld is niet gelukt</nldd-text>
+					<nldd-text color="secondary">De voorbeeldsite is niet gelukt</nldd-text>
 				{/if}
 				<nldd-link href="/help#voorstellen" size="sm" text="Hoe werkt dit?"></nldd-link>
 			</nldd-container>
@@ -442,7 +439,7 @@
 										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 										<nldd-link
 											href="#reactie"
-											text="Toch een gewone reactie plaatsen"
+											text="Maak er een gewone reactie van"
 											onclick={terugNaarReactie}
 										></nldd-link>
 									</nldd-form-field-help-text>

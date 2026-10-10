@@ -65,7 +65,7 @@ test('dismissing the save notification from within keeps the preview showing', a
 	await expect(page.getByRole('region', { name: 'Voorbeeld' })).toBeFocused();
 });
 
-test('a proposal that was sent in is named, not called a concept, and points to Opnieuw insturen', async ({
+test('a proposal that was sent in is named, not called a concept, and points to Stuur opnieuw in', async ({
 	page
 }) => {
 	// The seeded proposal of the test user on Digi Handboek, for which the redactie asked an adjustment.
@@ -85,7 +85,7 @@ test('a proposal that was sent in is named, not called a concept, and points to 
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('\n\nMail de redactie op redactie@example.org.');
 	await page.getByRole('button', { name: 'Opslaan' }).click();
-	const klaar = 'Klaar? Kies Opnieuw insturen op de pagina van het voorstel.';
+	const klaar = 'Klaar? Kies "Stuur opnieuw in" op de pagina van het voorstel.';
 	const melding = page.locator('nldd-notification');
 	await expect(melding).toHaveAttribute('text', `Bewaard in voorstel #${nummer}`);
 	await expect(melding).toHaveAttribute('supporting-text', klaar);

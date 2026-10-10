@@ -86,12 +86,12 @@
 							</nldd-list-item-segment>
 							<nldd-list-item-segment
 								href={page.verderBewerken}
-								accessible-label="Verder met je voorstel voor {page.title}"
+								accessible-label="Verder bewerken: {page.title}"
 							>
 								<nldd-icon-cell size="20" color="accent" icon="pencil"></nldd-icon-cell>
 								<nldd-spacer-cell size="8" hide-below="md"></nldd-spacer-cell>
 								<nldd-text-cell
-									text="Verder met je voorstel"
+									text="Verder bewerken"
 									color="accent"
 									width="fit-content"
 									hide-below="md"

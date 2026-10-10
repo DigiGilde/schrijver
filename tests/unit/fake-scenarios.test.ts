@@ -151,7 +151,7 @@ describe('the fake fixtures of the local preview', () => {
 				'moza-site',
 				'Facilitaire diensten: wie je belt',
 				ANYONE,
-				/^De redactie vraagt je iets aan te passen\. .* er op GitHub opnieuw naar\.$/
+				/^De redactie vraagt je iets aan te passen\. .* het op GitHub opnieuw\.$/
 			]
 		];
 		for (const [site, title, redactie, expected] of rows) {

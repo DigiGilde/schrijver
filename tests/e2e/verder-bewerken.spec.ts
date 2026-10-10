@@ -26,9 +26,7 @@ test('returns to an open proposal and saves into the same pull request', async (
 	await expect(page.getByText(`Concept bewaard als voorstel #${nummer}`).first()).toBeVisible();
 
 	await page.goto('/sites/digi-handboek');
-	await expect(
-		page.getByRole('link', { name: /Verder met je voorstel voor/ }).first()
-	).toBeVisible();
+	await expect(page.getByRole('link', { name: /^Verder bewerken: / }).first()).toBeVisible();
 });
 
 /*
@@ -61,7 +59,7 @@ test('the page row and the proposal row both lead back into the open proposal', 
 		'/sites/moza-site/bewerken/onderwerpen/portaal.md'
 	);
 	const next = pages.getByRole('link', {
-		name: 'Verder met je voorstel voor MijnOverheid Zakelijk portaal'
+		name: 'Verder bewerken: MijnOverheid Zakelijk portaal'
 	});
 	await expect(next).toHaveAttribute('href', verder);
 

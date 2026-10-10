@@ -203,7 +203,7 @@ function verdictOf(review: PrReview): string | null {
 		case 'dismissed':
 			return `Beoordeling van ${review.login} op GitHub is ingetrokken`;
 		case 'commented':
-			return review.body.trim() ? null : 'Plaatste opmerkingen in de tekst op GitHub';
+			return review.body.trim() ? null : 'Plaatste reacties in de tekst op GitHub';
 	}
 }
 

@@ -21,10 +21,10 @@
 
 	const VOORBEELD = {
 		'bij-push':
-			'Elk voorstel krijgt een voorbeeld van de site. Na elke keer bewaren bouwt de site een voorbeeld van het voorstel. Je opent het met "Bekijk het voorbeeld" op de pagina van het voorstel.',
+			'Elk voorstel krijgt een voorbeeldsite. Na elke keer bewaren bouwt de site een voorbeeldsite van het voorstel. Je opent die met "Voorbeeldsite bekijken" op de pagina van het voorstel.',
 		'bij-label':
-			'Een voorstel krijgt een voorbeeld zodra het is ingestuurd. Na "Insturen" bouwt de site een voorbeeld van het voorstel. Je opent het met "Bekijk het voorbeeld" op de pagina van het voorstel.',
-		geen: 'Deze site maakt geen voorbeeld van een voorstel. Wil je zien hoe een pagina eruitziet, kies dan "Voorbeeld" in de editor. Dat lijkt op de site, maar is niet precies hetzelfde.'
+			'Een voorstel krijgt een voorbeeldsite zodra het is ingestuurd. Na "Stuur in" bouwt de site een voorbeeldsite van het voorstel. Je opent die met "Voorbeeldsite bekijken" op de pagina van het voorstel.',
+		geen: 'Deze site maakt geen voorbeeldsite van een voorstel. Wil je zien hoe een pagina eruitziet, kies dan "Voorbeeld" in de editor. Dat lijkt op de site, maar is niet precies hetzelfde.'
 	} as const;
 </script>
 
@@ -138,7 +138,7 @@
 		</nldd-container>
 
 		<nldd-container gap="12">
-			<nldd-title size="3" heading-level="2" text="Voorbeeld van een voorstel"></nldd-title>
+			<nldd-title size="3" heading-level="2" text="Voorbeeldsite van een voorstel"></nldd-title>
 			<nldd-rich-text><p>{VOORBEELD[data.voorbeeld]}</p></nldd-rich-text>
 		</nldd-container>
 

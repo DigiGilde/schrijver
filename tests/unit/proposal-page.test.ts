@@ -631,7 +631,7 @@ describe('what now', () => {
 		forge.reviewOnGitHub('MinBZK/moza-site', moza, 'jansen', 'changes_requested', 'Korter');
 		expect((await open('moza-site', moza)).watNu).toEqual({
 			sentence:
-				'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.',
+				'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.',
 			actions: ['verder-bewerken', 'opnieuw-insturen'],
 			primary: 'verder-bewerken'
 		});
@@ -643,7 +643,7 @@ describe('what now', () => {
 		);
 		await forge.addLabel(REPO, digi, 'aanpassing gevraagd');
 		expect((await open('digi-handboek', digi)).watNu.sentence).toMatch(
-			/Klaar\? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar\.$/
+			/Klaar\? Kies "Stuur opnieuw in", dan beoordeelt de redactie het opnieuw\.$/
 		);
 		expect(
 			(await open('digi-handboek', digi, { sub: EDITOR })).watNu,

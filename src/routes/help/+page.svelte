@@ -45,7 +45,7 @@
 					openbaar mag.
 				</li>
 				<li>
-					<strong>Ingestuurd.</strong> Kies "Insturen" als je klaar bent. Dan vraagt Schrijver de redactie
+					<strong>Ingestuurd.</strong> Kies "Stuur in" als je klaar bent. Dan vraagt Schrijver de redactie
 					van de site om te beslissen. Je kunt later terugkomen bij je voorstellen op de pagina van de
 					site.
 				</li>
@@ -58,13 +58,13 @@
 				GitHub goedgekeurd, en de redactie kan het samenvoegen.
 			</p>
 			<p>
-				De redactie beslist over een ingestuurd voorstel. Ze voegt het samen met "Samenvoegen", of
-				vraagt om een aanpassing met "Vraag om aanpassing".
+				De redactie beslist over een ingestuurd voorstel. Ze kiest "Voeg samen", of kiest
+				"Aanpassing vragen" en schrijft wat er anders moet.
 			</p>
 			<p>
 				Vraagt de redactie om een aanpassing, dan heeft het voorstel de status "Aanpassing
 				gevraagd". Je leest wat de redactie vraagt bij "Gesprek" op de pagina van het voorstel. Pas
-				het voorstel aan met "Verder bewerken" en kies daarna "Opnieuw insturen".
+				het voorstel aan met "Verder bewerken" en kies daarna "Stuur opnieuw in".
 			</p>
 			<p>
 				Niemand voegt een eigen voorstel samen: een ander lid van de redactie beslist, zodat er

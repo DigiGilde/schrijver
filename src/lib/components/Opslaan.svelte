@@ -92,7 +92,7 @@
 	let nieuwePagina = $state(nieuw);
 	let bewaard = $state<{ nummer: number; url: string; verwijderd: string[] } | null>(null);
 	const ingestuurd = $derived(voorstel !== null && voorstel !== 'concept');
-	const KLAAR = 'Klaar? Kies Opnieuw insturen op de pagina van het voorstel.';
+	const KLAAR = 'Klaar? Kies "Stuur opnieuw in" op de pagina van het voorstel.';
 	const bewaardTekst = (nummer: number) =>
 		ingestuurd ? `Bewaard in voorstel #${nummer}` : `Concept bewaard als voorstel #${nummer}`;
 	let fout = $state<Fout | null>(null);

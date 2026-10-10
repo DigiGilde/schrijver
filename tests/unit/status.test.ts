@@ -160,7 +160,7 @@ describe('whatNow', () => {
 		for (const editor of [false, true]) {
 			expect(row({ status: 'concept', writer: true, editor })).toEqual({
 				sentence:
-					'Je voorstel is nog een concept. Klaar? Stuur het in, dan beoordeelt de redactie het.',
+					'Je voorstel is nog een concept. Klaar? Kies "Stuur in", dan beoordeelt de redactie het.',
 				actions: ['insturen', 'verder-bewerken'],
 				primary: 'insturen'
 			});
@@ -183,13 +183,13 @@ describe('whatNow', () => {
 		for (const editor of flags) {
 			expect(row({ ...asked, editor })).toEqual({
 				sentence:
-					'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar.',
+					'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het opnieuw.',
 				actions: ['verder-bewerken', 'opnieuw-insturen'],
 				primary: 'verder-bewerken'
 			});
 		}
 		expect(row({ ...asked, approvalRequired: true }).sentence).toBe(
-			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
+			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.'
 		);
 		expect(row({ ...asked, canEdit: false })).toMatchObject({
 			actions: ['opnieuw-insturen'],

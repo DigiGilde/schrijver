@@ -14,8 +14,8 @@
 	<nldd-rich-text>
 		<p>
 			Hoe de site is opgebouwd, staat in de map .schrijver in de repository: welke pagina's je hier
-			bewerkt, welke velden een pagina heeft en hoe een voorstel een voorbeeld krijgt. Dit wijzig je
-			met een voorstel in de repository van de site.
+			bewerkt, welke velden een pagina heeft en hoe een voorstel een voorbeeldsite krijgt. Dit
+			wijzig je met een voorstel in de repository van de site.
 		</p>
 	</nldd-rich-text>
 	{#if structuur.fouten.length > 0}
@@ -58,7 +58,7 @@
 			</nldd-list-item>
 			<nldd-list-item>
 				<nldd-description-cell>
-					<span slot="title">Voorbeeld van een voorstel</span>
+					<span slot="title">Voorbeeldsite van een voorstel</span>
 					<span slot="description">{samenvatting.voorbeeld}</span>
 				</nldd-description-cell>
 			</nldd-list-item>

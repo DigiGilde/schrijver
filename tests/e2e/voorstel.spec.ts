@@ -59,7 +59,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 			.evaluateAll((items) => items.map((item) => item.getAttribute('text')))
 	).toEqual(['Concept', 'Ingestuurd', 'Samengevoegd']);
 	await expect(zin(page)).toHaveText(
-		'Je voorstel is nog een concept. Klaar? Stuur het in, dan beoordeelt de redactie het.'
+		'Je voorstel is nog een concept. Klaar? Kies "Stuur in", dan beoordeelt de redactie het.'
 	);
 	await expect(page.locator('#paginatitel')).toHaveAttribute(
 		'supporting-text',
@@ -68,6 +68,10 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 	await expect(page.getByRole('link', { name: 'Hoe werkt dit?' })).toHaveAttribute(
 		'href',
 		'/help#voorstellen'
+	);
+	await expect(page.getByRole('link', { name: 'Voorbeeldsite bekijken' })).toHaveAttribute(
+		'href',
+		/\/_preview\/pr-\d+\/$/
 	);
 	for (const weg of ['Geen controles', 'Beoordelen op GitHub', 'Convert to draft']) {
 		await expect(page.getByText(weg)).toHaveCount(0);
@@ -123,15 +127,15 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 		);
 
 	// Sent in: on this site without four eyes, the writer in the redactie may merge it.
-	await page.getByRole('button', { name: 'Insturen' }).click();
+	await page.getByRole('button', { name: 'Stuur in' }).click();
 	await expect(huidigeStap(page, 'Ingestuurd')).toBeVisible();
 	await expect(zin(page)).toHaveText(
 		'Je schreef dit voorstel zelf en je mag het samenvoegen. Klopt alles, voeg het dan samen.'
 	);
 	await expect(zin(page)).toBeFocused();
-	await expect(knop(page, 'Samenvoegen')).toHaveAttribute('appearance', 'primary');
+	await expect(knop(page, 'Voeg samen')).toHaveAttribute('appearance', 'primary');
 	await expect(knop(page, 'Verder bewerken')).toBeVisible();
-	await expect(knop(page, 'Vraag om aanpassing')).toHaveCount(0);
+	await expect(knop(page, 'Aanpassing vragen')).toHaveCount(0);
 
 	// An empty reaction is refused with the focus on the field.
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
@@ -146,7 +150,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 	const reactie = gesprek(page).filter({ hasText: 'Aangepast, de werkplekken' });
 	await expect(reactie).toContainText('Schrijver van dit voorstel ·');
 
-	await page.getByRole('button', { name: 'Samenvoegen' }).click();
+	await page.getByRole('button', { name: 'Voeg samen' }).click();
 	await expect(huidigeStap(page, 'Samengevoegd')).toBeVisible();
 	await expect(zin(page)).toHaveText(
 		/^Samengevoegd op \d{1,2} [a-z]+\. Na de volgende publicatie staat de wijziging op de site\.\s*$/
@@ -168,7 +172,7 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 	await page.keyboard.type('\n\nSinds 2024 heet het programma MOZa.');
 	await page.getByRole('button', { name: 'Concept bewaren' }).click();
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
-	await knop(page, 'Insturen').click();
+	await knop(page, 'Stuur in').click();
 	await expect(zin(page)).toHaveText(
 		'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
 	);
@@ -180,10 +184,10 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 		'Deze site vraagt eerst een goedkeuring op GitHub. Iemand met rechten op GitHub keurt het voorstel daar goed; daarna kun je hier samenvoegen. Moet er iets anders, vraag dan om een aanpassing.'
 	);
 	await expect(knop(page, 'Goedkeuren op GitHub')).toHaveCount(0);
-	await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
+	await expect(knop(page, 'Aanpassing vragen')).toHaveAttribute('appearance', 'primary');
 
-	// Vraag om aanpassing turns the reaction form into the request; a link in its help text leads back.
-	await knop(page, 'Vraag om aanpassing').click();
+	// Aanpassing vragen turns the reaction form into the request; a link in its help text leads back.
+	await knop(page, 'Aanpassing vragen').click();
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
 	const formulier = page.locator('form#reactie');
 	await expect(veld).toBeFocused();
@@ -191,20 +195,20 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 		'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.'
 	);
 	await expect(formulier.getByRole('button', { name: 'Annuleer' })).toHaveCount(0);
-	await formulier.getByRole('link', { name: 'Toch een gewone reactie plaatsen' }).click();
+	await formulier.getByRole('link', { name: 'Maak er een gewone reactie van' }).click();
 	await expect(veld).toBeFocused();
 	await expect(page.locator('p[role="status"]')).toHaveText(
 		'Je reactie is weer een gewone reactie.'
 	);
 	await expect(formulier.getByRole('button', { name: 'Plaats reactie' })).toBeVisible();
-	await knop(page, 'Vraag om aanpassing').click();
+	await knop(page, 'Aanpassing vragen').click();
 	await formulier.getByRole('button', { name: 'Vraag om aanpassing' }).click();
 	await expect(veld).toBeFocused();
 	await expect(formulier.locator('nldd-form-field-help-text').first()).toHaveText(
 		'Schrijf eerst wat er anders moet'
 	);
 	await expect(
-		formulier.getByRole('link', { name: 'Toch een gewone reactie plaatsen' })
+		formulier.getByRole('link', { name: 'Maak er een gewone reactie van' })
 	).toBeVisible();
 	await veld.fill('Noem ook het jaar waarin het programma begon.');
 	await formulier.getByRole('button', { name: 'Vraag om aanpassing' }).click();
@@ -213,7 +217,7 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 		'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.'
 	);
 	await expect(zin(page)).toBeFocused();
-	await expect(knop(page, 'Opnieuw insturen')).toHaveCount(0);
+	await expect(knop(page, 'Stuur opnieuw in')).toHaveCount(0);
 	const vraag = gesprek(page).filter({ hasText: 'Noem ook het jaar waarin het programma begon.' });
 	await expect(vraag).toContainText('Vraagt om een aanpassing');
 	// instellingen.spec.ts switches the shared test user to Op naam for a moment.
@@ -227,10 +231,10 @@ test('asks the writer for an adjustment, and gets it sent in again', async ({ pa
 	await als(page, 'derde');
 	await page.goto(voorstel);
 	await expect(zin(page)).toHaveText(
-		'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
+		'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.'
 	);
 	await expect(knop(page, 'Verder bewerken')).toHaveAttribute('appearance', 'primary');
-	await knop(page, 'Opnieuw insturen').click();
+	await knop(page, 'Stuur opnieuw in').click();
 	await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
 	await expect(zin(page)).toHaveText(
 		'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
@@ -371,7 +375,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		);
 		await expect(page.getByRole('link', { name: 'Verder bewerken' })).toBeVisible();
 		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Voeg samen' })).toHaveCount(0);
 
 		await page.goto('/sites/moza-site/voorstellen?filter=alle');
 		await page
@@ -390,7 +394,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(gesprek(page).first()).toContainText('Op GitHub ·');
 		await expect(gesprek(page).last()).toContainText('Ziet er goed uit.');
 		await expect(page.getByRole('textbox', { name: 'Je reactie' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Samenvoegen' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Voeg samen' })).toHaveCount(0);
 	});
 
 	test('says plainly when the page changed on the site since, without a merge or a banner', async ({
@@ -400,8 +404,8 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(zin(page)).toHaveText(
 			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.'
 		);
-		await expect(knop(page, 'Vraag om aanpassing')).toHaveAttribute('appearance', 'primary');
-		await expect(knop(page, 'Samenvoegen')).toHaveCount(0);
+		await expect(knop(page, 'Aanpassing vragen')).toHaveAttribute('appearance', 'primary');
+		await expect(knop(page, 'Voeg samen')).toHaveCount(0);
 		await expect(page.locator('nldd-banner')).toHaveCount(0);
 		await expect(page.getByText(/hoofdbranch/)).toHaveCount(0);
 
@@ -409,7 +413,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		await expect(zin(page)).toHaveText(
 			'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.'
 		);
-		await expect(knop(page, 'Insturen')).toHaveCount(0);
+		await expect(knop(page, 'Stuur in')).toHaveCount(0);
 		await expect(knop(page, 'Verder bewerken')).toHaveCount(0);
 	});
 
@@ -429,13 +433,13 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 		}
 	});
 
-	test('answers a request for changes made on GitHub with Opnieuw insturen', async ({ page }) => {
+	test('answers a request for changes made on GitHub with Stuur opnieuw in', async ({ page }) => {
 		await openSeeded(page, 'moza-site', 'Facilitaire diensten: wie je belt');
 		await expect(zin(page)).toHaveText(
-			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
+			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies "Stuur opnieuw in", dan beoordeelt de redactie het op GitHub opnieuw.'
 		);
 		await expect(gesprek(page).first()).toContainText('Vraagt om aanpassing op GitHub: pietersen');
-		await knop(page, 'Opnieuw insturen').click();
+		await knop(page, 'Stuur opnieuw in').click();
 		await expect(page.getByText('Het voorstel is opnieuw ingestuurd').first()).toBeVisible();
 		await expect(zin(page)).toHaveText(
 			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
