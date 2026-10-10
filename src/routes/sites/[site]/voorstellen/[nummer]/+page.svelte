@@ -125,7 +125,8 @@
 		status = 'Je reactie wordt een vraag om aanpassing. Schrijf wat er anders moet.';
 	}
 
-	async function terugNaarReactie() {
+	async function terugNaarReactie(event: Event) {
+		event.preventDefault();
 		soort = 'reactie';
 		fout = null;
 		await tick();
@@ -143,6 +144,8 @@
 				: 'Schrijf eerst je reactie';
 		if (fout) {
 			status = fout;
+			await tick();
+			veld?.focus();
 			return;
 		}
 		const gelukt = aanpassing
@@ -407,7 +410,7 @@
 
 				{#if data.kanReageren}
 					<nldd-form>
-						<form onsubmit={plaats}>
+						<form id="reactie" onsubmit={plaats}>
 							<nldd-form-field label="Je reactie">
 								<nldd-multi-line-text-field
 									bind:this={veld}
@@ -422,11 +425,20 @@
 								></nldd-multi-line-text-field>
 								{#if fout}
 									<nldd-form-field-help-text>{fout}</nldd-form-field-help-text>
-								{:else if soort === 'aanpassing'}
-									<nldd-form-field-help-text
-										>Schrijf wat er anders moet. De schrijver leest het hier en past het voorstel
-										aan.</nldd-form-field-help-text
-									>
+								{/if}
+								{#if soort === 'aanpassing'}
+									<nldd-form-field-help-text>
+										{#if !fout}
+											Schrijf wat er anders moet. De schrijver leest het hier en past het voorstel
+											aan.
+										{/if}
+										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+										<nldd-link
+											href="#reactie"
+											text="Toch een gewone reactie plaatsen"
+											onclick={terugNaarReactie}
+										></nldd-link>
+									</nldd-form-field-help-text>
 								{/if}
 							</nldd-form-field>
 							<nldd-form-actions>
@@ -437,11 +449,6 @@
 										text={soort === 'aanpassing' ? 'Vraag om aanpassing' : 'Plaats reactie'}
 										loading={busy || undefined}
 									></nldd-button>
-									{#if soort === 'aanpassing'}
-										<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-										<nldd-button appearance="secondary" text="Annuleer" onclick={terugNaarReactie}
-										></nldd-button>
-									{/if}
 								</nldd-button-group>
 							</nldd-form-actions>
 						</form>

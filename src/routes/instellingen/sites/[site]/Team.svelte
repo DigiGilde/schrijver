@@ -117,7 +117,9 @@
 						accessible-label="Intrekken: de uitnodiging voor {uitnodiging.email}"
 						onclick={() => trekIn(uitnodiging.id)}
 					>
-						<nldd-text-cell width="fit-content" color="accent" text="Intrekken"></nldd-text-cell>
+						<nldd-icon-cell size="20" icon="trash"></nldd-icon-cell>
+						<nldd-spacer-cell size="8"></nldd-spacer-cell>
+						<nldd-text-cell width="fit-content" text="Intrekken"></nldd-text-cell>
 					</nldd-list-item-segment>
 				</nldd-list-item>
 			{/each}

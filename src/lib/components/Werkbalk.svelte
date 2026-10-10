@@ -20,7 +20,8 @@
 
 	type Props = {
 		state: TextEditorState | null;
-		disabled?: boolean;
+		/** The formatting and insert buttons show: not while a comparison takes the place of the text. */
+		bewerkbaar?: boolean;
 		onactie: (actie: Actie) => void;
 		onkop: (niveau: 2 | 3 | 4) => void;
 		onafbeelding: () => void;
@@ -37,7 +38,7 @@
 	};
 	let {
 		state,
-		disabled = false,
+		bewerkbaar = true,
 		onactie,
 		onkop,
 		onafbeelding,
@@ -161,7 +162,7 @@
 
 <!-- Every item carries its own twin in slot="overflow": the toolbar shows those in its menu once the item no longer fits. -->
 <nldd-toolbar label="Opmaak" size="sm">
-	{#if weergave === 'schrijven'}
+	{#if weergave === 'schrijven' && bewerkbaar}
 		{#each opmaak as knop, index (knop.label)}
 			{@const aan = knop.aan}
 			<nldd-toolbar-item slot="start" priority={prioriteit(index)}>
@@ -173,7 +174,6 @@
 						accessible-label={knop.label}
 						appearance="neutral-transparent"
 						selected={aan() || undefined}
-						disabled={disabled || undefined}
 						onclick={(event: Event) => {
 							knop.doe();
 							resync(event, aan);
@@ -185,7 +185,6 @@
 						icon={knop.icon}
 						text={knop.label}
 						selected={aan() || undefined}
-						disabled={disabled || undefined}
 						onselect={knop.doe}
 					></nldd-menu-item>
 				{:else}
@@ -194,14 +193,14 @@
 						icon={knop.icon}
 						accessible-label={knop.label}
 						appearance="neutral-transparent"
-						disabled={disabled || knop.kan?.() === false || undefined}
+						disabled={knop.kan?.() === false || undefined}
 						onclick={knop.doe}
 					></nldd-icon-button>
 					<nldd-menu-item
 						slot="overflow"
 						icon={knop.icon}
 						text={knop.label}
-						disabled={disabled || knop.kan?.() === false || undefined}
+						disabled={knop.kan?.() === false || undefined}
 						onselect={knop.doe}
 					></nldd-menu-item>
 				{/if}
@@ -213,14 +212,12 @@
 				icon="rectangle-split-2x3"
 				accessible-label="Tabel invoegen"
 				appearance="neutral-transparent"
-				disabled={disabled || undefined}
 				onclick={() => onactie('table')}
 			></nldd-icon-button>
 			<nldd-menu-item
 				slot="overflow"
 				icon="rectangle-split-2x3"
 				text="Tabel invoegen"
-				disabled={disabled || undefined}
 				onselect={() => onactie('table')}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
@@ -231,13 +228,11 @@
 				text="Horizontale lijn"
 				accessible-label="Horizontale lijn invoegen"
 				appearance="neutral-transparent"
-				disabled={disabled || undefined}
 				onclick={() => onactie('rule')}
 			></nldd-button>
 			<nldd-menu-item
 				slot="overflow"
 				text="Horizontale lijn invoegen"
-				disabled={disabled || undefined}
 				onselect={() => onactie('rule')}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
@@ -247,14 +242,14 @@
 				icon="photo"
 				accessible-label={afbeeldingLabel}
 				appearance="neutral-transparent"
-				disabled={disabled || !afbeeldingen || undefined}
+				disabled={!afbeeldingen || undefined}
 				onclick={onafbeelding}
 			></nldd-icon-button>
 			<nldd-menu-item
 				slot="overflow"
 				icon="photo"
 				text={afbeeldingLabel}
-				disabled={disabled || !afbeeldingen || undefined}
+				disabled={!afbeeldingen || undefined}
 				onselect={onafbeelding}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
@@ -264,14 +259,12 @@
 				icon="network-structure"
 				accessible-label="Mermaid-diagram invoegen"
 				appearance="neutral-transparent"
-				disabled={disabled || undefined}
 				onclick={onmermaid}
 			></nldd-icon-button>
 			<nldd-menu-item
 				slot="overflow"
 				icon="network-structure"
 				text="Mermaid-diagram invoegen"
-				disabled={disabled || undefined}
 				onselect={onmermaid}
 			></nldd-menu-item>
 		</nldd-toolbar-item>
@@ -337,6 +330,6 @@
 		</nldd-toolbar-item>
 	{/if}
 </nldd-toolbar>
-{#if !afbeeldingen && weergave === 'schrijven'}
+{#if !afbeeldingen && weergave === 'schrijven' && bewerkbaar}
 	<nldd-text color="secondary" size="sm">Deze site accepteert geen afbeeldingen.</nldd-text>
 {/if}

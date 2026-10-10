@@ -121,11 +121,12 @@ test('Verwerpen on a comparison brings the text back as it was, history and all'
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toBeFocused();
 	await expect(
 		page.getByRole('button', { name: 'Vet' }),
-		'no formatting behind the comparison'
-	).toBeDisabled();
+		'no formatting behind the comparison, hidden rather than disabled'
+	).toHaveCount(0);
 
 	await paneel.getByRole('button', { name: 'Verwerpen' }).click();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Korter')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Vet' })).toBeEnabled();
 	await expect(editor(page)).toBeFocused();
 	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
 	await expect(page.getByRole('button', { name: 'Vet' })).toBeEnabled();

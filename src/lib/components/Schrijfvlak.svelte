@@ -141,7 +141,7 @@
 		onafbeelding={() => openDialog()}
 		onmermaid={() => actions.insertMermaid(editor, body)}
 		{afbeeldingen}
-		disabled={vergelijking !== null}
+		bewerkbaar={vergelijking === null}
 		{weergave}
 		onweergave={kiesWeergave}
 		{oneigenschappen}

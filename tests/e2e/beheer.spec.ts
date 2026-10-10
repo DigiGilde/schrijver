@@ -124,6 +124,11 @@ test('an unknown address is invited, and Intrekken takes the invitation back by 
 	await expect(page.locator('nldd-banner[supporting-text*="geldt 30 dagen"]')).toBeVisible();
 	const invitation = row(page, 'nieuw-lid@example.org');
 	await expect(invitation).toContainText('Uitgenodigd, nog niet ingelogd');
+	// A control in the row, not a link: an icon with plain text, no accent colour.
+	const intrekken = invitation.locator('nldd-list-item-segment[button]');
+	await expect(intrekken.locator('nldd-icon-cell')).toHaveAttribute('icon', 'trash');
+	await expect(intrekken.locator('nldd-text-cell')).toHaveAttribute('text', 'Intrekken');
+	await expect(intrekken.locator('nldd-text-cell')).not.toHaveAttribute('color', /.+/);
 
 	await team(page)
 		.getByRole('button', { name: 'Intrekken: de uitnodiging voor nieuw-lid@example.org' })
