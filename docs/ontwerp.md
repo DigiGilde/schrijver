@@ -85,7 +85,7 @@ preview:
 
 The review model is `goedkeuring`: "Insturen" asks for review, and merging happens in Schrijver or on GitHub, as the site's setting "Samenvoegen in Schrijver" says. Merging at once on "Insturen" (`direct`) is not offered in version one.
 
-**Who may do what.** Anyone signed in may propose on any site in Schrijver. Editorial (`redactie`) is a member of the site's team in Schrijver, as beheerder or redactie, or someone who linked a GitHub account in onboarding and has write permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With "Vier ogen" (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge. Approving stays on GitHub (decisions 0005 and 0007).
+**Who may do what.** Anyone signed in may propose on a site everyone can see. A site only its team can see (always so for a private repository, decision 0009) is open to its team only: beheerders, redactie and bijdragers, and on a private repository also a linked GitHub account with read permission. Editorial (`redactie`) is a member of the site's team in Schrijver, as beheerder or redactie, or someone who linked a GitHub account in onboarding and has write permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With "Vier ogen" (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge. Approving stays on GitHub (decisions 0005 and 0007).
 
 ### 4.2 Schema per site (`.schrijver/schema.yaml`)
 
@@ -250,7 +250,7 @@ If VLAM is unreachable the panel shows a notice; editing and saving are unaffect
 - OIDC against the project's Keycloak on ZAD (service `keycloak`, env `OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`), authorisation-code flow with PKCE. SSO Rijk is upstream of that realm.
 - Claims used: `sub` (pseudonym), `name` and `email` (identity choice "op naam" and the editorial e-mail check), `organization.name` (shown in the UI only). `email` is trusted only when `email_verified` is true; otherwise the user has no e-mail for editorial matching and cannot choose "op naam" (see decision 0003).
 - Session in an encrypted, HTTP-only cookie; no session table. Lifetime 8 hours, sliding.
-- Roles: everyone signed in proposes; per site a team of beheerders and redactie, managed under Instellingen; platform admins (`SCHRIJVER_BEHEERDERS`) add and remove sites and manage every site (section 4.1, decision 0008).
+- Roles: everyone signed in proposes on a site everyone can see; per site a team of beheerders, redactie and bijdragers, managed under Instellingen, which alone sees a site set to its team (decision 0009); platform admins (`SCHRIJVER_BEHEERDERS`) add and remove sites and manage every site (section 4.1, decision 0008).
 - Not using `authorization-wall`, because the app needs the claims itself.
 
 ## 10. Deployment and operations
