@@ -28,10 +28,13 @@ export interface SiteStatus {
 	available: boolean;
 	/** What is wrong now, in Dutch; empty when nothing is. */
 	errors: string[];
+	/** Whether its repository is public, as Schrijver last read it; null when it never could. */
+	isPublic: boolean | null;
 }
 
 interface Entry {
 	site: RegisteredSite;
+	isPublic: boolean | null;
 	/** The last valid structure: kept when a later change to the files is not valid. */
 	config: SiteConfig | null;
 	schema: PageSchema | null;
@@ -128,6 +131,7 @@ export class ConfigStore {
 			}
 			return {
 				site: current,
+				isPublic: check.repo.isPublic,
 				config: {
 					...check.structure.site,
 					id: site.id,
@@ -149,6 +153,7 @@ export class ConfigStore {
 		const { repo, standaardbranch } = site;
 		return {
 			site,
+			isPublic: check.reason === 'invalid' ? check.repo.isPublic : (kept?.isPublic ?? null),
 			config: kept?.config ? { ...kept.config, repo, standaardbranch } : null,
 			schema: kept?.schema ?? null,
 			schrijfwijzer: kept?.schrijfwijzer ?? '',
@@ -184,7 +189,8 @@ export class ConfigStore {
 		return [...this.entries.values()].map((entry) => ({
 			site: { ...entry.site },
 			available: entry.config !== null,
-			errors: [...entry.errors]
+			errors: [...entry.errors],
+			isPublic: entry.isPublic
 		}));
 	}
 

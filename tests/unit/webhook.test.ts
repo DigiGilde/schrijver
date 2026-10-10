@@ -244,6 +244,14 @@ describe('github webhook', () => {
 			expect(invalidate).toHaveBeenCalledWith(SITE);
 		});
 
+		it('reads a site again whose repository is made private or public, so the guard follows', async () => {
+			await call('repository', changed('privatized'));
+			await call('repository', changed('publicized'));
+			expect(reloadSite.mock.calls).toEqual([['site'], ['site']]);
+			expect(invalidate).toHaveBeenCalledWith(SITE);
+			expect((await team.sites())[0]).toMatchObject({ repo: SITE });
+		});
+
 		it('reads a site again whose repository is deleted, so its admins see why', async () => {
 			await call('repository', changed('deleted'));
 			expect(reloadSite).toHaveBeenCalledWith('site');

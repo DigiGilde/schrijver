@@ -105,9 +105,56 @@ describe('ConfigStore', () => {
 				expect.stringMatching(/^\.schrijver\/site\.yaml: repo: /),
 				expect.stringMatching(/^\.schrijver\/site\.yaml: content\.schema: /),
 				'.schrijver/schema.yaml: ontbreekt'
-			]
+			],
+			isPublic: false
 		});
 		expect(store.retrying()).toEqual([]);
+	});
+
+	it('keeps whether each repository is public as it last read it, until it reads it again', async () => {
+		forge.setPublic(DIGI, true);
+		await store.load();
+		expect(store.statuses().map((s) => [s.site.id, s.isPublic])).toEqual([
+			['digi-handboek', true],
+			['moza-site', false]
+		]);
+
+		forge.setPublic(DIGI, false);
+		expect(store.status('digi-handboek')?.isPublic).toBe(true);
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')?.isPublic).toBe(false);
+
+		forge.setPublic(DIGI, true);
+		await change(DIGI, '.schrijver/site.yaml', 'preview: { soort: bij-push }\n');
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')).toMatchObject({ available: true, isPublic: true });
+
+		forge.setPublic(DIGI, false);
+		forge.failNext('repository', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')).toMatchObject({ errors: [UNREACHABLE], isPublic: true });
+		forge.setInstalled(DIGI, false);
+		await store.reload('digi-handboek');
+		expect(store.status('digi-handboek')).toMatchObject({
+			errors: [NOT_INSTALLED(DIGI)],
+			isPublic: true
+		});
+	});
+
+	it('knows nothing of a repository it never read, or one its name now leads to that is not its own', async () => {
+		forge.setInstalled(MOZA, false);
+		await store.load();
+		expect(store.status('moza-site')).toMatchObject({ available: false, isPublic: null });
+
+		forge.setInstalled(MOZA, true);
+		forge.setPublic(MOZA, true);
+		await store.reload('moza-site');
+		expect(store.status('moza-site')?.isPublic).toBe(true);
+		forge.renameRepo(MOZA, 'MinBZK/moza-oud');
+		forge.seedRepo(MOZA, 'main', files('moza-site', ['site.yaml', 'schema.yaml']), { id: 99 });
+		forge.setPublic(MOZA, true);
+		await store.reload('moza-site');
+		expect(store.status('moza-site')).toMatchObject({ available: false, isPublic: null });
 	});
 
 	it('keeps the last valid structure after an invalid change, and says what is wrong', async () => {

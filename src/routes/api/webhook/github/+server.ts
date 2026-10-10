@@ -62,13 +62,19 @@ async function installationChanged(event: string, payload: Record<string, unknow
 	}
 }
 
-/** A registered repository was renamed, moved or deleted: its site follows it, or shows why it cannot. */
+/** What a repository can do that its site follows: a new name or owner, its end, or who may read it. */
+const FOLLOWED = new Set(['renamed', 'transferred', 'deleted', 'privatized', 'publicized']);
+
+/**
+ * A registered repository was renamed, moved, deleted, made private or made public: its site follows
+ * it, or shows why it cannot. Turned private, the site is closed to everyone but its team at once.
+ */
 async function repositoryChanged(
 	payload: Record<string, unknown>,
 	repository: Record<string, unknown>
 ) {
 	const action = payload.action;
-	if (action !== 'renamed' && action !== 'transferred' && action !== 'deleted') return;
+	if (typeof action !== 'string' || !FOLLOWED.has(action)) return;
 	const team = teamStore();
 	const site = (await team.sites()).find((s) => s.repoId === repository.id);
 	if (!site) return;
