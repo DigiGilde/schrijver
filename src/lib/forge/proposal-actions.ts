@@ -14,6 +14,8 @@ const MAX_REVIEWERS = 5;
 
 const MENU_LINE =
 	'Menu bijwerken: deze wijziging voegt een nieuwe pagina toe; de navigatie moet nog door de redactie worden aangepast.';
+/** The short comment with which a proposal is handed to the editors on GitHub. */
+const READY = 'Klaar voor beoordeling';
 
 export interface ActingUser {
 	sub: string;
@@ -96,7 +98,7 @@ export async function sendIn(
 		log.warn('proposal.markready_fallback', { site: site.id, pr: pr.number });
 		if (!isSentIn({ draft: true, body })) {
 			await forge.updatePr(site.repo, pr.number, { body: `${body}\n\n${SENT_MARKER}` });
-			await forge.comment(site.repo, pr.number, 'Klaar voor beoordeling');
+			await forge.comment(site.repo, pr.number, READY);
 		}
 	}
 	log.info('proposal.sent', { site: site.id, pr: pr.number });
@@ -157,14 +159,37 @@ export async function askForAdjustment(
 	}
 }
 
-/** Hands the proposal back to the editors. A request for changes in a review on GitHub stays until it is reviewed again there. */
+/**
+ * Hands the proposal back to the editors: whoever asked for changes in a review on GitHub is asked to
+ * review again. One reviewer GitHub refuses does not stop the others; their request then stands.
+ */
 export async function sendInAgain(
 	forge: Forge,
 	site: SiteConfig,
 	pr: PrSummary
 ): Promise<{ warning?: string }> {
-	await forge.removeLabel(site.repo, pr.number, ADJUSTMENT_LABEL);
-	return pr.reviewState === 'changes_requested'
+	if (pr.labels.includes(ADJUSTMENT_LABEL)) {
+		await forge.removeLabel(site.repo, pr.number, ADJUSTMENT_LABEL);
+	}
+	let refused = false;
+	for (const reviewer of pr.changesRequestedBy) {
+		try {
+			await forge.requestReviewers(site.repo, pr.number, [reviewer]);
+		} catch (err) {
+			refused = true;
+			log.warn('proposal.rerequest_failed', { site: site.id, pr: pr.number, ...errorFields(err) });
+		}
+	}
+	try {
+		await forge.comment(site.repo, pr.number, READY);
+	} catch (err) {
+		log.warn('proposal.resend_comment_failed', {
+			site: site.id,
+			pr: pr.number,
+			...errorFields(err)
+		});
+	}
+	return refused
 		? {
 				warning:
 					'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'

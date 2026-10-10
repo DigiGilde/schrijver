@@ -23,6 +23,8 @@ function pr(over: Partial<PrSummary> = {}): PrSummary {
 		updatedAt: '2026-10-07T10:00:00Z',
 		mergeable: true,
 		reviewState: 'none',
+		changesRequestedBy: [],
+		requestedReviewers: [],
 		checks: 'success',
 		...over
 	};
@@ -56,6 +58,25 @@ describe('toProposal', () => {
 			'aanpassing-gevraagd'
 		);
 		expect(toProposal(pr(), files, digi, MINE).status).toBe('ingestuurd');
+	});
+
+	it('counts a proposal as sent in again once all who asked for changes on GitHub are asked again', () => {
+		const status = (over: Partial<PrSummary>) => toProposal(pr(over), files, digi, MINE).status;
+		const asked = {
+			reviewState: 'changes_requested' as const,
+			changesRequestedBy: ['jan', 'piet']
+		};
+		expect(status(asked)).toBe('aanpassing-gevraagd');
+		expect(status({ ...asked, requestedReviewers: ['jan'] })).toBe('aanpassing-gevraagd');
+		expect(status({ ...asked, requestedReviewers: ['piet', 'kees', 'jan'] })).toBe('ingestuurd');
+		expect(
+			status({ ...asked, requestedReviewers: ['jan', 'piet'], labels: [ADJUSTMENT_LABEL] }),
+			'a request made in Schrijver stands until its label is off'
+		).toBe('aanpassing-gevraagd');
+		expect(
+			status({ reviewState: 'changes_requested', requestedReviewers: ['jan'] }),
+			'without the names of who asked, nobody counts as asked again'
+		).toBe('aanpassing-gevraagd');
 	});
 
 	it('reads the label that Schrijver sets as a request for an adjustment, over an approval', () => {

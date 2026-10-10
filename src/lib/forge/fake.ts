@@ -198,7 +198,11 @@ export class FakeForge implements Forge {
 				? 'changes_requested'
 				: verdicts.includes('approved')
 					? 'approved'
-					: 'none'
+					: 'none',
+			changesRequestedBy: [...latest]
+				.filter(([, verdict]) => verdict === 'changes_requested')
+				.map(([reviewer]) => reviewer),
+			requestedReviewers: pr.requestedReviewers.filter((reviewer) => reviewer !== login)
 		});
 	}
 
@@ -321,6 +325,8 @@ export class FakeForge implements Forge {
 			updatedAt: new Date().toISOString(),
 			mergeable: this.mergeableByPr.get(number) ?? true,
 			reviewState: 'none',
+			changesRequestedBy: [],
+			requestedReviewers: [],
 			checks: 'none',
 			author: APP_LOGIN,
 			mergedAt: null
@@ -358,9 +364,12 @@ export class FakeForge implements Forge {
 		}
 	}
 
-	async requestReviewers(repo: string, number: number, _logins: string[]): Promise<void> {
+	async requestReviewers(repo: string, number: number, logins: string[]): Promise<void> {
 		this.maybeFail('requestReviewers');
-		this.touch(repo, number, {});
+		const pr = this.pr(repo, number);
+		this.touch(repo, number, {
+			requestedReviewers: [...new Set([...pr.requestedReviewers, ...logins])]
+		});
 	}
 
 	async listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]> {
@@ -548,7 +557,14 @@ export class FakeForge implements Forge {
 		const conflicting = state !== undefined && this.conflicts(state, pr);
 		const mergeable = this.mergeableByPr.get(pr.number) ?? (conflicting ? false : pr.mergeable);
 		const headSha = state?.heads.get(pr.headRef) ?? pr.headSha;
-		return { ...pr, labels: [...pr.labels], mergeable, headSha };
+		return {
+			...pr,
+			labels: [...pr.labels],
+			changesRequestedBy: [...pr.changesRequestedBy],
+			requestedReviewers: [...pr.requestedReviewers],
+			mergeable,
+			headSha
+		};
 	}
 
 	/** Whether the base changed a path differently from the branch since the branch started. */

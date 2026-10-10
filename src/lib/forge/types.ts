@@ -29,6 +29,10 @@ export interface PrSummary {
 	updatedAt: string;
 	mergeable: boolean | null;
 	reviewState: 'none' | 'approved' | 'changes_requested';
+	/** Logins whose latest review asks for changes. */
+	changesRequestedBy: string[];
+	/** Logins whose review GitHub waits for; a reviewer leaves the list with their review. */
+	requestedReviewers: string[];
 	checks: 'none' | 'pending' | 'success' | 'failure';
 	/** Login of who opened it on GitHub; Schrijver's App for a proposal made in Schrijver. */
 	author?: string;

@@ -5,11 +5,12 @@ import {
 	commentProposal,
 	mergeProposal,
 	pickReviewers,
-	sendIn
+	sendIn,
+	sendInAgain
 } from '../../src/lib/forge/proposal-actions';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
-import { isSentIn } from '../../src/lib/forge/proposals';
+import { ADJUSTMENT_LABEL, isSentIn, statusOf } from '../../src/lib/forge/proposals';
 import { identityTrailer, trailersFromMessage } from '../../src/lib/forge/trailers';
 import type { SiteConfig } from '../../src/lib/config/types';
 
@@ -154,6 +155,80 @@ describe('sendIn', () => {
 		await expect(sendIn(forge, site(), pr, { reviewers: [], filesAdded: false })).rejects.toThrow(
 			'Kapot'
 		);
+	});
+});
+
+describe('sendInAgain', () => {
+	async function asked(...reviewers: string[]) {
+		const pr = await draft();
+		await forge.markReady('o/moza', pr.number);
+		for (const reviewer of reviewers)
+			forge.reviewOnGitHub('o/moza', pr.number, reviewer, 'changes_requested', 'Korter');
+		forge.reviewOnGitHub('o/moza', pr.number, 'kees', 'approved', '');
+		return forge.getPr('o/moza', pr.number);
+	}
+
+	it('asks each reviewer who asked for changes on GitHub to review again, and says it is ready', async () => {
+		const pr = await asked('jan', 'piet');
+		expect(statusOf(pr)).toBe('aanpassing-gevraagd');
+		const request = vi.spyOn(forge, 'requestReviewers');
+		expect(await sendInAgain(forge, site(), pr)).toEqual({});
+		expect(request.mock.calls).toEqual([
+			['o/moza', pr.number, ['jan']],
+			['o/moza', pr.number, ['piet']]
+		]);
+		const after = await forge.getPr('o/moza', pr.number);
+		expect(after.requestedReviewers).toEqual(['jan', 'piet']);
+		expect(statusOf(after)).toBe('ingestuurd');
+		expect((await forge.prComments('o/moza', pr.number)).map((c) => c.body)).toEqual([
+			'Klaar voor beoordeling'
+		]);
+	});
+
+	it('goes on past a reviewer GitHub refuses, logs it and says that request stands', async () => {
+		const pr = await asked('jan', 'piet');
+		forge.failNext('requestReviewers', new ForgeError(422, 'GitHub weigerde de wijziging'));
+		expect(await sendInAgain(forge, site(), pr)).toEqual({
+			warning:
+				'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
+		});
+		expect(log.warn).toHaveBeenCalledWith('proposal.rerequest_failed', {
+			site: 'moza',
+			pr: pr.number,
+			error: 'ForgeError',
+			status: 422
+		});
+		const after = await forge.getPr('o/moza', pr.number);
+		expect(after.requestedReviewers).toEqual(['piet']);
+		expect(statusOf(after)).toBe('aanpassing-gevraagd');
+	});
+
+	it('takes off the label of a request made in Schrijver, and no label that is not there', async () => {
+		const pr = await draft();
+		await forge.markReady('o/moza', pr.number);
+		await forge.addLabel('o/moza', pr.number, 'preview');
+		await forge.addLabel('o/moza', pr.number, ADJUSTMENT_LABEL);
+		const labels = vi.spyOn(forge, 'removeLabel');
+		await sendInAgain(forge, site(), await forge.getPr('o/moza', pr.number));
+		const after = await forge.getPr('o/moza', pr.number);
+		expect(after.labels).toEqual(['preview']);
+		expect(statusOf(after)).toBe('ingestuurd');
+		labels.mockClear();
+		await sendInAgain(forge, site(), after);
+		expect(labels).not.toHaveBeenCalled();
+	});
+
+	it('still sends in again when the short comment cannot be posted', async () => {
+		const pr = await asked('jan');
+		forge.failNext('comment', new ForgeError(502, 'GitHub is niet bereikbaar'));
+		expect(await sendInAgain(forge, site(), pr)).toEqual({});
+		expect(log.warn).toHaveBeenCalledWith('proposal.resend_comment_failed', {
+			site: 'moza',
+			pr: pr.number,
+			error: 'ForgeError',
+			status: 502
+		});
+		expect(statusOf(await forge.getPr('o/moza', pr.number))).toBe('ingestuurd');
 	});
 });
 

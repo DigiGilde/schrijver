@@ -143,10 +143,10 @@ export interface Situation {
 	/** From a fork or into another branch: Schrijver does not act on it. */
 	outside: boolean;
 	mergeInSchrijver: boolean;
+	/** The site asks for an approval on GitHub before a merge. */
+	approvalRequired: boolean;
 	/** GitHub waits for an approval the site requires before a merge. */
 	approvalMissing: boolean;
-	/** The adjustment was asked in Schrijver, so Opnieuw insturen can take its label off. */
-	adjustmentLabel: boolean;
 	/** Schrijver can open the proposal's pages in the editor. */
 	canEdit: boolean;
 	mergedAt: string | null;
@@ -187,16 +187,15 @@ export function whatNow(
 			: say('Dit voorstel is nog een concept. De schrijver stuurt het in als het klaar is.');
 	}
 	if (s.status === 'aanpassing-gevraagd') {
-		const again: Action[] = s.adjustmentLabel ? ['opnieuw-insturen'] : [];
 		if (s.writer)
 			return say(
-				'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder.',
-				[...edit, ...again],
-				edit[0] ?? again[0] ?? null
+				`De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er${s.approvalRequired ? ' op GitHub' : ''} opnieuw naar.`,
+				[...edit, 'opnieuw-insturen'],
+				edit[0] ?? 'opnieuw-insturen'
 			);
 		return say(
 			'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
-			s.editor ? again : []
+			s.editor ? ['opnieuw-insturen'] : []
 		);
 	}
 	if (s.editor && s.blocked)

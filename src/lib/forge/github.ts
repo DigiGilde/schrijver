@@ -600,6 +600,7 @@ export class GitHubForge implements Forge {
 				per_page: 100
 			})
 		]);
+		const latest = verdicts(reviews);
 		return {
 			number: pr.number,
 			title: pr.title,
@@ -614,7 +615,11 @@ export class GitHubForge implements Forge {
 			labels: (pr.labels ?? []).map((l: Json) => l.name),
 			updatedAt: pr.updated_at,
 			mergeable: pr.mergeable ?? null,
-			reviewState: reviewState(reviews),
+			reviewState: reviewState(latest),
+			changesRequestedBy: [...latest]
+				.filter(([, state]) => state === 'CHANGES_REQUESTED')
+				.map(([login]) => login),
+			requestedReviewers: (pr.requested_reviewers ?? []).map((user: Json) => user.login as string),
 			checks: checkState(checks.check_runs ?? []),
 			author: pr.user?.login,
 			mergedAt: pr.merged_at ?? null
@@ -636,12 +641,16 @@ async function mapPool<T, R>(items: T[], size: number, fn: (item: T) => Promise<
 }
 
 // COMMENTED and PENDING reviews do not change a reviewer's verdict.
-function reviewState(reviews: Json[]): PrSummary['reviewState'] {
+function verdicts(reviews: Json[]): Map<string, string> {
 	const latest = new Map<string, string>();
 	for (const r of reviews) {
 		if (!r.user || r.state === 'COMMENTED' || r.state === 'PENDING') continue;
 		latest.set(r.user.login, r.state);
 	}
+	return latest;
+}
+
+function reviewState(latest: Map<string, string>): PrSummary['reviewState'] {
 	const states = [...latest.values()];
 	if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
 	return states.includes('APPROVED') ? 'approved' : 'none';

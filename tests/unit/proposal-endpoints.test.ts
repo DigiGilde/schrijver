@@ -425,15 +425,21 @@ describe('proposal endpoints', () => {
 		const again = await call(opnieuwInsturen, { who: 'auteur' });
 		expect(again.status).toBe(409);
 		expect((await again.json()).message).toBe('Er is geen aanpassing gevraagd');
+	});
 
-		await forge.addLabel('o/moza', 1, 'aanpassing gevraagd');
+	it('answers a request for changes on GitHub too: its reviewer is asked to review again', async () => {
+		await call(insturen, { who: 'auteur' });
 		forge.reviewOnGitHub('o/moza', 1, 'jansen', 'changes_requested', 'Korter');
-		const github = await call(opnieuwInsturen, { sub: 'red', who: 'redacteur' });
-		expect(await github.json()).toEqual({
-			ok: true,
-			warning:
-				'Op GitHub vraagt iemand nog om een aanpassing. Die beoordeelt het voorstel daar opnieuw.'
-		});
+		expect(statusOf(await forge.getPr('o/moza', 1))).toBe('aanpassing-gevraagd');
+		const res = await call(opnieuwInsturen, { who: 'auteur' });
+		expect(await res.json()).toEqual({ ok: true });
+		const pr = await forge.getPr('o/moza', 1);
+		expect(pr.requestedReviewers).toEqual(['jansen']);
+		expect(statusOf(pr)).toBe('ingestuurd');
+		expect((await forge.prComments('o/moza', 1)).map((c) => c.body)).toEqual([
+			'Klaar voor beoordeling'
+		]);
+		expect((await call(opnieuwInsturen, { who: 'auteur' })).status).toBe(409);
 	});
 
 	it('refuses comments on a closed proposal', async () => {

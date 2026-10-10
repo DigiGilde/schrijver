@@ -219,6 +219,27 @@ describe('FakeForge', () => {
 		expect(await forge.prComments(REPO, pr.number)).toHaveLength(3);
 	});
 
+	it('keeps who asks for changes, and whose review is asked for until they review', async () => {
+		await forge.createBranch(REPO, 'main', 'draft');
+		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');
+		expect(pr).toMatchObject({ changesRequestedBy: [], requestedReviewers: [] });
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'changes_requested', 'Korter');
+		forge.reviewOnGitHub(REPO, pr.number, 'pietersen', 'approved', '');
+		await forge.requestReviewers(REPO, pr.number, ['jansen', 'de-vries']);
+		await forge.requestReviewers(REPO, pr.number, ['jansen']);
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({
+			reviewState: 'changes_requested',
+			changesRequestedBy: ['jansen'],
+			requestedReviewers: ['jansen', 'de-vries']
+		});
+		forge.reviewOnGitHub(REPO, pr.number, 'jansen', 'approved', '');
+		expect(await forge.getPr(REPO, pr.number)).toMatchObject({
+			reviewState: 'approved',
+			changesRequestedBy: [],
+			requestedReviewers: ['de-vries']
+		});
+	});
+
 	it('says who opened a pull request and when it was merged', async () => {
 		await forge.createBranch(REPO, 'main', 'draft');
 		const pr = await forge.openDraftPr(REPO, 'draft', 'main', 'T', 'B');

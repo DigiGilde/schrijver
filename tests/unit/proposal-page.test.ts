@@ -410,6 +410,31 @@ describe('what now', () => {
 		);
 	});
 
+	it('lets the writer send in again, also after a request on GitHub, and says where the redactie looks', async () => {
+		const moza = await make(
+			'moza-site',
+			{ 'content/negen.md': 'Negen\n' },
+			{ door: 'lezer', sent: true }
+		);
+		forge.reviewOnGitHub('MinBZK/moza-site', moza, 'jansen', 'changes_requested', 'Korter');
+		expect((await open('moza-site', moza)).watNu).toEqual({
+			sentence:
+				'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.',
+			actions: ['verder-bewerken', 'opnieuw-insturen'],
+			primary: 'verder-bewerken'
+		});
+
+		const digi = await make(
+			'digi-handboek',
+			{ 'docs/kennis/tien.md': '# Tien\n' },
+			{ door: 'lezer', sent: true }
+		);
+		await forge.addLabel(REPO, digi, 'aanpassing gevraagd');
+		expect((await open('digi-handboek', digi)).watNu.sentence).toMatch(
+			/Klaar\? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar\.$/
+		);
+	});
+
 	it('tells anyone else that the editors decide', async () => {
 		const nummer = await make('moza-site', { 'content/acht.md': 'Acht\n' }, { sent: true });
 		expect((await open('moza-site', nummer)).watNu).toEqual({

@@ -116,8 +116,8 @@ describe('whatNow', () => {
 		blocked: null,
 		outside: false,
 		mergeInSchrijver: true,
+		approvalRequired: false,
 		approvalMissing: false,
-		adjustmentLabel: false,
 		canEdit: true,
 		mergedAt: null,
 		siteAddress: true
@@ -147,17 +147,23 @@ describe('whatNow', () => {
 		}
 	});
 
-	it('sends the writer to the conversation when the editors ask for an adjustment', () => {
+	it('lets the writer send in again after any request for an adjustment, and says who looks again', () => {
 		const asked = { status: 'aanpassing-gevraagd' as const, writer: true };
-		expect(row({ ...asked, adjustmentLabel: true })).toEqual({
-			sentence: 'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder.',
-			actions: ['verder-bewerken', 'opnieuw-insturen'],
-			primary: 'verder-bewerken'
-		});
-		expect(row({ ...asked, editor: true, adjustmentLabel: true }).sentence).toBe(
-			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder.'
+		for (const editor of [false, true]) {
+			expect(row({ ...asked, editor })).toEqual({
+				sentence:
+					'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er opnieuw naar.',
+				actions: ['verder-bewerken', 'opnieuw-insturen'],
+				primary: 'verder-bewerken'
+			});
+		}
+		expect(row({ ...asked, approvalRequired: true }).sentence).toBe(
+			'De redactie vraagt je iets aan te passen. Lees het gesprek hieronder. Klaar? Kies Opnieuw insturen, dan kijkt de redactie er op GitHub opnieuw naar.'
 		);
-		expect(row(asked).actions).toEqual(['verder-bewerken']);
+		expect(row({ ...asked, canEdit: false })).toMatchObject({
+			actions: ['opnieuw-insturen'],
+			primary: 'opnieuw-insturen'
+		});
 	});
 
 	it('lets an editor decide: merge, or ask for an adjustment', () => {
@@ -223,14 +229,13 @@ describe('whatNow', () => {
 	});
 
 	it('says the writer is adjusting the proposal, and lets an editor send it in again', () => {
-		const asked = { status: 'aanpassing-gevraagd' as const, adjustmentLabel: true };
+		const asked = { status: 'aanpassing-gevraagd' as const };
 		expect(row(asked)).toEqual({
 			sentence: 'De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.',
 			actions: [],
 			primary: null
 		});
 		expect(row({ ...asked, editor: true }).actions).toEqual(['opnieuw-insturen']);
-		expect(row({ ...asked, editor: true, adjustmentLabel: false }).actions).toEqual([]);
 	});
 
 	it('says when a proposal was merged and offers the site', () => {

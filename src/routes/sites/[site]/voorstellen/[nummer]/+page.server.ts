@@ -10,10 +10,10 @@ import { sourceDiff } from '$lib/content/source-diff';
 import { authorName, authorship, fourEyes } from '$lib/forge/authorship';
 import { conversation } from '$lib/forge/conversation';
 import { appAccount, canAct, type ActingUser } from '$lib/forge/proposal-actions';
-import { ADJUSTMENT_LABEL, toProposal } from '$lib/forge/proposals';
+import { toProposal } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import { FOUR_EYES, dateText, stepOf, whatNow } from '$lib/forge/status';
-import { ForgeError, type Forge } from '$lib/forge/types';
+import { ForgeError, type Forge, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { backToProposals } from '$lib/server/site-tabs';
@@ -132,9 +132,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 					: 'onbekend';
 			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
 		}
-		let approvalMissing = false;
-		if (deciding && !blocked && settings.mergenVanuitSchrijver) {
-			const decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
+		const resending = acts.owner && !outside && status === 'aanpassing-gevraagd';
+		let decision: ReviewDecision = null;
+		if ((deciding && !blocked && settings.mergenVanuitSchrijver) || resending) {
+			decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
 				log.warn('proposal.review_decision_failed', {
 					site: site.id,
 					pr: nummer,
@@ -142,7 +143,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				});
 				return null;
 			});
-			approvalMissing = decision === 'review_required' || decision === 'changes_requested';
 		}
 		const verderBewerken =
 			acts.owner || acts.editorial
@@ -184,8 +184,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				blocked,
 				outside,
 				mergeInSchrijver: settings.mergenVanuitSchrijver,
-				approvalMissing,
-				adjustmentLabel: pr.labels.includes(ADJUSTMENT_LABEL),
+				approvalRequired: decision !== null,
+				approvalMissing: decision === 'review_required' || decision === 'changes_requested',
 				canEdit: verderBewerken.length > 0,
 				mergedAt: pr.mergedAt ?? null,
 				siteAddress: !!settings.adres

@@ -28,11 +28,19 @@ export function isSentIn(pr: Pick<PrSummary, 'draft' | 'body'>): boolean {
 	return !pr.draft || pr.body.split('\n').some((l) => l.trim() === SENT_MARKER);
 }
 
+/** Everyone who asked for changes on GitHub has been asked to review again: the proposal waits for them. */
+const askedAgain = (pr: PrSummary) =>
+	pr.changesRequestedBy.length > 0 &&
+	pr.changesRequestedBy.every((login) => pr.requestedReviewers.includes(login));
+
 export function statusOf(pr: PrSummary): Proposal['status'] {
 	if (pr.state === 'merged') return 'samengevoegd';
 	if (pr.state === 'closed') return 'gesloten';
 	if (!isSentIn(pr)) return 'concept';
-	if (pr.reviewState === 'changes_requested' || pr.labels.includes(ADJUSTMENT_LABEL))
+	if (
+		pr.labels.includes(ADJUSTMENT_LABEL) ||
+		(pr.reviewState === 'changes_requested' && !askedAgain(pr))
+	)
 		return 'aanpassing-gevraagd';
 	if (pr.reviewState === 'approved') return 'goedgekeurd';
 	return 'ingestuurd';

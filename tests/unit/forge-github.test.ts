@@ -519,6 +519,45 @@ describe('GitHubForge', () => {
 		expect((await forge().prHead('o/r', 9)).headRepo).toBe('');
 	});
 
+	it('says who asks for changes and whose review GitHub waits for', async () => {
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/8`, () =>
+				HttpResponse.json({
+					number: 8,
+					title: 'T',
+					body: '',
+					draft: false,
+					state: 'open',
+					merged_at: null,
+					head: { ref: 'h', sha: 'sha8' },
+					base: { ref: 'main' },
+					html_url: 'https://github.com/o/r/pull/8',
+					labels: [],
+					updated_at: '2026-10-10T09:00:00Z',
+					mergeable: true,
+					requested_reviewers: [{ login: 'u2' }, { login: 'u4' }]
+				})
+			),
+			http.get(`${API}/repos/o/r/pulls/8/reviews`, () =>
+				HttpResponse.json([
+					{ user: { login: 'u1' }, state: 'CHANGES_REQUESTED' },
+					{ user: { login: 'u1' }, state: 'APPROVED' },
+					{ user: { login: 'u2' }, state: 'CHANGES_REQUESTED' },
+					{ user: { login: 'u2' }, state: 'COMMENTED' },
+					{ user: { login: 'u3' }, state: 'CHANGES_REQUESTED' }
+				])
+			),
+			http.get(`${API}/repos/o/r/commits/sha8/check-runs`, () =>
+				HttpResponse.json({ check_runs: [] })
+			)
+		);
+		expect(await forge().getPr('o/r', 8)).toMatchObject({
+			reviewState: 'changes_requested',
+			changesRequestedBy: ['u2', 'u3'],
+			requestedReviewers: ['u2', 'u4']
+		});
+	});
+
 	it('reads the review decision through GraphQL, null where no review is required', async () => {
 		const answers: (string | null)[] = ['REVIEW_REQUIRED', 'APPROVED', 'CHANGES_REQUESTED', null];
 		server.use(
