@@ -8,19 +8,20 @@ Version 0.1.0, a pilot. Schrijver is not yet deployed; the pilot sites are Digi 
 
 ## Architecture
 
-The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Sites and their page schemas are configured in a private repository. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/ontwerp.md).
+The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Each site keeps its structure (content folder, page schema, writing guide) in `.schrijver/` in its own repository; the list of sites and each site's team and settings live in Postgres, with people known by their SSO subject, and are managed in the app. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/ontwerp.md).
 
 ## Local development
 
 ```sh
 npm install
 cp .env.example .env
-SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_TEST_SESSION='{"sub":"dev","name":"Dev Gebruiker","email":"dev@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}' npm run dev
+SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_BEHEERDERS=test SCHRIJVER_TEST_SESSION='{"sub":"test","name":"Test Gebruiker","email":"test@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}' npm run dev
 ```
 
-- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub and the configuration repository with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each. No GitHub App, Keycloak or database is needed. A "Testomgeving" bar above the app bar says so, and without `VLAM_API_URL` Schrijfhulp gives marked test answers (see [testing Schrijfhulp locally](docs/ai-en-vlam.md#testing-schrijfhulp-locally)).
+- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each, and keeps the sites, teams and preferences in memory. No GitHub App, Keycloak or database is needed. A "Testomgeving" bar above the app bar says so, and without `VLAM_API_URL` Schrijfhulp gives marked test answers (see [testing Schrijfhulp locally](docs/ai-en-vlam.md#testing-schrijfhulp-locally)). The fake teams make `test@example.org` beheerder of Digi Handboek and redactie of MOZa; a third site with outdated `.schrijver/` files shows platform admins how Schrijver reports a broken site.
 - `SCHRIJVER_TEST_SESSION` is a JSON session (`sub`, `name`, `email`, `emailVerified`, `organisation`, `exp` in epoch milliseconds) that skips the login.
-- Both are ignored when `NODE_ENV` is `production`.
+- `SCHRIJVER_BEHEERDERS` lists the SSO subjects of the platform admins, comma separated. They manage every site and are the only ones who add or remove one; each finds their own subject under Instellingen.
+- The first two are ignored when `NODE_ENV` is `production`.
 
 To run against real services, fill in `.env` (see `.env.example`). The app reads `process.env`, and `npm run dev` does not load `.env` into it: load it into the shell first, for example `set -a; . ./.env; set +a; npm run dev`. Two variables worth knowing: `VLAM_MODEL` (default `vlam-llm-large-prepaid`) selects the VLAM model, and `DATABASE_SERVER_FULL` is the Postgres connection string, provided by the platform on ZAD. A full local stack with Keycloak and Postgres is described in [dev/README.md](dev/README.md) (`podman compose up --build`). The Keycloak check below is for any other realm.
 
@@ -37,11 +38,11 @@ npm run test:e2e    # Playwright against the fake forge
 
 ## Container and deployment
 
-Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Run exactly one replica: the cache, the rate limits and the configuration live in memory, and a webhook reaches only one replica. Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/ontwerp.md)).
+Build the container with `podman build -f Containerfile -t schrijver .` (the app listens on `PORT`). Run exactly one replica: the cache, the rate limits and the loaded site structure live in memory, and a webhook reaches only one replica. Deployment to ZAD, the secrets and the GitHub App are described in [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md) and the design's deployment section ([section 10](docs/ontwerp.md)).
 
 ## Documentation
 
-- [docs/configuratie.md](docs/configuratie.md): `sites.yaml`, schemas and writing guides, with worked examples.
+- [docs/configuratie.md](docs/configuratie.md): `.schrijver/` in a site repository (`site.yaml`, the page schema, the writing guide), with worked examples.
 - [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md): connect a new site, step by step.
 - [docs/identiteit-en-privacy.md](docs/identiteit-en-privacy.md): identity choices, pseudonyms, what goes to VLAM.
 - [docs/ontwerp.md](docs/ontwerp.md): the v1 design.

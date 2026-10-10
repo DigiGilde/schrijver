@@ -44,13 +44,13 @@ Logs are JSON on stdout. Forge calls and assistant requests are logged with site
 ## What is stored
 
 - Session: an encrypted (AES-256-GCM), `httpOnly` cookie `schrijver_sessie` with `sub`, name, e-mail, verification flag and organisation. Lifetime 8 hours, renewed when fewer than 4 hours remain (sliding). No session table.
-- Database: user preferences keyed by `sub` (identity choice, GitHub login, GitHub user id, onboarding flag), and the profiles, teams, invitations, site settings and audit log of [team management](#team-management).
+- Database: user preferences keyed by `sub` (identity choice, GitHub login, GitHub user id, onboarding flag), and the sites, profiles, teams, invitations, writer records, site settings and audit log of [team management](#team-management).
 - Browser: an unsaved draft is kept in `localStorage` per branch until a save succeeds.
 - Everything else is in the forge.
 
 ## Team management
 
-Who is on a site's team, and the settings of a site, live in Schrijver's database and are managed under Instellingen ([decision 0008](decisions/0008-people-in-schrijver-structure-in-the-site.md)). A person is their SSO `sub`; the e-mail address is only display data and a handle to invite someone.
+The list of sites, who is on a site's team and the settings of a site live in Schrijver's database and are managed under Instellingen ([decision 0008](decisions/0008-people-in-schrijver-structure-in-the-site.md)). A person is their SSO `sub`; the e-mail address is only display data and a handle to invite someone.
 
 | What | Why | How long |
 | --- | --- | --- |
@@ -58,11 +58,13 @@ Who is on a site's team, and the settings of a site, live in Schrijver's databas
 | Membership: site, `sub`, role (beheerder or redactie), who added them and when. | Who decides on proposals and who manages the site. | As long as the person is on the team. |
 | Invitation: site, the e-mail address the admin typed, role, who invited and when. | A colleague who has not signed in yet joins at their first login with that verified address. | 30 days, until it is claimed or revoked. An expired invitation is deleted. |
 | Audit row: time, who acted (`sub`), site, what happened, the target (a `sub`, an invitation id or the names of changed settings) and the role. Never an e-mail address. | Accountability: who changed a team, an invitation or a site setting. | Two years, also after the people in it left. |
-| Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is in Schrijver: removing a site removes its settings, team, invitations and writing records. |
+| Site: its key, the repository with GitHub's numeric id for it, the default branch, who added it (`sub`) and when. | Which repositories Schrijver works on. | As long as the site is in Schrijver. |
+| Site settings: name, description, address, merging in Schrijver, four eyes, allowed signing, who changed them last. | The policy of a site. | As long as the site is in Schrijver: removing a site removes its settings, team, invitations and writer records. |
+| Writer record: site, proposal number, the `sub` of each person Schrijver committed to the proposal for, and the time of their first commit. | Four eyes: whoever wrote in a proposal does not merge it ([decision 0007](decisions/0007-three-steps-and-four-eyes.md)). | Removed with the profile; until then it stays, also for closed proposals. |
 
 - The retention runs when Schrijver starts and once a day.
 - Schrijver sends no invitation e-mail; the admin tells the colleague.
-- No e-mail address or `sub` goes into a URL. The team page shows names, addresses and roles to the site's beheerders and the platform admins only. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
+- No e-mail address or `sub` goes into a URL. The team page shows names, addresses and roles to the site's beheerders and the platform admins only; "Over `<site>`" shows everyone who signs in the names of the team and who is beheerder, never an address. Everyone sees their own `sub` on Instellingen, as "Je kenmerk bij SSO Rijk".
 - Platform admins are subs in the environment variable `SCHRIJVER_BEHEERDERS`, not in the database.
 - Logged for team changes: the event, site, role and the actor's pseudonym; never an address or a `sub`.
 

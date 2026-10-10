@@ -15,18 +15,20 @@ Three central government apps answer the same question. ZAD keeps people and con
 3. **Identity is the SSO `sub`, never the e-mail address.** Addresses change and can be reused. An address is an invitation handle and display data, stored lower-cased, only when the identity provider verified it, and not unique. An invitation binds to a `sub` at the first login with that verified address and expires after 30 days. No e-mail address or `sub` goes into a URL: members are addressed by an opaque key in the request body.
 4. **Tiny roles, checked on the server at every write.** Platform admins ("Schrijver-beheerder") are the subs in `SCHRIJVER_BEHEERDERS`; they manage every site, so no site can be locked out. A beheerder manages a site's team and settings and is editorial too; the redactie decides on proposals; everyone signed in may propose. A linked GitHub account with write permission on the repository counts as redactie, with admin permission as beheerder. A site always keeps one beheerder in the table, unless a platform admin removes the last one on purpose.
 5. **Four eyes is a site setting, on by default.** Nobody merges a proposal they wrote, unless they are a beheerder or a platform admin (decision 0007 brings the switch).
-6. **Accountability and privacy.** Every change to a team, an invitation or a site setting writes an audit row (who, site, action, target key, role, time; never an e-mail address), kept for two years. The profile and preferences of someone not seen for twelve months who is on no team are removed. No invitation e-mail is sent: the admin tells the colleague.
+6. **Accountability and privacy.** Every change to the list of sites, a team, an invitation or a site setting writes an audit row (who, site, action, target key, role, time; never an e-mail address), kept for two years. The profile and preferences of someone not seen for twelve months who is on no team are removed. No invitation e-mail is sent: the admin tells the colleague.
 
 ## Consequences
 
-- `user_prefs` gains the profile (name, verified e-mail, last login), saved at every login. New tables hold the site settings, the members, the invitations and the audit log (`db/schema.sql`).
-- At start, every configured site without settings gets them from its values in `sites.yaml`, and a site that gets its settings this way also gets an invitation for each address in `review.redactie`. After that the tables rule: an emptied team stays empty, and nothing is overwritten.
+- `user_prefs` gains the profile (name, verified e-mail, last login), saved at every login. New tables hold the sites, their settings, the members, the invitations, the writers Schrijver recorded per proposal and the audit log (`db/schema.sql`).
+- A platform admin adds a site with "Site toevoegen": its repository, bound by GitHub's numeric repository id so a rename is followed, its settings and a first beheerder, in one transaction. "Site verwijderen" removes the site with its team, invitations and writer records; the audit rows stay.
 - Changing a role or removing someone locks the site's memberships in one transaction, so two admins who remove each other at the same moment cannot leave the site without a beheerder.
 - Operators set the platform admins. Instellingen shows everyone their own `sub` as "Je kenmerk bij SSO Rijk", to hand to an operator. Whether the `sub` from ZAD's Keycloak is the persistent NameID of SSO Rijk is to be verified on the real realm.
 - Team lists are personal data; [identiteit-en-privacy.md](../identiteit-en-privacy.md#team-management) says what is stored, why and for how long.
-- The local preview and the test session keep people in memory, with a second known colleague.
+- The local preview and the test session keep the sites and people in memory, with a few known colleagues.
 
 ## Stages
 
-- **Stage 1, people and settings in the database:** the tables and stores, the profile and invitations at login, the roles, the beheer screens under Instellingen, the audit log and the retention. A follow-up switches editorial membership, the four-eyes admin check and the readers of the site settings over to the tables. The structure still comes from `sites.yaml` and `schemas/`.
-- **Stage 2, structure in the site repository:** `.schrijver/site.yaml` and the page schema per site, reloaded on a push to the default branch, "Site toevoegen" for platform admins, and the central configuration repository removed.
+Both stages are in the same version.
+
+- **Stage 1, people and settings in the database:** the tables and stores, the profile and invitations at login, the roles, the beheer screens under Instellingen, the audit log and the retention; editorial membership, the four-eyes admin check and every reader of the site settings use the tables.
+- **Stage 2, structure in the site repository:** `.schrijver/site.yaml`, the page schema and the writing guide per site, read from the default branch and reloaded on a push to it; the list of sites in the database, with "Site toevoegen" and "Site verwijderen" for platform admins; the central configuration repository removed.
