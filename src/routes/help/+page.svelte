@@ -88,11 +88,12 @@
 
 			<h2>De schrijfhulp</h2>
 			<p>
-				De schrijfhulp (VLAM) stelt wijzigingen voor, bijvoorbeeld een kortere zin of een tekst op
-				B1-niveau. Zij schrijft nooit zelf in je pagina: jij kiest "Overnemen" of "Verwerpen". Heb
-				je een stuk tekst geselecteerd, dan werkt de hulp alleen op die selectie; anders op de hele
-				tekst. De hulp krijgt alleen de tekst waar je mee werkt en de schrijfwijzer van de site,
-				nooit je naam, e-mailadres of keuze voor naamsvermelding. Controleer elk voorstel zelf.
+				De schrijfhulp (VLAM) geeft suggesties, bijvoorbeeld een kortere zin of een tekst op
+				B1-niveau. Zij schrijft nooit zelf in je pagina: jij kiest "Neem suggestie over" of "Verwerp
+				suggestie". Heb je een stuk tekst geselecteerd, dan werkt de schrijfhulp alleen op die
+				selectie; anders op de hele tekst. De schrijfhulp krijgt alleen de tekst waar je mee werkt
+				en de schrijfwijzer van de site, nooit je naam, e-mailadres of keuze voor naamsvermelding.
+				Controleer elke suggestie zelf.
 			</p>
 			<p>
 				Bij een nieuwe pagina kan de schrijfhulp uit een korte beschrijving een titel en een opzet
@@ -100,7 +101,7 @@
 				ze in de editor; bewaard wordt er pas iets als je "Bewaar" kiest.
 			</p>
 			<p>
-				De schrijfhulp gebruikt een taalmodel (VLAM van SSC-ICT); het stelt alleen voor, jij
+				De schrijfhulp gebruikt een taalmodel (VLAM van SSC-ICT); het geeft alleen suggesties, jij
 				beslist.
 			</p>
 

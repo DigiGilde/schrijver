@@ -12,14 +12,14 @@ import { sourceDiff } from '../../src/lib/content/source-diff';
 
 describe('comparisonTitle', () => {
 	it('names the action', () => {
-		expect(comparisonTitle('Korter')).toBe('Voorstel van Schrijfhulp: Korter');
+		expect(comparisonTitle('Korter')).toBe('Suggestie van Schrijfhulp: Korter');
 		expect(comparisonTitle('Kopjes voorstellen')).toBe(
-			'Voorstel van Schrijfhulp: Kopjes voorstellen'
+			'Suggestie van Schrijfhulp: Kopjes voorstellen'
 		);
 	});
 
 	it('has no action to name for an own instruction', () => {
-		expect(comparisonTitle(null)).toBe('Voorstel van Schrijfhulp');
+		expect(comparisonTitle(null)).toBe('Suggestie van Schrijfhulp');
 	});
 });
 
@@ -34,7 +34,7 @@ describe('changesLine', () => {
 	});
 
 	it('says so when the suggestion changes nothing', () => {
-		expect(changesLine(0)).toBe('Het voorstel verandert niets in je tekst');
+		expect(changesLine(0)).toBe('De suggestie verandert niets in je tekst');
 	});
 
 	it('does not count a comparison that is too large to make', () => {
@@ -76,7 +76,7 @@ describe('compare', () => {
 	it('carries the texts, the heading and the source lines of the comparison', () => {
 		const after = '# Titel\n\nEerste zin.\n\n## Kop\n\nEen alinea.\n\n## Slot\n\nEinde.\n';
 		const result = compare('Korter', before, after);
-		expect(result.title).toBe('Voorstel van Schrijfhulp: Korter');
+		expect(result.title).toBe('Suggestie van Schrijfhulp: Korter');
 		expect(result.before).toBe(before);
 		expect(result.after).toBe(after);
 		expect(result.source).toEqual(sourceDiff(before, after));

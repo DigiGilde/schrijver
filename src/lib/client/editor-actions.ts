@@ -155,7 +155,7 @@ export function applySuggestion(
 	original: string
 ): string | null {
 	if (body.slice(from, to) !== original) {
-		return 'De tekst is intussen veranderd, het voorstel is niet overgenomen';
+		return 'De tekst is intussen veranderd, de suggestie is niet overgenomen';
 	}
 	editor?.replaceRange(from, to, replacement);
 	return null;

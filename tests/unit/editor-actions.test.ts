@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	RULE,
 	TABLE_TEMPLATE,
+	applySuggestion,
 	insertBlock,
 	toggleCodeBlock,
 	toggleList,
@@ -42,6 +43,22 @@ function fakeEditor(initial: string, start = initial.length, end = start) {
 	};
 	return editor;
 }
+
+describe('applySuggestion', () => {
+	it('puts the suggestion in the text', () => {
+		const editor = fakeEditor('Een twee drie');
+		expect(applySuggestion(editor as never, 'Een twee drie', 4, 8, 'vier', 'twee')).toBeNull();
+		expect(editor.value).toBe('Een vier drie');
+	});
+
+	it('says in Dutch that the suggestion was not taken over when the text changed meanwhile', () => {
+		const editor = fakeEditor('Een twee drie');
+		expect(applySuggestion(editor as never, 'Een twee drie', 4, 8, 'vier', 'iets anders')).toBe(
+			'De tekst is intussen veranderd, de suggestie is niet overgenomen'
+		);
+		expect(editor.value).toBe('Een twee drie');
+	});
+});
 
 describe('insertBlock', () => {
 	it('separates the block from the paragraph before it and leaves the caret after it', () => {

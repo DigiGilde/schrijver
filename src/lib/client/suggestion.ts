@@ -18,12 +18,12 @@ export function selectsWholeText(selection: { from: number; to: number }, text: 
 }
 
 export const comparisonTitle = (label: string | null) =>
-	label ? `Voorstel van Schrijfhulp: ${label}` : 'Voorstel van Schrijfhulp';
+	label ? `Suggestie van Schrijfhulp: ${label}` : 'Suggestie van Schrijfhulp';
 
 /** The line in the panel that points to the comparison. */
 export function changesLine(count: number | null): string {
 	if (count === null) return 'De wijzigingen staan in de tekstkolom';
-	if (count === 0) return 'Het voorstel verandert niets in je tekst';
+	if (count === 0) return 'De suggestie verandert niets in je tekst';
 	return count === 1
 		? '1 wijziging staat in de tekstkolom'
 		: `${count} wijzigingen staan in de tekstkolom`;

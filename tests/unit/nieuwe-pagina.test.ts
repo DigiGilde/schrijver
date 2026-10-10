@@ -75,7 +75,7 @@ describe('the title after "Maak een opzet"', () => {
 		expect(titleAfterOutline('Mijn eigen titel', 'Koffie')).toEqual({
 			title: 'Mijn eigen titel',
 			status:
-				'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Koffie". Controleer de opzet voordat je de pagina maakt.',
+				'De opzet staat klaar. Je eigen titel is blijven staan. Suggestie van Schrijfhulp voor de titel: "Koffie". Controleer de opzet voordat je de pagina maakt.',
 			filled: false
 		});
 	});

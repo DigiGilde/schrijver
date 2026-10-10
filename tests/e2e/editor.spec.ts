@@ -815,7 +815,7 @@ test.describe('the Schrijfhulp panel at 1280 px', () => {
 	async function openPaneel(page: Page) {
 		await page.goto(url);
 		await expect(page.locator('nldd-text-editor .cm-content')).toBeVisible();
-		await page.getByRole('button', { name: 'Schrijfhulp' }).click();
+		await page.getByRole('button', { name: 'Schrijfhulp', exact: true }).click();
 		await expect(paneel(page)).toBeVisible();
 	}
 
@@ -887,7 +887,7 @@ test.describe('the Schrijfhulp panel at 1280 px', () => {
 		await page.keyboard.press('Shift+End');
 		await paneel(page).hover();
 		await paneel(page).getByRole('button', { name: 'Korter' }).click();
-		await expect(paneel(page).getByRole('button', { name: 'Overnemen' })).toBeVisible();
+		await expect(paneel(page).getByRole('button', { name: 'Neem suggestie over' })).toBeVisible();
 		await expect.poll(() => meegeschoven(page)).toBe(300);
 	});
 

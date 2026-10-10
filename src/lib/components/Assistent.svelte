@@ -67,8 +67,8 @@
 			? 'Bezig...'
 			: outcome === 'voorstel'
 				? pending?.comparison
-					? 'Voorstel staat in de tekstkolom'
-					: 'Voorstel beschikbaar'
+					? 'Suggestie staat in de tekstkolom'
+					: 'Suggestie beschikbaar'
 				: outcome === 'overgenomen'
 					? 'Overgenomen'
 					: outcome === 'samenvatting'
@@ -267,7 +267,7 @@
 						appearance="secondary"
 						size="sm"
 						type="submit"
-						text="Vraag"
+						text="Vraag Schrijfhulp"
 						loading={busy || undefined}
 					></nldd-button>
 				</nldd-button-group>
@@ -287,8 +287,10 @@
 				<nldd-title size="6">
 					<h3 id="voorstel-kop">
 						{pending.action === 'samenvatting'
-							? 'Voorgestelde samenvatting'
-							: 'Voorgestelde wijziging'}
+							? 'Suggestie voor de samenvatting'
+							: pending.comparison
+								? 'Suggestie voor de hele tekst'
+								: 'Suggestie voor de selectie'}
 					</h3>
 				</nldd-title>
 				<nldd-spacer size="4"></nldd-spacer>
@@ -322,7 +324,7 @@
 				<nldd-button-group size="sm">
 					{#if pending.action !== 'samenvatting'}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<nldd-button appearance="primary" size="sm" text="Overnemen" onclick={accept}
+						<nldd-button appearance="primary" size="sm" text="Neem suggestie over" onclick={accept}
 						></nldd-button>
 					{:else if onSummary}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -334,7 +336,7 @@
 						></nldd-button>
 					{/if}
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<nldd-button appearance="secondary" size="sm" text="Verwerpen" onclick={dismiss}
+					<nldd-button appearance="secondary" size="sm" text="Verwerp suggestie" onclick={dismiss}
 					></nldd-button>
 				</nldd-button-group>
 			</nldd-container>

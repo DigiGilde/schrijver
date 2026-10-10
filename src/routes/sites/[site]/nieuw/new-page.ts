@@ -70,7 +70,7 @@ export function titleAfterOutline(
 	}
 	return {
 		title: typed,
-		status: `De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "${suggested}". Controleer de opzet voordat je de pagina maakt.`,
+		status: `De opzet staat klaar. Je eigen titel is blijven staan. Suggestie van Schrijfhulp voor de titel: "${suggested}". Controleer de opzet voordat je de pagina maakt.`,
 		filled: false
 	};
 }

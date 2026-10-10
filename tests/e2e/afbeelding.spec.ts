@@ -115,19 +115,19 @@ test('applies an assistant suggestion to the text that select all selected', asy
 	await editor.click();
 	await page.keyboard.press('ControlOrMeta+a');
 
-	const knop = page.getByRole('button', { name: 'Schrijfhulp' });
+	const knop = page.getByRole('button', { name: 'Schrijfhulp', exact: true });
 	await knop.click();
 	await expect(knop).toHaveAttribute('aria-expanded', 'true');
 	const paneel = page.getByRole('complementary', { name: 'Schrijfhulp' });
 	await paneel.getByRole('button', { name: 'Korter' }).click();
-	await paneel.getByRole('button', { name: 'Overnemen' }).click();
+	await paneel.getByRole('button', { name: 'Neem suggestie over' }).click();
 	await expect(editor).toContainText('Kort en krachtig.');
 	await expect(editor).not.toContainText('Het Digi Handboek');
 	await expect(editor).toBeFocused();
 
 	await page.keyboard.press('ControlOrMeta+a');
 	await paneel.getByRole('button', { name: 'Korter' }).click();
-	await paneel.getByRole('button', { name: 'Verwerpen' }).click();
+	await paneel.getByRole('button', { name: 'Verwerp suggestie' }).click();
 	await expect(editor).toBeFocused();
 });
 
@@ -140,10 +140,10 @@ test('writes a summary into the description field and leaves the text alone', as
 	await page.goto(url);
 	await expect(page.locator('nldd-text-editor .cm-content')).toContainText('Het Digi Handboek');
 	const editor = page.locator('nldd-text-editor .cm-content');
-	await page.getByRole('button', { name: 'Schrijfhulp' }).click();
+	await page.getByRole('button', { name: 'Schrijfhulp', exact: true }).click();
 	await page.getByRole('button', { name: 'Samenvatting', exact: true }).click();
 	await expect(page.getByText('Een korte samenvatting.')).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Overnemen' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Neem suggestie over' })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Gebruik als samenvatting' }).click();
 	await expect(
 		page.getByRole('status').filter({ hasText: 'Samenvatting ingevuld bij Eigenschappen' })

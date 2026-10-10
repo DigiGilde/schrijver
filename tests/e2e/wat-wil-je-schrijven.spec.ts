@@ -40,7 +40,7 @@ test('Maak een opzet fills title and outline, and Maak pagina opens the editor w
 	await open(page, 'digi-handboek');
 	const beschrijving = page.getByLabel('Of beschrijf wat je wilt schrijven');
 	await beschrijving.fill('Een pagina over de koffieautomaat. Waar staat hij en hoe werkt hij?');
-	await expect(page.getByText(/^Voorstellen komen van een AI-taalmodel \(VLAM\)/)).toBeVisible();
+	await expect(page.getByText(/^Suggesties komen van een AI-taalmodel \(VLAM\)/)).toBeVisible();
 	await page.getByRole('button', { name: 'Maak een opzet' }).click();
 
 	await expect(page.getByLabel('Titel')).toHaveValue('Een pagina over de koffieautomaat');
@@ -158,7 +158,7 @@ test('Maak een opzet keeps a title the writer typed and names the suggestion', a
 
 	await expect(page.getByLabel('Opzet', { exact: true })).toHaveValue(/^## Waar gaat het over/);
 	await expect(page.locator('form').getByRole('status')).toHaveText(
-		'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Een pagina over de koffieautomaat". Controleer de opzet voordat je de pagina maakt.'
+		'De opzet staat klaar. Je eigen titel is blijven staan. Suggestie van Schrijfhulp voor de titel: "Een pagina over de koffieautomaat". Controleer de opzet voordat je de pagina maakt.'
 	);
 	await expect(page.getByLabel('Titel')).toHaveValue('Mijn eigen titel');
 	await expect(page.getByText('Bestand: kennis/mijn-eigen-titel.md')).toBeVisible();
@@ -186,7 +186,7 @@ test('a second Maak een opzet replaces the title it filled in, not one the write
 	await maak.click();
 	await expect(opzet).toHaveValue(/Een pagina over de kantine\./);
 	await expect(page.locator('form').getByRole('status')).toHaveText(
-		'De opzet staat klaar. Je eigen titel is blijven staan. Schrijfhulp stelt deze titel voor: "Een pagina over de kantine". Controleer de opzet voordat je de pagina maakt.'
+		'De opzet staat klaar. Je eigen titel is blijven staan. Suggestie van Schrijfhulp voor de titel: "Een pagina over de kantine". Controleer de opzet voordat je de pagina maakt.'
 	);
 	await expect(page.getByLabel('Titel')).toHaveValue('Afval scheiden');
 });

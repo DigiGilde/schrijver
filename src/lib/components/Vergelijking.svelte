@@ -58,9 +58,11 @@
 			<nldd-spacer size="24"></nldd-spacer>
 			<nldd-button-group>
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="primary" text="Overnemen" onclick={onovernemen}></nldd-button>
+				<nldd-button appearance="primary" text="Neem suggestie over" onclick={onovernemen}
+				></nldd-button>
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<nldd-button appearance="secondary" text="Verwerpen" onclick={onverwerpen}></nldd-button>
+				<nldd-button appearance="secondary" text="Verwerp suggestie" onclick={onverwerpen}
+				></nldd-button>
 			</nldd-button-group>
 		</nldd-container>
 	</nldd-card>
