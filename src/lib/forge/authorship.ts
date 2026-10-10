@@ -59,6 +59,10 @@ export interface Context {
 	repo: string;
 }
 
+/** How a signature in what the App wrote counts. */
+type Judge = (signed: Answer) => Answer;
+const asSigned: Judge = (signed) => signed;
+
 /**
  * Whether content is the reader's. What the App wrote is the signer's. What was made on GitHub is the
  * account's that made it, so only a reader who linked that account wrote it.
@@ -67,9 +71,9 @@ function writtenBy(
 	author: string | null | undefined,
 	signature: () => Answer,
 	reader: Reader,
-	{ app, inRepo }: { app: string | null; inRepo: boolean }
+	{ app, inRepo, judge }: { app: string | null; inRepo: boolean; judge: Judge }
 ): Answer {
-	if (author && app !== null && same(author, app)) return signature();
+	if (author && app !== null && same(author, app)) return judge(signature());
 	if (author && reader.githubLogin !== null && same(author, reader.githubLogin)) return true;
 	// Only for a head branch in the site's repository: only accounts with write permission push there,
 	// and GitHub lets no author approve their own pull request where a review is required.
@@ -80,7 +84,11 @@ function writtenBy(
 
 const inSiteRepo = (pr: PrSummary, repo: string) => !!pr.headRepo && sameRepo(pr.headRepo, repo);
 
-function commitBy(commit: PrCommit, reader: Reader, app: string | null, inRepo: boolean): Answer {
+function commitBy(
+	commit: PrCommit,
+	reader: Reader,
+	{ app, inRepo, judge }: { app: string | null; inRepo: boolean; judge: Judge }
+): Answer {
 	return writtenBy(
 		commit.author,
 		() => {
@@ -88,19 +96,24 @@ function commitBy(commit: PrCommit, reader: Reader, app: string | null, inRepo: 
 			return trailers.length === 0 ? null : anyOf(trailers.map((t) => signedBy(t, reader)));
 		},
 		reader,
-		{ app, inRepo }
+		{ app, inRepo, judge }
 	);
+}
+
+function openedBy(pr: PrSummary, reader: Reader, { app, repo }: Context, judge: Judge): Answer {
+	return writtenBy(pr.author, () => signedBy(identityFromPrBody(pr.body), reader), reader, {
+		app,
+		inRepo: inSiteRepo(pr, repo),
+		judge
+	});
 }
 
 /**
  * Whether the reader made a proposal, from what GitHub says now. Its signature counts only when Schrijver's
  * App opened it; a proposal made on GitHub is its opener's, whatever its text says.
  */
-export function madeBy(pr: PrSummary, reader: Reader, { app, repo }: Context): Answer {
-	return writtenBy(pr.author, () => signedBy(identityFromPrBody(pr.body), reader), reader, {
-		app,
-		inRepo: inSiteRepo(pr, repo)
-	});
+export function madeBy(pr: PrSummary, reader: Reader, context: Context): Answer {
+	return openedBy(pr, reader, context, asSigned);
 }
 
 /** Who a signature names, by its stable part, so that a changed name is still the same signer. */
@@ -144,18 +157,19 @@ export function authorship(
 ): Writing {
 	const inRepo = inSiteRepo(pr, repo);
 	const openedByApp = app !== null && !!pr.author && same(pr.author, app);
-	// A complete record answers for what the App wrote: a signature that cannot be compared then no
-	// longer counts against the reader; one that is theirs still does.
 	const complete =
 		inRepo && app !== null && writers.length > 0 && accountedFor(pr, commits, app, writers);
-	const settle = (answer: Answer): Answer => (complete && answer === null ? false : answer);
+	// A signature that is the reader's always counts. Any other one in what the App wrote clears the
+	// reader only when the record accounts for every writer: a writer's identity may have changed since
+	// they signed (another pseudonym secret, another linked GitHub account, another verified address).
+	const judge: Judge = (signed) => (signed === true ? true : complete ? false : null);
 	const own = anyOf([
 		openedByApp && writers[0] === reader.sub,
-		settle(madeBy(pr, reader, { app, repo }))
+		openedBy(pr, reader, { app, repo }, judge)
 	]);
 	const along = [
 		(openedByApp ? writers.slice(1) : writers).includes(reader.sub),
-		...commits.map((c) => settle(commitBy(c, reader, app, inRepo)))
+		...commits.map((c) => commitBy(c, reader, { app, inRepo, judge }))
 	];
 	// GitHub lists no more commits than this, so one beyond them could be the reader's.
 	if (commits.length >= MAX_PR_COMMITS) along.push(null);

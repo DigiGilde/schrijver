@@ -130,19 +130,64 @@ describe('four eyes with the writers Schrijver recorded', () => {
 		expect(why(signed(SOMEONE), jan, { commits: touched, writers: ['jan'] })).toBe('zelf');
 	});
 
-	it('falls back to the signatures without any record, and blocks where they cannot tell', () => {
+	it("without a complete record, counts a signature that is the reader's and cannot tell from any other", () => {
 		for (const [line, other] of [
 			['Schrijver-Auteur: 9f86d081884c', SOMEONE],
 			[LINKED_JANSEN, 'Co-authored-by: ander <8+ander@users.noreply.github.com>'],
 			[NAMED_JAN, 'Co-authored-by: Piet <piet@example.org>']
 		]) {
 			expect(why(signed(line), ALL), line).toBe('zelf');
-			expect(why(signed(other), ALL), other).toBeNull();
+			expect(why(signed(other), ALL), other).toBe('onbekend');
+			expect(why(signed(other), ALL, { writers: ['piet'] }), `${other}, recorded`).toBeNull();
 		}
-		expect(why(signed('Schrijver-Auteur: 9f86d081884c'), OTHER)).toBeNull();
+		expect(why(signed('Schrijver-Auteur: 9f86d081884c'), OTHER)).toBe('onbekend');
 		expect(why(signed(LINKED_JANSEN), BY_ADDRESS)).toBe('onbekend');
 		expect(why(signed(NAMED_JAN), OTHER)).toBe('onbekend');
 		expect(why(pr({ body: 'Geen ondertekening' }), ALL)).toBe('onbekend');
+	});
+
+	describe('keeps a writer whose signature no longer matches who they are now from merging', () => {
+		/** The writer, as they can sign today. */
+		const NOW: Reader = {
+			sub: 'e',
+			identities: [
+				{ kind: 'anoniem', pseudoniem: 'eeeeeeeeeeee' },
+				{ kind: 'gekoppeld', name: 'e-nieuw', githubId: 8, login: 'e-nieuw' },
+				{ kind: 'op-naam', name: 'E', email: 'e-nieuw@example.org' }
+			],
+			githubLogin: 'e-nieuw'
+		};
+		const THEN = {
+			'anonymous under another pseudonym secret': 'Schrijver-Auteur: 0123456789ab',
+			'with the GitHub account they linked before':
+				'Co-authored-by: e <7+e@users.noreply.github.com>',
+			'with the address they had before': 'Co-authored-by: E <e-oud@example.org>'
+		};
+		/** One more signer than the record names: someone whose record was not written. */
+		const unrecorded = [commit('Bewerk\n\nSchrijver-Auteur: 222222222222')];
+
+		for (const [how, line] of Object.entries(THEN)) {
+			it(`who signed ${how}`, () => {
+				const commits = [commit(`Bewerk\n\n${line}`)];
+				expect(why(signed(line), NOW, { commits }), 'no record').toBe('onbekend');
+				expect(
+					why(signed(line), NOW, { commits: [...commits, ...unrecorded], writers: ['ander'] }),
+					'an incomplete record'
+				).toBe('onbekend');
+				expect(why(signed(line), NOW, { commits, writers: ['e'] }), 'recorded').toBe('zelf');
+				expect(why(signed(line), OTHER, { commits, writers: ['e'] }), 'another editor').toBeNull();
+			});
+		}
+
+		it('who is recorded, also where the record is not complete', () => {
+			const line = THEN['anonymous under another pseudonym secret'];
+			const commits = [commit(`Bewerk\n\n${line}`), ...unrecorded];
+			expect(why(signed(line), NOW, { commits, writers: ['e'] })).toBe('zelf');
+			expect(why(signed(line), { ...OTHER, sub: 'mee' }, { commits, writers: ['e', 'mee'] })).toBe(
+				'mee'
+			);
+			expect(why(signed(line), OTHER, { commits, writers: ['e'] })).toBe('onbekend');
+		});
 	});
 });
 
@@ -166,7 +211,9 @@ describe('four eyes for what was made on GitHub', () => {
 		const commits = [commit('Fix', 'jansen')];
 		expect(why(signed(SOMEONE), ALL, { commits })).toBe('mee');
 		expect(why(signed(SOMEONE), ALL, { commits, writers: ['piet'] })).toBe('mee');
-		expect(why(signed(SOMEONE), { ...ALL, githubLogin: 'piet' }, { commits })).toBeNull();
+		expect(
+			why(signed(SOMEONE), { ...ALL, githubLogin: 'piet' }, { commits, writers: ['piet'] })
+		).toBeNull();
 	});
 
 	it('holds only for a head branch in the site repository, not for a fork, a deleted fork or none', () => {
@@ -192,7 +239,7 @@ describe('four eyes where GitHub does not tell everything', () => {
 
 	it('cannot tell from a list as long as GitHub gives, record or not', () => {
 		const commits = Array(250).fill(commit(`Bewerk\n\n${SOMEONE}`));
-		expect(why(signed(SOMEONE), OTHER, { commits: commits.slice(1) })).toBeNull();
+		expect(why(signed(SOMEONE), OTHER, { commits: commits.slice(1), writers: ['jan'] })).toBeNull();
 		expect(why(signed(SOMEONE), OTHER, { commits })).toBe('onbekend');
 		expect(why(signed(SOMEONE), OTHER, { commits, writers: ['jan'] })).toBe('onbekend');
 	});
@@ -204,10 +251,15 @@ describe('authorship', () => {
 		const made = pr({ body: 'x\n\nSchrijver-Auteur: 9f86d081884c' });
 		expect(authorship(made, [], ALL, context)).toEqual({ own: true, along: false });
 		const commits = [commit(`Bewerk\n\n${SOMEONE}`), commit(`Bijgewerkt\n\n${NAMED_JAN}`)];
-		expect(authorship(pr({}), commits, ALL, context)).toEqual({ own: false, along: true });
-		expect(authorship(pr({}), commits.slice(0, 1), ALL, context)).toEqual({
+		const recorded = { ...context, writers: ['piet', 'kees'] };
+		expect(authorship(pr({}), commits, ALL, recorded)).toEqual({ own: false, along: true });
+		expect(authorship(pr({}), commits.slice(0, 1), ALL, recorded)).toEqual({
 			own: false,
 			along: false
+		});
+		expect(authorship(pr({}), commits.slice(0, 1), ALL, context)).toEqual({
+			own: null,
+			along: null
 		});
 	});
 });

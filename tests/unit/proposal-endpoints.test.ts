@@ -70,6 +70,19 @@ const site = () => ({
 const settings = (mergenVanuitSchrijver = true, vierOgen = false) =>
 	team.saveSettings('moza', settingsOf('moza', { mergenVanuitSchrijver, vierOgen }).values, 'baas');
 
+/** Schrijver recorded these users, each signed in once, as the writers of proposal 1. */
+async function recorded(...subs: string[]) {
+	for (const sub of subs) {
+		await team.recordLogin({
+			sub,
+			name: sub,
+			email: `${sub}@schrijft.example`,
+			emailVerified: true
+		});
+		await team.recordWriter('moza', 1, sub);
+	}
+}
+
 function call(
 	handler: (e: never) => Response | Promise<Response>,
 	opts: {
@@ -186,6 +199,13 @@ describe('proposal endpoints', () => {
 		expect((await mee.json()).message).toBe(
 			'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.'
 		);
+		// Without a record of who wrote it, a signature that is not the reader's cannot clear them.
+		const zonder = await call(mergen, { ...red, who: 'derde' });
+		expect(zonder.status).toBe(403);
+		expect((await zonder.json()).message).toBe(
+			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.'
+		);
+		await recorded('schrijver', 'meeschrijver');
 		expect((await call(mergen, { ...red, who: 'derde' })).status).toBe(200);
 	});
 
@@ -198,6 +218,7 @@ describe('proposal endpoints', () => {
 		forge.failNext('merge', new ForgeError(500, 'Kapot'));
 		expect((await call(mergen, { ...red, who: 'auteur' })).status).toBe(500);
 		await settings(true, true);
+		await recorded('schrijver');
 		expect((await call(mergen, { ...red, who: 'redacteur' })).status).toBe(200);
 	});
 
@@ -503,6 +524,8 @@ describe('four eyes, on every way to the merge', () => {
 			author: 'jan',
 			body: 'Op GitHub gemaakt.\n\nSchrijver-Auteur: iemandanders'
 		});
+		// Who wrote its commit through the App.
+		await recorded('schrijver');
 		await refused(await merge({ who: 'iemand', gekoppeld: 'jan' }), ZELF);
 		// Without a linked account the reader is not that GitHub user, who decides on GitHub.
 		expect((await merge({ who: 'iemand' })).status).toBe(200);
@@ -545,12 +568,16 @@ describe('four eyes, on every way to the merge', () => {
 		sha = (await forge.getPr('o/moza', 1)).headSha;
 		await refused(await merge({ who: 'jan-zonder-koppeling' }), ONBEKEND);
 		await refused(await merge({ who: 'jan-zonder-koppeling', gekoppeld: 'jan' }), ZELF);
+		// Another linked account is no proof of another person: only a complete record is.
+		await refused(await merge({ who: 'iemand', gekoppeld: 'piet' }), ONBEKEND);
+		await recorded('jan', 'auteur');
 		expect((await merge({ who: 'iemand', gekoppeld: 'piet' })).status).toBe(200);
 	});
 
 	it("takes a commit pushed on GitHub as its account's: only who linked it wrote along", async () => {
 		forge.commitOnGitHub('o/moza', 'b', [{ path: 'content/a.md', content: 'fix' }], 'Fix', 'jan');
 		sha = (await forge.getPr('o/moza', 1)).headSha;
+		await recorded('schrijver');
 		await refused(await merge({ who: 'derde', gekoppeld: 'jan' }), MEE);
 		expect((await merge({ who: 'derde' })).status).toBe(200);
 	});

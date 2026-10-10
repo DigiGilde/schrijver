@@ -200,7 +200,7 @@ interface Page {
 let made = 0;
 /**
  * A proposal on a site, signed by the user `door` or by someone else, or with the given signature,
- * and with the given body text.
+ * and with the given body text. With `writer`, Schrijver recorded that user as its writer.
  */
 async function make(
 	site: SiteId,
@@ -209,8 +209,9 @@ async function make(
 		door,
 		sent = false,
 		body,
-		signature
-	}: { door?: string; sent?: boolean; body?: string; signature?: string } = {}
+		signature,
+		writer
+	}: { door?: string; sent?: boolean; body?: string; signature?: string; writer?: string } = {}
 ): Promise<number> {
 	const repo = REPOS[site];
 	const branch = `schrijver/${site}/test-${++made}`;
@@ -225,6 +226,11 @@ async function make(
 	);
 	const pr = await forge.openDraftPr(repo, branch, 'main', `Test ${made}`, body ?? trailer);
 	if (sent) await forge.markReady(repo, pr.number);
+	if (writer) {
+		const email = `${writer}@schrijft.example`;
+		await team.recordLogin({ sub: writer, name: writer, email, emailVerified: true });
+		await team.recordWriter(site, pr.number, writer);
+	}
 	return pr.number;
 }
 
@@ -283,7 +289,11 @@ describe('what now', () => {
 	});
 
 	it('asks for the approval on GitHub first where the site requires one', async () => {
-		const nummer = await make('moza-site', { 'content/vijf.md': 'Vijf\n' }, { sent: true });
+		const nummer = await make(
+			'moza-site',
+			{ 'content/vijf.md': 'Vijf\n' },
+			{ sent: true, writer: 'schrijver' }
+		);
 		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu).toMatchObject({
 			sentence: 'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.',
 			actions: ['goedkeuren-op-github', 'vraag-om-aanpassing']
@@ -296,7 +306,11 @@ describe('what now', () => {
 	});
 
 	it('offers the merge when GitHub cannot say whether an approval is missing', async () => {
-		const nummer = await make('moza-site', { 'content/zes.md': 'Zes\n' }, { sent: true });
+		const nummer = await make(
+			'moza-site',
+			{ 'content/zes.md': 'Zes\n' },
+			{ sent: true, writer: 'schrijver' }
+		);
 		forge.failNext('reviewDecision', new ForgeError(502, 'GitHub is niet bereikbaar'));
 		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.actions).toEqual([
 			'samenvoegen',
@@ -323,6 +337,21 @@ describe('what now', () => {
 		expect((await open('moza-site', lezer)).watNu.sentence).toBe(
 			'De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.'
 		);
+	});
+
+	it('cannot tell, without a record, whether an editor wrote what someone else signed', async () => {
+		const nummer = await make('moza-site', { 'content/zeven-f.md': 'Zeven\n' }, { sent: true });
+		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.sentence).toBe(
+			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie beslist.'
+		);
+		forge.permissionByLogin.set('octo', 'admin');
+		try {
+			expect(
+				(await open('moza-site', nummer, { sub: MOZA_EDITOR, githubLogin: 'octo' })).watNu.sentence
+			).toMatch(/^Deze site vraagt eerst een goedkeuring op GitHub\./);
+		} finally {
+			forge.permissionByLogin.delete('octo');
+		}
 	});
 
 	it('knows the writer Schrijver recorded, where the signature cannot be compared', async () => {
