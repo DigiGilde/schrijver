@@ -43,10 +43,10 @@ const prefs: UserPrefs = {
 	onboarded: true
 };
 
-const event = (sub: string, site: string, path: string) => ({
+const event = (sub: string, site: string, path: string, githubLogin: string | null = null) => ({
 	params: { site },
 	url: new URL(`http://x/sites/${site}${path}`),
-	locals: { user: { session: session(sub), prefs: { ...prefs, sub } } }
+	locals: { user: { session: session(sub), prefs: { ...prefs, sub, githubLogin } } }
 });
 
 interface PagesData {
@@ -63,7 +63,8 @@ interface ProposalsData {
 }
 interface AboutData {
 	site: Record<string, unknown>;
-	redactie: string[];
+	redactie: { naam: string | null; beheerder: boolean }[];
+	kanBeheren: boolean;
 	ondertekenen: string[];
 	conceptenOpenbaar: boolean;
 	voorbeeld: string;
@@ -80,8 +81,8 @@ const proposals = async (sub: string, query = '') =>
 	(await loadProposals(
 		event(sub, 'digi-handboek', `/voorstellen${query}`) as never
 	)) as ProposalsData;
-const about = async (sub: string, site = 'digi-handboek') =>
-	(await loadAbout(event(sub, site, '/over') as never)) as AboutData;
+const about = async (sub: string, site = 'digi-handboek', githubLogin: string | null = null) =>
+	(await loadAbout(event(sub, site, '/over', githubLogin) as never)) as AboutData;
 
 async function proposal(slug: string, opts: { sent: boolean; mine?: boolean }) {
 	const branch = `schrijver/digi-handboek/${slug}`;
@@ -207,9 +208,9 @@ describe('about page', () => {
 		});
 	});
 
-	it('names the editors, the signing choices, the preview and the repository', async () => {
+	it('names the team, the signing choices, the preview and the repository', async () => {
 		const data = await about(WRITER);
-		expect(data.redactie).toEqual(['redacteur@team.example']);
+		expect(data.redactie).toEqual([{ naam: 'Naam redacteur', beheerder: false }]);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(data.voorbeeld).toBe('bij-push');
 		expect(data.mergenVanuitSchrijver).toBe(true);
@@ -221,9 +222,65 @@ describe('about page', () => {
 
 	it('offers only the choices the site allows, anoniem always among them', async () => {
 		const data = await about(WRITER, 'moza-site');
-		expect(data.redactie).toEqual([]);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld']);
 		expect(data.voorbeeld).toBe('bij-label');
+	});
+
+	it('sends the team by name and role only: no address, sub or invitation reaches the browser', async () => {
+		const platform = { sub: 'opzet', platformAdmin: true };
+		await team.recordLogin({
+			sub: 'sub-0001',
+			name: 'Jan Jansen',
+			email: 'jan@example.org',
+			emailVerified: true
+		});
+		await team.recordLogin({
+			sub: 'sub-0002',
+			name: '',
+			email: 'zonder-naam@example.org',
+			emailVerified: true
+		});
+		await team.addByEmail('moza-site', 'jan@example.org', 'beheerder', 'opzet');
+		await team.addByEmail('moza-site', 'zonder-naam@example.org', 'redactie', 'opzet');
+		await team.addByEmail('moza-site', 'uitgenodigd@example.org', 'redactie', 'opzet');
+		try {
+			const data = await about(WRITER, 'moza-site');
+			expect(data.redactie).toEqual([
+				{ naam: 'Jan Jansen', beheerder: true },
+				{ naam: null, beheerder: false }
+			]);
+			const sent = JSON.stringify(data);
+			for (const hidden of ['@', 'sub-0001', 'sub-0002', 'uitgenodigd', 'zonder-naam'])
+				expect(sent).not.toContain(hidden);
+		} finally {
+			await team.removeMember('moza-site', 'sub-0001', platform);
+			await team.removeMember('moza-site', 'sub-0002', platform);
+		}
+	});
+
+	it('offers the beheer page to the admins of the site only', async () => {
+		expect((await about(WRITER)).kanBeheren).toBe(false);
+		expect((await about(EDITOR)).kanBeheren).toBe(false);
+		const platform = { sub: 'opzet', platformAdmin: true };
+		await team.changeRole('digi-handboek', EDITOR, 'beheerder', platform);
+		try {
+			expect((await about(EDITOR)).kanBeheren).toBe(true);
+			expect((await about(EDITOR, 'moza-site')).kanBeheren).toBe(false);
+		} finally {
+			await team.changeRole('digi-handboek', EDITOR, 'redactie', platform);
+		}
+		forge.permissionByLogin.set('octo', 'admin');
+		try {
+			expect((await about(WRITER, 'digi-handboek', 'octo')).kanBeheren).toBe(true);
+		} finally {
+			forge.permissionByLogin.delete('octo');
+		}
+		process.env.SCHRIJVER_BEHEERDERS = WRITER;
+		try {
+			expect((await about(WRITER, 'moza-site')).kanBeheren).toBe(true);
+		} finally {
+			delete process.env.SCHRIJVER_BEHEERDERS;
+		}
 	});
 
 	it('reads the name, merging and the ways to sign from the site settings', async () => {

@@ -326,28 +326,30 @@ test.describe('the Over page', () => {
 		await expect(main).not.toContainText(/Goedgekeurd|Goedkeuren|pull request|merge/i);
 	});
 
-	test('names the editors and everyone with write access, in one block', async ({ page }) => {
+	test('names the team by name and role, and everyone with write access, in one block', async ({
+		page
+	}) => {
 		await page.goto('/sites/digi-handboek/over');
 		const redactie = part(page, 'Redactie');
 		await expect(redactie).toHaveCount(1);
-		for (const adres of ['naam@rijksoverheid.nl', 'test@example.org']) {
-			await expect(redactie.getByRole('link', { name: adres })).toHaveAttribute(
-				'href',
-				`mailto:${adres}`
-			);
-		}
-		await expect(redactie.getByRole('listitem')).toHaveText([
-			'naam@rijksoverheid.nl',
-			'test@example.org',
-			'iedereen met schrijfrechten op de repository op GitHub.'
-		]);
+		await expect(redactie.getByRole('listitem')).toHaveText(['Test Gebruiker (beheerder)']);
+		await expect(redactie).toContainText(
+			'Ook wie op GitHub schrijfrechten heeft op DigiGilde/handboek, hoort bij de redactie; met admin-rechten ben je beheerder.'
+		);
+		await expect(redactie).toContainText(
+			'Een vraag aan de redactie stel je in het gesprek bij je voorstel.'
+		);
+		await expect(redactie).not.toContainText('@');
+		await expect(redactie).not.toContainText('Uitgenodigd');
+		await expect(redactie.locator('a[href^="mailto:"]')).toHaveCount(0);
 		await expect(redactie).not.toContainText('samenvoegen');
+	});
 
-		await page.goto('/sites/moza-site/over');
-		await expect(part(page, 'Redactie').getByRole('listitem')).toHaveText([
-			'redactie@example.org',
-			'iedereen met schrijfrechten op de repository op GitHub.'
-		]);
+	test('leads a site admin to the beheer page of the site', async ({ page }) => {
+		await page.goto('/sites/digi-handboek/over');
+		await expect(
+			part(page, 'Redactie').getByRole('link', { name: 'Beheer van Digi Handboek' })
+		).toHaveAttribute('href', '/instellingen/sites/digi-handboek');
 	});
 
 	test('says when merging happens on GitHub only', async ({ page }) => {
@@ -457,8 +459,7 @@ test.describe('the Over page', () => {
 		const reading = [
 			'/sites/digi-handboek',
 			'https://digihandboek.rijks.app/',
-			'mailto:naam@rijksoverheid.nl',
-			'mailto:test@example.org',
+			'/instellingen/sites/digi-handboek',
 			'/instellingen',
 			'https://github.com/DigiGilde/handboek/tree/main',
 			'/help#voorstellen'

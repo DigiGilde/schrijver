@@ -54,15 +54,32 @@
 		<nldd-container gap="12">
 			<nldd-title size="3" heading-level="2" text="Redactie"></nldd-title>
 			<nldd-rich-text>
-				<p>De redactie beslist over de voorstellen. Bij deze site zijn dat:</p>
-				<ul>
-					{#each data.redactie as adres (adres)}
-						<li><a href="mailto:{adres}">{adres}</a></li>
-					{/each}
-					<li>iedereen met schrijfrechten op de repository op GitHub.</li>
-				</ul>
+				{#if data.redactie.length > 0}
+					<p>De redactie beslist over de voorstellen. Bij deze site zijn dat:</p>
+					<ul>
+						{#each data.redactie as lid, i (i)}
+							<li>{lid.naam ?? 'Een collega'}{lid.beheerder ? ' (beheerder)' : ''}</li>
+						{/each}
+					</ul>
+				{:else}
+					<p>
+						De redactie beslist over de voorstellen. In het team van deze site staat nog niemand.
+					</p>
+				{/if}
+				<p>
+					Ook wie op GitHub schrijfrechten heeft op {data.repo}, hoort bij de redactie; met
+					admin-rechten ben je beheerder.
+				</p>
+				<p>Een vraag aan de redactie stel je in het gesprek bij je voorstel.</p>
 				{#if !data.mergenVanuitSchrijver}
 					<p>Op deze site gebeurt het samenvoegen op GitHub, niet in Schrijver.</p>
+				{/if}
+				{#if data.kanBeheren}
+					<p>
+						Het team en de instellingen van deze site wijzig je bij <a
+							href="/instellingen/sites/{data.site.id}">Beheer van {data.site.naam}</a
+						>.
+					</p>
 				{/if}
 			</nldd-rich-text>
 		</nldd-container>
@@ -116,7 +133,8 @@
 					bij Voorstellen, met "Via GitHub".
 				</p>
 				<p>
-					Deze gegevens kun je hier alleen lezen. De instellingen van deze site staan in de
+					Deze gegevens kun je hier alleen lezen. Het team en de instellingen van de site regelen de
+					beheerders van de site in Schrijver. Hoe de site is opgebouwd, staat in de
 					configuratierepository{data.configuratie ? ` ${data.configuratie}` : ' van Schrijver'},
 					die niet openbaar is. Wijzigingen daarin gaan via de beheerders van Schrijver.
 				</p>
