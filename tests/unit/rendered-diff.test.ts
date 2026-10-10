@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { PURIFY_CONFIG, markdownToHtml } from '../../src/lib/content/markdown-preview';
 import {
 	TE_GROOT,
+	comparePages,
 	countChanges,
 	renderedDiff,
+	splitPage,
 	toHtml,
 	withContext,
 	type DiffBlock
@@ -565,5 +567,53 @@ describe('countChanges', () => {
 		expect(countChanges([plus, min, pair])).toBe(1);
 		expect(countChanges([plus, gelijk, min, pair, gelijk, gelijk, plus])).toBe(3);
 		expect(countChanges([gelijk, plus, plus, gelijk])).toBe(1);
+	});
+});
+
+describe('splitPage', () => {
+	it('keeps the frontmatter apart from the body', () => {
+		expect(splitPage('---\ntitle: Een\n---\n# Kop\n\nTekst.\n')).toEqual({
+			frontmatter: { title: 'Een' },
+			body: '# Kop\n\nTekst.\n'
+		});
+	});
+
+	it('has no frontmatter in a text without any', () => {
+		expect(splitPage('# Kop\n')).toEqual({ frontmatter: {}, body: '# Kop\n' });
+	});
+
+	it('takes the whole text as the body when the frontmatter does not parse', () => {
+		const text = '---\ntitle: [kapot\n---\n# Kop\n';
+		expect(splitPage(text)).toEqual({ frontmatter: {}, body: text });
+	});
+});
+
+describe('comparePages', () => {
+	const page = (title: string, body: string) => `---\ntitle: ${title}\n---\n${body}`;
+	const compared = (before: string, after: string) => comparePages(before, after, render, doc);
+
+	it('compares the bodies of two pages and counts the stretches of changed blocks', () => {
+		const result = compared(
+			page('Een', 'Eerste.\n\nTweede.\n\nDerde.\n'),
+			page('Een', 'Eerste.\n\nGewijzigd.\n\nDerde.\n\nVierde.\n')
+		);
+		expect(result.blocks).toEqual(
+			compare('Eerste.\n\nTweede.\n\nDerde.\n', 'Eerste.\n\nGewijzigd.\n\nDerde.\n\nVierde.\n')
+		);
+		expect(result.count).toBe(2);
+		expect(result.count).toBe(countChanges(result.blocks));
+	});
+
+	it('counts no change in the frontmatter, which the comparison shows apart', () => {
+		const result = compared(page('Een', 'Tekst.\n'), page('Twee', 'Tekst.\n'));
+		expect(kinds(result.blocks)).toEqual(['gelijk']);
+		expect(result.count).toBe(0);
+	});
+
+	it('has no count when the comparison is too large to make', () => {
+		const large = 'woord '.repeat(45_000);
+		const result = compared(large, `${large}extra`);
+		expect(kinds(result.blocks)).toEqual(['te-groot']);
+		expect(result.count).toBeNull();
 	});
 });

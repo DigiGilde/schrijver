@@ -6,6 +6,8 @@ import {
 	comparisonTitle,
 	selectsWholeText
 } from '../../src/lib/client/suggestion';
+import { markdownToHtml } from '../../src/lib/content/markdown-preview';
+import { comparePages } from '../../src/lib/content/rendered-diff';
 import { sourceDiff } from '../../src/lib/content/source-diff';
 
 describe('comparisonTitle', () => {
@@ -100,4 +102,44 @@ describe('compare', () => {
 		const large = 'woord '.repeat(45_000);
 		expect(compare(null, large, `${large}extra`).count).toBeNull();
 	});
+});
+
+describe('the count in the panel and the one the comparison shows', () => {
+	const page = (title: string, body: string) => `---\ntitle: ${title}\n---\n${body}`;
+	const text =
+		'# Titel\n\nEerste zin. Tweede zin.\n\n## Kop\n\n- een\n- twee\n\n```js\nlet a = 1;\n```\n\nEinde.\n';
+	const large = 'woord '.repeat(45_000);
+	const cases: [name: string, before: string, after: string, count: number | null][] = [
+		['a change in one place', text, text.replace('Tweede zin.', 'Een andere zin.'), 1],
+		[
+			'a change in two places',
+			text,
+			text.replace('Tweede zin.', 'Een andere zin.').replace('Einde.', 'Slot.'),
+			2
+		],
+		[
+			'a list item and the code block after it, which are one stretch',
+			text,
+			text.replace('- twee', '- drie').replace('let a = 1;', 'let a = 2;'),
+			1
+		],
+		['a block less', text, text.replace('## Kop\n\n', ''), 1],
+		['no change', text, text, 0],
+		['a change in the frontmatter only', page('Een', text), page('Twee', text), 0],
+		[
+			'a change below frontmatter',
+			page('Een', text),
+			page('Een', text.replace('Einde.', 'Slot.')),
+			1
+		],
+		['a text that is too large', large, `${large}extra`, null]
+	];
+
+	for (const [name, before, after, count] of cases) {
+		it(`agree for ${name}`, () => {
+			const shown = comparePages(before, after, (md) => markdownToHtml(md), document).count;
+			expect(shown).toBe(count);
+			expect(compare(null, before, after).count).toBe(shown);
+		});
+	}
 });

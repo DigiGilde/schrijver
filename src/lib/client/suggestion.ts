@@ -1,6 +1,5 @@
-import { parsePage } from '$lib/content/frontmatter';
 import { markdownToHtml } from '$lib/content/markdown-preview';
-import { countChanges, renderedDiff } from '$lib/content/rendered-diff';
+import { comparePages } from '$lib/content/rendered-diff';
 import { sourceDiff, type SourcePart } from '$lib/content/source-diff';
 
 /** A suggestion for the whole text, set against the current text in the text column. */
@@ -30,23 +29,12 @@ export function changesLine(count: number | null): string {
 		: `${count} wijzigingen staan in de tekstkolom`;
 }
 
-const bodyOf = (text: string) => {
-	const page = parsePage(text);
-	return page.ok ? page.body : text;
-};
-
-/** Counts as Diff does, so the panel and the comparison give the same number. */
-function countChanged(before: string, after: string): number | null {
-	const blocks = renderedDiff(bodyOf(before), bodyOf(after), (md) => markdownToHtml(md), document);
-	return blocks.some((block) => block.kind === 'te-groot') ? null : countChanges(blocks);
-}
-
 export function compare(label: string | null, before: string, after: string): Comparison {
 	return {
 		title: comparisonTitle(label),
 		before,
 		after,
 		source: sourceDiff(before, after),
-		count: countChanged(before, after)
+		count: comparePages(before, after, (md) => markdownToHtml(md), document).count
 	};
 }

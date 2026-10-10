@@ -1,11 +1,10 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
 	import { PURIFY_CONFIG, markdownToHtml } from '$lib/content/markdown-preview';
-	import { parsePage } from '$lib/content/frontmatter';
 	import {
 		TE_GROOT,
-		countChanges,
-		renderedDiff,
+		comparePages,
+		splitPage,
 		toHtml,
 		withContext
 	} from '$lib/content/rendered-diff';
@@ -36,14 +35,8 @@
 	const nieuwePagina = $derived(paginaTeGroot ? status === 'added' : before === null);
 	const verwijderd = $derived(paginaTeGroot ? status === 'removed' : after === null);
 
-	type Split = { frontmatter: Record<string, unknown>; body: string };
-	const split = (text: string | null): Split => {
-		if (text === null) return { frontmatter: {}, body: '' };
-		const page = parsePage(text);
-		return page.ok
-			? { frontmatter: page.frontmatter, body: page.body }
-			: { frontmatter: {}, body: text };
-	};
+	const split = (text: string | null) =>
+		text === null ? { frontmatter: {}, body: '' } : splitPage(text);
 	const show = (v: unknown) =>
 		v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v);
 
@@ -77,9 +70,9 @@
 		if (before === null || after === null) {
 			plainHtml = markdownToHtml(before === null ? nieuw.body : old.body);
 		} else {
-			const blocks = renderedDiff(old.body, nieuw.body, (md) => markdownToHtml(md), document);
+			const { blocks, count } = comparePages(before, after, (md) => markdownToHtml(md), document);
 			const clean = (html: string) => DOMPurify.sanitize(html, PURIFY_CONFIG);
-			aantal = blocks.some((block) => block.kind === 'te-groot') ? null : countChanges(blocks);
+			aantal = count;
 			diffHtml = {
 				wijzigingen: clean(toHtml(withContext(blocks), document)),
 				pagina: clean(toHtml(blocks, document))

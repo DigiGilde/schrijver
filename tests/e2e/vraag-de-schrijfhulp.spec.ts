@@ -227,6 +227,39 @@ test('the keyboard reaches Overnemen and Verwerpen at the end of the comparison'
 	await expect(paneel.getByRole('status')).toHaveText('Verworpen');
 });
 
+test('the comparison names the page by its title, with its path and the changes under it', async ({
+	page
+}) => {
+	const paneel = await openPanelHere(page);
+	await paneel.getByRole('button', { name: 'Korter' }).click();
+	const kolom = slot(page);
+	await expect(kolom.getByRole('heading', { name: 'Het Digi Handboek', level: 3 })).toBeVisible();
+	await expect(kolom.getByText('docs/index.md · 1 wijziging', { exact: true })).toBeVisible();
+	await expect(
+		kolom.getByRole('heading', { name: 'docs/index.md' }),
+		'the path is no heading of its own'
+	).toHaveCount(0);
+});
+
+test('the focus ring of the comparison heading hugs its text', async ({ page }) => {
+	const paneel = await openPanelHere(page);
+	await paneel.getByRole('button', { name: 'Korter' }).focus();
+	await page.keyboard.press('Enter');
+	const kop = vergelijking(page, 'Voorstel van Schrijfhulp: Korter');
+	await expect(kop).toBeFocused();
+	const { ring, box, text } = await kop.evaluate((heading) => {
+		const range = document.createRange();
+		range.selectNodeContents(heading);
+		return {
+			ring: getComputedStyle(heading).outlineStyle,
+			box: heading.getBoundingClientRect().width,
+			text: range.getBoundingClientRect().width
+		};
+	});
+	expect(ring, 'the keyboard shows a ring').not.toBe('none');
+	expect(box, 'as wide as its text, not as the column').toBeLessThanOrEqual(text + 1);
+});
+
 test('the comparison takes the place of Voorbeeld, which comes back as it was', async ({
 	page
 }) => {
@@ -347,6 +380,10 @@ test('the panel counts the changes of the comparison', async ({ page }) => {
 	await paneel.getByRole('button', { name: 'Actiever' }).click();
 	await expect(paneel.getByText('2 wijzigingen staan in de tekstkolom')).toBeVisible();
 	await expect(vergelijking(page, 'Voorstel van Schrijfhulp: Actiever')).toBeFocused();
+	await expect(
+		page.getByRole('region', { name: 'Voorstel van Schrijfhulp: Actiever' }),
+		'the comparison counts the same'
+	).toContainText('docs/index.md · 2 wijzigingen');
 });
 
 test('a suggestion that changes nothing says so in the panel', async ({ page }) => {

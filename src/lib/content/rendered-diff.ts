@@ -3,6 +3,7 @@ import type { RootContent } from 'mdast';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
+import { parsePage } from './frontmatter';
 
 export type DiffBlock =
 	| { kind: 'gelijk'; html: string }
@@ -291,6 +292,31 @@ export function renderedDiff(
 		blocks.push(...unpaired(gone.slice(goneFrom), come.slice(comeFrom)));
 	}
 	return blocks;
+}
+
+/** What a comparison reads of a page: the frontmatter apart from the body. A page whose frontmatter does not parse is all body. */
+export function splitPage(text: string): { frontmatter: Record<string, unknown>; body: string } {
+	const page = parsePage(text);
+	return page.ok
+		? { frontmatter: page.frontmatter, body: page.body }
+		: { frontmatter: {}, body: text };
+}
+
+/**
+ * Compares the bodies of two pages. The count is the number of changes the comparison shows, which Diff
+ * and the Schrijfhulp panel both give; null when the comparison is too large to make.
+ */
+export function comparePages(
+	before: string,
+	after: string,
+	render: Render,
+	doc: Document
+): { blocks: DiffBlock[]; count: number | null } {
+	const blocks = renderedDiff(splitPage(before).body, splitPage(after).body, render, doc);
+	return {
+		blocks,
+		count: blocks.some((block) => block.kind === 'te-groot') ? null : countChanges(blocks)
+	};
 }
 
 export function withContext(blocks: DiffBlock[], context = 1): DiffBlock[] {

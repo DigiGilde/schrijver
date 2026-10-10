@@ -18,6 +18,8 @@
 		images: PendingImage[];
 		siteId: string;
 		pagina: string;
+		/** The title of the page, as the editor shows it. */
+		titel: string;
 		branch: string | null;
 		afbeeldingen: boolean;
 		/** Fills the description field with a summary; null when the page has none. */
@@ -34,6 +36,7 @@
 		images = $bindable(),
 		siteId,
 		pagina,
+		titel,
 		branch,
 		afbeeldingen,
 		onsamenvatting = null,
@@ -163,6 +166,7 @@
 		{#if vergelijking}
 			<Vergelijking
 				{pagina}
+				paginatitel={titel}
 				{vergelijking}
 				bind:kop={vergelijkingKop}
 				onovernemen={() => assistent?.accept()}
