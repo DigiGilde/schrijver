@@ -339,6 +339,48 @@ export async function seedScenarios(
 		{ siteId: 'digi-handboek', number: team, mine: false },
 		{ siteId: 'moza-site', number: weekly, mine: false }
 	);
+
+	// Pages that changed on the site after the proposal was sent in: GitHub cannot merge these.
+	const changedSince = async (path: string, text: string, title: string, trailer: string) => {
+		const number = await seedProposal(forge, MOZA, {
+			branch: `schrijver/moza-site/${path.slice(path.lastIndexOf('/') + 1, -3)}`,
+			title,
+			trailer,
+			path,
+			text,
+			sent: true
+		});
+		const current = forge.fileText(MOZA, 'main', path) ?? '';
+		await forge.commit(
+			MOZA,
+			'main',
+			[{ path, content: `${current}\nAangevuld op de site.\n` }],
+			title
+		);
+		return number;
+	};
+	written.push({
+		siteId: 'moza-site',
+		number: await changedSince(
+			'content/weekly/2026/2026-09-10.md',
+			'De agenda staat voortaan bovenaan.',
+			'Weekly 10 september: de agenda',
+			COLLEAGUE
+		),
+		mine: false
+	});
+	if (own) {
+		written.push({
+			siteId: 'moza-site',
+			number: await changedSince(
+				'content/weekly/2026/2026-09-03.md',
+				'Een terugblik op de zomer.',
+				'Weekly 3 september: de terugblik',
+				own
+			),
+			mine: true
+		});
+	}
 	return written;
 }
 

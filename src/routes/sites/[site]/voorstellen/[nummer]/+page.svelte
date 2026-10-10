@@ -299,13 +299,6 @@
 				{/if}
 			</nldd-banner>
 		{/if}
-
-		{#if data.notMergeable && !melding}
-			<nldd-banner
-				variant="warning"
-				text="Dit voorstel kan niet automatisch worden samengevoegd; de pagina is intussen op de hoofdbranch gewijzigd"
-			></nldd-banner>
-		{/if}
 	</nldd-container>
 
 	{#snippet vervolg()}

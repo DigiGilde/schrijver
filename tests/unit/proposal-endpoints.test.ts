@@ -543,6 +543,26 @@ describe('proposal endpoints', () => {
 		});
 	});
 
+	it('says in Dutch why GitHub does not merge a proposal whose page changed on the site', async () => {
+		await call(insturen, { who: 'auteur' });
+		const sha = (await forge.getPr('o/moza', 1)).headSha;
+		const refusal = {
+			ok: false,
+			message:
+				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.'
+		};
+		forge.failNext(
+			'merge',
+			new ForgeError(405, 'Samenvoegen geweigerd', 'Pull Request is not mergeable')
+		);
+		const github = await call(mergen, { sub: 'red', body: { sha } });
+		expect(github.status).toBe(405);
+		expect(await github.json()).toEqual(refusal);
+
+		forge.mergeableByPr.set(1, false);
+		expect(await (await call(mergen, { sub: 'red', body: { sha } })).json()).toEqual(refusal);
+	});
+
 	it('pins the merge to the head the reviewer saw', async () => {
 		await call(insturen, { who: 'auteur' });
 		const red = { sub: 'red' };

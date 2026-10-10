@@ -118,6 +118,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		const titleFor = (path: string) => titles.get(path) ?? fileName(path);
 
 		const status = proposal.status;
+		const notMergeable = pr.state === 'open' && pr.mergeable === false;
 		const deciding =
 			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
 		let blocked: keyof typeof FOUR_EYES | null = null;
@@ -134,7 +135,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		}
 		const resending = acts.owner && !outside && status === 'aanpassing-gevraagd';
 		let decision: ReviewDecision = null;
-		if ((deciding && !blocked && settings.mergenVanuitSchrijver) || resending) {
+		if (!notMergeable && ((deciding && !blocked && settings.mergenVanuitSchrijver) || resending)) {
 			decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
 				log.warn('proposal.review_decision_failed', {
 					site: site.id,
@@ -188,6 +189,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				approvalMissing: decision === 'review_required' || decision === 'changes_requested',
 				// An editor outside the team is one through write permission on GitHub; the team does not say.
 				actsOnGitHub: user.githubLogin !== null,
+				notMergeable,
 				canEdit: verderBewerken.length > 0,
 				mergedAt: pr.mergedAt ?? null,
 				siteAddress: !!settings.adres
@@ -212,7 +214,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			headSha: pr.headSha,
 			imageRefs: { before: pr.baseRef },
 			githubUrl: pr.url,
-			notMergeable: pr.state === 'open' && pr.mergeable === false,
 			gesprek,
 			kanReageren: pr.state === 'open' && (acts.owner || acts.editorial)
 		};

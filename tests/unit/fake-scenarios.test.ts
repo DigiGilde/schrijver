@@ -134,6 +134,18 @@ describe('the fake fixtures of the local preview', () => {
 				'Principes: oude versie terugzetten',
 				ANYONE,
 				/^Gesloten zonder samenvoegen\./
+			],
+			[
+				'moza-site',
+				'Weekly 10 september: de agenda',
+				EDITOR,
+				/^De pagina is intussen op de site veranderd\. Daardoor kan dit voorstel /
+			],
+			[
+				'moza-site',
+				'Weekly 3 september: de terugblik',
+				ANYONE,
+				/^De pagina is intussen op de site veranderd\. Daardoor kan je voorstel /
 			]
 		];
 		for (const [site, title, redactie, expected] of rows) {
@@ -169,7 +181,9 @@ describe('the fake fixtures of the local preview', () => {
 			['Over het handboek: wie de redactie is', true],
 			['Toegankelijkheid: wie je kunt mailen', true],
 			['Kennis: het team stelt zich voor', false],
-			['Weekly 23 september: de demo', false]
+			['Weekly 23 september: de demo', false],
+			['Weekly 10 september: de agenda', false],
+			['Weekly 3 september: de terugblik', true]
 		]);
 	});
 

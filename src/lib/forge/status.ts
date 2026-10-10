@@ -50,6 +50,10 @@ export const FOUR_EYES = {
 export const waitsForReview = (status: Status): boolean =>
 	status === 'ingestuurd' || status === 'goedgekeurd';
 
+/** What a proposal that GitHub cannot merge is told, on its page and when a merge is refused. */
+export const NOT_MERGEABLE =
+	'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.';
+
 /** The text and accessible name of the Voorstellen tab; the count is only there for editorial members. */
 export function proposalsTab(waiting: number | null): { text: string; label: string | null } {
 	if (!waiting) return { text: 'Voorstellen', label: null };
@@ -149,6 +153,8 @@ export interface Situation {
 	approvalMissing: boolean;
 	/** The reader has a GitHub account that may approve and merge there. */
 	actsOnGitHub: boolean;
+	/** GitHub cannot merge the proposal: the page changed on the site in the meantime. */
+	notMergeable: boolean;
 	/** Schrijver can open the proposal's pages in the editor. */
 	canEdit: boolean;
 	mergedAt: string | null;
@@ -179,6 +185,10 @@ export function whatNow(
 		return say(
 			'Dit voorstel staat buiten de repository van de site. De redactie beoordeelt het op GitHub.'
 		);
+	if (s.notMergeable && s.writer)
+		return say(
+			'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.'
+		);
 	if (s.status === 'concept') {
 		return s.writer
 			? say(
@@ -202,6 +212,12 @@ export function whatNow(
 	if (s.writer && !s.editor)
 		return say('De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.', edit);
 	if (!s.editor) return say('De redactie beoordeelt dit voorstel.');
+	if (s.notMergeable)
+		return say(
+			`${NOT_MERGEABLE} Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.`,
+			['vraag-om-aanpassing'],
+			'vraag-om-aanpassing'
+		);
 	/* A writer who may merge an own proposal asks nobody for an adjustment, least of all themselves. */
 	const next: Action[] = s.writer ? edit : ['vraag-om-aanpassing'];
 	const ask = s.writer ? '' : ' Moet er iets anders, vraag dan om een aanpassing.';

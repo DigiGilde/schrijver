@@ -6,7 +6,7 @@ import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
-import { FOUR_EYES } from '$lib/forge/status';
+import { FOUR_EYES, NOT_MERGEABLE } from '$lib/forge/status';
 import { trailersFromMessage } from '$lib/forge/trailers';
 import { ForgeError, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
@@ -76,6 +76,9 @@ export const POST: RequestHandler = proposalAction(
 		} catch (e) {
 			if (e instanceof ForgeError && e.status === 409) {
 				return refuse(409, NEW_VERSION, e.detail);
+			}
+			if (e instanceof ForgeError && e.status === 405 && /not mergeable/i.test(e.detail ?? '')) {
+				return refuse(405, NOT_MERGEABLE);
 			}
 			throw e;
 		}

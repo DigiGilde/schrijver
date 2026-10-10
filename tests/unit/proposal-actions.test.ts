@@ -144,9 +144,9 @@ describe('sendIn', () => {
 		const pr = await draft();
 		forge.mergeableByPr.set(pr.number, false);
 		const fresh = await forge.getPr('o/moza', pr.number);
-		expect(
-			(await sendIn(forge, site(), fresh, { reviewers: [], filesAdded: false })).warning
-		).toContain('niet automatisch');
+		expect((await sendIn(forge, site(), fresh, { reviewers: [], filesAdded: false })).warning).toBe(
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.'
+		);
 	});
 
 	it('rethrows other markReady errors', async () => {

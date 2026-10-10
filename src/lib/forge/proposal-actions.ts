@@ -6,6 +6,7 @@ import { commentBody, type CommentAuthor } from './conversation';
 import { missingAfterMerge, usageAfterMerge } from './image-usage';
 import { ADJUSTMENT_LABEL, SENT_MARKER, isSentIn } from './proposals';
 import { sameRepo } from './repo';
+import { NOT_MERGEABLE } from './status';
 import type { Identity } from './trailers';
 import { ForgeError, MAX_PR_FILES, type Forge, type PrSummary } from './types';
 
@@ -102,12 +103,7 @@ export async function sendIn(
 		}
 	}
 	log.info('proposal.sent', { site: site.id, pr: pr.number });
-	return pr.mergeable === false
-		? {
-				warning:
-					'Dit voorstel kan niet automatisch worden samengevoegd; de pagina is intussen op de hoofdbranch gewijzigd'
-			}
-		: {};
+	return pr.mergeable === false ? { warning: NOT_MERGEABLE } : {};
 }
 
 export function cleanComment(body: unknown): string | null {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	NOT_MERGEABLE,
 	STATUS,
 	STEPS,
 	dateText,
@@ -119,6 +120,7 @@ describe('whatNow', () => {
 		approvalRequired: false,
 		approvalMissing: false,
 		actsOnGitHub: true,
+		notMergeable: false,
 		canEdit: true,
 		mergedAt: null,
 		siteAddress: true
@@ -132,15 +134,18 @@ describe('whatNow', () => {
 			flags.flatMap((editor) =>
 				flags.flatMap((mergeInSchrijver) =>
 					flags.flatMap((approvalMissing) =>
-						flags.map((actsOnGitHub) => ({
-							status,
-							editor,
-							mergeInSchrijver,
-							approvalRequired: approvalMissing,
-							approvalMissing,
-							actsOnGitHub,
-							...over
-						}))
+						flags.flatMap((actsOnGitHub) =>
+							flags.map((notMergeable) => ({
+								status,
+								editor,
+								mergeInSchrijver,
+								approvalRequired: approvalMissing,
+								approvalMissing,
+								actsOnGitHub,
+								notMergeable,
+								...over
+							}))
+						)
 					)
 				)
 			)
@@ -274,6 +279,36 @@ describe('whatNow', () => {
 				expect(row({ ...situation, writer }).actions).not.toEqual(
 					expect.arrayContaining([expect.stringMatching(/-op-github$/)])
 				);
+	});
+
+	it('says plainly that GitHub cannot merge a proposal, and offers no merge', () => {
+		expect(NOT_MERGEABLE).toBe(
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.'
+		);
+		const editor = {
+			sentence:
+				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.',
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
+		};
+		const writer = {
+			sentence:
+				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.',
+			actions: [],
+			primary: null
+		};
+		for (const status of ['ingestuurd', 'goedgekeurd'] as const)
+			for (const actsOnGitHub of flags)
+				for (const mergeInSchrijver of flags)
+					expect(
+						row({ status, editor: true, notMergeable: true, actsOnGitHub, mergeInSchrijver })
+					).toEqual(editor);
+		for (const status of ['concept', 'ingestuurd', 'goedgekeurd', 'aanpassing-gevraagd'] as const)
+			for (const editor of flags)
+				expect(row({ status, writer: true, editor, notMergeable: true })).toEqual(writer);
+		for (const situation of open({ notMergeable: true }))
+			for (const writer of flags)
+				expect(row({ ...situation, writer }).actions).not.toContain('samenvoegen');
 	});
 
 	it('leaves the decision to another editor when four eyes keep the reader from it', () => {

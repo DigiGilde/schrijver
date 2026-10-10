@@ -434,6 +434,36 @@ describe('what now', () => {
 		});
 	});
 
+	it('says plainly that the page changed on the site, and what the reader can do', async () => {
+		const nummer = await make(
+			'digi-handboek',
+			{ 'docs/kennis/botsing.md': '# Botsing\n' },
+			{ sent: true }
+		);
+		forge.mergeableByPr.set(nummer, false);
+		const page = await open('digi-handboek', nummer, { sub: EDITOR });
+		expect(page.watNu).toEqual({
+			sentence:
+				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.',
+			actions: ['vraag-om-aanpassing'],
+			primary: 'vraag-om-aanpassing'
+		});
+		expect(page, 'no banner of its own').not.toHaveProperty('notMergeable');
+
+		const eigen = await make(
+			'digi-handboek',
+			{ 'docs/kennis/botsing-eigen.md': '# Botsing\n' },
+			{ door: EDITOR, sent: true }
+		);
+		forge.mergeableByPr.set(eigen, false);
+		expect((await open('digi-handboek', eigen, { sub: EDITOR })).watNu).toEqual({
+			sentence:
+				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.',
+			actions: [],
+			primary: null
+		});
+	});
+
 	it('lets the writer send in again, also after a request on GitHub, and says where the redactie looks', async () => {
 		const moza = await make(
 			'moza-site',
