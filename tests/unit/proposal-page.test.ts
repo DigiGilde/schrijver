@@ -169,6 +169,17 @@ describe('what the comparison starts from', () => {
 		expect(diff).toMatchObject({ before: original, after: null });
 	});
 
+	it('is the page as the proposal found it for a merged proposal, whose change the base branch holds now', async () => {
+		const original = forge.fileText(REPO, 'main', 'docs/over/index.md')!;
+		const nummer = await proposal('samengevoegd-jjjj', { 'docs/over/index.md': own(original) });
+		await forge.markReady(REPO, nummer);
+		await forge.merge(REPO, nummer, 'Samengevoegd');
+		expect(forge.fileText(REPO, 'main', 'docs/over/index.md')).toBe(own(original));
+		const [diff] = (await visit(nummer)).diffs;
+		expect(diff).toMatchObject({ before: original, after: own(original) });
+		expect(diff.source.map((part) => part.kind)).toContain('added');
+	});
+
 	it('is not looked for when the proposal only adds pages', async () => {
 		const nummer = await proposal('nieuw-gggg', { 'docs/nieuw-begin.md': '# Nieuw\n' });
 		const mergeBase = vi.spyOn(forge, 'mergeBase');
