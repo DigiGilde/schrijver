@@ -16,6 +16,8 @@ export interface ConversationItem {
 	who: string;
 	/** As the writer or the editors through Schrijver, on GitHub, or Schrijver's own message. */
 	as: Role | 'github' | 'app';
+	/** How the person signed in Schrijver; null for what was said on GitHub, or by Schrijver itself. */
+	signer: Identity['kind'] | null;
 	at: string;
 	verdict: string | null;
 	/** Markdown, for the preview pipeline. */
@@ -168,16 +170,25 @@ function fromComment(comment: PrComment): ConversationItem {
 			...base,
 			who: signed.who ?? 'Iemand van de redactie',
 			as: signed.role,
+			signer: signed.signer,
 			verdict: signed.kind === 'aanpassing' ? 'Vraagt om een aanpassing' : null,
 			...shorten(signed.text, comment.url)
 		};
 	}
 	return comment.byApp
-		? { ...base, who: 'Schrijver', as: 'app', verdict: null, ...shorten(comment.body, comment.url) }
+		? {
+				...base,
+				who: 'Schrijver',
+				as: 'app',
+				signer: null,
+				verdict: null,
+				...shorten(comment.body, comment.url)
+			}
 		: {
 				...base,
 				who: comment.login || 'Onbekend',
 				as: 'github',
+				signer: null,
 				verdict: null,
 				...shorten(comment.body, comment.url)
 			};
@@ -202,6 +213,7 @@ function fromReview(review: PrReview): ConversationItem {
 		id: `r${review.id}`,
 		who: review.login || 'Onbekend',
 		as: 'github',
+		signer: null,
 		at: review.submittedAt,
 		verdict: verdictOf(review),
 		text,

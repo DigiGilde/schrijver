@@ -17,6 +17,12 @@
 		github: 'Op GitHub',
 		app: 'Automatisch bericht'
 	};
+	/* How someone signed comes from Schrijver, never from the name: a name can look like anything. */
+	const ONDERTEKEND: Record<NonNullable<ConversationItem['signer']>, string> = {
+		anoniem: 'anoniem',
+		gekoppeld: 'gekoppeld aan GitHub',
+		'op-naam': 'op naam'
+	};
 
 	let busy = $state(false);
 	let melding = $state<Melding | null>(null);
@@ -366,7 +372,8 @@
 								<nldd-container gap="8">
 									<nldd-identity text={item.who}>
 										<span slot="supporting-text"
-											>{ALS[item.as]} · <time datetime={item.at}>{momentText(item.at)}</time></span
+											>{ALS[item.as]}{item.signer ? ` · ${ONDERTEKEND[item.signer]}` : ''} ·
+											<time datetime={item.at}>{momentText(item.at)}</time></span
 										>
 									</nldd-identity>
 									{#if item.verdict}

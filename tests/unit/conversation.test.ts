@@ -410,7 +410,40 @@ describe('conversation', () => {
 			kind: 'aanpassing'
 		});
 		const [item] = items([comment({ login: 'nep', body: forged, byApp: false })]);
-		expect(item).toMatchObject({ who: 'nep', as: 'github', verdict: null, text: forged });
+		expect(item).toMatchObject({
+			who: 'nep',
+			as: 'github',
+			signer: null,
+			verdict: null,
+			text: forged
+		});
+	});
+
+	it('says apart from the name how each person signed, as a name can look like anything', () => {
+		const linked: Identity = { kind: 'gekoppeld', name: 'x', githubId: 1024025, login: 'torvalds' };
+		const anonymous: Identity = { kind: 'anoniem', pseudoniem: '0123456789ab' };
+		const list = items([
+			comment({ id: 1, body: commentBody('Akkoord', author(linked, 'redactie')) }),
+			comment({ id: 2, body: commentBody('Akkoord', author(named('torvalds'), 'redactie')) }),
+			comment({ id: 3, body: commentBody('Graag', author(anonymous)) }),
+			comment({
+				id: 4,
+				body: commentBody('Graag', author(named('Anoniem, codenaam 0123456789ab')))
+			}),
+			comment({ id: 5, login: 'torvalds', byApp: false, body: 'Op GitHub gezegd' }),
+			comment({ id: 6, body: 'Klaar voor beoordeling' }),
+			comment({ id: 7, body: 'Opmerking van de redactie via Schrijver:\n\nPrima' })
+		]);
+		expect(list.map((i) => [i.who, i.as, i.signer])).toEqual([
+			['torvalds', 'redactie', 'gekoppeld'],
+			['torvalds', 'redactie', 'op-naam'],
+			['Anoniem, codenaam 0123456789ab', 'schrijver', 'anoniem'],
+			['Anoniem, codenaam 0123456789ab', 'schrijver', 'op-naam'],
+			['torvalds', 'github', null],
+			['Schrijver', 'app', null],
+			['Iemand van de redactie', 'redactie', null]
+		]);
+		expect(items([], [review({})])[0].signer).toBeNull();
 	});
 
 	it('shows the text of a writer who copies the line as text, as typed and under the writer', () => {
