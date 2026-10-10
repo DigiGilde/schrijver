@@ -25,18 +25,52 @@ describe('parseSitesYaml', () => {
   preview: { soort: geen }
 `);
 		expect(site.concepten).toBe('openbaar');
-		expect(site.identiteit.toegestaan).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
-		expect(site.review.redactie).toEqual([]);
-		expect(site.review['mergen-vanuit-schrijver']).toBe(true);
-		expect(site.review['vier-ogen']).toBe(true);
+		expect(site.seed).toEqual({
+			naam: 'X',
+			omschrijving: null,
+			adres: null,
+			mergenVanuitSchrijver: true,
+			vierOgen: true,
+			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+			redactie: []
+		});
 	});
 
-	it('reads four eyes per site, and only as true or false', () => {
+	it('keeps naam, omschrijving, adres, review and identiteit only as starting values', () => {
 		const [digi, moza] = parseSitesYaml(fixture('sites.yaml'));
-		expect(digi.review['vier-ogen']).toBe(false);
-		expect(moza.review['vier-ogen']).toBe(true);
-		const text = fixture('sites.yaml').replace('vier-ogen: false', 'vier-ogen: misschien');
-		expect(() => parseSitesYaml(text)).toThrow(ZodError);
+		expect(digi.seed).toEqual({
+			naam: 'Digi Handboek',
+			omschrijving: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+			adres: 'https://digihandboek.rijks.app/',
+			mergenVanuitSchrijver: true,
+			vierOgen: false,
+			identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+			redactie: ['naam@rijksoverheid.nl']
+		});
+		for (const key of ['naam', 'omschrijving', 'adres', 'review', 'identiteit'])
+			expect(moza, key).not.toHaveProperty(key);
+		expect(moza.seed).toMatchObject({
+			vierOgen: true,
+			identiteitToegestaan: ['anoniem', 'gekoppeld']
+		});
+	});
+
+	it('names a site after its id when the configuration gives no name', () => {
+		const text = fixture('sites.yaml').replace('  naam: Digi Handboek\n', '');
+		expect(parseSitesYaml(text)[0].seed.naam).toBe('digi-handboek');
+	});
+
+	it('says that a value which only starts the settings is one', () => {
+		const base = fixture('sites.yaml');
+		for (const text of [
+			base.replace('vier-ogen: false', 'vier-ogen: misschien'),
+			base.replace('toegestaan: [anoniem, gekoppeld]', 'toegestaan: [anoniem, iedereen]'),
+			base.replace('adres: https://digihandboek.rijks.app/', 'adres: digihandboek.rijks.app')
+		]) {
+			expect(() => parseSitesYaml(text)).toThrow(
+				'a starting value: once the site has its settings in Schrijver, those apply'
+			);
+		}
 	});
 
 	it('drops a trailing slash from content.pad', () => {
@@ -67,7 +101,7 @@ describe('parseSitesYaml', () => {
 		const base = fixture('sites.yaml');
 		for (const adres of ['https://digihandboek.rijks.app/', 'http://example.org/pad?x=1#kop']) {
 			const text = base.replace('adres: https://digihandboek.rijks.app/', `adres: ${adres}`);
-			expect(parseSitesYaml(text)[0].adres).toBe(adres);
+			expect(parseSitesYaml(text)[0].seed.adres).toBe(adres);
 		}
 	});
 

@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { siteSettings } from '$lib/auth/team-store';
 import { parsePage } from '$lib/content/frontmatter';
 import { buildForm, newPagePath } from '$lib/content/schema-form';
 import { sameRepo } from '$lib/forge/repo';
@@ -25,6 +26,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 	const root = site.content.pad.replace(/\/+$/, '');
 	const repoPath = root === '' ? pad : `${root}/${pad}`;
 	const forge = getForge();
+	const { naam } = await siteSettings(site);
 
 	if (query.get('nieuw') === '1') {
 		const schema = store.schema(site.id);
@@ -46,7 +48,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		return {
 			site: {
 				id: site.id,
-				naam: site.naam,
+				naam,
 				concepten: site.concepten,
 				afbeeldingen: site.content.afbeeldingen != null,
 				content: { pad: site.content.pad, afbeeldingen: site.content.afbeeldingen }
@@ -100,7 +102,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 	const base = {
 		site: {
 			id: site.id,
-			naam: site.naam,
+			naam,
 			concepten: site.concepten,
 			afbeeldingen: site.content.afbeeldingen != null,
 			content: { pad: site.content.pad, afbeeldingen: site.content.afbeeldingen }

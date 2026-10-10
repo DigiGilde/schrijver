@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { actorPseudonym } from '$lib/auth/identity';
 import { canManageSite, isPlatformAdmin } from '$lib/auth/roles';
 import { isRole, type TeamChange } from '$lib/auth/team';
-import { seedSites, teamStore } from '$lib/auth/team-store';
+import { siteSettings, teamStore } from '$lib/auth/team-store';
 import { log } from '$lib/log';
 import { getConfigStore, getForge } from '$lib/server/services';
 import { NO_EMAIL_SENT, parseAdd, parseSettings, ROLE_IN_SENTENCE } from './forms';
@@ -20,12 +20,7 @@ async function managed(event: RequestEvent) {
 	if (!site || !(await canManageSite(site, asker, getForge())))
 		error(404, 'Deze pagina bestaat niet');
 	const team = teamStore();
-	let settings = await team.settings(site.id);
-	if (!settings) {
-		await seedSites([site], team);
-		settings = await team.settings(site.id);
-		if (!settings) error(404, 'Deze pagina bestaat niet');
-	}
+	const settings = await siteSettings(site, team);
 	const actor = { sub: user.session.sub, platformAdmin: isPlatformAdmin(user.session.sub) };
 	return { site, settings, session: user.session, asker, team, actor };
 }

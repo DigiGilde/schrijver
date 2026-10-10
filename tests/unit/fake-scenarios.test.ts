@@ -20,7 +20,6 @@ const ANYONE = false;
 
 let forge: FakeForge;
 let sites: SiteConfig[];
-let mergeInSchrijver = true;
 
 async function numberOf(repo: string, title: string): Promise<number> {
 	const pr = (await forge.listPrs(repo, 'all')).find((p) => p.title === title);
@@ -28,10 +27,17 @@ async function numberOf(repo: string, title: string): Promise<number> {
 	return pr.number;
 }
 
-async function sentence(site: SiteId, title: string, redactie: boolean): Promise<string> {
+async function sentence(
+	site: SiteId,
+	title: string,
+	redactie: boolean,
+	{ mergenVanuitSchrijver = true } = {}
+): Promise<string> {
 	const repo = site === 'digi-handboek' ? 'DigiGilde/handboek' : 'MinBZK/moza-site';
 	const nummer = await numberOf(repo, title);
-	await useTeams(sites, redactie ? { [site]: { lezer: 'redactie' } } : {});
+	const team = await useTeams(sites, redactie ? { [site]: { lezer: 'redactie' } } : {});
+	const settings = (await team.settings(site))!;
+	await team.saveSettings(site, { ...settings, mergenVanuitSchrijver }, 'baas');
 	const data = (await load({
 		params: { site, nummer: String(nummer) },
 		url: new URL(`http://x/sites/${site}/voorstellen/${nummer}`),
@@ -64,13 +70,6 @@ beforeAll(async () => {
 	const { forge: fake, store } = await buildFakeServices();
 	await seedScenarios(fake, pseudonym(process.env.PSEUDONYM_SECRET, 'lezer'));
 	forge = fake;
-	const site = store.site.bind(store);
-	store.site = (id: string): SiteConfig | undefined => {
-		const found = site(id);
-		return found && id === 'moza-site'
-			? { ...found, review: { ...found.review, 'mergen-vanuit-schrijver': mergeInSchrijver } }
-			: found;
-	};
 	setForge(forge);
 	setConfigStore(store);
 	sites = store.sites();
@@ -131,11 +130,11 @@ describe('the fake fixtures of the local preview', () => {
 	});
 
 	it('show the row for a site that merges on GitHub, with its setting turned off', async () => {
-		mergeInSchrijver = false;
-		expect(await sentence('moza-site', 'Weekly 23 september: de demo', EDITOR)).toBe(
-			'Bij deze site gebeurt samenvoegen op GitHub.'
-		);
-		mergeInSchrijver = true;
+		expect(
+			await sentence('moza-site', 'Weekly 23 september: de demo', EDITOR, {
+				mergenVanuitSchrijver: false
+			})
+		).toBe('Bij deze site gebeurt samenvoegen op GitHub.');
 	});
 
 	it('leave out the proposals of the test user when there is none', async () => {

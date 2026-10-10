@@ -145,6 +145,7 @@ describe('home page', () => {
 		});
 		await single.load();
 		setConfigStore(single);
+		await useTeams([]);
 		expect((await visit()).sites.map((s) => s.adres)).toEqual(['digihandboek.rijks.app/team']);
 	});
 
@@ -153,9 +154,25 @@ describe('home page', () => {
 		expect(
 			sites.map(({ id, naam, omschrijving, adres }) => [id, naam, omschrijving, adres])
 		).toEqual([
-			['digi-handboek', 'Digi Handboek', digi.omschrijving, 'digihandboek.rijks.app'],
-			['moza-site', 'MijnOverheid Zakelijk', moza.omschrijving, 'mijnoverheidzakelijk.nl']
+			['digi-handboek', 'Digi Handboek', digi.seed.omschrijving, 'digihandboek.rijks.app'],
+			['moza-site', 'MijnOverheid Zakelijk', moza.seed.omschrijving, 'mijnoverheidzakelijk.nl']
 		]);
+	});
+
+	it('takes the name, description and address from the site settings, not the configuration', async () => {
+		const team = await useTeams([digi, moza]);
+		await team.saveSettings(
+			'moza-site',
+			{
+				...(await team.settings('moza-site'))!,
+				naam: 'MOZa',
+				omschrijving: null,
+				adres: 'https://moza.example/'
+			},
+			'baas'
+		);
+		const moz = (await visit()).sites.find((s) => s.id === 'moza-site');
+		expect(moz).toMatchObject({ naam: 'MOZa', omschrijving: null, adres: 'moza.example' });
 	});
 });
 

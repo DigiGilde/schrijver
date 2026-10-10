@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/lib/server/services', () => ({
 	getConfigStore: () => ({
@@ -12,7 +12,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 	log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }));
 vi.mock('../../src/lib/auth/identity', () => ({
-	identityFor: () => ({ kind: 'anoniem', pseudoniem: 'x' }),
+	identityFor: vi.fn(() => ({ kind: 'anoniem', pseudoniem: 'x' })),
 	identitiesFor: () => [{ kind: 'anoniem', pseudoniem: 'x' }],
 	actorPseudonym: (s: { sub: string }) => `p-${s.sub}`
 }));
@@ -23,6 +23,12 @@ vi.mock('../../src/lib/forge/save', () => ({
 import { POST } from '../../src/routes/api/sites/[site]/opslaan/+server';
 import { log } from '../../src/lib/log';
 import { save } from '../../src/lib/forge/save';
+import { identityFor } from '../../src/lib/auth/identity';
+import { settingsOf, useTeams } from './team-fixture';
+
+beforeEach(async () => {
+	await useTeams([settingsOf('digi', { identiteitToegestaan: ['anoniem', 'gekoppeld'] })]);
+});
 
 const good = {
 	path: 'docs/a.md',
@@ -60,6 +66,14 @@ describe('POST /api/sites/[site]/opslaan', () => {
 		expect((await call({ site: 'onbekend' })).status).toBe(404));
 	it('400 on bad body', async () => expect((await call({ body: { path: 1 } })).status).toBe(400));
 	it('200 on success', async () => expect((await call({})).status).toBe(200));
+	it('signs as the settings of the site in Schrijver allow', async () => {
+		vi.mocked(identityFor).mockClear();
+		await call({});
+		expect(vi.mocked(identityFor).mock.calls[0][2]).toMatchObject({
+			siteId: 'digi',
+			identiteitToegestaan: ['anoniem', 'gekoppeld']
+		});
+	});
 	it('logs the actor pseudonym and no e-mail address', async () => {
 		vi.mocked(log.info).mockClear();
 		await call({ sub: 'jan' });

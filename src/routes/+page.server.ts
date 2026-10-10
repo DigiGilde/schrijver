@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
+import { siteSettings } from '$lib/auth/team-store';
 import { addressText } from '$lib/config/site-address';
 import type { SiteConfig } from '$lib/config/types';
 import { toProposal } from '$lib/forge/proposals';
@@ -60,14 +61,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const store = getConfigStore();
 	const sites = store.sites();
 	const user = locals.user;
-	const status = await Promise.all(
-		sites.map((site) => (user ? statusWithin(site, user) : Promise.resolve([])))
-	);
+	const [settings, status] = await Promise.all([
+		Promise.all(sites.map((site) => siteSettings(site))),
+		Promise.all(sites.map((site) => (user ? statusWithin(site, user) : Promise.resolve([]))))
+	]);
 	return {
 		// The detail is logged by the loader; everyone gets the same notice.
 		configNotLoaded: sites.length === 0 && store.state().lastError !== null,
-		sites: sites.map((s, i) => ({
-			id: s.id,
+		sites: settings.map((s, i) => ({
+			id: s.siteId,
 			naam: s.naam,
 			omschrijving: s.omschrijving,
 			adres: s.adres ? addressText(s.adres) : undefined,

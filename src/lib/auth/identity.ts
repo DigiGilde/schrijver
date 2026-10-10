@@ -1,10 +1,12 @@
-import type { SiteConfig } from '$lib/config/types';
 import type { Identity } from '$lib/forge/trailers';
 import { pseudonym } from '$lib/forge/trailers';
 import type { Session } from './session';
+import type { SettingsValues } from './team';
 import type { UserPrefs } from './users';
 
 type Kind = Identity['kind'];
+/** The ways to sign that a site allows, from its settings. */
+type Allowed = Pick<SettingsValues, 'identiteitToegestaan'>;
 
 /** Whether the user can sign as this kind at all, regardless of the site. */
 function eligible(kind: Kind, prefs: UserPrefs, session: Session): boolean {
@@ -21,16 +23,13 @@ export const REVEALS: Record<Kind, number> = { anoniem: 0, gekoppeld: 1, 'op-naa
  * the first kind the site allows that the user can use and that reveals no more than the choice.
  * Anoniem is always allowed.
  */
-export function effectiveKind(
-	prefs: UserPrefs,
-	session: Session,
-	site: Pick<SiteConfig, 'identiteit'>
-): Kind {
-	const allowed = (kind: Kind) => kind === 'anoniem' || site.identiteit.toegestaan.includes(kind);
+export function effectiveKind(prefs: UserPrefs, session: Session, settings: Allowed): Kind {
+	const allowed = (kind: Kind) =>
+		kind === 'anoniem' || settings.identiteitToegestaan.includes(kind);
 	const chosen: Kind = eligible(prefs.identity, prefs, session) ? prefs.identity : 'anoniem';
 	if (allowed(chosen)) return chosen;
 	return (
-		site.identiteit.toegestaan.find(
+		settings.identiteitToegestaan.find(
 			(k) => allowed(k) && REVEALS[k] <= REVEALS[chosen] && eligible(k, prefs, session)
 		) ?? 'anoniem'
 	);
@@ -42,12 +41,8 @@ export function actorPseudonym(session: Pick<Session, 'sub'>): string {
 	return pseudonym(secret, session.sub);
 }
 
-export function identityFor(
-	prefs: UserPrefs,
-	session: Session,
-	site: Pick<SiteConfig, 'identiteit'>
-): Identity {
-	const kind = effectiveKind(prefs, session, site);
+export function identityFor(prefs: UserPrefs, session: Session, settings: Allowed): Identity {
+	const kind = effectiveKind(prefs, session, settings);
 	if (kind === 'gekoppeld' && prefs.githubLogin && prefs.githubId !== null) {
 		// The GitHub login, not the SSO name: a pseudonymous GitHub profile stays pseudonymous.
 		return { kind, name: prefs.githubLogin, githubId: prefs.githubId, login: prefs.githubLogin };

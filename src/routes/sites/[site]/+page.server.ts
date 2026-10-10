@@ -3,6 +3,7 @@ import picomatch from 'picomatch';
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
+import { siteSettings } from '$lib/auth/team-store';
 import { parsePage } from '$lib/content/frontmatter';
 import { titleOf } from '$lib/content/schema-form';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
@@ -102,7 +103,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	}
 
 	return {
-		site: siteHeader(site),
+		site: siteHeader(await siteSettings(site)),
 		map,
 		folders: [...folders].sort(),
 		pages: pages.map((page) => ({

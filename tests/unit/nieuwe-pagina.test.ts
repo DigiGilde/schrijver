@@ -18,8 +18,10 @@ vi.mock('../../src/lib/log', async (original) => ({
 
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
-import { actions } from '../../src/routes/sites/[site]/nieuw/+page.server';
+import { actions, load as newPageLoad } from '../../src/routes/sites/[site]/nieuw/+page.server';
 import { load as editorLoad } from '../../src/routes/sites/[site]/bewerken/[...pad]/+page.server';
+import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
+import { useTeams } from './team-fixture';
 
 const schema = (name: string) =>
 	parseSchemaYaml(readFileSync(`tests/fixtures/config/schemas/${name}.yaml`, 'utf8'));
@@ -120,10 +122,13 @@ describe('the starting text of a page from an outline', () => {
 });
 
 describe('the new-page form on the server', () => {
+	let team: MemoryTeamStore;
+
 	beforeAll(async () => {
 		const services = await buildFakeServices();
 		setForge(services.forge);
 		setConfigStore(services.store);
+		team = await useTeams(services.store.sites());
 	});
 
 	async function submit(site: string, fields: Record<string, string>) {
@@ -174,6 +179,25 @@ describe('the new-page form on the server', () => {
 				titel: 'Accounts'
 			}
 		});
+	});
+
+	it('names the site as its settings in Schrijver do, in the editor too', async () => {
+		const settings = (await team.settings('digi-handboek'))!;
+		await team.saveSettings('digi-handboek', { ...settings, naam: 'Het Handboek' }, 'baas');
+		try {
+			const form = (await newPageLoad({ params: { site: 'digi-handboek' } } as never)) as {
+				site: { naam: string };
+			};
+			expect(form.site.naam).toBe('Het Handboek');
+			const editor = (await editorLoad({
+				params: { site: 'digi-handboek', pad: 'index.md' },
+				url: new URL('http://x/sites/digi-handboek/bewerken/index.md'),
+				untrack: <T>(fn: () => T) => fn()
+			} as never)) as { site: { naam: string } };
+			expect(editor.site.naam).toBe('Het Handboek');
+		} finally {
+			await team.saveSettings('digi-handboek', settings, 'baas');
+		}
 	});
 
 	it('starts from the same template as the editor', async () => {

@@ -207,17 +207,11 @@ export function changedSettings(before: SettingsValues, after: SettingsValues): 
 
 /** What a site in the configuration starts with in the database. */
 export function seedFromConfig(site: SiteConfig): SiteSeed {
+	const { redactie, ...values } = site.seed;
 	return {
 		siteId: site.id,
-		values: {
-			naam: site.naam,
-			omschrijving: site.omschrijving ?? null,
-			adres: site.adres ?? null,
-			mergenVanuitSchrijver: site.review['mergen-vanuit-schrijver'],
-			vierOgen: true,
-			identiteitToegestaan: allowedKinds(site.identiteit.toegestaan)
-		},
-		redactie: site.review.redactie
+		values: { ...values, identiteitToegestaan: allowedKinds(values.identiteitToegestaan) },
+		redactie
 	};
 }
 

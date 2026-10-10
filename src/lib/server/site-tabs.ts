@@ -1,4 +1,5 @@
 import { isEditorial } from '$lib/auth/editorial';
+import type { SiteSettings } from '$lib/auth/team';
 import type { SiteConfig } from '$lib/config/types';
 import { statusOf } from '$lib/forge/proposals';
 import { proposalsTabAddress, waitsForReview } from '$lib/forge/status';
@@ -13,11 +14,11 @@ export interface SiteHeader {
 	adres: string | null;
 }
 
-export const siteHeader = (site: SiteConfig): SiteHeader => ({
-	id: site.id,
-	naam: site.naam,
-	omschrijving: site.omschrijving ?? null,
-	adres: site.adres ?? null
+export const siteHeader = (settings: SiteSettings): SiteHeader => ({
+	id: settings.siteId,
+	naam: settings.naam,
+	omschrijving: settings.omschrijving,
+	adres: settings.adres
 });
 
 export type Filter = 'mijn' | 'alle' | 'beoordelen';

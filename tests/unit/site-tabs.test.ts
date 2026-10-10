@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { parseSitesYaml } from '../../src/lib/config/types';
 import {
 	carriedFilter,
 	filterOf,
@@ -59,15 +57,25 @@ describe('carriedFilter', () => {
 });
 
 describe('siteHeader', () => {
-	it('carries the description and public address, not the repository', () => {
-		const [digi] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-		expect(siteHeader(digi)).toEqual({
+	it('carries the name, description and public address from the site settings', () => {
+		const settings = {
+			siteId: 'digi-handboek',
+			naam: 'Handboek van het Gilde',
+			omschrijving: 'Wat je bij het Digi Gilde nodig hebt.',
+			adres: 'https://digihandboek.rijks.app/',
+			mergenVanuitSchrijver: true,
+			vierOgen: false,
+			identiteitToegestaan: ['anoniem' as const],
+			updatedAt: new Date(),
+			updatedBy: 'baas'
+		};
+		expect(siteHeader(settings)).toEqual({
 			id: 'digi-handboek',
-			naam: 'Digi Handboek',
-			omschrijving: 'De centrale plek met de informatie die je bij het Digi Gilde nodig hebt.',
+			naam: 'Handboek van het Gilde',
+			omschrijving: 'Wat je bij het Digi Gilde nodig hebt.',
 			adres: 'https://digihandboek.rijks.app/'
 		});
-		expect(siteHeader({ ...digi, omschrijving: undefined, adres: undefined })).toMatchObject({
+		expect(siteHeader({ ...settings, omschrijving: null, adres: null })).toMatchObject({
 			omschrijving: null,
 			adres: null
 		});

@@ -8,6 +8,7 @@ import {
 	pendingBytes
 } from '$lib/client/pending-images';
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
+import { siteSettings } from '$lib/auth/team-store';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
 import { IMAGE_SCANS_SPENT, imageScanLimit, newProposalLimit } from '$lib/server/security';
@@ -96,11 +97,12 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 
 	const forge = getForge();
 	const { prefs } = user as unknown as { prefs: { githubLogin: string | null } };
+	const settings = await siteSettings(site);
 	const result = await save(
 		forge,
 		site,
 		store.schema(site.id),
-		identityFor(user.prefs, user.session, site),
+		identityFor(user.prefs, user.session, settings),
 		parsed,
 		{
 			identities: identitiesFor(user.prefs, user.session),

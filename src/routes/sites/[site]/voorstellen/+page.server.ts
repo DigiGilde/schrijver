@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { isEditorial } from '$lib/auth/editorial';
 import { identitiesFor } from '$lib/auth/identity';
+import { siteSettings } from '$lib/auth/team-store';
 import { toProposal, type Proposal } from '$lib/forge/proposals';
 import { waitsForReview } from '$lib/forge/status';
 import { errorFields, log } from '$lib/log';
@@ -35,7 +36,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	);
 
 	return {
-		site: siteHeader(site),
+		site: siteHeader(await siteSettings(site)),
 		proposals,
 		proposalsError,
 		editorial,

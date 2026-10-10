@@ -145,7 +145,7 @@ describe('who may manage a site', () => {
 			expect.objectContaining({ email: 'naam@rijksoverheid.nl', rol: 'redactie' }),
 			expect.objectContaining({ email: 'test@example.org', rol: 'redactie' })
 		]);
-		expect(data.instellingen).toMatchObject({ naam: 'Digi Handboek', vierOgen: true });
+		expect(data.instellingen).toMatchObject({ naam: 'Digi Handboek', vierOgen: false });
 	});
 
 	it('lets someone whose linked GitHub account has admin permission manage the site', async () => {

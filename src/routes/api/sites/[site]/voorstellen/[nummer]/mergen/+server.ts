@@ -13,12 +13,12 @@ import { proposalAction, readJson, refuse } from '$lib/server/proposal-route';
 
 export const POST: RequestHandler = proposalAction(
 	'mergen',
-	async ({ site, forge, pr, acts, user }, { request }) => {
+	async ({ site, settings, forge, pr, acts, user }, { request }) => {
 		if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch) {
 			return refuse(403, 'Dit voorstel kan alleen op GitHub worden samengevoegd.');
 		}
 		if (!acts.editorial) return refuse(403, 'Alleen de redactie kan samenvoegen');
-		if (!site.review['mergen-vanuit-schrijver']) {
+		if (!settings.mergenVanuitSchrijver) {
 			return refuse(
 				403,
 				'Samenvoegen vanuit Schrijver staat voor deze site uit; voeg samen op GitHub'
@@ -31,7 +31,7 @@ export const POST: RequestHandler = proposalAction(
 			return refuse(400, 'Laad de pagina opnieuw en bekijk de wijzigingen voordat je samenvoegt');
 		}
 		const commits = await forge.prCommits(site.repo, pr.number);
-		if (site.review['vier-ogen']) {
+		if (settings.vierOgen) {
 			const reason = fourEyes(authorship(pr, commits, user, await appAccount(forge)));
 			if (reason && !(await canManageSite(site, user, forge))) {
 				return refuse(403, `${FOUR_EYES[reason]} Een ander lid van de redactie voegt het samen.`);

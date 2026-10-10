@@ -1,7 +1,7 @@
 import type { SiteConfig } from '$lib/config/types';
 import { errorFields, log } from '$lib/log';
 import type { Session } from './session';
-import { seedFromConfig, type TeamStore } from './team';
+import { seedFromConfig, type SiteSettings, type TeamStore } from './team';
 import { MemoryTeamStore } from './team-memory';
 import { createTeamStore } from './team-postgres';
 import { client, MemoryUsersStore, useUsersStore } from './users';
@@ -34,6 +34,22 @@ export async function seedSites(sites: SiteConfig[], team: TeamStore = teamStore
 	for (const site of sites) {
 		if (await team.seedSite(seedFromConfig(site))) log.info('team.site_seeded', { site: site.id });
 	}
+}
+
+/**
+ * The settings of a configured site: naam, omschrijving, adres, merging, four eyes and the ways to
+ * sign. A site that has none yet gets them from its configuration first.
+ */
+export async function siteSettings(
+	site: SiteConfig,
+	team: TeamStore = teamStore()
+): Promise<SiteSettings> {
+	const found = await team.settings(site.id);
+	if (found) return found;
+	await seedSites([site], team);
+	const seeded = await team.settings(site.id);
+	if (!seeded) throw new Error(`no settings for site ${site.id}`);
+	return seeded;
 }
 
 /** At every login: the profile, and the invitations for the verified address become memberships. */

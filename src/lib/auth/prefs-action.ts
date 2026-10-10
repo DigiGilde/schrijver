@@ -2,6 +2,7 @@ import { fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import { log } from '$lib/log';
 import { getConfigStore } from '$lib/server/services';
 import { actorPseudonym } from './identity';
+import { siteSettings } from './team-store';
 import { savePrefs, type UserPrefs } from './users';
 
 const IDENTITIES = ['anoniem', 'gekoppeld', 'op-naam'] as const;
@@ -31,10 +32,15 @@ export async function submitPrefs(event: RequestEvent, afterSave: 'redirect' | '
 }
 
 /** Per site, which ways of signing it allows; the settings page explains the fallback. */
-export function siteRules(): { naam: string; toegestaan: UserPrefs['identity'][] }[] {
-	return getConfigStore()
-		.sites()
-		.map((s) => ({ naam: s.naam, toegestaan: s.identiteit.toegestaan }));
+export function siteRules(): Promise<{ naam: string; toegestaan: UserPrefs['identity'][] }[]> {
+	return Promise.all(
+		getConfigStore()
+			.sites()
+			.map(async (site) => {
+				const settings = await siteSettings(site);
+				return { naam: settings.naam, toegestaan: settings.identiteitToegestaan };
+			})
+	);
 }
 
 export async function unlinkGithub(event: RequestEvent) {

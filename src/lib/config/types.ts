@@ -14,16 +14,29 @@ const ContentSchema = z.strictObject({
 		.optional()
 });
 
+/** Said of every field that only gives a site its first settings in Schrijver. */
+const STARTING_VALUE = 'a starting value: once the site has its settings in Schrijver, those apply';
+
 const ReviewSchema = z.strictObject({
 	model: z.enum(['goedkeuring', 'direct']),
-	'mergen-vanuit-schrijver': z.boolean().default(true),
-	'vier-ogen': z.boolean().default(true),
-	redactie: z.array(z.string()).default([])
+	'mergen-vanuit-schrijver': z
+		.boolean({ error: `must be true or false (${STARTING_VALUE})` })
+		.default(true),
+	'vier-ogen': z.boolean({ error: `must be true or false (${STARTING_VALUE})` }).default(true),
+	redactie: z
+		.array(z.string(), {
+			error: 'must be a list of e-mail addresses (invited once, when the site gets its settings)'
+		})
+		.default([])
 });
 
 const IdentiteitSchema = z.strictObject({
 	toegestaan: z
-		.array(z.enum(['anoniem', 'gekoppeld', 'op-naam']))
+		.array(
+			z.enum(['anoniem', 'gekoppeld', 'op-naam'], {
+				error: `must be anoniem, gekoppeld or op-naam (${STARTING_VALUE})`
+			})
+		)
 		.default(['anoniem', 'gekoppeld', 'op-naam'])
 });
 
@@ -69,10 +82,13 @@ const MermaidSchema = z.strictObject({
 export const SiteConfigSchema = z
 	.strictObject({
 		id: z.string(),
-		naam: z.string(),
-		omschrijving: z.string().optional(),
+		naam: z.string({ error: `must be text (${STARTING_VALUE})` }).optional(),
+		omschrijving: z.string({ error: `must be text (${STARTING_VALUE})` }).optional(),
 		adres: z
-			.url({ protocol: /^https?$/, error: 'must be a web address such as https://example.org' })
+			.url({
+				protocol: /^https?$/,
+				error: `must be a web address such as https://example.org (${STARTING_VALUE})`
+			})
 			.optional(),
 		forge: z.literal('github'),
 		repo: z.string(),
@@ -100,7 +116,21 @@ export const SiteConfigSchema = z
 				message: 'review.model: direct wordt nog niet ondersteund'
 			});
 		}
-	});
+	})
+	.transform(({ naam, omschrijving, adres, review, identiteit, ...site }) => ({
+		...site,
+		/** Only read for a site that has no settings in Schrijver yet. */
+		seed: {
+			naam: naam || site.id,
+			omschrijving: omschrijving ?? null,
+			adres: adres ?? null,
+			mergenVanuitSchrijver: review['mergen-vanuit-schrijver'],
+			vierOgen: review['vier-ogen'],
+			identiteitToegestaan: identiteit.toegestaan,
+			/** The addresses that get the first invitations to the redactie. */
+			redactie: review.redactie
+		}
+	}));
 
 export const SitesFileSchema = z.array(SiteConfigSchema);
 

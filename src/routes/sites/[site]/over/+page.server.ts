@@ -1,10 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { siteSettings, teamStore } from '$lib/auth/team-store';
 import { getRepoVisibility } from '$lib/server/repo-visibility';
 import { configRepoName, getConfigStore } from '$lib/server/services';
 import { siteHeader } from '$lib/server/site-tabs';
-
-const KINDS = ['anoniem', 'gekoppeld', 'op-naam'] as const;
 
 const configRepo = () => {
 	try {
@@ -18,13 +17,15 @@ export const load: PageServerLoad = async ({ params }) => {
 	const site = getConfigStore().site(params.site);
 	if (!site) error(404, 'Site niet gevonden');
 
+	const settings = await siteSettings(site);
+	const members = await teamStore().members(site.id);
 	const branch = site.standaardbranch;
 	return {
-		site: siteHeader(site),
-		redactie: site.review.redactie,
-		mergenVanuitSchrijver: site.review['mergen-vanuit-schrijver'],
+		site: siteHeader(settings),
+		redactie: members.flatMap((m) => (m.email ? [m.email] : [])),
+		mergenVanuitSchrijver: settings.mergenVanuitSchrijver,
 		// Anoniem is always possible: a choice the site does not allow falls back towards it.
-		ondertekenen: KINDS.filter((k) => k === 'anoniem' || site.identiteit.toegestaan.includes(k)),
+		ondertekenen: settings.identiteitToegestaan,
 		conceptenOpenbaar: site.concepten === 'openbaar' && (await getRepoVisibility(site.repo)),
 		voorbeeld: site.preview.soort,
 		repo: site.repo,

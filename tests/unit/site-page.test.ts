@@ -16,6 +16,7 @@ import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load as loadPages } from '../../src/routes/sites/[site]/+page.server';
 import { load as loadProposals } from '../../src/routes/sites/[site]/voorstellen/+page.server';
 import { load as loadAbout } from '../../src/routes/sites/[site]/over/+page.server';
+import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeams } from './team-fixture';
 
 const REPO = 'DigiGilde/handboek';
@@ -23,6 +24,7 @@ const REPO = 'DigiGilde/handboek';
 const EDITOR = 'redacteur';
 const WRITER = 'lezer';
 let forge: FakeForge;
+let team: MemoryTeamStore;
 
 const session = (sub: string): Session => ({
 	sub,
@@ -108,7 +110,7 @@ beforeAll(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
-	await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
+	team = await useTeams(services.store.sites(), { 'digi-handboek': { [EDITOR]: 'redactie' } });
 	sentIn = await proposal('ingestuurd-aaaa', { sent: true });
 	concept = await proposal('concept-bbbb', { sent: false });
 	own = await proposal('eigen-cccc', { sent: false, mine: true });
@@ -207,7 +209,7 @@ describe('about page', () => {
 
 	it('names the editors, the signing choices, the preview and the repository', async () => {
 		const data = await about(WRITER);
-		expect(data.redactie).toEqual(['naam@rijksoverheid.nl', 'test@example.org']);
+		expect(data.redactie).toEqual(['redacteur@team.example']);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(data.voorbeeld).toBe('bij-push');
 		expect(data.mergenVanuitSchrijver).toBe(true);
@@ -219,9 +221,31 @@ describe('about page', () => {
 
 	it('offers only the choices the site allows, anoniem always among them', async () => {
 		const data = await about(WRITER, 'moza-site');
-		expect(data.redactie).toEqual(['redactie@example.org']);
+		expect(data.redactie).toEqual([]);
 		expect(data.ondertekenen).toEqual(['anoniem', 'gekoppeld']);
 		expect(data.voorbeeld).toBe('bij-label');
+	});
+
+	it('reads the name, merging and the ways to sign from the site settings', async () => {
+		const settings = (await team.settings('digi-handboek'))!;
+		await team.saveSettings(
+			'digi-handboek',
+			{
+				...settings,
+				naam: 'Het Handboek',
+				mergenVanuitSchrijver: false,
+				identiteitToegestaan: ['op-naam']
+			},
+			'baas'
+		);
+		try {
+			const data = await about(WRITER);
+			expect(data.site).toMatchObject({ naam: 'Het Handboek' });
+			expect(data.mergenVanuitSchrijver).toBe(false);
+			expect(data.ondertekenen).toEqual(['anoniem', 'op-naam']);
+		} finally {
+			await team.saveSettings('digi-handboek', settings, 'baas');
+		}
 	});
 
 	it('says drafts are public only when the repository is', async () => {

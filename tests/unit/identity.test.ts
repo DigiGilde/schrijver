@@ -8,6 +8,7 @@ import {
 } from '../../src/lib/auth/identity';
 import { parseSitesYaml } from '../../src/lib/config/types';
 import type { Session } from '../../src/lib/auth/session';
+import { seedFromConfig, type IdentityKind } from '../../src/lib/auth/team';
 import type { UserPrefs } from '../../src/lib/auth/users';
 import { pseudonym } from '../../src/lib/forge/trailers';
 
@@ -30,12 +31,12 @@ const prefs = (over: Partial<UserPrefs> = {}): UserPrefs => ({
 	...over
 });
 
-const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8'));
-const all = {
-	identiteit: {
-		toegestaan: ['anoniem', 'gekoppeld', 'op-naam'] as ('anoniem' | 'gekoppeld' | 'op-naam')[]
-	}
-};
+/** The settings the two sites start with: Digi Handboek allows all three kinds, MOZa no name. */
+const [digi, moza] = parseSitesYaml(readFileSync('tests/fixtures/config/sites.yaml', 'utf8')).map(
+	(site) => seedFromConfig(site).values
+);
+const allowing = (...kinds: IdentityKind[]) => ({ identiteitToegestaan: kinds });
+const all = allowing('anoniem', 'gekoppeld', 'op-naam');
 
 const original = process.env.PSEUDONYM_SECRET;
 beforeEach(() => {
@@ -95,11 +96,11 @@ describe('identityFor', () => {
 	});
 });
 
-describe('identiteit.toegestaan', () => {
+describe('the ways to sign that the site settings allow', () => {
 	const linked = { githubLogin: 'tester', githubId: 42 };
 
 	it('keeps every choice on a site that allows all three', () => {
-		expect(digi.identiteit.toegestaan).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
+		expect(digi.identiteitToegestaan).toEqual(['anoniem', 'gekoppeld', 'op-naam']);
 		expect(effectiveKind(prefs({ identity: 'op-naam' }), session(), digi)).toBe('op-naam');
 		expect(effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), digi)).toBe(
 			'gekoppeld'
@@ -108,7 +109,7 @@ describe('identiteit.toegestaan', () => {
 	});
 
 	it('never publishes a name on MOZa: op-naam falls back to the first allowed kind', () => {
-		expect(moza.identiteit.toegestaan).toEqual(['anoniem', 'gekoppeld']);
+		expect(moza.identiteitToegestaan).toEqual(['anoniem', 'gekoppeld']);
 		const id = identityFor(prefs({ identity: 'op-naam', ...linked }), session(), moza);
 		expect(id).toEqual({ kind: 'anoniem', pseudoniem: pseudonym('geheim', 'abc') });
 		expect(JSON.stringify(id)).not.toContain('test@example.org');
@@ -122,31 +123,24 @@ describe('identiteit.toegestaan', () => {
 
 	it('never falls back to a kind that reveals more than the choice', () => {
 		expect(
-			effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), {
-				identiteit: { toegestaan: ['op-naam'] }
-			})
+			effectiveKind(prefs({ identity: 'gekoppeld', ...linked }), session(), allowing('op-naam'))
 		).toBe('anoniem');
 		expect(
-			effectiveKind(prefs({ identity: 'op-naam', ...linked }), session(), {
-				identiteit: { toegestaan: ['gekoppeld'] }
-			})
+			effectiveKind(prefs({ identity: 'op-naam', ...linked }), session(), allowing('gekoppeld'))
 		).toBe('gekoppeld');
 	});
 
 	it('skips a fallback the user cannot use and always allows anoniem', () => {
-		const onlyNamed = {
-			identiteit: { toegestaan: ['gekoppeld', 'op-naam'] as ('gekoppeld' | 'op-naam')[] }
-		};
+		expect(effectiveKind(prefs({ identity: 'op-naam' }), session(), allowing('gekoppeld'))).toBe(
+			'anoniem'
+		);
+		expect(effectiveKind(prefs(), session(), allowing('gekoppeld', 'op-naam'))).toBe('anoniem');
 		expect(
-			effectiveKind(prefs({ identity: 'op-naam' }), session(), {
-				identiteit: { toegestaan: ['gekoppeld'] }
-			})
-		).toBe('anoniem');
-		expect(effectiveKind(prefs(), session(), onlyNamed)).toBe('anoniem');
-		expect(
-			effectiveKind(prefs({ identity: 'op-naam' }), session({ emailVerified: false }), {
-				identiteit: { toegestaan: ['op-naam'] }
-			})
+			effectiveKind(
+				prefs({ identity: 'op-naam' }),
+				session({ emailVerified: false }),
+				allowing('op-naam')
+			)
 		).toBe('anoniem');
 	});
 

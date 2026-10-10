@@ -29,7 +29,7 @@ describe('ConfigStore', () => {
 		const store = new ConfigStore(memoryReader(fixtureFiles()), () => 42);
 		await store.load();
 		expect(store.sites().map((s) => s.id)).toEqual(['digi-handboek', 'moza-site']);
-		expect(store.site('moza-site')?.naam).toBeTruthy();
+		expect(store.site('moza-site')?.repo).toBe('MinBZK/moza-site');
 		expect(store.site('nope')).toBeUndefined();
 		expect(store.schema('moza-site')).toBeTruthy();
 		expect(store.schrijfwijzer('moza-site')).toBe(fixture('schrijfwijzer/moza-site.md'));
@@ -55,6 +55,22 @@ describe('ConfigStore', () => {
 		expect(loadedAt).toBe(1);
 		expect(lastError).toContain('sites.yaml');
 		expect(lastError).not.toContain('\n');
+	});
+
+	it('names the field and what is wrong with it when sites.yaml does not validate', async () => {
+		const files = fixtureFiles();
+		files.set(
+			'sites.yaml',
+			fixture('sites.yaml').replace(
+				'adres: https://mijnoverheidzakelijk.nl/',
+				'adres: mijnoverheidzakelijk.nl'
+			)
+		);
+		const store = new ConfigStore(memoryReader(files));
+		await store.load();
+		expect(store.state().lastError).toBe(
+			'sites.yaml: 1.adres: must be a web address such as https://example.org (a starting value: once the site has its settings in Schrijver, those apply)'
+		);
 	});
 
 	it('keeps the previous state when a schema file is missing', async () => {

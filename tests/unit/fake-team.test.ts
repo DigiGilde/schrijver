@@ -18,7 +18,7 @@ describe('the team in the local preview', () => {
 		await initFakeServices();
 		const team = teamStore();
 		expect((await team.settings('digi-handboek'))?.naam).toBe(
-			getConfigStore().site('digi-handboek')?.naam
+			getConfigStore().site('digi-handboek')?.seed.naam
 		);
 		expect(await team.role('moza-site', 'collega')).toBe('beheerder');
 		expect((await getPrefs('collega')).onboarded).toBe(true);

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeForge } from '../../src/lib/forge/fake';
 import { ForgeError } from '../../src/lib/forge/types';
 import { log } from '../../src/lib/log';
+import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { settingsOf, useTeams } from './team-fixture';
 
 const state = vi.hoisted(() => ({ forge: null as unknown, site: null as unknown }));
@@ -17,7 +18,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 vi.mock('../../src/lib/auth/identity', () => {
 	const id = (login: string) => [...login].reduce((sum, c) => sum + c.charCodeAt(0), 0);
 	return {
-		identityFor: (prefs: { who: string; githubLogin: string | null }) =>
+		identityFor: vi.fn((prefs: { who: string; githubLogin: string | null }) =>
 			prefs.githubLogin
 				? {
 						kind: 'gekoppeld',
@@ -26,7 +27,8 @@ vi.mock('../../src/lib/auth/identity', () => {
 						login: prefs.githubLogin,
 						who: prefs.who
 					}
-				: { kind: 'anoniem', pseudoniem: prefs.who },
+				: { kind: 'anoniem', pseudoniem: prefs.who }
+		),
 		identitiesFor: (prefs: { who: string; githubLogin: string | null }) => [
 			{ kind: 'anoniem', pseudoniem: prefs.who },
 			...(prefs.githubLogin
@@ -53,20 +55,20 @@ import { POST as mergen } from '../../src/routes/api/sites/[site]/voorstellen/[n
 import { POST as aanpassing } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/aanpassing/+server';
 import { POST as opnieuwInsturen } from '../../src/routes/api/sites/[site]/voorstellen/[nummer]/opnieuw-insturen/+server';
 import { statusOf } from '../../src/lib/forge/proposals';
+import { identityFor } from '../../src/lib/auth/identity';
 
 let forge: FakeForge;
-const site = (mergeFromSchrijver = true, fourEyes = false) => ({
+let team: MemoryTeamStore;
+const site = () => ({
 	id: 'moza',
 	repo: 'o/moza',
 	standaardbranch: 'main',
 	content: { pad: 'content' },
-	review: {
-		'mergen-vanuit-schrijver': mergeFromSchrijver,
-		'vier-ogen': fourEyes,
-		redactie: ['red@example.org']
-	},
 	preview: { soort: 'geen' }
 });
+/** The settings of the site in Schrijver: merging there, and four eyes. */
+const settings = (mergenVanuitSchrijver = true, vierOgen = false) =>
+	team.saveSettings('moza', settingsOf('moza', { mergenVanuitSchrijver, vierOgen }).values, 'baas');
 
 function call(
 	handler: (e: never) => Response | Promise<Response>,
@@ -104,7 +106,7 @@ beforeEach(async () => {
 	forge = new FakeForge();
 	state.forge = forge;
 	state.site = site();
-	await useTeams([settingsOf('moza')], { moza: { red: 'redactie' } });
+	team = await useTeams([settingsOf('moza', { vierOgen: false })], { moza: { red: 'redactie' } });
 	forge.seedRepo('o/moza', 'main', { 'content/a.md': 'oud' });
 	await forge.createBranch('o/moza', 'main', 'b');
 	await forge.commit(
@@ -142,14 +144,14 @@ describe('proposal endpoints', () => {
 	it('refuses merging for non-editorial users and when merging from Schrijver is off', async () => {
 		await call(insturen, { who: 'auteur' });
 		expect((await call(mergen, { who: 'vreemde' })).status).toBe(403);
-		state.site = site(false);
+		await settings(false);
 		const res = await call(mergen, { sub: 'red' });
 		expect(res.status).toBe(403);
 		expect((await res.json()).message).toContain('GitHub');
 	});
 
 	it('keeps the writer from merging their own proposal with four eyes, unless a site admin', async () => {
-		state.site = site(true, true);
+		await settings(true, true);
 		await call(insturen, { who: 'auteur' });
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
 		const zelf = await call(mergen, { sub: 'red', who: 'auteur', body: { sha } });
@@ -169,7 +171,7 @@ describe('proposal endpoints', () => {
 	});
 
 	it('counts whoever wrote along in Schrijver as a writer for four eyes', async () => {
-		state.site = site(true, true);
+		await settings(true, true);
 		await call(insturen, { who: 'auteur' });
 		await forge.commit(
 			'o/moza',
@@ -188,14 +190,14 @@ describe('proposal endpoints', () => {
 	});
 
 	it('lets another member of the redactie merge with four eyes, and the writer without', async () => {
-		state.site = site(true, true);
+		await settings(true, true);
 		await call(insturen, { who: 'auteur' });
 		const sha = (await forge.getPr('o/moza', 1)).headSha;
-		state.site = site(true, false);
+		await settings(true, false);
 		const red = { sub: 'red', body: { sha } };
 		forge.failNext('merge', new ForgeError(500, 'Kapot'));
 		expect((await call(mergen, { ...red, who: 'auteur' })).status).toBe(500);
-		state.site = site(true, true);
+		await settings(true, true);
 		expect((await call(mergen, { ...red, who: 'redacteur' })).status).toBe(200);
 	});
 
@@ -268,6 +270,20 @@ describe('proposal endpoints', () => {
 			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (anoniem, codenaam iemand):\n\nDank',
 			'<!-- schrijver -->\n**Reactie van de redactie via Schrijver** (GitHub: jan):\n\nOk'
 		]);
+	});
+
+	it('signs a reaction as the settings of the site in Schrijver allow', async () => {
+		await team.saveSettings(
+			'moza',
+			settingsOf('moza', { vierOgen: false, identiteitToegestaan: ['anoniem'] }).values,
+			'baas'
+		);
+		vi.mocked(identityFor).mockClear();
+		await call(opmerking, { who: 'auteur', body: { body: 'x' } });
+		expect(vi.mocked(identityFor).mock.calls[0][2]).toMatchObject({
+			siteId: 'moza',
+			identiteitToegestaan: ['anoniem']
+		});
 	});
 
 	it('posts what a writer types as text that cannot pass for the line on who wrote it', async () => {
@@ -451,7 +467,7 @@ describe('four eyes, on every way to the merge', () => {
 	};
 
 	beforeEach(async () => {
-		state.site = site(true, true);
+		await settings(true, true);
 		await call(insturen, { who: 'auteur' });
 		sha = (await forge.getPr('o/moza', 1)).headSha;
 		forge.permissionByLogin.set('beheerder', 'admin');

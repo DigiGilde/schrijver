@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SiteConfig } from '$lib/config/types';
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
+import type { SiteSettings } from '$lib/auth/team';
+import { siteSettings } from '$lib/auth/team-store';
 import { canAct, type ActingUser } from '$lib/forge/proposal-actions';
 import type { Identity } from '$lib/forge/trailers';
 import { ForgeError, type Forge, type PrSummary } from '$lib/forge/types';
@@ -13,6 +15,7 @@ export const refuse = (status: number, message: string, detail?: string) =>
 
 export interface ProposalContext {
 	site: SiteConfig;
+	settings: SiteSettings;
 	forge: Forge;
 	pr: PrSummary;
 	acts: { owner: boolean; editorial: boolean };
@@ -35,7 +38,8 @@ export function proposalAction(action: string, handler: Handler) {
 		const forge = getForge();
 		try {
 			const pr = await forge.getPr(site.repo, nummer);
-			const identity = identityFor(current.prefs, current.session, site);
+			const settings = await siteSettings(site);
+			const identity = identityFor(current.prefs, current.session, settings);
 			const user: ActingUser = {
 				sub: current.session.sub,
 				identities: identitiesFor(current.prefs, current.session),
@@ -43,7 +47,7 @@ export function proposalAction(action: string, handler: Handler) {
 				identityKind: identity.kind
 			};
 			const acts = await canAct(user, site, pr, forge);
-			const response = await handler({ site, forge, pr, acts, user, identity }, event);
+			const response = await handler({ site, settings, forge, pr, acts, user, identity }, event);
 			if (response.ok)
 				log.info(`proposal.${action}`, {
 					site: site.id,

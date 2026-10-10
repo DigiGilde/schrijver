@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { identitiesFor, identityFor } from '$lib/auth/identity';
 import { canManageSite } from '$lib/auth/roles';
+import { siteSettings } from '$lib/auth/team-store';
 import type { SiteConfig } from '$lib/config/types';
 import { parsePage } from '$lib/content/frontmatter';
 import { pageTitle } from '$lib/content/schema-form';
@@ -49,12 +50,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const nummer = Number(params.nummer);
 	if (!site || !Number.isInteger(nummer) || nummer <= 0) error(404, 'Voorstel niet gevonden');
 	const forge = getForge();
+	const settings = await siteSettings(site);
 	const { session, prefs } = locals.user!;
 	const user: ActingUser = {
 		sub: session.sub,
 		identities: identitiesFor(prefs, session),
 		githubLogin: prefs.githubLogin,
-		identityKind: identityFor(prefs, session, site).kind
+		identityKind: identityFor(prefs, session, settings).kind
 	};
 
 	try {
@@ -119,13 +121,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		const deciding =
 			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
 		let blocked: keyof typeof FOUR_EYES | null = null;
-		if (deciding && site.review['vier-ogen']) {
+		if (deciding && settings.vierOgen) {
 			const commits = await forge.prCommits(site.repo, nummer).catch(() => null);
 			const reason = commits ? fourEyes(authorship(pr, commits, user, app)) : 'onbekend';
 			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
 		}
 		let approvalMissing = false;
-		if (deciding && !blocked && site.review['mergen-vanuit-schrijver']) {
+		if (deciding && !blocked && settings.mergenVanuitSchrijver) {
 			const decision = await forge.reviewDecision(site.repo, nummer).catch((err) => {
 				log.warn('proposal.review_decision_failed', {
 					site: site.id,
@@ -164,7 +166,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			}));
 
 		return {
-			site: { id: site.id, naam: site.naam, adres: site.adres ?? null },
+			site: { id: site.id, naam: settings.naam, adres: settings.adres },
 			terug,
 			proposal,
 			ondertitel: ondertitel[0].toUpperCase() + ondertitel.slice(1),
@@ -175,12 +177,12 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				editor: acts.editorial,
 				blocked,
 				outside,
-				mergeInSchrijver: site.review['mergen-vanuit-schrijver'],
+				mergeInSchrijver: settings.mergenVanuitSchrijver,
 				approvalMissing,
 				adjustmentLabel: pr.labels.includes(ADJUSTMENT_LABEL),
 				canEdit: verderBewerken.length > 0,
 				mergedAt: pr.mergedAt ?? null,
-				siteAddress: !!site.adres
+				siteAddress: !!settings.adres
 			}),
 			voorbeeld: proposal.previewUrl
 				? {

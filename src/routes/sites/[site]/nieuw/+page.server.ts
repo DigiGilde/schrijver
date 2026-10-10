@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import picomatch from 'picomatch';
 import type { Actions, PageServerLoad } from './$types';
+import { siteSettings } from '$lib/auth/team-store';
 import { slugify } from '$lib/content/slug';
 import { newPagePath } from '$lib/content/schema-form';
 import { getConfigStore, getForge } from '$lib/server/services';
@@ -47,7 +48,8 @@ export const load: PageServerLoad = async ({ params }) => {
 				}))
 			: [{ naam: null, folders: foldersFor(config.mappen), fixed: null }];
 
-	return { site: { id: site.id, naam: site.naam }, options, schema, today: isoDate(now) };
+	const { naam } = await siteSettings(site);
+	return { site: { id: site.id, naam }, options, schema, today: isoDate(now) };
 };
 
 export const actions: Actions = {

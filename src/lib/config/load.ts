@@ -1,3 +1,4 @@
+import { ZodError } from 'zod';
 import { parseSchemaYaml, parseSitesYaml, type PageSchema, type SiteConfig } from './types';
 
 export interface ConfigReader {
@@ -20,7 +21,13 @@ interface Snapshot {
 
 class LoadError extends Error {
 	constructor(file: string, cause: unknown) {
-		const detail = cause instanceof Error ? cause.message : String(cause);
+		// A ZodError's message is its issues as JSON, so its first line would be "[".
+		const issue = cause instanceof ZodError ? cause.issues[0] : undefined;
+		const detail = issue
+			? [issue.path.join('.'), issue.message].filter(Boolean).join(': ')
+			: cause instanceof Error
+				? cause.message
+				: String(cause);
 		super(`${file}: ${detail.split('\n')[0]}`);
 	}
 }
