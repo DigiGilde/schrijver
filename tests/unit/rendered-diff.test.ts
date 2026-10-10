@@ -100,6 +100,23 @@ describe('renderedDiff', () => {
 		]);
 	});
 
+	it('keeps the outline level a heading was rendered with, changed, added or not', () => {
+		const below = (md: string) => markdownToHtml(md, sanitize, undefined, 3);
+		const blocks = renderedDiff(
+			'# De kop van de pagina\n\nTekst.\n',
+			'# De kop van deze pagina\n\nTekst.\n\n## Nieuw\n',
+			below,
+			doc
+		);
+		expect(kinds(blocks)).toEqual(['gewijzigd', 'gelijk', 'toegevoegd']);
+		const headings = [...parse(sanitize(toHtml(blocks, doc))).querySelectorAll('h1, h2')];
+		expect(headings.map((h) => [h.localName, h.getAttribute('aria-level')])).toEqual([
+			['h1', '4'],
+			['h1', '4'],
+			['h2', '5']
+		]);
+	});
+
 	it('shows a changed code block as a removal and an addition without marks inside it', () => {
 		const blocks = compare('```js\nconst a = 1;\n```\n', '```js\nconst a = 2;\n```\n');
 		expect(kinds(blocks)).toEqual(['verwijderd', 'toegevoegd']);

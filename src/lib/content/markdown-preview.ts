@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import type { Element, Properties } from 'hast';
+import type { Element, Properties, Root as HtmlRoot } from 'hast';
 import type { Code, Definition, Html, Image, ImageReference, Paragraph, Root } from 'mdast';
 import rehypeStringify from 'rehype-stringify';
 import remarkGfm from 'remark-gfm';
@@ -121,6 +121,22 @@ function mimeOf(path: string): string {
 	return `image/${ext}`;
 }
 
+const HEADING = /^h([1-6])$/;
+
+/** Headings keep their look, but sit below the heading of level `below` in the outline of the page. */
+function outlineLevels() {
+	return (tree: HtmlRoot, file: { data: Record<string, unknown> }) => {
+		const below = file.data.below as number | undefined;
+		if (!below) return;
+		const walk = (node: { type: string; children?: unknown[] }) => {
+			const depth = node.type === 'element' ? HEADING.exec((node as Element).tagName)?.[1] : null;
+			if (depth) (node as Element).properties.ariaLevel = Math.min(6, below + Number(depth));
+			for (const child of node.children ?? []) walk(child as { type: string });
+		};
+		walk(tree);
+	};
+}
+
 function codeHandler(_state: unknown, node: Code): Element {
 	const text = { type: 'text' as const, value: node.value };
 	if (node.lang === 'mermaid') {
@@ -143,6 +159,7 @@ const processor = unified()
 	.use(markUnsupported)
 	.use(rewriteImages)
 	.use(remarkRehype, { allowDangerousHtml: false, handlers: { code: codeHandler } })
+	.use(outlineLevels)
 	.use(rehypeStringify);
 
 let browserPurify: Sanitize | undefined;
@@ -154,11 +171,13 @@ function defaultSanitize(html: string): string {
 	return browserPurify(html);
 }
 
+/** With `below`, the headings of the text follow a heading of that level in the outline of the page. */
 export function markdownToHtml(
 	md: string,
 	sanitize: Sanitize = defaultSanitize,
-	resolveImage?: ResolveImage
+	resolveImage?: ResolveImage,
+	below?: number
 ): string {
-	const html = String(processor.processSync({ value: md, data: { resolveImage } }));
+	const html = String(processor.processSync({ value: md, data: { resolveImage, below } }));
 	return sanitize(html);
 }

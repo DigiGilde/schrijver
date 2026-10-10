@@ -17,6 +17,14 @@ describe('markdownToHtml', () => {
 		expect(render('## Sub')).toContain('<h2>Sub</h2>');
 	});
 
+	it('places headings below the heading of the page they appear under, and keeps their look', () => {
+		const html = markdownToHtml('# Een\n\n## Twee\n\n###### Zes', sanitize, undefined, 2);
+		expect(html).toContain('<h1 aria-level="3">Een</h1>');
+		expect(html).toContain('<h2 aria-level="4">Twee</h2>');
+		expect(html).toContain('<h6 aria-level="6">Zes</h6>');
+		expect(render('# Een')).toBe('<h1>Een</h1>');
+	});
+
 	it('renders a GFM table', () => {
 		const html = render('| a | b |\n| - | - |\n| 1 | 2 |\n');
 		expect(html).toContain('<table>');

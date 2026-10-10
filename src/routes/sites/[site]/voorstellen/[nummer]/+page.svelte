@@ -38,9 +38,14 @@
 
 	const items = $derived(data.gesprek?.items ?? []);
 
-	/* Rendered in the browser: the sanitiser needs a DOM. Until then the text shows as it is. */
+	/*
+	 * Rendered in the browser: the sanitiser needs a DOM. Until then the text shows as it is. Its
+	 * headings come below the h2 of Gesprek.
+	 */
 	$effect(() => {
-		weergave = Object.fromEntries(items.map((item) => [item.id, markdownToHtml(item.text)]));
+		weergave = Object.fromEntries(
+			items.map((item) => [item.id, markdownToHtml(item.text, undefined, undefined, 2)])
+		);
 	});
 
 	$effect(() => {

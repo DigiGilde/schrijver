@@ -8,6 +8,19 @@ const huidigeStap = (page: Page, naam: string) =>
 const zin = (page: Page) => page.locator('nldd-text.zin');
 const gesprek = (page: Page) => page.locator('ol.gesprek > li');
 
+/** The headings as Chromium's accessibility tree has them: Playwright takes the level of an h1 from its tag. */
+async function outline(page: Page): Promise<[string, number][]> {
+	const client = await page.context().newCDPSession(page);
+	const { nodes } = await client.send('Accessibility.getFullAXTree');
+	await client.detach();
+	return nodes
+		.filter((node) => node.role?.value === 'heading' && !node.ignored)
+		.map((node) => [
+			String(node.name?.value),
+			Number(node.properties?.find((property) => property.name === 'level')?.value.value)
+		]);
+}
+
 // The merge changes main of the forge that all specs share. On a page no other spec edits, their
 // saves meet no newer version, whatever order the spec files run in.
 test('sends in, asks for an adjustment, sends in again, reacts and merges', async ({ page }) => {
@@ -82,7 +95,17 @@ test('sends in, asks for an adjustment, sends in again, reacts and merges', asyn
 	).toBeVisible();
 	await expect(page.locator('pre.bron ins').filter({ hasText: 'Voorstel door e2e' })).toBeVisible();
 	await page.getByRole('radio', { name: 'Hele pagina' }).click();
-	await expect(page.getByRole('heading', { name: 'Locaties' })).toBeVisible();
+	// The headings of the page sit under its title, an h3, in the outline.
+	await expect
+		.poll(() => outline(page))
+		.toEqual(
+			expect.arrayContaining([
+				['Hybride werken', 3],
+				['Hybride werken', 4],
+				['Locaties', 5],
+				['Beatrixpark', 6]
+			])
+		);
 
 	// Sent in: on this site without four eyes, the writer who is an editor decides.
 	await page.getByRole('button', { name: 'Insturen' }).click();
@@ -206,11 +229,16 @@ test('shows a reaction as text, with links that open a new tab and nothing that 
 	await page.getByRole('link', { name: 'Bekijk voorstel' }).click();
 	const veld = page.getByRole('textbox', { name: 'Je reactie' });
 	await veld.fill(
-		'Zie [de licentie](https://example.org/licentie) en **dit**.\n\n<img src=x onerror="window.geraakt=1">\n\n<script>window.geraakt=2</script>'
+		'# Een kop in een reactie\n\nZie [de licentie](https://example.org/licentie) en **dit**.\n\n<img src=x onerror="window.geraakt=1">\n\n<script>window.geraakt=2</script>'
 	);
 	await page.getByRole('button', { name: 'Plaats reactie' }).click();
 	const item = gesprek(page).filter({ hasText: 'de licentie' });
 	await expect(item.locator('strong')).toHaveText('dit');
+	// Below Gesprek, an h2, in the outline; it looks like the first heading of a text.
+	await expect(item.locator('h1')).toHaveText('Een kop in een reactie');
+	await expect
+		.poll(() => outline(page))
+		.toEqual(expect.arrayContaining([['Een kop in een reactie', 3]]));
 	const link = item.getByRole('link', { name: 'de licentie (opent in nieuw tabblad)' });
 	await expect(link).toHaveAttribute('target', '_blank');
 	await expect(link).toHaveAttribute('rel', 'noopener noreferrer');

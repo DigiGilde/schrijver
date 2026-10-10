@@ -70,8 +70,9 @@
 			klaar = true;
 			return;
 		}
+		// Below the h3 that titles this page.
 		const render = (md: string, side: 'before' | 'after') =>
-			markdownToHtml(md, undefined, images?.[side]);
+			markdownToHtml(md, undefined, images?.[side], 3);
 		if (before === null || after === null) {
 			plainHtml = before === null ? render(nieuw.body, 'after') : render(old.body, 'before');
 		} else {

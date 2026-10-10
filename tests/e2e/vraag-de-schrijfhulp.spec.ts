@@ -30,6 +30,19 @@ const annotations = (page: Page) =>
 			(document.querySelector('nldd-text-editor') as unknown as { annotations: unknown[] })
 				.annotations.length
 	);
+/** The headings as Chromium's accessibility tree has them: Playwright takes the level of an h1 from its tag. */
+async function outline(page: Page): Promise<[string, number][]> {
+	const client = await page.context().newCDPSession(page);
+	const { nodes } = await client.send('Accessibility.getFullAXTree');
+	await client.detach();
+	return nodes
+		.filter((node) => node.role?.value === 'heading' && !node.ignored)
+		.map((node) => [
+			String(node.name?.value),
+			Number(node.properties?.find((property) => property.name === 'level')?.value.value)
+		]);
+}
+
 /** The heading above a comparison in the text column. */
 const vergelijking = (page: Page, naam: string) =>
 	page.getByRole('heading', { name: naam, level: 2, exact: true });
@@ -240,6 +253,11 @@ test('the comparison names the page by its title, with its path and the changes 
 		kolom.getByRole('heading', { name: 'docs/index.md' }),
 		'the path is no heading of its own'
 	).toHaveCount(0);
+	await kolom.getByRole('radio', { name: 'Hele pagina' }).click();
+	await expect(kolom.locator('h1')).toHaveText('Het Digi Handboek');
+	await expect
+		.poll(() => outline(page), 'the headings of the text sit under the title of the comparison')
+		.toEqual(expect.arrayContaining([['Het Digi Handboek', 4]]));
 });
 
 test('an image in the text shows in the comparison, as in Voorbeeld', async ({ page }) => {
