@@ -187,4 +187,4 @@ Schrijver matches every event to a site by the repository's numeric id:
 
 A webhook reaches one replica only, so run Schrijver with exactly one replica.
 
-When a later change to `.schrijver/` is not valid, Schrijver keeps working with the last valid structure and shows the problem to the site's admins, on the start page ("De instellingen in de repository kloppen niet") and on its beheer page. A site whose files were never valid, or that Schrijver could not read since it started, cannot be edited until they are.
+When a later change to `.schrijver/` is not valid, Schrijver keeps working with the last valid structure and shows the problem to the site's admins, on the start page ("De structuur in .schrijver klopt niet") and on its beheer page. A site whose files were never valid, or that Schrijver could not read since it started, cannot be edited until they are.
