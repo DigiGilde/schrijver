@@ -8,7 +8,7 @@ import {
 	pendingBytes
 } from '$lib/client/pending-images';
 import { actorPseudonym, identitiesFor, identityFor } from '$lib/auth/identity';
-import { siteSettings } from '$lib/auth/team-store';
+import { recordWriter, siteSettings } from '$lib/auth/team-store';
 import { save } from '$lib/forge/save';
 import { log } from '$lib/log';
 import { IMAGE_SCANS_SPENT, imageScanLimit, newProposalLimit } from '$lib/server/security';
@@ -110,6 +110,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		}
 	);
 	if (result.ok) {
+		await recordWriter(site.id, result.prNumber, sub);
 		log.info('save.ok', {
 			site: site.id,
 			pr: result.prNumber,

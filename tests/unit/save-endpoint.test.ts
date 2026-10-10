@@ -24,10 +24,12 @@ import { POST } from '../../src/routes/api/sites/[site]/opslaan/+server';
 import { log } from '../../src/lib/log';
 import { save } from '../../src/lib/forge/save';
 import { identityFor } from '../../src/lib/auth/identity';
+import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { settingsOf, useTeams } from './team-fixture';
 
+let team: MemoryTeamStore;
 beforeEach(async () => {
-	await useTeams([settingsOf('digi', { identiteitToegestaan: ['anoniem', 'gekoppeld'] })]);
+	team = await useTeams([settingsOf('digi', { identiteitToegestaan: ['anoniem', 'gekoppeld'] })]);
 });
 
 const good = {
@@ -85,6 +87,39 @@ describe('POST /api/sites/[site]/opslaan', () => {
 			actor: 'p-jan'
 		});
 		expect(JSON.stringify(vi.mocked(log.info).mock.calls)).not.toContain('@');
+	});
+
+	it('records who writes in the proposal, at the save that opens it and every later one', async () => {
+		for (const sub of ['jan', 'piet'])
+			await team.recordLogin({ sub, name: sub, email: `${sub}@example.org`, emailVerified: true });
+		await call({ sub: 'jan' });
+		await call({ sub: 'piet', body: { ...good, branch: 'schrijver/x', prNumber: 3 } });
+		await call({ sub: 'jan', body: { ...good, branch: 'schrijver/x', prNumber: 3 } });
+		expect(await team.writers('digi', 3)).toEqual(['jan', 'piet']);
+	});
+
+	it('records nobody for a save that did not happen', async () => {
+		await team.recordLogin({
+			sub: 'jan',
+			name: 'Jan',
+			email: 'jan@example.org',
+			emailVerified: true
+		});
+		vi.mocked(save).mockResolvedValueOnce({ ok: false, error: { message: 'Nee' }, status: 409 });
+		await call({ sub: 'jan' });
+		expect(await team.writers('digi', 3)).toEqual([]);
+	});
+
+	it('keeps a save when its writer cannot be recorded, and logs that without the person', async () => {
+		vi.mocked(log.warn).mockClear();
+		const res = await call({ sub: 'zonder-profiel' });
+		expect(res.status).toBe(200);
+		expect(log.warn).toHaveBeenCalledWith('proposal.writer_not_recorded', {
+			site: 'digi',
+			pr: 3,
+			error: 'Error'
+		});
+		expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('zonder-profiel');
 	});
 
 	it('logs how many files a save deleted', async () => {

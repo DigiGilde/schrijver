@@ -315,7 +315,7 @@ export class MemoryTeamStore implements TeamStore {
 	async writers(siteId: string, number: number) {
 		return this.writerRows
 			.filter((w) => w.siteId === siteId && w.number === number)
-			.sort((a, b) => a.firstAt.getTime() - b.firstAt.getTime() || a.sub.localeCompare(b.sub))
+			.sort((a, b) => a.firstAt.getTime() - b.firstAt.getTime())
 			.map((w) => w.sub);
 	}
 

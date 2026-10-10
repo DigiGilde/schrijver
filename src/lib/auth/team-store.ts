@@ -52,6 +52,31 @@ export async function siteSettings(
 	return seeded;
 }
 
+/**
+ * Notes that Schrijver committed to a proposal for this user. A failure is only logged: the commit is
+ * made, and four eyes still reads its signature.
+ */
+export async function recordWriter(siteId: string, number: number, sub: string): Promise<void> {
+	try {
+		await teamStore().recordWriter(siteId, number, sub);
+	} catch (err) {
+		log.warn('proposal.writer_not_recorded', { site: siteId, pr: number, ...errorFields(err) });
+	}
+}
+
+/**
+ * Who Schrijver recorded as writing in a proposal, the first first. None when they cannot be read:
+ * four eyes then falls back to the signatures, which block where they cannot tell.
+ */
+export async function recordedWriters(siteId: string, number: number): Promise<string[]> {
+	try {
+		return await teamStore().writers(siteId, number);
+	} catch (err) {
+		log.warn('proposal.writers_failed', { site: siteId, pr: number, ...errorFields(err) });
+		return [];
+	}
+}
+
 /** At every login: the profile, and the invitations for the verified address become memberships. */
 export async function recordLogin(session: Session): Promise<void> {
 	const claimed = await teamStore().recordLogin({

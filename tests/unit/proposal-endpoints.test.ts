@@ -456,7 +456,14 @@ describe('four eyes, on every way to the merge', () => {
 	const ONBEKEND =
 		'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.';
 	const ZELF = 'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.';
+	const MEE = 'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.';
 	let sha: string;
+
+	/** Someone on the redactie of the site, known only by sub and verified address. */
+	async function redacteur(sub: string) {
+		await team.recordLogin({ sub, name: sub, email: `${sub}@team.example`, emailVerified: true });
+		await team.addByEmail('moza', `${sub}@team.example`, 'redactie', 'baas');
+	}
 
 	const merge = (opts: Parameters<typeof call>[1] = {}) =>
 		call(mergen, { sub: RED, ...opts, body: { sha, ...(opts.body as object) } });
@@ -497,8 +504,34 @@ describe('four eyes, on every way to the merge', () => {
 			body: 'Op GitHub gemaakt.\n\nSchrijver-Auteur: iemandanders'
 		});
 		await refused(await merge({ who: 'iemand', gekoppeld: 'jan' }), ZELF);
-		await refused(await merge({ who: 'iemand' }), ONBEKEND);
-		expect((await merge({ who: 'iemand', gekoppeld: 'piet' })).status).toBe(200);
+		// Without a linked account the reader is not that GitHub user, who decides on GitHub.
+		expect((await merge({ who: 'iemand' })).status).toBe(200);
+	});
+
+	it('refuses the writers Schrijver recorded, and lets another editor merge without comparing', async () => {
+		forge.prs.get(1)!.body =
+			'Voorgesteld.\n\nCo-authored-by: jan <313+jan@users.noreply.github.com>';
+		for (const sub of ['schrijver', 'meeschrijver']) {
+			await redacteur(sub);
+			await team.recordWriter('moza', 1, sub);
+		}
+		await refused(await merge({ sub: 'schrijver', who: 'x' }), ZELF);
+		await refused(await merge({ sub: 'meeschrijver', who: 'y' }), MEE);
+		expect((await merge({ who: 'derde' })).status).toBe(200);
+	});
+
+	it('falls back to the signatures when the records cannot be read', async () => {
+		forge.prs.get(1)!.body =
+			'Voorgesteld.\n\nCo-authored-by: jan <313+jan@users.noreply.github.com>';
+		await redacteur('schrijver');
+		await team.recordWriter('moza', 1, 'schrijver');
+		vi.spyOn(team, 'writers').mockRejectedValueOnce(new Error('database weg'));
+		await refused(await merge({ who: 'derde' }), ONBEKEND);
+		expect(log.warn).toHaveBeenCalledWith('proposal.writers_failed', {
+			site: 'moza',
+			pr: 1,
+			error: 'Error'
+		});
 	});
 
 	it('still knows the writer who unlinked the GitHub account they signed with', async () => {
@@ -516,15 +549,11 @@ describe('four eyes, on every way to the merge', () => {
 		expect((await merge({ who: 'iemand', gekoppeld: 'piet' })).status).toBe(200);
 	});
 
-	it('cannot tell who wrote a commit pushed on GitHub without a linked account', async () => {
+	it("takes a commit pushed on GitHub as its account's: only who linked it wrote along", async () => {
 		forge.commitOnGitHub('o/moza', 'b', [{ path: 'content/a.md', content: 'fix' }], 'Fix', 'jan');
 		sha = (await forge.getPr('o/moza', 1)).headSha;
-		await refused(await merge({ who: 'derde' }), ONBEKEND);
-		await refused(
-			await merge({ who: 'derde', gekoppeld: 'jan' }),
-			'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.'
-		);
-		expect((await merge({ who: 'derde', gekoppeld: 'piet' })).status).toBe(200);
+		await refused(await merge({ who: 'derde', gekoppeld: 'jan' }), MEE);
+		expect((await merge({ who: 'derde' })).status).toBe(200);
 	});
 
 	it('fails closed when GitHub does not say which account the App is', async () => {

@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { identitiesFor, identityFor } from '$lib/auth/identity';
 import { canManageSite } from '$lib/auth/roles';
-import { siteSettings } from '$lib/auth/team-store';
+import { recordedWriters, siteSettings } from '$lib/auth/team-store';
 import type { SiteConfig } from '$lib/config/types';
 import { parsePage } from '$lib/content/frontmatter';
 import { pageTitle } from '$lib/content/schema-form';
@@ -122,8 +122,11 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
 		let blocked: keyof typeof FOUR_EYES | null = null;
 		if (deciding && settings.vierOgen) {
-			const commits = await forge.prCommits(site.repo, nummer).catch(() => null);
-			const reason = commits ? fourEyes(authorship(pr, commits, user, app)) : 'onbekend';
+			const [commits, writers] = await Promise.all([
+				forge.prCommits(site.repo, nummer).catch(() => null),
+				recordedWriters(site.id, nummer)
+			]);
+			const reason = commits ? fourEyes(authorship(pr, commits, user, app, writers)) : 'onbekend';
 			if (reason && !(await canManageSite(site, user, forge))) blocked = reason;
 		}
 		let approvalMissing = false;

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { canManageSite } from '$lib/auth/roles';
+import { recordedWriters } from '$lib/auth/team-store';
 import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
@@ -32,7 +33,8 @@ export const POST: RequestHandler = proposalAction(
 		}
 		const commits = await forge.prCommits(site.repo, pr.number);
 		if (settings.vierOgen) {
-			const reason = fourEyes(authorship(pr, commits, user, await appAccount(forge)));
+			const writers = await recordedWriters(site.id, pr.number);
+			const reason = fourEyes(authorship(pr, commits, user, await appAccount(forge), writers));
 			if (reason && !(await canManageSite(site, user, forge))) {
 				return refuse(403, `${FOUR_EYES[reason]} Een ander lid van de redactie voegt het samen.`);
 			}

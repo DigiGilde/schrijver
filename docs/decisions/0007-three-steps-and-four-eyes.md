@@ -22,3 +22,18 @@ The owner looked at a sent-in proposal as a member of the redactie and could not
 - Four eyes in Schrijver rest on the identity trailers and the linked GitHub account. A member of the redactie known only by e-mail address cannot merge a proposal signed with a GitHub account or made on GitHub, because Schrijver cannot tell whether it is theirs. A writer whose e-mail address changed is no longer recognised, and rotating the pseudonym secret makes earlier anonymous proposals unrecognisable too. Branch protection on GitHub remains the hard guarantee, and anyone who can merge on GitHub can still do so there.
 - Reactions, requests for an adjustment and re-sends share a limit of ten per minute per person, because what they post goes out under the App's name.
 - The proposal page asks GitHub for its review decision, its comments and reviews and, for four eyes, its commits on every view; these are not cached, so the page shows a decision as soon as GitHub has it.
+
+## Addendum, 2026-10-10: who wrote it, from Schrijver's own record
+
+Point 5 treated the reader as the writer wherever Schrijver could not tell. On a site where most proposals come from GitHub, a member of the redactie known only by e-mail address could then decide on almost nothing. Four eyes now knows the writer instead of guessing:
+
+1. **Schrijver records who writes.** Whenever it commits to a proposal for someone (the save that opens it, every later save through "Verder bewerken", a new page), it records their `sub` for that proposal in `proposal_writers`, with the time of their first commit. For a proposal its App made, the reader wrote it when their `sub` is recorded: the first recorded writer made it, a later one wrote along. A signature that is the reader's still counts, for a writer from before the record; a signature that cannot be compared no longer blocks. Only where nothing is recorded (a proposal from before this table, or made by another instance of Schrijver) do the signatures decide, and "cannot tell" still blocks there.
+2. **What is made on GitHub belongs to its GitHub account.** A proposal opened on GitHub, or a commit pushed there (also one that GitHub ties to no account), is the reader's only when it was made under their linked GitHub login. A reader without a linked GitHub account is not that writer. Only GitHub accounts with write permission can push a branch to the repository; they can merge on GitHub anyway, where the branch protection of the repository governs their four eyes. Blocking a colleague known only by e-mail address adds no protection there.
+
+Consequences:
+
+- This replaces the third consequence above: an editor known only by e-mail address decides on proposals made on GitHub, and on recorded proposals whatever their signature.
+- A site admin still merges despite four eyes; site admins now have one definition (decision 0008): a beheerder of the site, a platform admin, or a linked GitHub account with admin permission on the repository.
+- "Cannot tell" still blocks without a record: a signature the reader holds no identity of the kind for, no signature, a list of commits as long as GitHub gives, and a GitHub that does not say which account the App is. With a record, only the long list still blocks, and only a reader with a linked GitHub account.
+- When the record cannot be read, four eyes falls back to the signatures. A record that cannot be written is logged and the save stands; its signature still counts.
+- The record is personal data: a `sub` per proposal. It goes with the profile of someone who is forgotten after twelve months; until then it stays, also for proposals that are closed.

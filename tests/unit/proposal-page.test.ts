@@ -15,6 +15,7 @@ vi.mock('../../src/lib/log', async (original) => ({
 import { buildFakeServices } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/sites/[site]/voorstellen/[nummer]/+page.server';
+import type { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeams } from './team-fixture';
 
 const REPO = 'DigiGilde/handboek';
@@ -73,6 +74,8 @@ async function proposal(slug: string, files: Record<string, string>): Promise<nu
 const EDITOR = 'redacteur';
 // On the redactie of the MOZa site, which asks for four eyes and, in the fake, an approval on GitHub.
 const MOZA_EDITOR = 'moza-redacteur';
+const MOZA_OTHER_EDITOR = 'moza-redacteur-2';
+let team: MemoryTeamStore;
 
 async function visit(nummer: number, { query = '', sub = session.sub } = {}): Promise<Data> {
 	return (await load({
@@ -88,9 +91,9 @@ beforeAll(async () => {
 	forge = services.forge;
 	setForge(forge);
 	setConfigStore(services.store);
-	await useTeams(services.store.sites(), {
+	team = await useTeams(services.store.sites(), {
 		'digi-handboek': { [EDITOR]: 'redactie' },
-		'moza-site': { [MOZA_EDITOR]: 'redactie' }
+		'moza-site': { [MOZA_EDITOR]: 'redactie', [MOZA_OTHER_EDITOR]: 'redactie' }
 	});
 });
 
@@ -322,6 +325,44 @@ describe('what now', () => {
 		);
 		expect((await open('moza-site', lezer)).watNu.sentence).toBe(
 			'De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.'
+		);
+	});
+
+	it('knows the writer Schrijver recorded, where the signature cannot be compared', async () => {
+		const nummer = await make(
+			'moza-site',
+			{ 'content/zeven-c.md': 'Zeven\n' },
+			{ sent: true, body: 'Co-authored-by: jan <313+jan@users.noreply.github.com>' }
+		);
+		const sentence = async (sub: string) =>
+			(await open('moza-site', nummer, { sub })).watNu.sentence;
+		expect(await sentence(MOZA_OTHER_EDITOR)).toMatch(/^Schrijver kan niet nagaan/);
+		await team.recordWriter('moza-site', nummer, MOZA_EDITOR);
+		expect(await sentence(MOZA_EDITOR)).toBe(
+			'Je schreef dit voorstel zelf. Een ander lid van de redactie beslist.'
+		);
+		expect(await sentence(MOZA_OTHER_EDITOR)).toBe(
+			'Deze site vraagt eerst een goedkeuring op GitHub. Daarna kun je hier samenvoegen.'
+		);
+	});
+
+	it('follows four eyes as the site settings have it', async () => {
+		const nummer = await make(
+			'moza-site',
+			{ 'content/zeven-d.md': 'Zeven\n' },
+			{ door: MOZA_EDITOR, sent: true }
+		);
+		const settings = (await team.settings('moza-site'))!;
+		await team.saveSettings('moza-site', { ...settings, vierOgen: false }, 'baas');
+		try {
+			expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.sentence).toMatch(
+				/^Deze site vraagt eerst een goedkeuring op GitHub\./
+			);
+		} finally {
+			await team.saveSettings('moza-site', settings, 'baas');
+		}
+		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.sentence).toMatch(
+			/^Je schreef dit voorstel zelf\./
 		);
 	});
 
