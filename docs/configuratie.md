@@ -45,7 +45,7 @@ A list of sites. Keys are in Dutch.
 
 "Voorbeeld" draws Mermaid diagrams the way the MOZa site's build does (NLDD colours, RijksSans, the `nldd:` icons from the design system, a light and a dark variant), for every site. Only the token colours are per site.
 
-Anyone signed in may propose on any site whose repository has the App installed. Editorial may also approve, comment and merge.
+Anyone signed in may propose on any site whose repository has the App installed. Editorial may also react, ask for an adjustment and merge, the latter not on a proposal they wrote while `vier-ogen` is on; approving happens on GitHub.
 
 ## Schema (schemas/\<id\>.yaml)
 

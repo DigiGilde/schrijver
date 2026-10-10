@@ -2,6 +2,8 @@
 
 Date: 2026-10-08. Status: accepted.
 
+[0007](0007-three-steps-and-four-eyes.md) builds on this: one decision in Schrijver (merge or ask for an adjustment), the conversation in Schrijver and four eyes.
+
 ## Context
 
 Schrijver acts on GitHub as a GitHub App: the App opens the pull request and is its author (decision 0002, spec 7.2). GitHub does not let a pull request author approve its own pull request, and an approval posted with the App token would belong to the bot, not to the editorial member who clicked. On a site with a required human review (MOZa) such an approval would count for nothing, and on every site the button would be refused.

@@ -35,7 +35,7 @@ In scope:
 - Mermaid: fenced block, rendered in the "Voorbeeld" view, text description required.
 - Save creates or updates a branch and draft PR. Send in marks it ready for review and requests reviewers.
 - Proposal list per site, read live from GitHub, including PRs made outside Schrijver.
-- Review in Schrijver: readable diff, preview link, approve, comment, merge (squash) when the site allows it and the user is editorial.
+- Review in Schrijver: readable diff, preview link, the conversation of the pull request, reactions of the writer and the redactie, a request for an adjustment, and merge (squash) when the site allows it, the user is editorial and did not write the proposal (decision 0007).
 - VLAM assistant in a side panel with fixed actions and a free prompt; suggestions as annotations, never direct edits.
 - Project documentation (section 12).
 
@@ -71,6 +71,7 @@ Configuration lives in a **private** repository `schrijver-config`, following th
   review:
     model: goedkeuring            # goedkeuring | direct
     mergen-vanuit-schrijver: true
+    vier-ogen: true               # the writer does not merge their own proposal
     redactie:
       - naam@rijksoverheid.nl
   identiteit:
@@ -108,7 +109,7 @@ Configuration lives in a **private** repository `schrijver-config`, following th
 
 `model: direct` means Send in merges immediately when GitHub allows it; the PR still exists for history.
 
-**Who may do what.** Anyone signed in may propose on any site whose repository has the App installed. Editorial (`redactie`) is the union of the e-mail list in `sites.yaml` and users who linked a GitHub account in onboarding and have push permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may approve, comment and merge from Schrijver.
+**Who may do what.** Anyone signed in may propose on any site whose repository has the App installed. Editorial (`redactie`) is the union of the e-mail list in `sites.yaml` and users who linked a GitHub account in onboarding and have push permission on the repository (checked with `GET /repos/{owner}/{repo}/collaborators/{username}/permission`, which needs only Metadata: read). Editorial may react, ask for an adjustment and merge from Schrijver; the writer of a proposal may react and send it in again. With `review.vier-ogen` (on by default) nobody merges a proposal they wrote, and where Schrijver cannot tell who wrote it, it assumes the reader did; a site admin may still merge (for now: a linked GitHub account with admin permission on the repository). Approving stays on GitHub (decisions 0005 and 0007).
 
 ### 4.2 Schema per site (`schemas/<id>.yaml`)
 
@@ -198,10 +199,10 @@ Rate limits: installation tokens have 5000 requests per hour per installation (t
 2. **First save** ("Concept bewaren") creates the branch and a draft PR titled with the page title. Each later save is a commit. See 7.4 for what this means on a public repository.
 3. **Return later**: Schrijver lists the user's open proposals by matching the identity trailer (section 7.2) in the PR body, plus all open proposals of the site for editorial.
 4. **Send in** marks the PR ready, sets the `preview` label where the site uses one, fills the description (what changed, which page, "menu bijwerken" when it is a new page), requests reviewers from `redactie` who have a linked GitHub login, and notifies the editorial list by e-mail if ZAD offers mail (otherwise this step is a visible to-do in the proposal list).
-5. **Review** in Schrijver or on GitHub. Schrijver shows the changes in colour on the rendered page: a block diff with word marks, in the views "Wijzigingen" (the changes with one block of context), "Hele pagina" and "Brontekst" (decision 0006). Next to it the preview URL and its build status, and the GitHub review state.
-6. **Merge** from Schrijver as squash, only for editorial and only when `mergen-vanuit-schrijver` is true. The squash message carries the identity trailers of every contributing commit.
+5. **Review** in Schrijver or on GitHub. One block at the top of the proposal page says what is expected of the reader and offers the actions for it: three steps (Concept, Ingestuurd, Samengevoegd), and for the redactie one decision, "Samenvoegen" or "Vraag om aanpassing". Schrijver shows the changes in colour on the rendered page: a block diff with word marks and a word on every change (Nieuw, Verwijderd, Was, Wordt), in the views "Wijzigingen" (the changes with one block of dimmed context), "Hele pagina" and "Markdown" (decision 0006). Below it the conversation: every comment and review of the pull request, from Schrijver and from GitHub. A request for an adjustment is a comment plus the label `aanpassing gevraagd`; the writer adjusts and chooses "Opnieuw insturen" (decision 0007).
+6. **Merge** from Schrijver as squash, only for editorial, only when `mergen-vanuit-schrijver` is true, and with `vier-ogen` on not by a writer of the proposal unless a site admin. Where GitHub still waits for a required approval, Schrijver says so and links to GitHub instead. The squash message carries the identity trailers of every contributing commit.
 
-Required review on MOZa (one approval, last-push approval) applies unchanged. Because the App is the PR author, any editorial member can be that reviewer, including the person who wrote the text in Schrijver. Whether that is acceptable per site is an editorial decision, not something Schrijver enforces in version one.
+Required review on MOZa (one approval, last-push approval) applies unchanged; Schrijver reads it as the pull request's review decision. Because the App is the PR author, any member of the redactie can be that reviewer on GitHub, including the person who wrote the text in Schrijver. Schrijver's four eyes keep that writer from merging in Schrijver; branch protection on GitHub remains the hard guarantee.
 
 ### 7.2 Commit identity
 

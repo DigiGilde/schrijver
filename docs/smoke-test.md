@@ -27,9 +27,17 @@ Budget: about 30 minutes.
 - [ ] Sign in, finish onboarding with "Anoniem", open the site and `index.md`.
 - [ ] Edit the text, add an image with alt text, click "Concept bewaren". Expect "Concept bewaard als voorstel #N"; "Voorbeeld" in the editor toolbar shows the image.
 - [ ] Close the tab. Open the site again: under "Pagina's" the page row shows "Verder met je voorstel", under "Voorstellen" the proposal row shows "Verder bewerken". Follow it, edit again and click "Opslaan". Expect the same number #N.
-- [ ] Open the proposal (its row under "Voorstellen"). Status "Concept", the step bar on "Concept"; under "Wijzigingen" both saves show in colour.
-- [ ] Click "Insturen". Expect status "Ingestuurd" and the step bar on "Ingestuurd". As a member of the site's `redactie`, expect "Voorstellen (1)" on the site and the proposal under "Te beoordelen".
-- [ ] Optionally approve on GitHub with another account, then click "Samenvoegen" in Schrijver. Expect status "Samengevoegd".
+- [ ] Open the proposal (its row under "Voorstellen"). The step bar is on "Concept" and the block under the title asks you to send it in; under "Wat er verandert" both saves show in colour, each change with a word such as "Nieuw".
+- [ ] Click "Insturen". Expect the step bar on "Ingestuurd". As a member of the site's `redactie`, expect "Voorstellen (1)" on the site and the proposal under "Te beoordelen". With `vier-ogen: true` the block says "Je schreef dit voorstel zelf. Een ander lid van de redactie beslist."; with `vier-ogen: false` it offers "Samenvoegen".
+- [ ] With a second account in the `redactie` (another SSO user, or the first one with `vier-ogen: false`), open the proposal. With the one approving review required on `main`, expect "Deze site vraagt eerst een goedkeuring op GitHub" and "Goedkeuren op GitHub" opening the files view of the pull request: this is `reviewDecision` answering `REVIEW_REQUIRED`. Approve on GitHub with an account that may, reload, and expect "Jij beslist" with "Samenvoegen".
+- [ ] Remove the required review from `main` (or use a second throw-away repository without one) and open another sent-in proposal: expect "Jij beslist" at once, `reviewDecision` answering `null`.
+
+## 3a. Conversation and adjustment
+
+- [ ] On a sent-in proposal, place a comment on GitHub and submit a review with a comment on a line. In Schrijver, under "Gesprek", expect the comment under your GitHub login with "Op GitHub", and the review as "Plaatste opmerkingen in de tekst op GitHub" with a link.
+- [ ] As the editor, click "Vraag om aanpassing", write a request and send it. On GitHub, expect a comment by the App that starts with "**Vraag om aanpassing van de redactie via Schrijver** (...)" (the `<!-- schrijver -->` marker above it shows only in the raw text) and the label `aanpassing gevraagd` next to the labels the pull request had. If GitHub refuses the label, create it once under the repository's labels and try again.
+- [ ] In Schrijver, expect the request in "Gesprek" under the editor's name as their identity choice allows, with "Redactie" and "Vraagt om een aanpassing"; this shows that Schrijver recognises its own App account (`GET /app`). As the writer, expect "De redactie vraagt je iets aan te passen" and "Opnieuw insturen"; choose it and expect the label gone, the other labels still there.
+- [ ] As the writer, place a reaction from Schrijver. On GitHub it carries "**Reactie van de schrijver via Schrijver**"; in Schrijver it shows as the writer's.
 
 ## 4. Verify on GitHub
 
