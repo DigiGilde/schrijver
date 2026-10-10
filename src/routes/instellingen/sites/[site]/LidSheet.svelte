@@ -69,7 +69,7 @@
 		if (zichtbaarheid === 'team') {
 			const ziet = jij ? `Je ziet ${site} dan niet meer` : `${naam} ziet ${site} dan niet meer`;
 			if (openbaar !== false) return `${ziet} in Schrijver.`;
-			return `${ziet} in Schrijver, tenzij ${jij ? 'je' : 'die'} de repository op GitHub mag lezen.`;
+			return `${ziet} in Schrijver, tenzij ${jij ? 'je' : 'die'} met een gekoppeld GitHub-account de repository mag lezen.`;
 		}
 		if (lid.rol === 'bijdrager') {
 			return `${jij ? 'Je kunt' : `${naam} kan`} dan nog steeds voorstellen maken, zoals iedereen die inlogt.`;

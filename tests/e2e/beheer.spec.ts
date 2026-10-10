@@ -328,7 +328,7 @@ test('on a private repository only the team sees the site, which its admins cann
 	await expect(form.getByText('Alleen het team', { exact: true })).toBeVisible();
 	await expect(
 		form.getByText(
-			'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+			'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie met een gekoppeld GitHub-account de repository mag lezen.'
 		)
 	).toBeVisible();
 	await expect(form.getByRole('radio', { name: 'Iedereen die inlogt' })).toHaveCount(0);

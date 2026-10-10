@@ -290,8 +290,8 @@
 						{:else}
 							<nldd-text>Alleen het team</nldd-text>
 							<nldd-form-field-help-text
-								>{data.repo} is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie de
-								repository op GitHub mag lezen.</nldd-form-field-help-text
+								>{data.repo} is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie met
+								een gekoppeld GitHub-account de repository mag lezen.</nldd-form-field-help-text
 							>
 						{/if}
 					</nldd-form-field>

@@ -894,7 +894,7 @@ test.describe('the Schrijfhulp panel at 1280 px', () => {
 	test('below 1008 px the panel keeps its place below the text', async ({ page }) => {
 		await page.setViewportSize({ width: 900, height: 900 });
 		await openPaneel(page);
-		expect(await meegeschoven(page)).toBe(300);
+		await expect.poll(() => meegeschoven(page)).toBe(300);
 		const text = (await page.locator('nldd-text-editor').boundingBox())!;
 		const box = (await paneel(page).boundingBox())!;
 		expect(box.y, 'below the text').toBeGreaterThanOrEqual(text.y + text.height);

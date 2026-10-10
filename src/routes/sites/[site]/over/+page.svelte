@@ -135,7 +135,8 @@
 				{:else}
 					<p>
 						Concepten zijn niet openbaar. De repository van deze site is niet openbaar: een concept
-						lezen alleen het team in Schrijver en wie de repository op GitHub mag lezen.
+						lezen alleen het team in Schrijver en wie met een gekoppeld GitHub-account de repository
+						mag lezen.
 					</p>
 				{/if}
 			</nldd-rich-text>

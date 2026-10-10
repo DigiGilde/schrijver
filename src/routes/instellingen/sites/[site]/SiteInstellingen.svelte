@@ -119,7 +119,7 @@
 					<nldd-text>Alleen het team</nldd-text>
 					<nldd-form-field-help-text
 						>{openbaar === false
-							? 'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+							? 'De repository op GitHub is niet openbaar. Daarom ziet alleen het team de site, en wie met een gekoppeld GitHub-account de repository mag lezen.'
 							: 'Schrijver weet nog niet of de repository op GitHub openbaar is. Tot dan ziet alleen het team de site.'}</nldd-form-field-help-text
 					>
 				{/if}

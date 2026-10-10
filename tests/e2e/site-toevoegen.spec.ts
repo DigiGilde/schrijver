@@ -194,7 +194,7 @@ test('a private repository becomes a site that only its team sees', async ({ pag
 	await expect(form.getByText('Alleen het team', { exact: true })).toBeVisible();
 	await expect(
 		form.getByText(
-			'DigiGilde/besloten is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie de repository op GitHub mag lezen.'
+			'DigiGilde/besloten is niet openbaar op GitHub. Daarom ziet alleen het team de site, en wie met een gekoppeld GitHub-account de repository mag lezen.'
 		)
 	).toBeVisible();
 	await expect(form.getByRole('radio', { name: 'Iedereen die inlogt' })).toHaveCount(0);
