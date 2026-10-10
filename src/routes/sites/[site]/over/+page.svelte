@@ -147,7 +147,7 @@
 			<nldd-rich-text>
 				<p>
 					De pagina's staan op GitHub in <a href={data.repoUrl}>{data.repo}</a>. Collega's die
-					GitHub kennen, kunnen daar ook direct werken. Hun voorstellen staan ook bij Voorstellen,
+					GitHub kennen, kunnen daar ook direct werken. Hun voorstellen staan ook bij "Voorstellen",
 					met "Via GitHub".
 				</p>
 				<p>

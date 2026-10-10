@@ -143,7 +143,7 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; errors: string[] }
 const SETTINGS =
 	'Je stelt het in bij Beheer van de site in Schrijver, onder Instellingen van de site.';
 const TEAM = 'Het team stel je in bij Beheer van de site in Schrijver.';
-const GITHUB = 'Schrijver weet van GitHub welke repository en welke standaardbranch het is.';
+const GITHUB = 'Schrijver weet van GitHub welke repository het is.';
 
 /** Fields of the old central configuration, and where each is set now. */
 const MOVED: Record<string, string> = {

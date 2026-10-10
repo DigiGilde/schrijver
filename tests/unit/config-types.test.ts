@@ -43,13 +43,20 @@ describe('parseSiteFile', () => {
 		expect(errorsOf(parsed)).toEqual([
 			'naam: hoort niet meer in dit bestand. Je stelt het in bij Beheer van de site in Schrijver, onder Instellingen van de site.',
 			'review: hoort niet meer in dit bestand. Samenvoegen, vier ogen en de redactie stel je in bij Beheer van de site in Schrijver.',
-			'repo: hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository en welke standaardbranch het is.',
+			'repo: hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository het is.',
 			'content.schema: hoort niet meer in dit bestand. Het schema staat in .schrijver/schema.yaml.'
 		]);
 		for (const field of ['id', 'omschrijving', 'adres', 'identiteit', 'team', 'schrijfwijzer']) {
 			expect(errorsOf(parseSiteFile(`${field}: x\n${DIGI}`)), field).toEqual([
 				expect.stringMatching(new RegExp(`^${field}: hoort niet meer in dit bestand. `))
 			]);
+		}
+		// Every beheerder of a site reads these under Structuur: no word of GitHub's own.
+		for (const field of ['forge', 'repo', 'standaardbranch']) {
+			const [error] = errorsOf(parseSiteFile(`${field}: x\n${DIGI}`));
+			expect(error.slice(field.length + 1), field).toBe(
+				' hoort niet meer in dit bestand. Schrijver weet van GitHub welke repository het is.'
+			);
 		}
 	});
 

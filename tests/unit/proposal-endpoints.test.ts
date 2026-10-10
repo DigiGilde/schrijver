@@ -160,7 +160,9 @@ describe('proposal endpoints', () => {
 		await settings(false);
 		const res = await call(mergen, { sub: 'red' });
 		expect(res.status).toBe(403);
-		expect((await res.json()).message).toContain('GitHub');
+		expect((await res.json()).message).toBe(
+			'De instelling "Samenvoegen in Schrijver" staat uit voor deze site. Voeg het voorstel samen op GitHub.'
+		);
 	});
 
 	it('lets a bijdrager or a GitHub account that may only read decide nothing, also on their own proposal', async () => {

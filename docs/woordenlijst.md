@@ -84,13 +84,13 @@ A sentence that points at a control quotes its label with straight double quotes
 
 | Concept | Noun | Verb and labels | Not |
 | --- | --- | --- | --- |
-| A link that only opens something | none | "bekijken" with its object, and "op GitHub" where it leaves Schrijver: "Voorstel bekijken", "Voorstel bekijken op GitHub", "Gesprek bekijken op GitHub", "Reactie bekijken op GitHub", "Rest van de reactie bekijken op GitHub", "Wijzigingen bekijken op GitHub", "Pagina's bekijken op GitHub", "Wijziging bekijken op GitHub", "Bestand bekijken op GitHub", ".schrijver bekijken op GitHub", "Site bekijken", "Voorbeeldsite bekijken"; also "Schrijver-app installeren op GitHub", "Verder naar GitHub", "Uitleg over voorstellen" | "Open", "Lees", "Bekijk ze", "Bekijk haar", "Lees het" |
+| A link that only opens something | none | "bekijken" with its object, and "op GitHub" where it leaves Schrijver: "Voorstel bekijken", "Voorstel bekijken op GitHub", "Gesprek bekijken op GitHub", "Reactie bekijken op GitHub", "Rest van de reactie bekijken op GitHub", "Wijzigingen bekijken op GitHub", "Pagina's bekijken op GitHub", "Wijziging bekijken op GitHub", "Bestand bekijken op GitHub", ".schrijver bekijken op GitHub", "Uitleg over .schrijver bekijken op GitHub", "Site bekijken", "Voorbeeldsite bekijken"; also "Schrijver-app installeren op GitHub", "Verder naar GitHub", "Uitleg over voorstellen" | "Open", "Lees", "Bekijk ze", "Bekijk haar", "Lees het" |
 | Ending, keeping, taking over | none | "Annuleer" abandons, "Sluit" closes, "Verberg" hides, "Gooi weg" discards unsaved text, "Verwerp suggestie", "Houd ..." keeps (the safe way out of a dialog), "Neem ... over" takes over | "Annuleren", "Weggooien", "Overnemen" |
 | Removing and withdrawing | none | the verb follows the object: "Verwijder site", "Haal uit het team", "Trek uitnodiging in", "Ontkoppel GitHub-account", "Gooi weg" | none |
 
 ### GitHub's words
 
-"GitHub" and "repository" are fine. "pull request", "branch", "merge", "review" and "frontmatter" do not appear in anything a colleague reads, in an error message either. "standaardbranch" appears only on the screens for platform admins (Site toevoegen, Structuur). What colleagues read on GitHub itself is not translated.
+"GitHub" and "repository" are fine. "pull request", "branch", "merge", "review" and "frontmatter" do not appear in anything a colleague reads, in an error message either. "standaardbranch" appears only on Site toevoegen, the screen for platform admins; Structuur names a field of `.schrijver/site.yaml` by its key and nothing more. What colleagues read on GitHub itself is not translated.
 
 ## Named exceptions
 

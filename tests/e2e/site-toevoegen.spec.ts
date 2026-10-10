@@ -63,10 +63,9 @@ test('Site toevoegen says why a repository cannot be a site', async ({ page }) =
 
 	await check(page, 'DigiGilde/nieuwsbrief');
 	await expect(status(page, 'DigiGilde/nieuwsbrief heeft nog geen map .schrijver.')).toHaveCount(1);
-	await expect(page.getByRole('link', { name: 'Een site toevoegen' })).toHaveAttribute(
-		'href',
-		/\/docs\/een-site-aansluiten\.md$/
-	);
+	await expect(
+		page.getByRole('link', { name: 'Uitleg over .schrijver bekijken op GitHub' })
+	).toHaveAttribute('href', /\/docs\/een-site-aansluiten\.md$/);
 
 	await check(page, 'DigiGilde/intern');
 	await expect(status(page, 'DigiGilde/intern hoort al bij de site Werkplaats')).toHaveCount(1);

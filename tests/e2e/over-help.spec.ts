@@ -456,7 +456,9 @@ test.describe('the Over page', () => {
 		);
 		await expect(inhoud(page)).not.toContainText('Deze gegevens kun je hier alleen lezen');
 		await expect(bestanden).not.toContainText('configuratierepository');
-		await expect(bestanden).toContainText('met "Via GitHub"');
+		await expect(bestanden).toContainText(
+			'Hun voorstellen staan ook bij "Voorstellen", met "Via GitHub".'
+		);
 	});
 
 	test('leads to the section of Help that explains the flow', async ({ page }) => {

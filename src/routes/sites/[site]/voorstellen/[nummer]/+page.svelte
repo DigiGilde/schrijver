@@ -12,7 +12,7 @@
 	type Melding = { variant: 'success' | 'warning' | 'critical'; text: string; detail?: string };
 
 	const ALS: Record<ConversationItem['as'], string> = {
-		schrijver: 'Schrijver van dit voorstel',
+		schrijver: 'De schrijver',
 		redactie: 'Redactie',
 		github: 'Op GitHub',
 		app: 'Automatisch bericht'

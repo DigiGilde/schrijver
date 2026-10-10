@@ -10,11 +10,8 @@ import { visibleStrings } from './svelte-text';
 
 const FOLDERS = ['src/routes', 'src/lib/components'];
 
-/** The screens only platform admins read: they may say "standaardbranch". */
-const PLATFORM_ADMIN_SCREENS = [
-	'src/routes/instellingen/sites/nieuw/+page.svelte',
-	'src/routes/instellingen/sites/[site]/Structuur.svelte'
-];
+/** The screen only platform admins read: it may say "standaardbranch". */
+const PLATFORM_ADMIN_SCREENS = ['src/routes/instellingen/sites/nieuw/+page.svelte'];
 
 const JARGON: { word: string; pattern: RegExp }[] = [
 	{ word: 'pull request', pattern: /\bpull[- ]requests?\b/i },

@@ -25,7 +25,7 @@ export const POST: RequestHandler = proposalAction(
 		if (!settings.mergenVanuitSchrijver) {
 			return refuse(
 				403,
-				'Samenvoegen vanuit Schrijver staat voor deze site uit; voeg samen op GitHub'
+				'De instelling "Samenvoegen in Schrijver" staat uit voor deze site. Voeg het voorstel samen op GitHub.'
 			);
 		}
 		if (pr.state !== 'open' || !isSentIn(pr))

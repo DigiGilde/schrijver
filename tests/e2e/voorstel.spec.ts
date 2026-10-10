@@ -150,7 +150,7 @@ test('sends in an own proposal, reacts and merges it, as a writer who may merge'
 	await page.getByRole('button', { name: 'Plaats reactie' }).click();
 	await expect(page.getByText('Je reactie is geplaatst').first()).toBeVisible();
 	const reactie = gesprek(page).filter({ hasText: 'Aangepast, de werkplekken' });
-	await expect(reactie).toContainText('Schrijver van dit voorstel ·');
+	await expect(reactie).toContainText('De schrijver ·');
 
 	await page.getByRole('button', { name: 'Voeg samen' }).click();
 	await expect(huidigeStap(page, 'Samengevoegd')).toBeVisible();

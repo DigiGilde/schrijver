@@ -132,10 +132,8 @@
 									{/each}
 								</ul>
 							{/if}
-							<p>
-								Wat er in .schrijver hoort, lees je in <a href={DOCS}>Een site toevoegen</a>. De
-								structuur wijzig je met een voorstel in de repository.
-							</p>
+							<p>De structuur wijzig je met een voorstel in de repository.</p>
+							<p><a href={DOCS}>Uitleg over .schrijver bekijken op GitHub</a></p>
 						{/if}
 					</nldd-rich-text>
 				</nldd-container>

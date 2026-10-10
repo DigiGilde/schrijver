@@ -95,8 +95,8 @@ describe('the conversation on the proposal page', () => {
 		expect(shown).toEqual([
 			['torvalds', 'Redactie · gekoppeld aan GitHub'],
 			['torvalds', 'Redactie · op naam'],
-			['Anoniem, codenaam 0123456789ab', 'Schrijver van dit voorstel · anoniem'],
-			['Anoniem, codenaam 0123456789ab', 'Schrijver van dit voorstel · op naam'],
+			['Anoniem, codenaam 0123456789ab', 'De schrijver · anoniem'],
+			['Anoniem, codenaam 0123456789ab', 'De schrijver · op naam'],
 			['torvalds', 'Op GitHub']
 		]);
 	});
