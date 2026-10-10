@@ -132,7 +132,10 @@
 									{/each}
 								</ul>
 							{/if}
-							<p>De structuur wijzig je met een voorstel in de repository.</p>
+							<p>
+								Wat er in .schrijver hoort, lees je in de uitleg op GitHub. De structuur wijzig je
+								met een voorstel in de repository.
+							</p>
 							<p><a href={DOCS}>Uitleg over .schrijver bekijken op GitHub</a></p>
 						{/if}
 					</nldd-rich-text>
