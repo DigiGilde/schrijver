@@ -11,8 +11,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - Sites in Schrijver's database: a platform admin adds one with "Site toevoegen" (repository, settings, first beheerder) and removes one with "Site verwijderen". A site is bound to its repository by GitHub's numeric id and follows a rename or a new default branch.
 - Sites only their team can see: a site setting for who sees the site, everyone who signs in or only the team. A private repository is always the team's only, also when it turns private later, and there a linked GitHub account with read access counts too. One guard on the server answers "niet gevonden" under every site a person may not see. A third team role, bijdrager, makes proposals without deciding on them.
 - Each site's structure (content folder, page schema, preview, Mermaid colours, writing guide) in `.schrijver/` in its own repository, read from the default branch and reloaded on a push to it. A site whose files are wrong, or whose repository lost the App, shows only to its admins with what is wrong; it keeps its last valid structure while Schrijver runs, and comes back as soon as GitHub reports the fix.
-- Teams in Schrijver, under Instellingen: a site's beheerders add colleagues by e-mail address (an invitation for 30 days, claimed at the first login with that verified address), change roles (beheerder, redactie) and remove them, and a site always keeps a beheerder. People are known by their SSO subject. Platform admins (`SCHRIJVER_BEHEERDERS`) manage every site; Instellingen shows everyone their own subject.
-- Site settings in Schrijver: name, description, address, merging in Schrijver, four eyes and the allowed ways to sign.
+- Teams in Schrijver, under Instellingen: a site's beheerders add colleagues by e-mail address (an invitation for 30 days, claimed at the first login with that verified address), change roles (beheerder, redactie, bijdrager) and remove them, and a site always keeps a beheerder. People are known by their SSO subject. Platform admins (`SCHRIJVER_BEHEERDERS`) manage every site; Instellingen shows everyone their own subject.
+- Site settings in Schrijver: name, description, address, who sees the site, merging in Schrijver, four eyes and the allowed ways to sign.
 - Four eyes, on by default: Schrijver records who writes in a proposal, and an editor who wrote in it does not merge it in Schrijver; the site's admins may. When Schrijver cannot tell who wrote, it refuses. The record goes when the proposal is merged or closed, and after six months at the latest.
 - An audit log of site, team, invitation and settings changes, without e-mail addresses, kept two years; the profile of someone on no team goes twelve months after their last login. Refused proposal and beheer actions are logged with the actor's pseudonym, and the beheer forms and proposal images have rate limits.
 - Application shell after the NLDD application pattern: an app bar in the sticky page header with the `file-text-pencil` icon and the wordmark linking home, and a plain menu (Sites, "Over <site>" on a site, Help, Instellingen, Uitloggen), one column that lines up with it, and a sticky title bar with the way back on every page below the start page. The local preview says in a bar above it that nothing reaches GitHub.
@@ -42,7 +42,8 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Documentation
 
-- Decision 0006 on the application shell, the preview on demand and the coloured diff; 0007 on three steps, one decision in Schrijver and four eyes; 0008 on people in Schrijver and the structure in the site's repository.
+- Decision 0006 on the application shell, the preview on demand and the coloured diff; 0007 on three steps, one decision in Schrijver and four eyes; 0008 on people in Schrijver and the structure in the site's repository; 0009 on sites only their team can see.
+- `docs/woordenlijst.md`: one word per concept and per action, as the interface uses them.
 - `docs/configuratie.md` and `docs/een-site-aansluiten.md` describe `.schrijver/` and adding a site; `docs/identiteit-en-privacy.md` and `docs/privacy.md` say what the team tables hold and for how long.
 - Design document tracked as `docs/ontwerp.md`; accessibility, AI and VLAM, privacy and security documentation from the compliance reviews of 2026-10-08, with an index in `docs/review/`.
 - Code of Conduct (Contributor Covenant 2.1), NOTICE, review rule and branch naming in CONTRIBUTING, Status section in the README.
@@ -51,6 +52,6 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Not in version one
 
-- `concepten: privé` (drafts in a private repository) is refused.
+- `concepten: privé` (drafts kept in a separate private repository for a public site) is refused.
 - Merging at once on "Stuur in".
 - Menus and navigation, moving, renaming and deleting pages, a Forgejo adapter.

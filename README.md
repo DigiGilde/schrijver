@@ -8,7 +8,7 @@ Version 0.1.0, a pilot. Schrijver is not yet deployed; the pilot sites are Digi 
 
 ## Architecture
 
-The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Each site keeps its structure (content folder, page schema, writing guide) in `.schrijver/` in its own repository; the list of sites and each site's team and settings live in Postgres, with people known by their SSO subject, and are managed in the app. A site on a private repository is open to its team only. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/ontwerp.md).
+The forge is the only state: a proposal is a branch plus a pull request, and Schrijver reads proposals live from GitHub instead of keeping its own list. All writes go through a GitHub App installed on each site repository, so no colleague needs a personal token; every commit is authored by the App and the person is named only in a commit trailer, as chosen. The editor is the NLDD Designsysteem's `nldd-text-editor`, so the document stays Markdown text. VLAM acts as a writing assistant that suggests but never writes. Each site keeps its structure (content folder, page schema, writing guide) in `.schrijver/` in its own repository; the list of sites and each site's team and settings live in Postgres, with people known by their SSO subject, and are managed in the app. A site on a private repository is open to its team only, and to colleagues whose linked GitHub account may read the repository. It is a SvelteKit app (Node adapter) that runs on ZAD behind SSO Rijk (Keycloak). Background: [docs/decisions](docs/decisions/README.md) and the [design](docs/ontwerp.md).
 
 ## Local development
 
@@ -18,7 +18,7 @@ cp .env.example .env
 SCHRIJVER_FAKE_FORGE=1 SCHRIJVER_BEHEERDERS=test SCHRIJVER_TEST_SESSION='{"sub":"test","name":"Test Gebruiker","email":"test@example.org","emailVerified":true,"organisation":null,"exp":9999999999999}' npm run dev
 ```
 
-- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each, and keeps the sites, teams and preferences in memory. No GitHub App, Keycloak or database is needed. A "Testomgeving" bar above the app bar says so, and without `VLAM_API_URL` Schrijfhulp gives marked test answers (see [testing Schrijfhulp locally](docs/ai-en-vlam.md#testing-schrijfhulp-locally)). The fake teams make `test@example.org` beheerder of Digi Handboek and redactie of MOZa; a third site with outdated `.schrijver/` files shows platform admins how Schrijver reports a broken site, and Werkplaats, on a private repository, is open to its team only.
+- `SCHRIJVER_FAKE_FORGE=1` replaces GitHub with an in-memory fake forge, seeded with the corpus of both pilot sites and a draft proposal each, and keeps the sites, teams and preferences in memory. No GitHub App, Keycloak or database is needed. A "Testomgeving" bar above the app bar says so, and without `VLAM_API_URL` Schrijfhulp gives marked test answers (see [testing Schrijfhulp locally](docs/ai-en-vlam.md#testing-schrijfhulp-locally)). The fake teams make `test@example.org` beheerder of Digi Handboek and redactie of MOZa; a third site with outdated `.schrijver/` files shows platform admins how Schrijver reports a broken site, and Werkplaats, on a private repository, is open to its team only, with the test user as its bijdrager.
 - `SCHRIJVER_TEST_SESSION` is a JSON session (`sub`, `name`, `email`, `emailVerified`, `organisation`, `exp` in epoch milliseconds) that skips the login.
 - `SCHRIJVER_BEHEERDERS` lists the SSO subjects of the platform admins, comma separated. They manage every site and are the only ones who add or remove one; each finds their own subject under Instellingen.
 - The first two are ignored when `NODE_ENV` is `production`.
@@ -43,7 +43,7 @@ Build the container with `podman build -f Containerfile -t schrijver .` (the app
 ## Documentation
 
 - [docs/configuratie.md](docs/configuratie.md): `.schrijver/` in a site repository (`site.yaml`, the page schema, the writing guide), with worked examples.
-- [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md): connect a new site, step by step.
+- [docs/een-site-aansluiten.md](docs/een-site-aansluiten.md): add a site, step by step.
 - [docs/identiteit-en-privacy.md](docs/identiteit-en-privacy.md): identity choices, pseudonyms, what goes to VLAM.
 - [docs/ontwerp.md](docs/ontwerp.md): the v1 design.
 - [docs/decisions/README.md](docs/decisions/README.md): decision records.
