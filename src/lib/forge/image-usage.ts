@@ -1,0 +1,340 @@
+import { posix } from 'node:path';
+import picomatch from 'picomatch';
+import type { PageSchema, SiteConfig } from '../config/types';
+import { parsePage } from '../content/frontmatter';
+import {
+	imageNameTails,
+	imageRefs,
+	isImageFile,
+	mentionsName,
+	reachesNamesake,
+	resolveImageRefs
+} from '../content/image-refs';
+import { titleOf } from '../content/schema-form';
+import { LruMap } from './cache';
+import type { FileEntry, FileTree, Forge, PrFile, PrSummary } from './types';
+
+/** Bounds on one scan: how many files are read per branch, and how large a file may be to be read at all. */
+export const MAX_SCAN_PAGES = 300;
+export const MAX_PAGE_BYTES = 500_000;
+const PARALLEL = 8;
+/** Text files under the content folder that can show an image: pages, data beside them, style sheets. */
+const TEXT_FILE = /\.(?:md|markdown|mdx|html?|ya?ml|json|toml|css)$/i;
+const PAGE_FILE = /\.(?:md|markdown|mdx|html?)$/i;
+/** More distinct mentions than this in one file and it counts as using every image. */
+const MAX_MENTIONS = 5_000;
+const MAX_TITLE = 200;
+
+const decoder = new TextDecoder();
+
+export interface ImageUse {
+	/** Repository path of the image file. */
+	path: string;
+	/** The other files that still refer to it; `possible` where no path in the file reaches it. */
+	usedOn: { path: string; title: string; possible?: true }[];
+	/** In the image folder of a page under `content.uitsluiten`, or under it itself: never deleted. */
+	excluded: boolean;
+}
+
+export interface UsageScan {
+	/** False when a file went unread or a listing was cut off: then no image may count as unused. */
+	complete: boolean;
+	/** The images that exist on the branch, each with the other files that use it. */
+	images: ImageUse[];
+}
+
+type Limits = { pages: number; bytes: number };
+const LIMITS: Limits = { pages: MAX_SCAN_PAGES, bytes: MAX_PAGE_BYTES };
+
+/** What one file says about images, apart from where it sits. */
+interface Mentions {
+	/** Image references as written: they resolve against the path of the file. */
+	refs: string[];
+	tails: string[];
+	all: boolean;
+	title: string;
+}
+
+function mentionsOf(text: string, schema: Pick<PageSchema, 'titel'> | null): Mentions {
+	const refs = [...new Set(imageRefs(text))];
+	const tails = imageNameTails(text);
+	const parsed = parsePage(text);
+	const title =
+		schema && parsed.ok
+			? titleOf(schema, parsed.frontmatter, parsed.body).trim().slice(0, MAX_TITLE)
+			: '';
+	if (refs.length > MAX_MENTIONS || tails.length > MAX_MENTIONS)
+		return { refs: [], tails: [], all: true, title };
+	return { refs, tails, all: false, title };
+}
+
+const length = (texts: string[]) => texts.reduce((sum, text) => sum + text.length, 0);
+
+/**
+ * What each blob mentions, by its sha and the site's title rule. A blob never changes, so an entry holds
+ * for every branch and outlives the forge cache, and a scan reads only the files that changed since.
+ */
+export const mentionsByBlob = new LruMap<Mentions>(
+	4_000_000,
+	(m) => length(m.refs) + length(m.tails) + m.title.length
+);
+
+/** The image folder that the site's convention gives a page, as `imagePath` places it. */
+function imageFolderOf(convention: string, page: string): string {
+	const dir = posix.dirname(page);
+	const name = posix.basename(page).replace(/\.[^.]+$/, '');
+	const slug = name === 'index' || name === '_index' ? posix.basename(dir) : name;
+	return posix.normalize(
+		convention.replaceAll('{paginaslug}', slug).replaceAll('{paginamap}', dir)
+	);
+}
+
+/** Whether an image lies under `content.uitsluiten` or in the image folder of a page there. */
+function excludedImages(site: SiteConfig, prefix: string, files: FileEntry[]) {
+	const patterns = site.content.uitsluiten ?? [];
+	if (patterns.length === 0) return () => false;
+	const excluded = picomatch(patterns);
+	const convention = site.content.afbeeldingen?.pad.replace(/\/+$/, '');
+	const folders = new Set(
+		convention
+			? files
+					.map((file) => file.path)
+					.filter((path) => path.startsWith(prefix) && PAGE_FILE.test(path))
+					.filter((path) => excluded(path.slice(prefix.length)))
+					.map((path) => imageFolderOf(convention, path))
+			: []
+	);
+	return (image: string) =>
+		excluded(image.slice(prefix.length)) || folders.has(posix.dirname(image));
+}
+
+async function each<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void> {
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) await fn(items[next++]);
+	};
+	await Promise.all(Array.from({ length: Math.min(PARALLEL, items.length) }, worker));
+}
+
+/** How a file uses an image: `possible` when only its file name appears there, or too many names. */
+type Use = { title: string; possible?: true };
+
+interface Scan {
+	forge: Forge;
+	site: SiteConfig;
+	schema: Pick<PageSchema, 'titel'> | null;
+	limits: Limits;
+	prefix: string;
+	images: string[];
+	/** Per image, the files that use it. */
+	uses: Map<string, Map<string, Use>>;
+	complete: boolean;
+}
+
+function startScan(
+	forge: Forge,
+	site: SiteConfig,
+	schema: Pick<PageSchema, 'titel'> | null,
+	limits: Limits,
+	images: string[]
+): Scan {
+	const prefix = site.content.pad === '' ? '' : `${site.content.pad}/`;
+	const uses = new Map(images.map((image) => [image, new Map<string, Use>()]));
+	return { forge, site, schema, limits, prefix, images, uses, complete: true };
+}
+
+/** The text files under the content folder of a listing, in path order. */
+function textFiles(scan: Scan, tree: FileTree): FileEntry[] {
+	if (tree.truncated) scan.complete = false;
+	return tree
+		.filter((file) => file.path.startsWith(scan.prefix) && TEXT_FILE.test(file.path))
+		.sort((a, b) => (a.path < b.path ? -1 : 1));
+}
+
+/** What a file on `ref` mentions, known by its blob or read now; null when it could not be read. */
+async function mentionsIn(scan: Scan, ref: string, { path, sha }: FileEntry) {
+	const rule = scan.schema?.titel ?? '';
+	const known = mentionsByBlob.get(`${rule}\0${sha}`);
+	if (known) return known;
+	const file = await scan.forge.readFile(scan.site.repo, ref, path, {
+		maxBytes: scan.limits.bytes,
+		uncached: true
+	});
+	if (!file) return null;
+	if (file.tooLarge) {
+		scan.complete = false;
+		return null;
+	}
+	const mentions = mentionsOf(decoder.decode(file.content), scan.schema);
+	mentionsByBlob.set(`${rule}\0${file.sha}`, mentions);
+	return mentions;
+}
+
+/**
+ * Reads `files` on `ref` and notes which images each uses: by its path, from the file's folder or from
+ * the site root. With `onRef`, the paths on `ref`, a file that names an image anywhere is a possible use
+ * too, unless one of its paths reaches another file of that name there.
+ */
+async function readFiles(scan: Scan, ref: string, files: FileEntry[], onRef?: Set<string>) {
+	const { site, limits, prefix } = scan;
+	if (files.length > limits.pages) scan.complete = false;
+	await each(files.slice(0, limits.pages), async (entry) => {
+		const { path } = entry;
+		const mentions = await mentionsIn(scan, ref, entry);
+		if (!mentions) return;
+		const refs = resolveImageRefs(mentions.refs, path, site.content.pad);
+		const title = (PAGE_FILE.test(path) && mentions.title) || path.slice(prefix.length);
+		for (const image of scan.images) {
+			const users = scan.uses.get(image)!;
+			if (users.has(path) && !users.get(path)!.possible) continue;
+			if (refs.has(image)) users.set(path, { title });
+			else if (
+				mentions.all ||
+				(onRef && mentionsName(mentions.tails, image) && !reachesNamesake(refs, image, onRef))
+			)
+				users.set(path, { title, possible: true });
+		}
+	});
+}
+
+function finish(scan: Scan, excluded: (image: string) => boolean): UsageScan {
+	return {
+		complete: scan.complete,
+		images: scan.images.map((path) => ({
+			path,
+			usedOn: [...scan.uses.get(path)!]
+				.map(([file, use]) => ({ path: file, ...use }))
+				.sort((a, b) => a.path.localeCompare(b.path)),
+			excluded: excluded(path)
+		}))
+	};
+}
+
+/**
+ * Which files of the site, other than `page`, refer to each of `images` that exist on `ref`. Reads every
+ * text file under the content folder, also the ones Schrijver does not edit: they are part of the site
+ * too. It reads them on `ref` and on the default branch, which a proposal is merged into, so a use that
+ * reached either keeps the file. A file uses an image when it refers to its path, from the file's folder
+ * or from the site root, and possibly uses it when it names the image's file anywhere, unless a path in
+ * it reaches another file of that name: keeping a file by mistake is harmless, deleting one a page shows
+ * is not.
+ */
+export async function imageUsage(
+	forge: Forge,
+	site: SiteConfig,
+	schema: Pick<PageSchema, 'titel'>,
+	ref: string,
+	page: string,
+	images: string[],
+	limits = LIMITS
+): Promise<UsageScan> {
+	const refs = [...new Set([ref, site.standaardbranch])];
+	const trees = await Promise.all(refs.map((r) => forge.readTree(site.repo, r, '')));
+	const paths = trees.map((tree) => new Set(tree.map((entry) => entry.path)));
+	const existing = [...new Set(images)].filter((path) => paths[0].has(path));
+	if (existing.length === 0) return { complete: !trees[0].truncated, images: [] };
+
+	const scan = startScan(forge, site, schema, limits, existing);
+	for (const [i, tree] of trees.entries()) {
+		const files = textFiles(scan, tree).filter((file) => file.path !== page);
+		await readFiles(scan, refs[i], files, paths[i]);
+	}
+	return finish(scan, excludedImages(site, scan.prefix, trees.flat()));
+}
+
+/**
+ * For a pull request about to be merged: which files would still use each image it removes. Reads the
+ * base branch, except the files the pull request changes: those it reads as the pull request leaves them,
+ * by path only, as the page being saved is checked.
+ */
+export async function usageAfterMerge(
+	forge: Forge,
+	site: SiteConfig,
+	pr: Pick<PrSummary, 'baseRef' | 'headRef'>,
+	files: PrFile[],
+	limits = LIMITS
+): Promise<UsageScan> {
+	const gone = files.flatMap((f) => [
+		...(f.status === 'removed' ? [f.path] : []),
+		...(f.previous ? [f.previous] : [])
+	]);
+	const removed = gone.filter(isImageFile);
+	if (removed.length === 0) return { complete: true, images: [] };
+	const base = await forge.readTree(site.repo, pr.baseRef, '');
+	const onBase = new Set(base.map((entry) => entry.path));
+	const images = removed.filter((path) => onBase.has(path));
+	if (images.length === 0) return { complete: !base.truncated, images: [] };
+
+	const scan = startScan(forge, site, null, limits, images);
+	const changed = new Set([...files.map((f) => f.path), ...gone]);
+	const unchanged = textFiles(scan, base).filter((file) => !changed.has(file.path));
+	await readFiles(scan, pr.baseRef, unchanged, onBase);
+	const kept = files.filter(
+		(f) => f.status !== 'removed' && f.path.startsWith(scan.prefix) && TEXT_FILE.test(f.path)
+	);
+	if (kept.length > 0) {
+		const head = await forge.readTree(site.repo, pr.headRef, '');
+		const own = textFiles(scan, head).filter((file) => changed.has(file.path));
+		await readFiles(scan, pr.headRef, own);
+	}
+	return finish(scan, () => false);
+}
+
+export interface MissingImage {
+	/** The text file that refers to the image. */
+	page: string;
+	/** Repository path of the image. */
+	image: string;
+}
+
+/**
+ * For a pull request about to be merged: the images that the text files it adds or changes show and that
+ * will not exist after the merge, as they are on neither the base branch nor among the files it brings.
+ * A reference the base version of the file holds already is left out: the merge does not add it.
+ */
+export async function missingAfterMerge(
+	forge: Forge,
+	site: SiteConfig,
+	pr: Pick<PrSummary, 'baseRef' | 'headRef'>,
+	files: PrFile[],
+	limits = LIMITS
+): Promise<{ complete: boolean; missing: MissingImage[] }> {
+	const scan = startScan(forge, site, null, limits, []);
+	const brought = new Set(files.filter((f) => f.status !== 'removed').map((f) => f.path));
+	const changed = files.filter(
+		(f) => brought.has(f.path) && f.path.startsWith(scan.prefix) && TEXT_FILE.test(f.path)
+	);
+	if (changed.length === 0) return { complete: true, missing: [] };
+	if (changed.length > limits.pages) return { complete: false, missing: [] };
+
+	const [base, head] = await Promise.all(
+		[pr.baseRef, pr.headRef].map((ref) => forge.readTree(site.repo, ref, ''))
+	);
+	const onBase = new Map(base.map((entry) => [entry.path, entry.sha]));
+	const onHead = new Map(head.map((entry) => [entry.path, entry.sha]));
+	const missing: MissingImage[] = [];
+	await each(changed, async (f) => {
+		const sha = onHead.get(f.path);
+		const now = sha ? await mentionsIn(scan, pr.headRef, { path: f.path, sha }) : null;
+		if (!now || now.all) {
+			scan.complete = false;
+			return;
+		}
+		let gone = [...resolveImageRefs(now.refs, f.path, site.content.pad)].filter(
+			(image) => !onBase.has(image) && !brought.has(image)
+		);
+		const old = f.previous ?? f.path;
+		const oldSha = onBase.get(old);
+		if (gone.length > 0 && oldSha) {
+			const before = await mentionsIn(scan, pr.baseRef, { path: old, sha: oldSha });
+			if (before && !before.all) {
+				const had = resolveImageRefs(before.refs, old, site.content.pad);
+				gone = gone.filter((image) => !had.has(image));
+			}
+		}
+		if (gone.length > 0 && base.truncated) scan.complete = false;
+		else for (const image of gone) missing.push({ page: f.path, image });
+	});
+	missing.sort((a, b) => a.page.localeCompare(b.page) || a.image.localeCompare(b.image));
+	return { complete: scan.complete, missing };
+}

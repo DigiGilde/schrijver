@@ -1,0 +1,5 @@
+content:
+  pad: inhoud
+  patroon: '**/*.md'
+preview:
+  soort: geen

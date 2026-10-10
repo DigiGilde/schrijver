@@ -1,0 +1,930 @@
+import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import postgres from 'postgres';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { NewSite, Role, SettingsValues, TeamStore } from '../../src/lib/auth/team';
+import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
+import { createTeamStore } from '../../src/lib/auth/team-postgres';
+import {
+	createUsersStore,
+	MemoryUsersStore,
+	type UserPrefs,
+	type UsersStore
+} from '../../src/lib/auth/users';
+
+interface Harness {
+	team: TeamStore;
+	users: UsersStore;
+	/** Moves the clock of the store. */
+	at(iso: string): void;
+	/** Opens enough connections for two transactions to run side by side. */
+	warm(): Promise<void>;
+}
+
+const START = '2026-10-10T10:00:00.000Z';
+const DH = 'digi-handboek';
+const MOZA = 'moza-site';
+
+const REPO_IDS: Record<string, number> = { [DH]: 101, [MOZA]: 102 };
+
+const site = (id: string, repoId = REPO_IDS[id] ?? 999): NewSite => ({
+	id,
+	repoId,
+	repo: `Org/${id}`,
+	standaardbranch: 'main'
+});
+
+const values = (siteId: string): SettingsValues => ({
+	naam: siteId === DH ? 'Digi Handboek' : 'MijnOverheid Zakelijk',
+	omschrijving: null,
+	adres: 'https://example.org/',
+	mergenVanuitSchrijver: true,
+	vierOgen: true,
+	identiteitToegestaan: ['anoniem', 'gekoppeld', 'op-naam'],
+	zichtbaarheid: 'iedereen'
+});
+
+const login = (sub: string, email: string, emailVerified = true, name = `Naam ${sub}`) => ({
+	sub,
+	name,
+	email,
+	emailVerified
+});
+
+const prefs = (sub: string, over: Partial<UserPrefs> = {}): UserPrefs => ({
+	sub,
+	identity: 'op-naam',
+	githubLogin: null,
+	githubId: null,
+	onboarded: true,
+	...over
+});
+
+const admin = (sub: string) => ({ sub, platformAdmin: false });
+const platform = (sub: string) => ({ sub, platformAdmin: true });
+
+function contract(make: () => Promise<Harness>) {
+	let h: Harness;
+	let team: TeamStore;
+
+	beforeEach(async () => {
+		h = await make();
+		team = h.team;
+		h.at(START);
+		await team.addSite(site(DH), values(DH), null, null);
+		await team.addSite(site(MOZA), values(MOZA), null, null);
+	});
+
+	/** A site with these members, each signed in once. */
+	async function withTeam(siteId: string, members: [string, Role][]) {
+		for (const [sub, role] of members) {
+			await team.recordLogin(login(sub, `${sub}@example.org`));
+			const added = await team.addByEmail(siteId, `${sub}@example.org`, role, 'opzet');
+			expect(added.kind).toBe('added');
+		}
+	}
+
+	describe('signing in', () => {
+		it('saves the name, the verified address lower-cased and the time of login', async () => {
+			await team.recordLogin(login('jan', '  Jan@Example.ORG ', true, 'Jan Jansen'));
+			expect(await team.profile('jan')).toEqual({
+				sub: 'jan',
+				name: 'Jan Jansen',
+				email: 'jan@example.org',
+				lastLoginAt: new Date(START)
+			});
+		});
+
+		it('stores no address the identity provider did not verify', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('jan', 'jan@example.org', false));
+			expect((await team.profile('jan'))?.email).toBeNull();
+		});
+
+		it('leaves the preferences alone, and the preferences leave the profile alone', async () => {
+			await h.users.savePrefs(
+				prefs('jan', { identity: 'gekoppeld', githubLogin: 'jj', githubId: 7 })
+			);
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			expect(await h.users.getPrefs('jan')).toEqual(
+				prefs('jan', { identity: 'gekoppeld', githubLogin: 'jj', githubId: 7 })
+			);
+			await h.users.savePrefs(prefs('jan', { identity: 'anoniem' }));
+			expect((await team.profile('jan'))?.email).toBe('jan@example.org');
+		});
+
+		it('turns an open invitation for the verified address into a membership', async () => {
+			const invited = await team.addByEmail(DH, 'Nieuw@Example.org', 'beheerder', 'baas');
+			expect(invited.kind).toBe('invited');
+			const claimed = await team.recordLogin(login('nieuw', 'nieuw@example.org'));
+			expect(claimed).toEqual([{ siteId: DH, role: 'beheerder' }]);
+			expect(await team.role(DH, 'nieuw')).toBe('beheerder');
+			expect(await team.invitations(DH)).toEqual([]);
+			const [entry] = await team.audit(DH);
+			expect(entry).toMatchObject({
+				actorSub: 'nieuw',
+				action: 'invitation.claimed',
+				target: invited.kind === 'invited' ? invited.id : '',
+				role: 'beheerder'
+			});
+		});
+
+		it('does not claim with an address that is not verified', async () => {
+			await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			expect(await team.recordLogin(login('nieuw', 'nieuw@example.org', false))).toEqual([]);
+			expect(await team.role(DH, 'nieuw')).toBeNull();
+			expect(await team.invitations(DH)).toHaveLength(1);
+		});
+
+		it('does not claim an expired invitation', async () => {
+			await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			h.at('2026-11-10T10:00:00.000Z');
+			expect(await team.recordLogin(login('nieuw', 'nieuw@example.org'))).toEqual([]);
+			expect(await team.role(DH, 'nieuw')).toBeNull();
+		});
+
+		it('never lowers a role by a claim, and raises redactie to beheerder', async () => {
+			await withTeam(DH, [['jan', 'beheerder']]);
+			await withTeam(MOZA, [['jan', 'redactie']]);
+			await team.recordLogin(login('jan', 'jan-nieuw@example.org'));
+			await team.addByEmail(DH, 'jan-oud@example.org', 'redactie', 'baas');
+			await team.addByEmail(MOZA, 'jan-oud@example.org', 'beheerder', 'baas');
+			await team.recordLogin(login('jan', 'jan-oud@example.org'));
+			expect(await team.role(DH, 'jan')).toBe('beheerder');
+			expect(await team.role(MOZA, 'jan')).toBe('beheerder');
+		});
+
+		it('raises a bijdrager by a claim, and never makes anyone bijdrager by one', async () => {
+			await withTeam(DH, [['jan', 'bijdrager']]);
+			await withTeam(MOZA, [['jan', 'redactie']]);
+			await team.recordLogin(login('jan', 'jan-nieuw@example.org'));
+			await team.addByEmail(DH, 'jan-oud@example.org', 'redactie', 'baas');
+			await team.addByEmail(MOZA, 'jan-oud@example.org', 'bijdrager', 'baas');
+			expect(await team.recordLogin(login('jan', 'jan-oud@example.org'))).toEqual(
+				expect.arrayContaining([
+					{ siteId: DH, role: 'redactie' },
+					{ siteId: MOZA, role: 'bijdrager' }
+				])
+			);
+			expect(await team.role(DH, 'jan')).toBe('redactie');
+			expect(await team.role(MOZA, 'jan')).toBe('redactie');
+		});
+	});
+
+	describe('adding by e-mail address', () => {
+		it('adds the one known user with that verified address at once', async () => {
+			await team.recordLogin(login('collega', 'collega@example.org', true, 'Tweede Collega'));
+			h.at('2026-10-11T09:00:00.000Z');
+			expect(await team.addByEmail(DH, ' Collega@Example.org ', 'redactie', 'baas')).toEqual({
+				kind: 'added',
+				sub: 'collega',
+				name: 'Tweede Collega'
+			});
+			expect(await team.members(DH)).toEqual([
+				{
+					sub: 'collega',
+					role: 'redactie',
+					addedBy: 'baas',
+					addedAt: new Date('2026-10-11T09:00:00.000Z'),
+					name: 'Tweede Collega',
+					email: 'collega@example.org'
+				}
+			]);
+			expect(await team.invitations(DH)).toEqual([]);
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'member.added',
+				target: 'collega',
+				role: 'redactie'
+			});
+		});
+
+		it('invites an address no known user has, for thirty days', async () => {
+			const result = await team.addByEmail(DH, 'Nieuw@Example.org', 'redactie', 'baas');
+			expect(result).toMatchObject({
+				kind: 'invited',
+				renewed: false,
+				expiresAt: new Date('2026-11-09T10:00:00.000Z')
+			});
+			const [invitation] = await team.invitations(DH);
+			expect(invitation).toMatchObject({
+				siteId: DH,
+				email: 'nieuw@example.org',
+				role: 'redactie',
+				invitedBy: 'baas',
+				createdAt: new Date(START),
+				expiresAt: new Date('2026-11-09T10:00:00.000Z')
+			});
+			expect((await team.audit(DH))[0]).toMatchObject({
+				action: 'invitation.created',
+				target: invitation.id,
+				role: 'redactie'
+			});
+			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('adds and invites a bijdrager as it does the other roles', async () => {
+			await team.recordLogin(login('collega', 'collega@example.org'));
+			expect(await team.addByEmail(DH, 'collega@example.org', 'bijdrager', 'baas')).toMatchObject({
+				kind: 'added',
+				sub: 'collega'
+			});
+			expect(await team.role(DH, 'collega')).toBe('bijdrager');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				action: 'member.added',
+				target: 'collega',
+				role: 'bijdrager'
+			});
+			const invited = await team.addByEmail(DH, 'nieuw@example.org', 'bijdrager', 'baas');
+			expect(invited.kind).toBe('invited');
+			expect((await team.invitations(DH)).map((i) => [i.email, i.role])).toEqual([
+				['nieuw@example.org', 'bijdrager']
+			]);
+			expect(await team.recordLogin(login('nieuw', 'nieuw@example.org'))).toEqual([
+				{ siteId: DH, role: 'bijdrager' }
+			]);
+			expect(await team.role(DH, 'nieuw')).toBe('bijdrager');
+		});
+
+		it('invites when two known users share the address', async () => {
+			await team.recordLogin(login('een', 'gedeeld@example.org'));
+			await team.recordLogin(login('twee', 'gedeeld@example.org'));
+			expect((await team.addByEmail(DH, 'gedeeld@example.org', 'redactie', 'baas')).kind).toBe(
+				'invited'
+			);
+			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('invites the address of someone whose address was not verified', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org', false));
+			expect((await team.addByEmail(DH, 'jan@example.org', 'redactie', 'baas')).kind).toBe(
+				'invited'
+			);
+		});
+
+		it('renews an invitation with the new role and a new expiry', async () => {
+			const first = await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			h.at('2026-10-20T10:00:00.000Z');
+			const again = await team.addByEmail(DH, 'nieuw@example.org', 'beheerder', 'ander');
+			expect(again).toMatchObject({
+				kind: 'invited',
+				renewed: true,
+				expiresAt: new Date('2026-11-19T10:00:00.000Z')
+			});
+			const invitations = await team.invitations(DH);
+			expect(invitations).toHaveLength(1);
+			expect(invitations[0]).toMatchObject({
+				id: first.kind === 'invited' ? first.id : '',
+				role: 'beheerder',
+				invitedBy: 'ander'
+			});
+			expect((await team.audit(DH))[0].action).toBe('invitation.renewed');
+		});
+
+		it('leaves a member as is', async () => {
+			await withTeam(DH, [['jan', 'beheerder']]);
+			const before = (await team.audit(DH)).length;
+			expect(await team.addByEmail(DH, 'jan@example.org', 'redactie', 'baas')).toEqual({
+				kind: 'already-member',
+				sub: 'jan',
+				name: 'Naam jan',
+				role: 'beheerder'
+			});
+			expect(await team.role(DH, 'jan')).toBe('beheerder');
+			expect(await team.audit(DH)).toHaveLength(before);
+		});
+
+		it('refuses a site that has no settings', async () => {
+			await expect(
+				team.addByEmail('onbekend', 'x@example.org', 'redactie', 'baas')
+			).rejects.toThrow();
+		});
+	});
+
+	describe('the last site admin', () => {
+		it('changes a role and writes it down', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['jan', 'redactie']
+			]);
+			expect(await team.changeRole(DH, 'jan', 'beheerder', admin('baas'))).toEqual({
+				ok: true,
+				sub: 'jan',
+				name: 'Naam jan',
+				previous: 'redactie'
+			});
+			expect(await team.role(DH, 'jan')).toBe('beheerder');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'member.role_changed',
+				target: 'jan',
+				role: 'beheerder'
+			});
+		});
+
+		it('refuses to make the last beheerder redactie', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['jan', 'redactie']
+			]);
+			const before = (await team.audit(DH)).length;
+			expect(await team.changeRole(DH, 'baas', 'redactie', admin('baas'))).toEqual({
+				ok: false,
+				reason: 'last-admin',
+				name: 'Naam baas'
+			});
+			expect(await team.role(DH, 'baas')).toBe('beheerder');
+			expect(await team.audit(DH)).toHaveLength(before);
+		});
+
+		it('makes a member bijdrager and back, and keeps the last beheerder from becoming one', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['jan', 'redactie']
+			]);
+			expect(await team.changeRole(DH, 'jan', 'bijdrager', admin('baas'))).toMatchObject({
+				ok: true,
+				previous: 'redactie'
+			});
+			expect(await team.role(DH, 'jan')).toBe('bijdrager');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				action: 'member.role_changed',
+				target: 'jan',
+				role: 'bijdrager'
+			});
+			expect(await team.changeRole(DH, 'jan', 'redactie', admin('baas'))).toMatchObject({
+				ok: true,
+				previous: 'bijdrager'
+			});
+			expect(await team.changeRole(DH, 'baas', 'bijdrager', admin('baas'))).toMatchObject({
+				ok: false,
+				reason: 'last-admin'
+			});
+			expect(await team.role(DH, 'baas')).toBe('beheerder');
+		});
+
+		it('lets a platform admin make the last beheerder redactie', async () => {
+			await withTeam(DH, [['baas', 'beheerder']]);
+			expect((await team.changeRole(DH, 'baas', 'redactie', platform('schrijver'))).ok).toBe(true);
+			expect(await team.role(DH, 'baas')).toBe('redactie');
+		});
+
+		it('lets a beheerder step down while another one stays', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['tweede', 'beheerder']
+			]);
+			expect((await team.changeRole(DH, 'baas', 'redactie', admin('baas'))).ok).toBe(true);
+		});
+
+		it('refuses to remove the last beheerder, unless a platform admin does it', async () => {
+			await withTeam(DH, [
+				['baas', 'beheerder'],
+				['jan', 'redactie']
+			]);
+			expect(await team.removeMember(DH, 'baas', admin('baas'))).toMatchObject({
+				ok: false,
+				reason: 'last-admin'
+			});
+			expect(await team.removeMember(DH, 'jan', admin('baas'))).toMatchObject({
+				ok: true,
+				previous: 'redactie'
+			});
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'member.removed',
+				target: 'jan',
+				role: 'redactie'
+			});
+			expect((await team.removeMember(DH, 'baas', platform('schrijver'))).ok).toBe(true);
+			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('lets only one of two parallel removals of the last two beheerders pass', async () => {
+			await withTeam(DH, [
+				['een', 'beheerder'],
+				['twee', 'beheerder']
+			]);
+			await h.warm();
+			const results = await Promise.all([
+				team.removeMember(DH, 'een', admin('een')),
+				team.removeMember(DH, 'twee', admin('twee'))
+			]);
+			expect(results.filter((r) => r.ok)).toHaveLength(1);
+			expect(results.filter((r) => !r.ok && r.reason === 'last-admin')).toHaveLength(1);
+			expect((await team.members(DH)).filter((m) => m.role === 'beheerder')).toHaveLength(1);
+		});
+
+		it('answers not-a-member for someone outside the team', async () => {
+			await withTeam(DH, [['baas', 'beheerder']]);
+			expect(await team.changeRole(DH, 'vreemd', 'redactie', admin('baas'))).toMatchObject({
+				ok: false,
+				reason: 'not-a-member'
+			});
+			expect(await team.removeMember(MOZA, 'baas', admin('baas'))).toMatchObject({
+				ok: false,
+				reason: 'not-a-member'
+			});
+		});
+	});
+
+	describe('members and invitations', () => {
+		it('lists beheerders first, then the redactie, then the bijdragers, each by name', async () => {
+			await team.recordLogin(login('b', 'b@example.org', true, 'Bram'));
+			await team.recordLogin(login('a', 'a@example.org', true, 'Anna'));
+			await team.recordLogin(login('c', 'c@example.org', true, 'Cor'));
+			await team.recordLogin(login('d', 'd@example.org', true, 'Aart'));
+			await team.addByEmail(DH, 'b@example.org', 'redactie', 'x');
+			await team.addByEmail(DH, 'c@example.org', 'beheerder', 'x');
+			await team.addByEmail(DH, 'd@example.org', 'bijdrager', 'x');
+			await team.addByEmail(DH, 'a@example.org', 'redactie', 'x');
+			expect((await team.members(DH)).map((m) => m.name)).toEqual(['Cor', 'Anna', 'Bram', 'Aart']);
+		});
+
+		it('answers the role on a site and the sites of a user', async () => {
+			await withTeam(DH, [['jan', 'beheerder']]);
+			await withTeam(MOZA, [['jan', 'redactie']]);
+			expect(await team.role(DH, 'jan')).toBe('beheerder');
+			expect(await team.role(DH, 'piet')).toBeNull();
+			expect((await team.sitesOf('jan')).sort((a, b) => a.siteId.localeCompare(b.siteId))).toEqual([
+				{ siteId: DH, role: 'beheerder' },
+				{ siteId: MOZA, role: 'redactie' }
+			]);
+		});
+
+		it('lists only invitations that have not expired', async () => {
+			await team.addByEmail(DH, 'oud@example.org', 'redactie', 'baas');
+			h.at('2026-10-25T10:00:00.000Z');
+			await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			h.at('2026-11-12T10:00:00.000Z');
+			expect((await team.invitations(DH)).map((i) => i.email)).toEqual(['nieuw@example.org']);
+		});
+
+		it('revokes an invitation of the same site only, and writes it down', async () => {
+			const invited = await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			const id = invited.kind === 'invited' ? invited.id : '';
+			expect(await team.revokeInvitation(MOZA, id, 'baas')).toBeNull();
+			expect(await team.revokeInvitation(DH, 'geen-uuid', 'baas')).toBeNull();
+			expect(await team.revokeInvitation(DH, id, 'baas')).toMatchObject({ id, role: 'redactie' });
+			expect(await team.invitations(DH)).toEqual([]);
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'invitation.revoked',
+				target: id
+			});
+		});
+	});
+
+	describe('the sites', () => {
+		it('lists the sites, the oldest first, bound to their repository by its id', async () => {
+			h.at('2026-10-11T08:00:00.000Z');
+			await team.addSite(site('aaa-later', 103), values('aaa-later'), null, 'platform');
+			expect(await team.sites()).toEqual([
+				{
+					id: DH,
+					repoId: 101,
+					repo: `Org/${DH}`,
+					standaardbranch: 'main',
+					createdAt: new Date(START),
+					createdBy: null
+				},
+				expect.objectContaining({ id: MOZA, repoId: 102 }),
+				{
+					id: 'aaa-later',
+					repoId: 103,
+					repo: 'Org/aaa-later',
+					standaardbranch: 'main',
+					createdAt: new Date('2026-10-11T08:00:00.000Z'),
+					createdBy: 'platform'
+				}
+			]);
+		});
+
+		it('adds a site with its settings and a known user as its first beheerder', async () => {
+			await team.recordLogin(login('baas', 'baas@example.org', true, 'De Baas'));
+			expect(
+				await team.addSite(site('nieuw', 7), values('nieuw'), { sub: 'baas' }, 'platform')
+			).toEqual({ ok: true, admin: { kind: 'added', sub: 'baas', name: 'De Baas' } });
+			expect(await team.settings('nieuw')).toEqual({
+				siteId: 'nieuw',
+				...values('nieuw'),
+				updatedAt: new Date(START),
+				updatedBy: 'platform'
+			});
+			expect(await team.role('nieuw', 'baas')).toBe('beheerder');
+			expect(
+				(await team.audit('nieuw')).map((a) => [a.actorSub, a.action, a.target, a.role])
+			).toEqual(
+				expect.arrayContaining([
+					['platform', 'site.added', 'Org/nieuw', null],
+					['platform', 'member.added', 'baas', 'beheerder']
+				])
+			);
+		});
+
+		it('adds the first beheerder by address as addByEmail does: known at once, else invited', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			expect(
+				await team.addSite(site('een', 7), values('een'), { email: 'Jan@Example.org' }, 'platform')
+			).toMatchObject({ ok: true, admin: { kind: 'added', sub: 'jan' } });
+			expect(await team.role('een', 'jan')).toBe('beheerder');
+
+			const result = await team.addSite(
+				site('twee', 8),
+				values('twee'),
+				{ email: 'nieuw@example.org' },
+				'platform'
+			);
+			expect(result).toMatchObject({ ok: true, admin: { kind: 'invited', renewed: false } });
+			expect((await team.invitations('twee')).map((i) => [i.email, i.role, i.invitedBy])).toEqual([
+				['nieuw@example.org', 'beheerder', 'platform']
+			]);
+			await team.recordLogin(login('nieuw', 'nieuw@example.org'));
+			expect(await team.role('twee', 'nieuw')).toBe('beheerder');
+		});
+
+		it('adds a first beheerder by address who must get in at once only when Schrijver knows that address', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('een', 'gedeeld@example.org'));
+			await team.recordLogin(login('twee', 'gedeeld@example.org'));
+			await team.recordLogin(login('onbevestigd', 'onbevestigd@example.org', false));
+			expect(
+				await team.addSite(
+					site('bekend', 7),
+					values('bekend'),
+					{ email: 'Jan@Example.org', known: true },
+					'platform'
+				)
+			).toMatchObject({ ok: true, admin: { kind: 'added', sub: 'jan' } });
+			expect(await team.role('bekend', 'jan')).toBe('beheerder');
+
+			const before = await team.audit();
+			for (const email of ['nieuw@example.org', 'gedeeld@example.org', 'onbevestigd@example.org']) {
+				expect(
+					await team.addSite(site('los', 8), values('los'), { email, known: true }, 'platform'),
+					email
+				).toEqual({ ok: false, reason: 'admin-unknown' });
+			}
+			expect((await team.sites()).map((s) => s.id)).not.toContain('los');
+			expect(await team.settings('los')).toBeNull();
+			expect(await team.invitations('los')).toEqual([]);
+			expect(await team.audit()).toEqual(before);
+		});
+
+		it('refuses an id or a repository that another site has, and changes nothing', async () => {
+			await team.saveSettings(DH, { ...values(DH), naam: 'Handboek' }, 'baas');
+			const before = await team.audit();
+			expect(await team.addSite(site(DH, 555), values(DH), null, 'platform')).toEqual({
+				ok: false,
+				reason: 'id-taken'
+			});
+			expect(await team.addSite(site('ander', 101), values('ander'), null, 'platform')).toEqual({
+				ok: false,
+				reason: 'repo-taken'
+			});
+			expect((await team.settings(DH))?.naam).toBe('Handboek');
+			expect(await team.settings('ander')).toBeNull();
+			expect((await team.sites()).map((s) => s.id)).toEqual([DH, MOZA]);
+			expect(await team.audit()).toEqual(before);
+		});
+
+		it('adds nothing when the first beheerder is no known user', async () => {
+			await expect(
+				team.addSite(site('los', 9), values('los'), { sub: 'niemand' }, 'platform')
+			).rejects.toThrow();
+			expect((await team.sites()).map((s) => s.id)).toEqual([DH, MOZA]);
+			expect(await team.settings('los')).toBeNull();
+			expect(await team.audit('los')).toEqual([]);
+		});
+
+		it('removes a site with its settings, team, invitations and writing records', async () => {
+			await withTeam(DH, [['baas', 'beheerder']]);
+			await withTeam(MOZA, [['baas', 'redactie']]);
+			await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			await team.recordWriter(DH, 7, 'baas');
+			await team.recordWriter(MOZA, 7, 'baas');
+
+			expect(await team.removeSite(DH, 'platform')).toMatchObject({ id: DH, repoId: 101 });
+			expect((await team.sites()).map((s) => s.id)).toEqual([MOZA]);
+			expect(await team.settings(DH)).toBeNull();
+			expect(await team.members(DH)).toEqual([]);
+			expect(await team.invitations(DH)).toEqual([]);
+			expect(await team.writers(DH, 7)).toEqual([]);
+			expect(await team.sitesOf('baas')).toEqual([{ siteId: MOZA, role: 'redactie' }]);
+			expect(await team.writers(MOZA, 7)).toEqual(['baas']);
+			expect((await team.profile('baas'))?.email).toBe('baas@example.org');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'platform',
+				action: 'site.removed',
+				target: `Org/${DH}`,
+				role: null
+			});
+			expect(await team.removeSite(DH, 'platform')).toBeNull();
+
+			expect(await team.addSite(site(DH), values(DH), null, 'platform')).toEqual({
+				ok: true,
+				admin: null
+			});
+			expect(await team.members(DH)).toEqual([]);
+		});
+
+		it('follows a renamed repository and a new default branch, and writes it down', async () => {
+			expect(await team.moveSite(DH, 'Nieuw/handboek', 'trunk')).toEqual([
+				'repo',
+				'standaardbranch'
+			]);
+			expect((await team.sites())[0]).toMatchObject({
+				id: DH,
+				repoId: 101,
+				repo: 'Nieuw/handboek',
+				standaardbranch: 'trunk'
+			});
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: null,
+				action: 'site.moved',
+				target: 'repo,standaardbranch'
+			});
+			const before = (await team.audit(DH)).length;
+			expect(await team.moveSite(DH, 'Nieuw/handboek', 'trunk')).toEqual([]);
+			expect(await team.moveSite('onbekend', 'a/b', 'main')).toEqual([]);
+			expect(await team.audit(DH)).toHaveLength(before);
+		});
+	});
+
+	describe('site settings', () => {
+		it('saves settings and writes down which ones changed', async () => {
+			h.at('2026-10-12T08:00:00.000Z');
+			const changed = await team.saveSettings(
+				DH,
+				{
+					...values(DH),
+					naam: 'Handboek',
+					vierOgen: false,
+					identiteitToegestaan: ['op-naam']
+				},
+				'baas'
+			);
+			expect(changed).toEqual(['naam', 'vier_ogen', 'identiteit_toegestaan']);
+			expect(await team.settings(DH)).toMatchObject({
+				naam: 'Handboek',
+				vierOgen: false,
+				identiteitToegestaan: ['anoniem', 'op-naam'],
+				updatedAt: new Date('2026-10-12T08:00:00.000Z'),
+				updatedBy: 'baas'
+			});
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'settings.changed',
+				target: 'naam,vier_ogen,identiteit_toegestaan',
+				role: null
+			});
+			const before = (await team.audit(DH)).length;
+			expect(await team.saveSettings(DH, (await team.settings(DH))!, 'baas')).toEqual([]);
+			expect(await team.audit(DH)).toHaveLength(before);
+		});
+
+		it('keeps who sees the site, from when it is added, and writes a change down', async () => {
+			await team.addSite(
+				site('besloten', 7),
+				{ ...values('besloten'), zichtbaarheid: 'team' },
+				null,
+				'platform'
+			);
+			expect((await team.settings('besloten'))?.zichtbaarheid).toBe('team');
+			expect((await team.settings(DH))?.zichtbaarheid).toBe('iedereen');
+			expect(await team.saveSettings(DH, { ...values(DH), zichtbaarheid: 'team' }, 'baas')).toEqual(
+				['zichtbaarheid']
+			);
+			expect((await team.settings(DH))?.zichtbaarheid).toBe('team');
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: 'baas',
+				action: 'settings.changed',
+				target: 'zichtbaarheid'
+			});
+		});
+	});
+
+	describe('who writes in a proposal', () => {
+		it('records each writer once, keeps the first time, and lists the first first', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			h.at('2026-10-10T11:00:00.000Z');
+			await team.recordWriter(DH, 7, 'piet');
+			h.at('2026-10-10T12:00:00.000Z');
+			await team.recordWriter(DH, 7, 'jan');
+			expect(await team.writers(DH, 7)).toEqual(['jan', 'piet']);
+		});
+
+		it('keeps proposals and sites apart, and knows nobody for a proposal without', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			await team.recordWriter(MOZA, 7, 'piet');
+			await team.recordWriter(DH, 8, 'piet');
+			expect(await team.writers(DH, 7)).toEqual(['jan']);
+			expect(await team.writers(MOZA, 7)).toEqual(['piet']);
+			expect(await team.writers(DH, 8)).toEqual(['piet']);
+			expect(await team.writers(DH, 9)).toEqual([]);
+		});
+
+		it('records nobody for a site or a user it does not know', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await expect(team.recordWriter('onbekend', 1, 'jan')).rejects.toThrow();
+			await expect(team.recordWriter(DH, 1, 'niemand')).rejects.toThrow();
+			expect(await team.writers(DH, 1)).toEqual([]);
+		});
+
+		it('forgets who wrote a proposal that was merged or closed, and keeps the others', async () => {
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordLogin(login('piet', 'piet@example.org'));
+			await team.recordWriter(DH, 7, 'jan');
+			await team.recordWriter(DH, 7, 'piet');
+			await team.recordWriter(DH, 8, 'jan');
+			await team.recordWriter(MOZA, 7, 'piet');
+			await team.forgetWriters(DH, 7);
+			expect(await team.writers(DH, 7)).toEqual([]);
+			expect(await team.writers(DH, 8)).toEqual(['jan']);
+			expect(await team.writers(MOZA, 7)).toEqual(['piet']);
+			await team.forgetWriters(DH, 99);
+			expect(await team.writers(DH, 8)).toEqual(['jan']);
+		});
+
+		it('forgets who wrote a proposal 183 days after their first commit, open or not', async () => {
+			h.at('2026-04-09T10:00:00.000Z');
+			await team.recordLogin(login('jan', 'jan@example.org'));
+			await team.recordWriter(DH, 3, 'jan');
+			h.at('2026-04-11T10:00:00.000Z');
+			await team.recordWriter(DH, 4, 'jan');
+			await team.recordWriter(DH, 3, 'jan');
+			h.at(START);
+			expect(await team.retention()).toMatchObject({ users: 0, writers: 1 });
+			expect(await team.writers(DH, 3)).toEqual([]);
+			expect(await team.writers(DH, 4)).toEqual(['jan']);
+			expect((await team.profile('jan'))?.email).toBe('jan@example.org');
+		});
+
+		it('forgets what a forgotten user wrote, and keeps the others', async () => {
+			h.at('2025-09-01T10:00:00.000Z');
+			await team.recordLogin(login('weg', 'weg@example.org'));
+			await team.recordWriter(DH, 3, 'weg');
+			h.at('2026-10-01T10:00:00.000Z');
+			await team.recordLogin(login('blijft', 'blijft@example.org'));
+			await team.recordWriter(DH, 3, 'blijft');
+			h.at(START);
+			expect((await team.retention()).users).toBe(1);
+			expect(await team.writers(DH, 3)).toEqual(['blijft']);
+		});
+	});
+
+	describe('retention', () => {
+		it('deletes expired invitations and writes that down', async () => {
+			const invited = await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'baas');
+			h.at('2026-11-09T10:00:00.000Z');
+			expect((await team.retention()).invitations).toBe(1);
+			expect(await team.invitations(DH)).toEqual([]);
+			expect((await team.audit(DH))[0]).toMatchObject({
+				actorSub: null,
+				action: 'invitation.expired',
+				target: invited.kind === 'invited' ? invited.id : ''
+			});
+		});
+
+		it('forgets users not seen for twelve months who are on no team', async () => {
+			h.at('2025-09-01T10:00:00.000Z');
+			await team.recordLogin(login('weg', 'weg@example.org'));
+			await h.users.savePrefs(prefs('weg'));
+			await withTeam(DH, [['lid', 'redactie']]);
+			await h.users.savePrefs(prefs('lid'));
+			h.at('2025-10-20T10:00:00.000Z');
+			await team.recordLogin(login('recent', 'recent@example.org'));
+			await h.users.savePrefs(prefs('recent'));
+			h.at(START);
+
+			expect((await team.retention()).users).toBe(1);
+			expect(await team.profile('weg')).toBeNull();
+			expect((await h.users.getPrefs('weg')).onboarded).toBe(false);
+			expect((await team.profile('lid'))?.email).toBe('lid@example.org');
+			expect((await h.users.getPrefs('lid')).onboarded).toBe(true);
+			expect((await team.profile('recent'))?.email).toBe('recent@example.org');
+		});
+
+		it('deletes audit rows older than two years', async () => {
+			h.at('2024-10-01T10:00:00.000Z');
+			await team.addByEmail(DH, 'oud@example.org', 'redactie', 'baas');
+			h.at('2024-10-20T10:00:00.000Z');
+			await team.addByEmail(MOZA, 'minder-oud@example.org', 'redactie', 'baas');
+			h.at(START);
+			const result = await team.retention();
+			expect(result.audit).toBe(1);
+			const actions = (await team.audit()).map((a) => [a.siteId, a.action]);
+			expect(actions).not.toContainEqual([DH, 'invitation.created']);
+			expect(actions).toContainEqual([MOZA, 'invitation.created']);
+		});
+	});
+
+	it('never writes an e-mail address in the audit log', async () => {
+		await team.recordLogin(login('jan', 'jan@example.org'));
+		await team.addByEmail(DH, 'jan@example.org', 'beheerder', 'baas');
+		await team.addByEmail(DH, 'nieuw@example.org', 'redactie', 'jan');
+		await team.recordLogin(login('nieuw', 'nieuw@example.org'));
+		await team.addSite(site('derde', 3), values('derde'), { email: 'derde@example.org' }, 'jan');
+		await team.addSite(site('vierde', 4), values('vierde'), { email: 'jan@example.org' }, 'jan');
+		await team.removeSite('derde', 'jan');
+		const text = JSON.stringify(await team.audit());
+		expect(text).not.toContain('@');
+	});
+}
+
+describe('MemoryTeamStore', () => {
+	contract(async () => {
+		let now = new Date(START);
+		const users = new MemoryUsersStore();
+		return {
+			team: new MemoryTeamStore({ users, clock: () => now }),
+			users,
+			at: (iso) => (now = new Date(iso)),
+			warm: async () => {}
+		};
+	});
+});
+
+const url = process.env.DATABASE_SERVER_FULL;
+
+describe.skipIf(!url)('Postgres team store', () => {
+	// A schema of its own, so the test never touches the tables of a real database.
+	const schema = `schrijver_test_${randomBytes(4).toString('hex')}`;
+	let sql: postgres.Sql;
+	const ddl = readFileSync('db/schema.sql', 'utf8');
+
+	beforeAll(async () => {
+		const setup = postgres(url!, { onnotice: () => {} });
+		await setup.unsafe(`create schema ${schema}`);
+		await setup.end();
+		sql = postgres(url!, { connection: { search_path: schema }, onnotice: () => {} });
+		await sql.unsafe(ddl);
+		// Twice: the schema has to apply over itself at every start.
+		await sql.unsafe(ddl);
+	});
+
+	afterAll(async () => {
+		await sql?.unsafe(`drop schema ${schema} cascade`);
+		await sql?.end();
+	});
+
+	describe('rules', () => {
+		contract(async () => {
+			await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
+			let now = new Date(START);
+			return {
+				team: createTeamStore(sql, () => now),
+				users: createUsersStore(sql),
+				at: (iso) => (now = new Date(iso)),
+				warm: async () => {
+					await Promise.all([sql`select pg_sleep(0.05)`, sql`select pg_sleep(0.05)`]);
+				}
+			};
+		});
+	});
+
+	it('applies over a schema from before the bijdrager role and the choice of who sees a site', async () => {
+		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
+		await sql.unsafe(`
+			alter table site_members drop constraint site_members_role_check;
+			alter table site_members add constraint site_members_role_check check (role in ('beheerder', 'redactie'));
+			alter table invitations drop constraint invitations_role_check;
+			alter table invitations add constraint invitations_role_check check (role in ('beheerder', 'redactie'));
+			alter table site_settings drop column zichtbaarheid;
+		`);
+		await sql`insert into user_prefs (sub, email) values ('jan', 'jan@example.org')`;
+		await sql`insert into sites (id, repo_id, repo, standaardbranch) values (${DH}, 101, 'Org/dh', 'main')`;
+		await sql`insert into site_settings (site_id, naam) values (${DH}, 'Digi Handboek')`;
+		await expect(
+			sql`insert into site_members (site_id, sub, role) values (${DH}, 'jan', 'bijdrager')`
+		).rejects.toThrow();
+
+		await sql.unsafe(ddl);
+		const team = createTeamStore(sql, () => new Date(START));
+		expect((await team.settings(DH))?.zichtbaarheid).toBe('iedereen');
+		expect((await team.addByEmail(DH, 'jan@example.org', 'bijdrager', 'baas')).kind).toBe('added');
+		expect((await team.addByEmail(DH, 'nieuw@example.org', 'bijdrager', 'baas')).kind).toBe(
+			'invited'
+		);
+		await expect(
+			sql`update site_settings set zichtbaarheid = 'niemand' where site_id = ${DH}`
+		).rejects.toThrow();
+		await expect(
+			sql`update site_members set role = 'lezer' where site_id = ${DH}`
+		).rejects.toThrow();
+	});
+
+	it('judges a user who has not signed in since the profile columns came by the last change', async () => {
+		await sql`truncate audit_log, invitations, proposal_writers, site_members, site_settings, sites, user_prefs`;
+		const team = createTeamStore(sql, () => new Date(START));
+		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('oud', true, ${new Date('2025-01-01T00:00:00Z')})`;
+		await sql`insert into user_prefs (sub, onboarded, updated_at) values ('bijgewerkt', true, ${new Date('2026-09-01T00:00:00Z')})`;
+		expect((await team.retention()).users).toBe(1);
+		const left = await sql<{ sub: string }[]>`select sub from user_prefs order by sub`;
+		expect(left.map((r) => r.sub)).toEqual(['bijgewerkt']);
+	});
+});

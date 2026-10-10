@@ -1,0 +1,10 @@
+titel: uit-h1
+velden:
+  description: { type: tekst, label: Samenvatting, hulp: 'Een of twee zinnen.' }
+  hero: { type: ja-nee, verborgen: true }
+  related: { type: paginaverwijzing, meervoud: true, max: 5, label: Lees ook }
+nieuwe-pagina:
+  mappen: [kennis, werkwijze, onboarding, over]
+  bestandsnaam: uit-titel
+  sjabloon: |
+    # {titel}

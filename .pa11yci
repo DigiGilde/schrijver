@@ -1,0 +1,50 @@
+{
+	"defaults": {
+		"standard": "WCAG2AA",
+		"runners": ["axe", "htmlcs"],
+		"wait": 500,
+		"timeout": 60000,
+		"viewport": { "width": 1280, "height": 6000 },
+		"actions": ["wait for element nldd-toolbar:defined to be added"],
+		"hideElements": "nldd-top-title-bar, nldd-list-item[current], nldd-step-bar, nldd-status-bar, .merk, .menuknop",
+		"chromeLaunchConfig": { "args": ["--no-sandbox"] }
+	},
+	"urls": [
+		"http://localhost:4393/",
+		"http://localhost:4393/sites/digi-handboek",
+		{
+			"url": "http://localhost:4393/sites/digi-handboek/bewerken/index.md",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/sites/digi-handboek/voorstellen/1",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		"http://localhost:4393/sites/digi-handboek/over",
+		"http://localhost:4393/help",
+		{
+			"url": "http://localhost:4393/instellingen",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/onboarding",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/sites/digi-handboek/nieuw",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/sites/moza-site/nieuw",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/instellingen/sites/digi-handboek",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		},
+		{
+			"url": "http://localhost:4393/instellingen/sites/nieuw",
+			"ignore": ["WCAG2AA.Principle3.Guideline3_2.3_2_2.H32.2"]
+		}
+	]
+}

@@ -1,0 +1,6 @@
+content:
+  pad: paginas
+  patroon: '**/*.md'
+preview:
+  soort: bij-label
+  url: 'https://intranet.example.org/voorbeeld/'

@@ -1,0 +1,133 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, closed]
+
+env:
+  REGISTRY: ghcr.io
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event.action != 'closed' && github.event.action != 'unlabeled' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'preview')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.vars.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Image name and tags
+        id: vars
+        run: |
+          repo="${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/schrijver"
+          sha="${GITHUB_SHA::7}"
+          tags="${repo}:${sha}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            tags="${tags},${repo}:latest"
+          else
+            tags="${tags},${repo}:pr-${PR_NUMBER}"
+          fi
+          echo "image=${repo}:${sha}" >> "$GITHUB_OUTPUT"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.vars.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-production:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
+    steps:
+      - name: Deploy to ZAD
+        id: deploy
+        uses: RijksICTGilde/zad-actions/deploy@428dc1e446dcf30db3b356f27c7c5073bae28f48 # v4.3.1
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: production
+          component: web
+          image: ${{ needs.build.outputs.image }}
+          wait-for-ready: 'true'
+          health-endpoint: /healthz
+
+  deploy-preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pr${{ github.event.pull_request.number }}
+      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    steps:
+      - name: Deploy preview to ZAD
+        id: deploy
+        uses: RijksICTGilde/zad-actions/deploy@428dc1e446dcf30db3b356f27c7c5073bae28f48 # v4.3.1
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: pr${{ github.event.pull_request.number }}
+          clone-from: production
+          component: web
+          image: ${{ needs.build.outputs.image }}
+          comment-on-pr: 'true'
+          wait-for-ready: 'true'
+          health-endpoint: /healthz
+
+  cleanup-preview:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event.action == 'unlabeled' && github.event.label.name == 'preview') ||
+        (github.event.action == 'closed' && contains(github.event.pull_request.labels.*.name, 'preview'))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+      packages: write
+      pull-requests: write
+    steps:
+      - name: Cleanup ZAD deployment
+        uses: RijksICTGilde/zad-actions/cleanup@428dc1e446dcf30db3b356f27c7c5073bae28f48 # v4.3.1
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: pr${{ github.event.pull_request.number }}
+          delete-github-env: 'true'
+          delete-github-deployments: 'true'
+          delete-pr-comment: 'true'
+          delete-container: 'true'
+          container-org: ${{ github.repository_owner }}
+          container-name: schrijver
+          container-tag: pr-${{ github.event.pull_request.number }}
+          github-admin-token: ${{ secrets.GITHUB_ADMIN_TOKEN }}

@@ -1,0 +1,30 @@
+name: schrijver
+description: 'Schrijver, a writing tool for site content'
+
+components:
+  - name: web
+    type: deployment
+    ports:
+      inbound: [8080]
+    publish-on-web: true
+    sso-rijk: true
+    uses-services: [publish-on-web, keycloak, vlam, postgresql-database]
+    # Empty placeholders: set the values as secrets in the ZAD portal, never in this file.
+    # OIDC_DISCOVERY_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET come from the keycloak service and
+    # DATABASE_SERVER_FULL from postgresql-database; do not list them here, or the empty value
+    # could override the injected one.
+    user-env-vars:
+      SESSION_SECRET: ''
+      GITHUB_APP_ID: ''
+      GITHUB_APP_PRIVATE_KEY: ''
+      GITHUB_APP_CLIENT_ID: ''
+      GITHUB_APP_CLIENT_SECRET: ''
+      ORIGIN: ''
+      GITHUB_WEBHOOK_SECRET: ''
+      VLAM_API_URL: ''
+      VLAM_KEY_PREPAID: ''
+      VLAM_MODEL: ''
+      PSEUDONYM_SECRET: ''
+      # The SSO subs of the platform admins, comma separated (docs/configuratie.md). They identify
+      # people: set them in the ZAD portal too, never in this file.
+      SCHRIJVER_BEHEERDERS: ''

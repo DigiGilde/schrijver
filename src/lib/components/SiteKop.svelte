@@ -1,0 +1,72 @@
+<script lang="ts">
+	import { addressText } from '$lib/config/site-address';
+	import { proposalsTab, proposalsTabAddress } from '$lib/forge/status';
+
+	type Tab = 'paginas' | 'voorstellen';
+	let {
+		site,
+		huidig,
+		wachtend = null
+	}: {
+		site: { id: string; adres: string | null };
+		huidig: Tab;
+		/** Proposals waiting for the editors; null for anyone who is not editorial. */
+		wachtend?: number | null;
+	} = $props();
+
+	const voorstellen = $derived(proposalsTab(wachtend));
+
+	/* nldd-tab-bar-item has no accessible-label, so the name goes on the link it renders. */
+	function toegankelijkeNaam(item: HTMLElement, naam: string | null) {
+		let huidige = naam;
+		const zet = async () => {
+			await customElements.whenDefined('nldd-tab-bar-item');
+			await (item as HTMLElement & { updateComplete?: Promise<unknown> }).updateComplete;
+			const link = item.shadowRoot?.querySelector('a');
+			if (!link) return;
+			if (huidige) link.setAttribute('aria-label', huidige);
+			else link.removeAttribute('aria-label');
+		};
+		void zet();
+		return {
+			update(naam: string | null) {
+				huidige = naam;
+				void zet();
+			}
+		};
+	}
+</script>
+
+<div class="kop">
+	<nldd-tab-bar navigation accessible-label="Onderdelen van de site">
+		<nldd-tab-bar-item
+			text="Pagina's"
+			href="/sites/{site.id}"
+			current={huidig === 'paginas' || undefined}
+		></nldd-tab-bar-item>
+		<nldd-tab-bar-item
+			text={voorstellen.text}
+			href={proposalsTabAddress(site.id, wachtend)}
+			current={huidig === 'voorstellen' || undefined}
+			use:toegankelijkeNaam={voorstellen.label}
+		></nldd-tab-bar-item>
+	</nldd-tab-bar>
+	{#if site.adres}
+		<nldd-link
+			href={site.adres}
+			target="_blank"
+			end-icon="external-link"
+			text={addressText(site.adres)}
+		></nldd-link>
+	{/if}
+</div>
+
+<style>
+	.kop {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+	}
+</style>

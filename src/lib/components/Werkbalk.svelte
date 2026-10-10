@@ -1,0 +1,335 @@
+<script module lang="ts">
+	export type Actie =
+		| 'bold'
+		| 'italic'
+		| 'bullet'
+		| 'ordered'
+		| 'indent'
+		| 'outdent'
+		| 'quote'
+		| 'link'
+		| 'code'
+		| 'codeBlock'
+		| 'table'
+		| 'rule';
+	export type Weergave = 'schrijven' | 'voorbeeld';
+</script>
+
+<script lang="ts">
+	import type { TextEditorState } from '@nldd/design-system/text-editor';
+
+	type Props = {
+		state: TextEditorState | null;
+		/** The formatting and insert buttons show: not while a comparison takes the place of the text. */
+		bewerkbaar?: boolean;
+		onactie: (actie: Actie) => void;
+		onkop: (niveau: 2 | 3 | 4) => void;
+		onafbeelding: () => void;
+		onmermaid: () => void;
+		afbeeldingen?: boolean;
+		weergave: Weergave;
+		onweergave: (weergave: Weergave) => void;
+		/** Opens the page properties; null when the page has none. */
+		oneigenschappen?: (() => void) | null;
+		/** How many required properties are still empty. */
+		eigenschappenLeeg?: number;
+		schrijfhulpOpen?: boolean;
+		onschrijfhulp?: () => void;
+	};
+	let {
+		state,
+		bewerkbaar = true,
+		onactie,
+		onkop,
+		onafbeelding,
+		onmermaid,
+		afbeeldingen = true,
+		weergave,
+		onweergave,
+		oneigenschappen = null,
+		eigenschappenLeeg = 0,
+		schrijfhulpOpen = false,
+		onschrijfhulp
+	}: Props = $props();
+
+	const active = $derived(state?.active);
+
+	/*
+	 * `expanded` goes in as a property, never as an attribute: server-rendered expanded="false" is a
+	 * present boolean attribute (Lit reads it as true), and `undefined` renders as aria-expanded="undefined".
+	 * Lit keeps a property set before the element upgrades.
+	 */
+	function uitgeklapt(node: HTMLElement, open: boolean) {
+		const element = node as HTMLElement & { expanded: boolean };
+		element.expanded = open;
+		return { update: (next: boolean) => (element.expanded = next) };
+	}
+
+	type Opmaak = {
+		icon: string;
+		label: string;
+		doe: () => void;
+		/** The toggle state; an item without one is a plain button. */
+		aan?: () => boolean | undefined;
+		/** False where the action does not apply, such as indenting outside a list. */
+		kan?: () => boolean | undefined;
+	};
+	const koppen = [2, 3, 4] as const;
+	const opmaak: Opmaak[] = [
+		{ icon: 'bold', label: 'Vet', aan: () => active?.bold, doe: () => onactie('bold') },
+		{ icon: 'italic', label: 'Cursief', aan: () => active?.italic, doe: () => onactie('italic') },
+		...koppen.map((niveau) => ({
+			icon: `heading-${niveau}`,
+			label: `Kop ${niveau}`,
+			aan: () => active?.heading === niveau,
+			doe: () => onkop(niveau)
+		})),
+		{
+			icon: 'bullet-list',
+			label: 'Lijst met opsommingstekens',
+			aan: () => active?.bulletList,
+			doe: () => onactie('bullet')
+		},
+		{
+			icon: 'numbered-list',
+			label: 'Genummerde lijst',
+			aan: () => active?.orderedList,
+			doe: () => onactie('ordered')
+		},
+		{
+			icon: 'indent-increase',
+			label: 'Inspringen',
+			kan: () => state?.canIndent,
+			doe: () => onactie('indent')
+		},
+		{
+			icon: 'indent-decrease',
+			label: 'Uitspringen',
+			kan: () => state?.canOutdent,
+			doe: () => onactie('outdent')
+		},
+		{ icon: 'text-quote', label: 'Citaat', aan: () => active?.quote, doe: () => onactie('quote') },
+		{ icon: 'link', label: 'Link', aan: () => active?.link, doe: () => onactie('link') },
+		{
+			icon: 'chevron-left-forward-slash-chevron-right',
+			label: 'Code in de regel',
+			aan: () => active?.inlineCode,
+			doe: () => onactie('code')
+		},
+		{
+			icon: 'chevron-left-forward-slash-chevron-right-rectangle',
+			label: 'Codeblok',
+			aan: () => active?.codeBlock,
+			doe: () => onactie('codeBlock')
+		}
+	];
+
+	/*
+	 * Lower priorities move into the overflow menu first: the insert buttons, then the formatting from
+	 * right to left. The end of the bar goes last, the view switch at the very last.
+	 */
+	const PRIORITEIT = {
+		lijn: 1,
+		tabel: 2,
+		mermaid: 3,
+		afbeelding: 4,
+		schrijfhulp: opmaak.length + 5,
+		eigenschappen: opmaak.length + 6,
+		weergave: opmaak.length + 7
+	};
+	const prioriteit = (index: number) => opmaak.length + 4 - index;
+
+	const afbeeldingLabel = $derived(
+		afbeeldingen
+			? 'Afbeelding invoegen'
+			: 'Afbeelding invoegen (deze site accepteert geen afbeeldingen)'
+	);
+
+	/** The toggle flips itself on click; put it back in line with the editor once the state event has landed. */
+	function resync(event: Event, aan: () => boolean | undefined) {
+		const element = event.currentTarget as HTMLElement & { selected: boolean };
+		setTimeout(() => (element.selected = !!aan()), 0);
+	}
+
+	function kies(event: Event) {
+		onweergave(
+			(event as CustomEvent<{ value?: string }>).detail?.value === 'voorbeeld'
+				? 'voorbeeld'
+				: 'schrijven'
+		);
+	}
+</script>
+
+<!-- Every item carries its own twin in slot="overflow": the toolbar shows those in its menu once the item no longer fits. -->
+<nldd-toolbar label="Opmaak" size="sm">
+	{#if weergave === 'schrijven' && bewerkbaar}
+		{#each opmaak as knop, index (knop.label)}
+			{@const aan = knop.aan}
+			<nldd-toolbar-item slot="start" priority={prioriteit(index)}>
+				{#if aan}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-toggle-button
+						type="button"
+						icon={knop.icon}
+						accessible-label={knop.label}
+						appearance="neutral-transparent"
+						selected={aan() || undefined}
+						onclick={(event: Event) => {
+							knop.doe();
+							resync(event, aan);
+						}}
+					></nldd-toggle-button>
+					<nldd-menu-item
+						slot="overflow"
+						type="checkbox"
+						icon={knop.icon}
+						text={knop.label}
+						selected={aan() || undefined}
+						onselect={knop.doe}
+					></nldd-menu-item>
+				{:else}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<nldd-icon-button
+						icon={knop.icon}
+						accessible-label={knop.label}
+						appearance="neutral-transparent"
+						disabled={knop.kan?.() === false || undefined}
+						onclick={knop.doe}
+					></nldd-icon-button>
+					<nldd-menu-item
+						slot="overflow"
+						icon={knop.icon}
+						text={knop.label}
+						disabled={knop.kan?.() === false || undefined}
+						onselect={knop.doe}
+					></nldd-menu-item>
+				{/if}
+			</nldd-toolbar-item>
+		{/each}
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.tabel}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="rectangle-split-2x3"
+				accessible-label="Tabel invoegen"
+				appearance="neutral-transparent"
+				onclick={() => onactie('table')}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="rectangle-split-2x3"
+				text="Tabel invoegen"
+				onselect={() => onactie('table')}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+		<!-- No icon in the design system says "horizontal line", so this one carries a text. -->
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.lijn}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-button
+				text="Horizontale lijn"
+				accessible-label="Horizontale lijn invoegen"
+				appearance="neutral-transparent"
+				onclick={() => onactie('rule')}
+			></nldd-button>
+			<nldd-menu-item
+				slot="overflow"
+				text="Horizontale lijn invoegen"
+				onselect={() => onactie('rule')}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.afbeelding}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="photo"
+				accessible-label={afbeeldingLabel}
+				appearance="neutral-transparent"
+				disabled={!afbeeldingen || undefined}
+				onclick={onafbeelding}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="photo"
+				text={afbeeldingLabel}
+				disabled={!afbeeldingen || undefined}
+				onselect={onafbeelding}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+		<nldd-toolbar-item slot="start" priority={PRIORITEIT.mermaid}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-icon-button
+				icon="network-structure"
+				accessible-label="Mermaid-diagram invoegen"
+				appearance="neutral-transparent"
+				onclick={onmermaid}
+			></nldd-icon-button>
+			<nldd-menu-item
+				slot="overflow"
+				icon="network-structure"
+				text="Mermaid-diagram invoegen"
+				onselect={onmermaid}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+	{/if}
+	<nldd-toolbar-item slot="end" priority={PRIORITEIT.weergave}>
+		<!-- A radio group that shows the editor or the preview, rather than tabs: tab roles cannot reach a panel across the shadow root. -->
+		<nldd-segmented-control accessible-label="Weergave" value={weergave} onchange={kies}>
+			<nldd-segmented-control-item value="schrijven" text="Schrijven"></nldd-segmented-control-item>
+			<nldd-segmented-control-item value="voorbeeld" text="Voorbeeld"></nldd-segmented-control-item>
+		</nldd-segmented-control>
+		<nldd-menu-group slot="overflow" text="Weergave">
+			<nldd-menu-item
+				type="radio"
+				text="Schrijven"
+				selected={weergave === 'schrijven' || undefined}
+				onselect={() => onweergave('schrijven')}
+			></nldd-menu-item>
+			<nldd-menu-item
+				type="radio"
+				text="Voorbeeld"
+				selected={weergave === 'voorbeeld' || undefined}
+				onselect={() => onweergave('voorbeeld')}
+			></nldd-menu-item>
+		</nldd-menu-group>
+	</nldd-toolbar-item>
+	{#if oneigenschappen}
+		{@const leeg = eigenschappenLeeg
+			? `${eigenschappenLeeg} ${eigenschappenLeeg === 1 ? 'verplicht veld' : 'verplichte velden'} leeg`
+			: ''}
+		<nldd-toolbar-item slot="end" priority={PRIORITEIT.eigenschappen}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<nldd-button
+				appearance="secondary"
+				text={eigenschappenLeeg ? `Eigenschappen (${eigenschappenLeeg} leeg)` : 'Eigenschappen'}
+				accessible-label={leeg ? `Eigenschappen, ${leeg}` : undefined}
+				onclick={oneigenschappen}
+			></nldd-button>
+			<nldd-menu-item
+				slot="overflow"
+				text={leeg ? `Eigenschappen (${leeg})` : 'Eigenschappen'}
+				onselect={oneigenschappen}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+	{/if}
+	{#if onschrijfhulp}
+		<nldd-toolbar-item slot="end" priority={PRIORITEIT.schrijfhulp}>
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<!-- `expandable` keeps aria-expanded present while closed; aria-controls cannot cross the shadow root. -->
+			<nldd-button
+				appearance="secondary"
+				text="Schrijfhulp"
+				expandable
+				use:uitgeklapt={schrijfhulpOpen}
+				onclick={onschrijfhulp}
+			></nldd-button>
+			<nldd-menu-item
+				slot="overflow"
+				type="checkbox"
+				text="Schrijfhulp"
+				selected={schrijfhulpOpen || undefined}
+				onselect={onschrijfhulp}
+			></nldd-menu-item>
+		</nldd-toolbar-item>
+	{/if}
+</nldd-toolbar>
+{#if !afbeeldingen && weergave === 'schrijven' && bewerkbaar}
+	<nldd-text color="secondary" size="sm">Deze site accepteert geen afbeeldingen.</nldd-text>
+{/if}

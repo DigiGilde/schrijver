@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Containerfile
+    env_file: .env
+    environment:
+      # Fits 10 MB of images as base64 plus the page text in one save.
+      BODY_SIZE_LIMIT: 16M
+    ports:
+      - '8080:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+  db:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: schrijver
+      POSTGRES_USER: schrijver
+      POSTGRES_PASSWORD: schrijver
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U schrijver -d schrijver']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ['start-dev', '--import-realm']
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: '8081'
+      KC_HOSTNAME: http://keycloak:8081
+    volumes:
+      - ./dev/keycloak-realm.json:/opt/keycloak/data/import/keycloak-realm.json:ro,z
+    ports:
+      - '8081:8081'
+volumes:
+  db-data:
