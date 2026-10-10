@@ -146,7 +146,7 @@ describe('the fake fixtures of the local preview', () => {
 				'moza-site',
 				'Weekly 3 september: de terugblik',
 				ANYONE,
-				/^De pagina is intussen op de site veranderd\. Daardoor kan je voorstel /
+				/^De pagina MOZa Weekly 3 september 2026 is intussen op de site veranderd\. Daardoor kan je voorstel .* Kies "Pagina opnieuw bewerken" /
 			],
 			[
 				'moza-site',

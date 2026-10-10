@@ -47,6 +47,7 @@ A sentence that points at a control quotes its label with straight double quotes
 | Reviewing, deciding, approving | "beoordeling" is what the redactie does with a sent-in proposal ("Te beoordelen"); "beslissing" is the choice between "Voeg samen" and "Aanpassing vragen"; "goedkeuring" is only the approval on GitHub | "beoordelen", "beslissen", "goedkeuren"; "Goedkeuren op GitHub" and "Beoordelen op GitHub" lead to the work done there | "review", "reviewer", "kijken" |
 | A reaction | "reactie"; the thread is "het gesprek" | "plaatsen": "Plaats reactie"; "Maak er een gewone reactie van" turns a request for an adjustment back into a reaction | "opmerking" |
 | Continuing to edit | none | "Verder bewerken" on every screen; its accessible name is "Verder bewerken: {titel}" | "Verder met je voorstel" |
+| Making a change again | none | "Pagina opnieuw bewerken" opens the page as the site has it now, for the writer of a proposal that GitHub cannot merge; a save there makes a new proposal | "Open de pagina opnieuw" |
 | Preview | "voorbeeld" is the view in the editor; "voorbeeldsite" is the site that the repository builds for a proposal | "Voorbeeldsite bekijken"; "Schrijven" and "Voorbeeld" switch the view; "Voorbeeldsite van een voorstel", "Geen voorbeeldsite" | "voorbeeld" for the built site |
 
 ### Schrijfhulp

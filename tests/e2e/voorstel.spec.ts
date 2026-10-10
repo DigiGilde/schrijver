@@ -404,7 +404,7 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 	}) => {
 		await openSeeded(page, 'moza-site', 'Weekly 10 september: de agenda');
 		await expect(zin(page)).toHaveText(
-			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.'
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om een aanpassing. De schrijver maakt de wijziging dan opnieuw in een nieuw voorstel.'
 		);
 		await expect(knop(page, 'Aanpassing vragen')).toHaveAttribute('appearance', 'primary');
 		await expect(knop(page, 'Voeg samen')).toHaveCount(0);
@@ -413,7 +413,11 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 
 		await openSeeded(page, 'moza-site', 'Weekly 3 september: de terugblik');
 		await expect(zin(page)).toHaveText(
-			'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.'
+			'De pagina MOZa Weekly 3 september 2026 is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Kies "Pagina opnieuw bewerken" en maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.'
+		);
+		await expect(knop(page, 'Pagina opnieuw bewerken')).toHaveAttribute(
+			'href',
+			'/sites/moza-site/bewerken/weekly/2026/2026-09-03.md'
 		);
 		await expect(knop(page, 'Stuur in')).toHaveCount(0);
 		await expect(knop(page, 'Verder bewerken')).toHaveCount(0);
@@ -433,6 +437,88 @@ test.describe('on the MOZa site, where the test user is in the redactie and four
 			await expect(page.locator('[data-diff="verwijderd"]'), titel).toHaveCount(0);
 			await expect(page.getByText('Aangevuld op de site.'), titel).toHaveCount(0);
 		}
+	});
+
+	test('sends the writer of what GitHub cannot merge to a new proposal, also after a request', async ({
+		page
+	}) => {
+		const editorValue = () =>
+			page.evaluate(
+				() => (document.querySelector('nldd-text-editor') as unknown as { value: string }).value
+			);
+		const bewaarMet = async (text: string) => {
+			await page.locator('nldd-text-editor .cm-content').click();
+			await page.keyboard.press('ControlOrMeta+End');
+			await page.keyboard.type(`\n\n${text}`);
+			// A weekly needs a description before it can be saved.
+			await page.getByRole('button', { name: /^Eigenschappen/ }).click();
+			await page
+				.locator('nldd-sheet')
+				.getByRole('textbox', { name: 'Beschrijving' })
+				.fill('Wat er in augustus gebeurde.');
+			await page.keyboard.press('Escape');
+			await page.getByRole('button', { name: 'Bewaar', exact: true }).click();
+		};
+
+		// Derde Collega of the redactie asks for an adjustment that GitHub cannot merge.
+		await als(page, 'derde');
+		await openSeeded(page, 'moza-site', 'Weekly 3 september: de terugblik');
+		const oud = page.url();
+		const nummer = new URL(oud).pathname.split('/').at(-1)!;
+		await knop(page, 'Aanpassing vragen').click();
+		const formulier = page.locator('form#reactie');
+		await formulier
+			.getByRole('textbox', { name: 'Je reactie' })
+			.fill('Zet je terugblik op de pagina zoals die nu is.');
+		await formulier.getByRole('button', { name: 'Vraag om aanpassing' }).click();
+		await expect(page.getByText('Je vraag om aanpassing is geplaatst').first()).toBeVisible();
+		const redactie =
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. De schrijver maakt de wijziging opnieuw in een nieuw voorstel.';
+		await expect(zin(page)).toHaveText(redactie);
+		await expect(page.locator('nldd-box nldd-button')).toHaveCount(0);
+		await als(page, 'collega');
+		await page.goto(oud);
+		await expect(zin(page)).toHaveText(redactie);
+
+		// The writer makes the change again on the page as the site has it now: a new proposal.
+		await alsTestgebruiker(page);
+		await page.goto(oud);
+		await expect(zin(page)).toHaveText(
+			/^De pagina MOZa Weekly 3 september 2026 is intussen op de site veranderd\. .* Dit voorstel blijft open tot iemand het op GitHub sluit\.$/
+		);
+		await expect(knop(page, 'Stuur opnieuw in')).toHaveCount(0);
+		await expect(knop(page, 'Pagina opnieuw bewerken')).toHaveAttribute('appearance', 'primary');
+		await knop(page, 'Pagina opnieuw bewerken').click();
+		await expect(page).toHaveURL(/\/sites\/moza-site\/bewerken\/weekly\/2026\/2026-09-03\.md$/);
+		await expect(page.locator('#paginatitel')).toHaveAttribute(
+			'supporting-text',
+			'content/weekly/2026/2026-09-03.md · Openbaar concept'
+		);
+		await expect.poll(editorValue).toContain('Aangevuld op de site.');
+		expect(await editorValue()).not.toContain('Een terugblik op de zomer.');
+		await bewaarMet('Een terugblik op de zomer, opnieuw.');
+		const melding = page.locator('nldd-notification');
+		await expect(melding).toHaveAttribute('text', /^Concept bewaard als voorstel #\d+$/);
+		const nieuw = (await melding.getAttribute('text'))!.match(/#(\d+)$/)![1];
+		expect(nieuw).not.toBe(nummer);
+		expect((await melding.getAttribute('supporting-text')) ?? '').toBe('');
+		await expect(page).toHaveURL(new RegExp(`&pr=${nieuw}$`));
+
+		// Saved into the old proposal, the editor says that GitHub cannot merge it.
+		const branch = new URLSearchParams({ branch: 'schrijver/moza-site/2026-09-03', pr: nummer });
+		await page.goto(`/sites/moza-site/bewerken/weekly/2026/2026-09-03.md?${branch}`);
+		await expect(page.locator('#paginatitel')).toHaveAttribute(
+			'supporting-text',
+			`content/weekly/2026/2026-09-03.md · Voorstel #${nummer}`
+		);
+		await bewaarMet('Nog een zin.');
+		await expect(melding).toHaveAttribute('text', `Bewaard in voorstel #${nummer}`);
+		const feit =
+			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.';
+		await expect(melding).toHaveAttribute('supporting-text', feit);
+		await expect(
+			page.locator('p[role="status"]').filter({ hasText: 'Bewaard in voorstel' })
+		).toHaveText(`Bewaard in voorstel #${nummer}. ${feit}`);
 	});
 
 	test('answers a request for changes made on GitHub with Stuur opnieuw in', async ({ page }) => {

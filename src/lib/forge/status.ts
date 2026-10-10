@@ -143,6 +143,7 @@ export function stepOf(status: Status): (typeof STEPS)[number] | null {
 export type Action =
 	| 'insturen'
 	| 'verder-bewerken'
+	| 'pagina-opnieuw-bewerken'
 	| 'opnieuw-insturen'
 	| 'samenvoegen'
 	| 'vraag-om-aanpassing'
@@ -173,6 +174,8 @@ export interface Situation {
 	tooManyCommits: boolean;
 	/** Schrijver can open the proposal's pages in the editor. */
 	canEdit: boolean;
+	/** The titles of the proposal's pages as the site has them now, to make the change on again. */
+	pagesOnSite: string[];
 	mergedAt: string | null;
 	siteAddress: boolean;
 }
@@ -201,10 +204,23 @@ export function whatNow(
 		return say(
 			'Dit voorstel staat buiten de repository van de site. De redactie beoordeelt het op GitHub.'
 		);
-	if (s.notMergeable && s.writer)
+	if (s.notMergeable && s.writer) {
+		const [one, ...more] = s.pagesOnSite;
+		const page =
+			one && more.length === 0
+				? `De pagina ${one}`
+				: more.length
+					? 'Een pagina van je voorstel'
+					: 'De pagina';
+		const redo = one
+			? 'Kies "Pagina opnieuw bewerken" en maak je wijziging nog een keer in een nieuw voorstel.'
+			: 'Maak je wijziging nog een keer in een nieuw voorstel.';
 		return say(
-			'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.'
+			`${page} is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. ${redo} Dit voorstel blijft open tot iemand het op GitHub sluit.`,
+			one ? ['pagina-opnieuw-bewerken'] : [],
+			one ? 'pagina-opnieuw-bewerken' : null
 		);
+	}
 	if (s.status === 'concept') {
 		return s.writer
 			? say(
@@ -221,6 +237,8 @@ export function whatNow(
 				[...edit, 'opnieuw-insturen'],
 				edit[0] ?? 'opnieuw-insturen'
 			);
+		if (s.notMergeable)
+			return say(`${NOT_MERGEABLE} De schrijver maakt de wijziging opnieuw in een nieuw voorstel.`);
 		return say('De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.');
 	}
 	if (s.editor && s.blocked) {
@@ -237,7 +255,7 @@ export function whatNow(
 	if (!s.editor) return say('De redactie beoordeelt dit voorstel.');
 	if (s.notMergeable)
 		return say(
-			`${NOT_MERGEABLE} Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.`,
+			`${NOT_MERGEABLE} Vraag de schrijver om een aanpassing. De schrijver maakt de wijziging dan opnieuw in een nieuw voorstel.`,
 			['vraag-om-aanpassing'],
 			'vraag-om-aanpassing'
 		);

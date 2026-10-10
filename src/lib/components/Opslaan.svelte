@@ -11,7 +11,7 @@
 	} from '$lib/client/pending-images';
 	import { inImageFolder, removedImages, type ImageConvention } from '$lib/content/image-refs';
 	import { MERMAID_DESCR_MESSAGE, missingDescriptions } from '$lib/content/mermaid';
-	import type { Status } from '$lib/forge/status';
+	import { NOT_MERGEABLE, type Status } from '$lib/forge/status';
 
 	type Nieuw = { soort: string | null; folder: string; title: string };
 	type Snapshot = { body: string; frontmatter: Record<string, unknown>; changedKeys: string[] };
@@ -33,6 +33,7 @@
 		branch,
 		prNumber,
 		voorstel = null,
+		samenvoegbaar = true,
 		nieuw,
 		snapshot,
 		tekst,
@@ -56,6 +57,8 @@
 		prNumber: number | null;
 		/** Where the proposal stood when the editor opened it; null for a new one. */
 		voorstel?: Status | null;
+		/** Whether GitHub could merge the proposal when the editor opened it. */
+		samenvoegbaar?: boolean;
 		nieuw: Nieuw | null;
 		snapshot: () => Snapshot;
 		tekst: string;
@@ -91,6 +94,10 @@
 	let bewaard = $state<{ nummer: number; verwijderd: string[] } | null>(null);
 	const ingestuurd = $derived(voorstel !== null && voorstel !== 'concept');
 	const KLAAR = 'Klaar? Kies "Stuur opnieuw in" op de pagina van het voorstel.';
+	/* Saving does not make a proposal mergeable again: for one GitHub cannot merge, the fact instead. */
+	const daarna = $derived(
+		!samenvoegbaar ? NOT_MERGEABLE : voorstel === 'aanpassing-gevraagd' ? KLAAR : ''
+	);
 	const bewaardTekst = (nummer: number) =>
 		ingestuurd ? `Bewaard in voorstel #${nummer}` : `Concept bewaard als voorstel #${nummer}`;
 	let fout = $state<Fout | null>(null);
@@ -268,7 +275,7 @@
 					...(verwijderd.length > 0 ? [`Ook verwijderd: ${opsomming(verwijderd)}`] : []),
 					...blijven.map((afbeelding) => `${blijftStaan(afbeelding)} (${paginas(afbeelding)})`)
 				].join('. ');
-				if (voorstel === 'aanpassing-gevraagd') status += `. ${KLAAR}`;
+				if (daarna) status += `. ${daarna}`;
 			} else if (result?.conflict) {
 				conflict = result.conflict;
 				status = '';
@@ -360,7 +367,7 @@
 		text={bewaardTekst(bewaard.nummer)}
 		supporting-text={[
 			bewaard.verwijderd.length > 0 ? `Ook verwijderd: ${opsomming(bewaard.verwijderd)}` : '',
-			voorstel === 'aanpassing-gevraagd' ? KLAAR : ''
+			daarna
 		]
 			.filter(Boolean)
 			.join('. ') || undefined}

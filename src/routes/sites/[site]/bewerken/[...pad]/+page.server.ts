@@ -63,6 +63,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 			branch: null as string | null,
 			prNumber: null as number | null,
 			voorstel: null as Status | null,
+			samenvoegbaar: true,
 			nieuw: { soort, folder, title },
 			isPublic,
 			loadedAt: Date.now(),
@@ -79,6 +80,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 	let branch: string | null = null;
 	let prNumber: number | null = null;
 	let voorstel: Status | null = null;
+	let samenvoegbaar = true;
 	const wanted = query.get('branch');
 	if (wanted) {
 		const n = Number(query.get('pr'));
@@ -98,6 +100,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		branch = wanted;
 		prNumber = n;
 		voorstel = statusOf(pr);
+		samenvoegbaar = pr.mergeable !== false;
 	}
 	const file = await forge.readFile(site.repo, ref, repoPath);
 	if (!file) error(404, 'Pagina niet gevonden');
@@ -120,6 +123,7 @@ export const load: PageServerLoad = async ({ params, url, untrack }) => {
 		branch,
 		prNumber,
 		voorstel,
+		samenvoegbaar,
 		nieuw: null as { soort: string | null; folder: string; title: string } | null,
 		isPublic,
 		loadedAt: Date.now()

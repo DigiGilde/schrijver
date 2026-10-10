@@ -397,6 +397,7 @@
 					branch={data.branch}
 					prNumber={data.prNumber}
 					voorstel={data.voorstel}
+					samenvoegbaar={data.samenvoegbaar}
 					nieuw={data.nieuw}
 					snapshot={() => ({ body, ...applyForm(fields, data.frontmatter) })}
 					onbewaard={(saved) => {

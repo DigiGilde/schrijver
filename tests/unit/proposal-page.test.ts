@@ -298,6 +298,7 @@ interface Page {
 	nogMeerBestanden: number;
 	gesprek: { items: { who: string; as: string; text: string }[]; volledig: boolean } | null;
 	kanReageren: boolean;
+	opnieuwBewerken: { page: string; titel: string; href: string }[];
 }
 
 let made = 0;
@@ -547,24 +548,55 @@ describe('what now', () => {
 		const page = await open('digi-handboek', nummer, { sub: EDITOR });
 		expect(page.watNu).toEqual({
 			sentence:
-				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.',
+				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om een aanpassing. De schrijver maakt de wijziging dan opnieuw in een nieuw voorstel.',
 			actions: ['vraag-om-aanpassing'],
 			primary: 'vraag-om-aanpassing'
 		});
 		expect(page, 'no banner of its own').not.toHaveProperty('notMergeable');
+		expect(page.opnieuwBewerken).toEqual([]);
 
+		// A new page that the site does not have: nothing to open again.
 		const eigen = await make(
 			'digi-handboek',
 			{ 'docs/kennis/botsing-eigen.md': '# Botsing\n' },
 			{ door: EDITOR, sent: true }
 		);
 		forge.mergeableByPr.set(eigen, false);
-		expect((await open('digi-handboek', eigen, { sub: EDITOR })).watNu).toEqual({
+		const nieuw = await open('digi-handboek', eigen, { sub: EDITOR });
+		expect(nieuw.watNu).toEqual({
 			sentence:
-				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.',
+				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.',
 			actions: [],
 			primary: null
 		});
+		expect(nieuw.opnieuwBewerken).toEqual([]);
+	});
+
+	it('leads the writer of what GitHub cannot merge to the page as the site has it now', async () => {
+		const eigen = await make(
+			'digi-handboek',
+			{ 'docs/onboarding/accounts.md': '# Accounts, opnieuw\n' },
+			{ door: EDITOR, sent: true }
+		);
+		forge.mergeableByPr.set(eigen, false);
+		const writer = await open('digi-handboek', eigen, { sub: EDITOR });
+		expect(writer.opnieuwBewerken).toEqual([
+			{
+				page: 'docs/onboarding/accounts.md',
+				titel: 'Accounts, opnieuw',
+				href: '/sites/digi-handboek/bewerken/onboarding/accounts.md'
+			}
+		]);
+		expect(writer.watNu).toEqual({
+			sentence:
+				'De pagina Accounts, opnieuw is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Kies "Pagina opnieuw bewerken" en maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.',
+			actions: ['pagina-opnieuw-bewerken'],
+			primary: 'pagina-opnieuw-bewerken'
+		});
+		const other = await open('digi-handboek', eigen, { sub: 'iemand' });
+		expect(other.opnieuwBewerken).toEqual([]);
+		forge.mergeableByPr.set(eigen, true);
+		expect((await open('digi-handboek', eigen, { sub: EDITOR })).opnieuwBewerken).toEqual([]);
 	});
 
 	describe('a proposal with as many commits as GitHub lists', () => {

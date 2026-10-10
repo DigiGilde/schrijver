@@ -125,6 +125,7 @@ describe('whatNow', () => {
 		notMergeable: false,
 		tooManyCommits: false,
 		canEdit: true,
+		pagesOnSite: [],
 		mergedAt: null,
 		siteAddress: true
 	};
@@ -321,21 +322,15 @@ describe('whatNow', () => {
 				);
 	});
 
-	it('says plainly that GitHub cannot merge a proposal, and offers no merge', () => {
+	it('says plainly that GitHub cannot merge a proposal, offers no merge, and who does what', () => {
 		expect(NOT_MERGEABLE).toBe(
 			'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd.'
 		);
 		const editor = {
 			sentence:
-				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om de wijziging opnieuw te maken, of laat het op GitHub oplossen.',
+				'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. Vraag de schrijver om een aanpassing. De schrijver maakt de wijziging dan opnieuw in een nieuw voorstel.',
 			actions: ['vraag-om-aanpassing'],
 			primary: 'vraag-om-aanpassing'
-		};
-		const writer = {
-			sentence:
-				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Open de pagina opnieuw en maak je wijziging nog een keer, of vraag in het gesprek of iemand het op GitHub oplost.',
-			actions: [],
-			primary: null
 		};
 		for (const status of ['ingestuurd', 'goedgekeurd'] as const)
 			for (const actsOnGitHub of flags)
@@ -343,12 +338,48 @@ describe('whatNow', () => {
 					expect(
 						row({ status, editor: true, notMergeable: true, actsOnGitHub, mergeInSchrijver })
 					).toEqual(editor);
-		for (const status of ['concept', 'ingestuurd', 'goedgekeurd', 'aanpassing-gevraagd'] as const)
-			for (const editor of flags)
-				expect(row({ status, writer: true, editor, notMergeable: true })).toEqual(writer);
 		for (const situation of open({ notMergeable: true }))
 			for (const writer of flags)
 				expect(row({ ...situation, writer }).actions).not.toContain('samenvoegen');
+	});
+
+	it('has the writer make the change again on the page as the site has it, in a new proposal', () => {
+		const opnieuw = {
+			sentence:
+				'De pagina MOZa Weekly 3 september 2026 is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Kies "Pagina opnieuw bewerken" en maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.',
+			actions: ['pagina-opnieuw-bewerken'],
+			primary: 'pagina-opnieuw-bewerken'
+		};
+		const pagesOnSite = ['MOZa Weekly 3 september 2026'];
+		for (const status of ['concept', 'ingestuurd', 'goedgekeurd', 'aanpassing-gevraagd'] as const)
+			for (const editor of flags)
+				expect(row({ status, writer: true, editor, notMergeable: true, pagesOnSite })).toEqual(
+					opnieuw
+				);
+		expect(row({ writer: true, notMergeable: true, pagesOnSite: ['Een', 'Twee'] }).sentence).toBe(
+			'Een pagina van je voorstel is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Kies "Pagina opnieuw bewerken" en maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.'
+		);
+		expect(row({ writer: true, notMergeable: true })).toEqual({
+			sentence:
+				'De pagina is intussen op de site veranderd. Daardoor kan je voorstel niet worden samengevoegd, en Schrijver kan het niet bijwerken. Maak je wijziging nog een keer in een nieuw voorstel. Dit voorstel blijft open tot iemand het op GitHub sluit.',
+			actions: [],
+			primary: null
+		});
+	});
+
+	it('lets "cannot merge" win over a request for an adjustment, for the writer and everyone else', () => {
+		const asked = { status: 'aanpassing-gevraagd' as const, notMergeable: true };
+		for (const editor of flags)
+			expect(row({ ...asked, editor, pagesOnSite: ['Een'] })).toEqual({
+				sentence:
+					'De pagina is intussen op de site veranderd. Daardoor kan dit voorstel niet worden samengevoegd. De schrijver maakt de wijziging opnieuw in een nieuw voorstel.',
+				actions: [],
+				primary: null
+			});
+		const writer = row({ ...asked, writer: true, pagesOnSite: ['Een'] });
+		expect(writer.sentence).toMatch(/^De pagina Een is intussen op de site veranderd\./);
+		expect(writer.actions).toEqual(['pagina-opnieuw-bewerken']);
+		expect(writer.sentence).not.toMatch(/Stuur opnieuw in/);
 	});
 
 	it('leaves the decision to another editor when four eyes keep the reader from it', () => {

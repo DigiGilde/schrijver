@@ -65,6 +65,11 @@ export function previewUrl(site: SiteConfig, pr: PrSummary): string | null {
 
 const encodePath = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
+/** The editor on a page as the default branch has it: a save there makes a new proposal. */
+export function pageOnSiteLink(site: SiteConfig, page: string): string {
+	return `/sites/${site.id}/bewerken/${encodePath(page.slice(site.content.pad.length + 1))}`;
+}
+
 /** Only open, same-repository proposals on a Schrijver branch of this site can be edited further. */
 export function continueLinks(
 	site: SiteConfig,

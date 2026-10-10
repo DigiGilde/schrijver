@@ -10,7 +10,7 @@ import { sourceDiff } from '$lib/content/source-diff';
 import { authorName, authorship, fourEyes } from '$lib/forge/authorship';
 import { conversation } from '$lib/forge/conversation';
 import { appAccount, canAct, type ActingUser } from '$lib/forge/proposal-actions';
-import { startOf, toProposal } from '$lib/forge/proposals';
+import { pageOnSiteLink, startOf, toProposal } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
 import { FOUR_EYES, dateText, stepOf, whatNow } from '$lib/forge/status';
 import { ForgeError, MAX_PR_COMMITS, type Forge, type ReviewDecision } from '$lib/forge/types';
@@ -128,6 +128,23 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 		const status = proposal.status;
 		const notMergeable = pr.state === 'open' && pr.mergeable === false;
+		// What GitHub cannot merge, its writer makes again on the pages as the site has them now.
+		const opnieuwBewerken =
+			notMergeable && acts.owner && !outside
+				? (
+						await Promise.all(
+							pages
+								.filter((f) => f.status !== 'removed')
+								.map(async (f) =>
+									(await forge.readFile(site.repo, site.standaardbranch, f.path, {
+										maxBytes: MAX_PAGE_BYTES
+									}))
+										? { page: f.path, titel: titleFor(f.path), href: pageOnSiteLink(site, f.path) }
+										: null
+								)
+						)
+					).filter((link) => link !== null)
+				: [];
 		const deciding =
 			acts.editorial && !outside && (status === 'ingestuurd' || status === 'goedgekeurd');
 		let blocked: keyof typeof FOUR_EYES | null = null;
@@ -206,6 +223,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 				notMergeable,
 				tooManyCommits,
 				canEdit: verderBewerken.length > 0,
+				pagesOnSite: opnieuwBewerken.map((link) => link.titel),
 				mergedAt: pr.mergedAt ?? null,
 				siteAddress: !!settings.adres
 			}),
@@ -221,6 +239,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 					}
 				: null,
 			verderBewerken,
+			opnieuwBewerken,
 			diffs,
 			nietVergeleken: Math.max(pages.length - MAX_DIFF_PAGES, 0),
 			andereBestanden: others.slice(0, MAX_OTHER_FILES),

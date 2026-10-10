@@ -213,6 +213,26 @@
 				{/each}
 			</nldd-menu>
 		</nldd-button>
+	{:else if actie === 'pagina-opnieuw-bewerken' && data.opnieuwBewerken.length === 1}
+		<nldd-button
+			appearance={appearance(actie)}
+			start-icon="pencil"
+			text="Pagina opnieuw bewerken"
+			href={data.opnieuwBewerken[0].href}
+		></nldd-button>
+	{:else if actie === 'pagina-opnieuw-bewerken'}
+		<nldd-button
+			appearance={appearance(actie)}
+			start-icon="pencil"
+			text="Pagina opnieuw bewerken"
+			expandable
+		>
+			<nldd-menu slot="popup">
+				{#each data.opnieuwBewerken as link (link.page)}
+					<nldd-menu-item text={link.titel} href={link.href}></nldd-menu-item>
+				{/each}
+			</nldd-menu>
+		</nldd-button>
 	{:else if actie === 'opnieuw-insturen'}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<nldd-button
