@@ -46,6 +46,10 @@ export const FOUR_EYES = {
 	onbekend: 'Schrijver kan niet nagaan of je dit voorstel zelf schreef.'
 } as const;
 
+/** Who merges a proposal whose writer Schrijver cannot tell: four eyes keeps every other editor from it. */
+export const FOUR_EYES_UNKNOWN =
+	'Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.';
+
 /** Proposals the editors still have to act on: the ones in "Te beoordelen". */
 export const waitsForReview = (status: Status): boolean =>
 	status === 'ingestuurd' || status === 'goedgekeurd';
@@ -219,8 +223,15 @@ export function whatNow(
 			);
 		return say('De schrijver past dit voorstel aan. Daarna beoordeelt de redactie het opnieuw.');
 	}
-	if (s.editor && s.blocked)
-		return say(`${FOUR_EYES[s.blocked]} Een ander lid van de redactie beslist.`, edit);
+	if (s.editor && s.blocked) {
+		const instead =
+			s.blocked !== 'onbekend'
+				? 'Een ander lid van de redactie beslist.'
+				: s.mergeInSchrijver && !s.tooManyCommits
+					? FOUR_EYES_UNKNOWN
+					: 'Iemand met rechten op GitHub voegt het voorstel daar samen.';
+		return say(`${FOUR_EYES[s.blocked]} ${instead}`, edit);
+	}
 	if (s.writer && !s.editor)
 		return say('De redactie beoordeelt je voorstel. Je hoeft nu niets te doen.', edit);
 	if (!s.editor) return say('De redactie beoordeelt dit voorstel.');

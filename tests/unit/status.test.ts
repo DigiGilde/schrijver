@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	FOUR_EYES_UNKNOWN,
 	NOT_MERGEABLE,
 	STATUS,
 	STEPS,
@@ -359,9 +360,24 @@ describe('whatNow', () => {
 		expect(row({ editor: true, blocked: 'mee' }).sentence).toBe(
 			'Je schreef mee aan dit voorstel. Een ander lid van de redactie beslist.'
 		);
-		expect(row({ editor: true, blocked: 'onbekend', mergeInSchrijver: false }).sentence).toBe(
-			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie beslist.'
+	});
+
+	it('says who merges where Schrijver cannot tell who wrote the proposal, as no other editor can', () => {
+		expect(row({ editor: true, blocked: 'onbekend' })).toEqual({
+			sentence:
+				'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.',
+			actions: ['verder-bewerken'],
+			primary: null
+		});
+		expect(FOUR_EYES_UNKNOWN).toBe(
+			'Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.'
 		);
+		for (const elsewhere of [{ mergeInSchrijver: false }, { tooManyCommits: true }])
+			expect(row({ editor: true, blocked: 'onbekend', ...elsewhere }).sentence).toBe(
+				'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Iemand met rechten op GitHub voegt het voorstel daar samen.'
+			);
+		for (const situation of open({ blocked: 'onbekend' }))
+			expect(row(situation).sentence).not.toMatch(/ander lid van de redactie/);
 	});
 
 	it('tells anyone else that the editors decide, and that a concept is not sent in yet', () => {

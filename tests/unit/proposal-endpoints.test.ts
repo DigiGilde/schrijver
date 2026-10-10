@@ -228,7 +228,7 @@ describe('proposal endpoints', () => {
 		const zonder = await call(mergen, { ...red, who: 'derde' });
 		expect(zonder.status).toBe(403);
 		expect((await zonder.json()).message).toBe(
-			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.'
+			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.'
 		);
 		await recorded('schrijver', 'meeschrijver');
 		expect((await call(mergen, { ...red, who: 'derde' })).status).toBe(200);
@@ -748,7 +748,7 @@ describe('proposal endpoints', () => {
 describe('four eyes, on every way to the merge', () => {
 	const RED = 'red';
 	const ONBEKEND =
-		'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie voegt het samen.';
+		'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.';
 	const ZELF = 'Je schreef dit voorstel zelf. Een ander lid van de redactie voegt het samen.';
 	const MEE = 'Je schreef mee aan dit voorstel. Een ander lid van de redactie voegt het samen.';
 	let sha: string;

@@ -431,7 +431,7 @@ describe('what now', () => {
 	it('cannot tell, without a record, whether an editor wrote what someone else signed', async () => {
 		const nummer = await make('moza-site', { 'content/zeven-f.md': 'Zeven\n' }, { sent: true });
 		expect((await open('moza-site', nummer, { sub: MOZA_EDITOR })).watNu.sentence).toBe(
-			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie beslist.'
+			'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een beheerder van de site voegt het samen, of iemand met rechten op GitHub.'
 		);
 		forge.permissionByLogin.set('octo', 'admin');
 		try {
@@ -600,7 +600,7 @@ describe('what now', () => {
 		it('keeps the answer of four eyes first, which cannot tell from a list that may be cut off', async () => {
 			const nummer = await committed('moza-site', 'content/veel-f.md', MAX_PR_COMMITS);
 			expect((await open('moza-site', nummer, { sub: MOZA_OTHER_EDITOR })).watNu.sentence).toBe(
-				'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Een ander lid van de redactie beslist.'
+				'Schrijver kan niet nagaan of je dit voorstel zelf schreef. Iemand met rechten op GitHub voegt het voorstel daar samen.'
 			);
 			forge.permissionByLogin.set('octo', 'admin');
 			try {

@@ -6,7 +6,7 @@ import { authorship, fourEyes } from '$lib/forge/authorship';
 import { appAccount, mergeProposal } from '$lib/forge/proposal-actions';
 import { isSentIn } from '$lib/forge/proposals';
 import { sameRepo } from '$lib/forge/repo';
-import { FOUR_EYES, NOT_MERGEABLE, TOO_MANY_COMMITS } from '$lib/forge/status';
+import { FOUR_EYES, FOUR_EYES_UNKNOWN, NOT_MERGEABLE, TOO_MANY_COMMITS } from '$lib/forge/status';
 import { trailersFromMessage } from '$lib/forge/trailers';
 import { ForgeError, MAX_PR_COMMITS, type ReviewDecision } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
@@ -48,7 +48,11 @@ export const POST: RequestHandler = proposalAction(
 				? fourEyes(authorship(pr, commits, user, { app, repo: site.repo, writers }))
 				: 'onbekend';
 			if (reason && !(await canManageSite(site, user, forge))) {
-				return refuse(403, `${FOUR_EYES[reason]} Een ander lid van de redactie voegt het samen.`);
+				const instead =
+					reason === 'onbekend'
+						? FOUR_EYES_UNKNOWN
+						: 'Een ander lid van de redactie voegt het samen.';
+				return refuse(403, `${FOUR_EYES[reason]} ${instead}`);
 			}
 		}
 		let decision: ReviewDecision = null;
