@@ -1,6 +1,7 @@
 import type { SiteConfig } from '$lib/config/types';
 import type { Forge } from '$lib/forge/types';
 import { errorFields, log } from '$lib/log';
+import { RIGHTS_WAIT_MS, inTime } from '$lib/time-limit';
 import type { Role } from './team';
 import { teamStore } from './team-store';
 
@@ -35,22 +36,34 @@ export const siteRole = (siteId: string, sub: string): Promise<Role | null> =>
 /**
  * Whether the user is an admin of the site: manages its team and settings, and may merge a proposal
  * they wrote despite four eyes. A platform admin, a beheerder on its team, or someone whose linked
- * GitHub account has admin permission on its repository. No when a lookup fails.
+ * GitHub account has admin permission on its repository. No when a lookup fails, or when GitHub
+ * does not answer within `wait` milliseconds.
  */
-export async function canManageSite(site: Site, user: SiteUser, forge: Forge): Promise<boolean> {
+export async function canManageSite(
+	site: Site,
+	user: SiteUser,
+	forge: Forge,
+	wait?: number
+): Promise<boolean> {
 	if (isPlatformAdmin(user.sub)) return true;
 	try {
 		if ((await siteRole(site.id, user.sub)) === 'beheerder') return true;
 		if (user.githubLogin === null) return false;
-		return (await forge.collaboratorPermission(site.repo, user.githubLogin)) === 'admin';
+		const permission = forge.collaboratorPermission(site.repo, user.githubLogin);
+		return (await (wait === undefined ? permission : inTime(permission, wait))) === 'admin';
 	} catch (err) {
 		log.warn('admin.check_failed', { site: site.id, ...errorFields(err) });
 		return false;
 	}
 }
 
-/** Of these sites, the ones this user manages: all of them for a platform admin. */
+/**
+ * Of these sites, the ones this user manages: all of them for a platform admin. A list does not wait
+ * for a slow GitHub: a site it does not vouch for in time counts as not managed.
+ */
 export async function managedSites(sites: Site[], user: SiteUser, forge: Forge): Promise<string[]> {
-	const managed = await Promise.all(sites.map((site) => canManageSite(site, user, forge)));
+	const managed = await Promise.all(
+		sites.map((site) => canManageSite(site, user, forge, RIGHTS_WAIT_MS))
+	);
 	return sites.filter((_, i) => managed[i]).map((site) => site.id);
 }

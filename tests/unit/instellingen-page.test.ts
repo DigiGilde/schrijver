@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '../../src/lib/auth/session';
 import { MemoryTeamStore } from '../../src/lib/auth/team-memory';
 import { useTeamStore } from '../../src/lib/auth/team-store';
@@ -6,6 +6,7 @@ import type { FakeForge } from '../../src/lib/forge/fake';
 import { buildFakeServices, PREVIEW_SITES } from '../../src/lib/server/fake-mode';
 import { setConfigStore, setForge } from '../../src/lib/server/services';
 import { load } from '../../src/routes/instellingen/+page.server';
+import { load as onboarding } from '../../src/routes/onboarding/+page.server';
 
 const session = (sub: string): Session => ({
 	sub,
@@ -132,5 +133,43 @@ describe('Beheer on Instellingen', () => {
 		const data = await visit('iemand');
 		expect(data.beheer.sites).toEqual([]);
 		expect(data.kenmerk).toBe('iemand');
+	});
+});
+
+describe('Instellingen and onboarding while GitHub does not answer', () => {
+	it('load for a colleague with a linked GitHub account, without the sites GitHub would have to vouch for', async () => {
+		vi.useFakeTimers();
+		const permission = vi
+			.spyOn(forge, 'collaboratorPermission')
+			.mockImplementation(() => new Promise(() => {}));
+		try {
+			let settings: Awaited<ReturnType<typeof visit>> | null = null;
+			let welcome: { sites: { naam: string }[] } | null = null;
+			void visit('iemand', 'traag').then((data) => (settings = data));
+			void (
+				onboarding({
+					locals: {
+						user: {
+							session: session('iemand'),
+							prefs: {
+								sub: 'iemand',
+								identity: 'anoniem',
+								githubLogin: 'traag',
+								githubId: null,
+								onboarded: false
+							}
+						}
+					}
+				} as never) as Promise<{ sites: { naam: string }[] }>
+			).then((data) => (welcome = data));
+			await vi.advanceTimersByTimeAsync(6000);
+			expect(settings!.sites.map((site) => site.naam)).toEqual(['Digi Handboek', 'MOZa']);
+			expect(settings!.beheer.sites).toEqual([]);
+			expect(welcome!.sites.map((site) => site.naam)).toEqual(['Digi Handboek', 'MOZa']);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			permission.mockRestore();
+			vi.useRealTimers();
+		}
 	});
 });

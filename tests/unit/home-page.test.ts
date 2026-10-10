@@ -177,6 +177,18 @@ describe('home page', () => {
 		const moz = (await visit()).sites.find((s) => s.id === 'moza-site');
 		expect(moz).toMatchObject({ naam: 'MOZa', omschrijving: null, adres: 'moza.example' });
 	});
+
+	it('loads for a colleague with a linked GitHub account while GitHub does not answer', async () => {
+		vi.useFakeTimers();
+		forge.collaboratorPermission = () => new Promise(() => {});
+		let sites: Data['sites'] | null = null;
+		void load({
+			locals: { user: { session: session(OTHER), prefs: { ...prefs, githubLogin: 'lezer' } } }
+		} as never).then((data) => (sites = (data as Data).sites));
+		await vi.advanceTimersByTimeAsync(2000);
+		expect(sites!.map((site) => site.id)).toEqual(['digi-handboek', 'moza-site']);
+		expect(vi.getTimerCount()).toBe(0);
+	});
 });
 
 describe('home page status lines', () => {

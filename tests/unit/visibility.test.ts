@@ -112,6 +112,27 @@ describe('maySeeSite', () => {
 		expect(permission).toHaveBeenCalledTimes(4);
 	});
 
+	it('gives up on a GitHub that does not answer within two seconds: no, and not kept', async () => {
+		vi.useFakeTimers();
+		forge.permissionByLogin.set('lezer', 'read');
+		const permission = vi
+			.spyOn(forge, 'collaboratorPermission')
+			.mockImplementationOnce(() => new Promise(() => {}));
+		let answer: boolean | null = null;
+		void maySeeSite(closed(false), as('vreemd', 'lezer'), forge).then((seen) => (answer = seen));
+		await vi.advanceTimersByTimeAsync(1999);
+		expect(answer).toBeNull();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(answer).toBe(false);
+		expect(log.warn).toHaveBeenCalledWith('visibility.check_failed', {
+			site: 'team',
+			error: 'TimeLimitError'
+		});
+		expect(vi.getTimerCount()).toBe(0);
+		expect(await maySeeSite(closed(false), as('vreemd', 'lezer'), forge)).toBe(true);
+		expect(permission).toHaveBeenCalledTimes(2);
+	});
+
 	it('lets no one in when a lookup fails, and logs only the site and the error', async () => {
 		forge.permissionByLogin.set('lezer', 'read');
 		forge.failNext('collaboratorPermission', new ForgeError(502, 'GitHub is niet bereikbaar'));

@@ -114,7 +114,7 @@ A lookup that fails (the database, GitHub) makes no one editorial or admin, and 
 "Zichtbaar voor" is "Iedereen die inlogt" or "Alleen het team" ([decision 0009](decisions/0009-sites-only-the-team-can-see.md)):
 
 - **Iedereen die inlogt**: everyone who signs in sees the site and may propose. A site with a public repository starts this way.
-- **Alleen het team**: only the platform admins and the members of its team, in any role, see the site. On a private repository so does someone whose linked GitHub account may read it (read, write or admin permission; GitHub's answer is kept a minute). On a public repository only the team counts, as everyone may read it on GitHub.
+- **Alleen het team**: only the platform admins and the members of its team, in any role, see the site. On a private repository so does someone whose linked GitHub account may read it (read, write or admin permission; GitHub's answer is kept a minute, and one that takes longer than two seconds counts as no and is not kept). On a public repository only the team counts, as everyone may read it on GitHub.
 - A private repository is always "Alleen het team", whatever its admins chose: the choice does not count while the repository is not public, and the beheer page says why. So does a repository whose visibility Schrijver never read or could not read at its last try, and one GitHub just reported made private or public, until Schrijver read it again.
 
 To someone who may not see a site, every page, form, API endpoint and image under `/sites/<id>` and `/api/sites/<id>` answers 404, the same as a site that does not exist, and is logged as `site.refused` with their pseudonym. The start page, Instellingen, onboarding and the assistant leave such a site out.
