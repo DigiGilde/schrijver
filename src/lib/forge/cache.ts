@@ -1,5 +1,5 @@
 import { repoKey } from './repo';
-import type { FileChange, FileTree, Forge, PrFile, PrSummary, Ref } from './types';
+import type { FileChange, FileTree, Forge, PrFile, PrHead, PrSummary, Ref } from './types';
 
 interface Entry {
 	promise: Promise<unknown>;
@@ -58,7 +58,9 @@ export class CachingForge implements Forge {
 		private ttlMs = 60000,
 		private clock: () => number = Date.now,
 		/** Pull request lists and file lists: short, because check runs do not invalidate. */
-		private prTtlMs = 15000
+		private prTtlMs = 15000,
+		/** The head of a pull request, which each image of a proposal asks for. */
+		private headTtlMs = 10000
 	) {}
 
 	invalidate(repo: string): void {
@@ -144,6 +146,14 @@ export class CachingForge implements Forge {
 	}
 	getPr(repo: string, number: number): Promise<PrSummary> {
 		return this.inner.getPr(repo, number);
+	}
+	prHead(repo: string, number: number): Promise<PrHead> {
+		return this.cached(
+			repo,
+			`prhead\0${number}`,
+			() => this.inner.prHead(repo, number),
+			this.headTtlMs
+		);
 	}
 	prFiles(repo: string, number: number): Promise<PrFile[]> {
 		return this.cached(

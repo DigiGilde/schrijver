@@ -13,6 +13,7 @@ import {
 	type PrComment,
 	type PrCommit,
 	type PrFile,
+	type PrHead,
 	type PrReview,
 	type PrSummary,
 	type Ref,
@@ -357,6 +358,18 @@ export class GitHubForge implements Forge {
 			pull_number: number
 		});
 		return this.summarize(repo, pr);
+	}
+
+	async prHead(repo: string, number: number): Promise<PrHead> {
+		const pr = await this.request(repo, 'GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+			pull_number: number
+		});
+		return {
+			headRef: pr.head.ref,
+			headSha: pr.head.sha,
+			headRepo: pr.head.repo?.full_name ?? '',
+			baseRef: pr.base.ref
+		};
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {

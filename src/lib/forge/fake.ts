@@ -10,6 +10,7 @@ import {
 	type PrComment,
 	type PrCommit,
 	type PrFile,
+	type PrHead,
 	type PrReview,
 	type PrSummary,
 	type Ref,
@@ -372,6 +373,12 @@ export class FakeForge implements Forge {
 	async getPr(repo: string, number: number): Promise<PrSummary> {
 		this.maybeFail('getPr');
 		return this.view(this.pr(repo, number));
+	}
+
+	async prHead(repo: string, number: number): Promise<PrHead> {
+		this.maybeFail('prHead');
+		const { headRef, headSha, headRepo, baseRef } = this.view(this.pr(repo, number));
+		return { headRef, headSha, headRepo, baseRef };
 	}
 
 	async prFiles(repo: string, number: number): Promise<PrFile[]> {

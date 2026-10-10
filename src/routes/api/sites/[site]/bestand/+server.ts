@@ -71,10 +71,10 @@ export const GET: RequestHandler = async ({ url, params, locals }) => {
 		if (voorstel !== null) {
 			// A proposal is read at the commit its head points at, and only when that head is a branch of the
 			// site's own repository: a commit id from the request could name a fork's commit.
-			const pr = await forge.getPr(site.repo, Number(voorstel));
-			if (!sameRepo(pr.headRepo, site.repo) || pr.baseRef !== site.standaardbranch)
+			const head = await forge.prHead(site.repo, Number(voorstel));
+			if (!sameRepo(head.headRepo, site.repo) || head.baseRef !== site.standaardbranch)
 				return fail(400, 'Ongeldige versie');
-			at = pr.headSha || pr.headRef;
+			at = head.headSha || head.headRef;
 		}
 		file = await forge.readFile(site.repo, at, pad);
 	} catch (e) {

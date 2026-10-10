@@ -11,10 +11,10 @@ import {
 	securityHeaders
 } from '../../src/lib/server/security';
 
-function ev(path: string, headers: Record<string, string> = {}, ip = '1.2.3.4') {
+function ev(path: string, headers: Record<string, string> = {}, ip = '1.2.3.4', method = 'POST') {
 	return {
 		url: new URL(`http://localhost${path}`),
-		request: new Request(`http://localhost${path}`, { method: 'POST', headers }),
+		request: new Request(`http://localhost${path}`, { method, headers }),
 		cookies: { get: () => undefined },
 		locals: {},
 		getClientAddress: () => ip
@@ -165,6 +165,16 @@ describe('rateLimit', () => {
 		expect((await call(h, ev('/api/sites/x/voorstellen/7/mergen')).res).status).toBe(200);
 		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
 	});
+	it('allows 600 image reads per minute, enough for a page with many images', async () => {
+		const h = createRateLimit(() => 5);
+		const image = (path = '/api/sites/x/bestand') => ev(path, {}, '1.2.3.4', 'GET');
+		for (let i = 0; i < 600; i++) expect((await call(h, image()).res).status).toBe(200);
+		expect((await call(h, image()).res).status).toBe(429);
+		expect((await call(h, image('/api/sites/y/bestand')).res).status).toBe(429);
+		expect((await call(h, ev('/api/sites/x/opslaan')).res).status).toBe(200);
+		expect((await call(h, image('/api/sites/x/opslaan')).res).status).toBe(200);
+	});
+
 	it('does not limit other paths and sweeps stale buckets', async () => {
 		let t = 0;
 		const h = createRateLimit(() => t);

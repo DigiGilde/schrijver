@@ -72,6 +72,23 @@ describe('GET /api/sites/[site]/bestand', () => {
 		expect((await get({ pad: 'docs/afbeeldingen/home/later.png', voorstel })).status).toBe(200);
 	});
 
+	it("reads a proposal's head with one lookup of the pull request, not its reviews and checks", async () => {
+		const pr = await forge.openDraftPr(
+			digi.repo,
+			'schrijver/digi-handboek/home-abcd',
+			'main',
+			'V',
+			''
+		);
+		const getPr = vi.spyOn(forge, 'getPr');
+		const prHead = vi.spyOn(forge, 'prHead');
+		const pad = 'docs/afbeeldingen/home/nieuw.png';
+		expect((await get({ pad, voorstel: String(pr.number) })).status).toBe(200);
+		expect(prHead).toHaveBeenCalledTimes(1);
+		expect(prHead).toHaveBeenCalledWith(digi.repo, pr.number);
+		expect(getPr).not.toHaveBeenCalled();
+	});
+
 	it('400 for a proposal whose head is not a branch of the site repository', async () => {
 		const branch = 'schrijver/digi-handboek/home-abcd';
 		const pr = await forge.openDraftPr(digi.repo, branch, 'main', 'Voorstel', '');

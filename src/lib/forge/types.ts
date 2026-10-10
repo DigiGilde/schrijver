@@ -35,6 +35,9 @@ export interface PrSummary {
 	mergedAt?: string | null;
 }
 
+/** Where a pull request's head is, and the branch it would merge into. */
+export type PrHead = Pick<PrSummary, 'headRef' | 'headSha' | 'headRepo' | 'baseRef'>;
+
 export interface PrCommit {
 	sha: string;
 	message: string;
@@ -140,6 +143,8 @@ export interface Forge {
 	requestReviewers(repo: string, number: number, logins: string[]): Promise<void>;
 	listPrs(repo: string, state: 'open' | 'all'): Promise<PrSummary[]>;
 	getPr(repo: string, number: number): Promise<PrSummary>;
+	/** One lookup of the pull request, without its reviews and checks. */
+	prHead(repo: string, number: number): Promise<PrHead>;
 	prFiles(repo: string, number: number): Promise<PrFile[]>;
 	prCommits(repo: string, number: number): Promise<PrCommit[]>;
 	/** Oldest first. */

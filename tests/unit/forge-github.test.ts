@@ -488,6 +488,37 @@ describe('GitHubForge', () => {
 		});
 	});
 
+	it('reads the head of a pull request in one call, without its reviews and checks', async () => {
+		let calls = 0;
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/9`, () => {
+				calls++;
+				return HttpResponse.json({
+					number: 9,
+					head: { ref: 'schrijver/site/x', sha: 'sha9', repo: { full_name: 'O/R' } },
+					base: { ref: 'main' }
+				});
+			})
+		);
+		expect(await forge().prHead('o/r', 9)).toEqual({
+			headRef: 'schrijver/site/x',
+			headSha: 'sha9',
+			headRepo: 'O/R',
+			baseRef: 'main'
+		});
+		expect(calls).toBe(1);
+		server.use(
+			http.get(`${API}/repos/o/r/pulls/9`, () =>
+				HttpResponse.json({
+					number: 9,
+					head: { ref: 'h', sha: 's', repo: null },
+					base: { ref: 'main' }
+				})
+			)
+		);
+		expect((await forge().prHead('o/r', 9)).headRepo).toBe('');
+	});
+
 	it('reads the review decision through GraphQL, null where no review is required', async () => {
 		const answers: (string | null)[] = ['REVIEW_REQUIRED', 'APPROVED', 'CHANGES_REQUESTED', null];
 		server.use(

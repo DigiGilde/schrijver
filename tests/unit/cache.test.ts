@@ -146,6 +146,24 @@ describe('CachingForge', () => {
 		for (const spy of spies) expect(spy).toHaveBeenCalledTimes(2);
 	});
 
+	it('reads the head of a pull request at most once in ten seconds, and again after a write', async () => {
+		const { fake, cache, advance } = setup();
+		await fake.createBranch('o/site', 'main', 'p');
+		const pr = await fake.openDraftPr('o/site', 'p', 'main', 'P', '');
+		const prHead = vi.spyOn(fake, 'prHead');
+		const first = await cache.prHead('o/site', pr.number);
+		await cache.prHead('o/site', pr.number);
+		expect(prHead).toHaveBeenCalledTimes(1);
+		advance(10001);
+		await cache.prHead('o/site', pr.number);
+		expect(prHead).toHaveBeenCalledTimes(2);
+		const { sha } = await cache.commit('o/site', 'p', [{ path: 'a.md', content: 'nieuw' }], 'm');
+		expect(await cache.prHead('o/site', pr.number)).toEqual({ ...first, headSha: sha });
+		cache.invalidate('o/site');
+		await cache.prHead('o/site', pr.number);
+		expect(prHead).toHaveBeenCalledTimes(4);
+	});
+
 	it('drops what it holds of a repository when a label is added or taken off', async () => {
 		const { fake, cache } = setup();
 		await fake.createBranch('o/site', 'main', 'p');

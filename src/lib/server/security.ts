@@ -85,7 +85,7 @@ export const apiGuard: Handle = async ({ event, resolve }) => {
 };
 
 const WINDOW_MS = 60_000;
-const RULES: { test: RegExp; name: string; limit: number }[] = [
+const RULES: { test: RegExp; name: string; limit: number; method?: string }[] = [
 	{ test: /^\/api\/assistent$/, name: 'assistent', limit: 20 },
 	{ test: /^\/api\/sites\/[^/]+\/opslaan$/, name: 'opslaan', limit: 60 },
 	{ test: /^\/api\/sites\/[^/]+\/afbeelding$/, name: 'afbeelding', limit: 60 },
@@ -95,7 +95,9 @@ const RULES: { test: RegExp; name: string; limit: number }[] = [
 		test: /^\/api\/sites\/[^/]+\/voorstellen\/[^/]+\/(opmerking|aanpassing|opnieuw-insturen)$/,
 		name: 'gesprek',
 		limit: 10
-	}
+	},
+	// Generous: a page with many images asks for each of them.
+	{ test: /^\/api\/sites\/[^/]+\/bestand$/, name: 'bestand', limit: 600, method: 'GET' }
 ];
 
 function clientKey(event: RequestEvent): string {
@@ -126,7 +128,11 @@ export function createRateLimit(now: () => number = Date.now): Handle & { sweep(
 
 	const handle: Handle = async ({ event, resolve }) => {
 		const path = normalisePath(event.url.pathname);
-		const rule = path === null ? undefined : RULES.find((r) => r.test.test(path));
+		const method = event.request.method;
+		const rule =
+			path === null
+				? undefined
+				: RULES.find((r) => r.test.test(path) && (!r.method || r.method === method));
 		if (!rule) return resolve(event);
 		const key = `${rule.name}:${clientKey(event)}`;
 		const t = now();
