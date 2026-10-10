@@ -210,6 +210,23 @@ test('choosing a filter leaves the focus on its radio', async ({ page }) => {
 	await expect(radio).toBeFocused();
 });
 
+/**
+ * The rows of a list and the line under the filter, read in one step. Other specs add proposals while
+ * this one runs, and the list refreshes after a choice: two reads could straddle that refresh.
+ */
+const rowsAndLine = (page: Page, label: string) =>
+	page.evaluate((label) => {
+		const lines = [...document.querySelectorAll('[role="status"]')].filter((node) =>
+			/voorstel/.test(node.textContent ?? '')
+		);
+		return {
+			rows: document
+				.querySelector(`nldd-list[accessible-label="${label}"]`)
+				?.querySelectorAll('nldd-list-item').length,
+			lines: lines.map((node) => node.textContent?.trim())
+		};
+	}, label);
+
 test('choosing a filter says in one status line how many proposals it shows', async ({ page }) => {
 	await page.goto('/sites/digi-handboek/voorstellen?filter=mijn');
 	await page.evaluate(() => customElements.whenDefined('nldd-toggle-button'));
@@ -219,10 +236,10 @@ test('choosing a filter says in one status line how many proposals it shows', as
 	for (const { radio, label, empty } of FILTERS) {
 		await page.getByRole('radio', { name: radio }).click();
 		await expect(list(page, label)).toBeVisible();
-		const rows = await list(page, label).locator('nldd-list-item').count();
-		await expect(line).toHaveText(
+		const { rows, lines } = await rowsAndLine(page, label);
+		expect(lines).toEqual([
 			rows === 0 ? empty : `${label}: ${rows} ${rows === 1 ? 'voorstel' : 'voorstellen'}`
-		);
+		]);
 	}
 	expect(await element!.evaluate((node) => node.isConnected), 'the line stays in place').toBe(true);
 });
